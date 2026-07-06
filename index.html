@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mud &amp; Blood — HTML5 Remake</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="game" width="900" height="620"></canvas>
+
+    <div id="hud">
+      <div class="hud-box" id="hud-tp" title="Tactical Points — earned from kills and over time">TP <span id="tp">0</span></div>
+      <div class="hud-box">WAVE <span id="wave">0</span></div>
+      <div class="hud-box">KILLS <span id="kills">0</span></div>
+      <div class="hud-box breach" title="7 breaches and it's over">BREACH <span id="breach">0/7</span></div>
+      <button id="mute" class="hud-box" title="Toggle sound">SND ON</button>
+    </div>
+
+    <div id="banner"></div>
+
+    <div id="tipbar">Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.</div>
+
+    <div id="intro" class="overlay">
+      <h1>MUD &amp; BLOOD</h1>
+      <h2>An HTML5 tribute to the classic Flash game</h2>
+      <p>France, 1944. Your sector. Germans are coming from the north, and they will not stop coming.</p>
+      <ul>
+        <li>Earn <b>Tactical Points (TP)</b> from kills. Spend them on men, defenses and fire support.</li>
+        <li>Deploy your men in the <b>lower half</b> of the field. Mortar &amp; artillery can hit anywhere.</li>
+        <li>Fire support is <b>dangerous to your own men</b>. So it was in real life.</li>
+        <li>If <b>7 Germans</b> slip past the bottom of your screen, your line collapses. Game over.</li>
+        <li>There is no winning. There is only lasting one more wave.</li>
+      </ul>
+      <button id="start-btn">TAKE COMMAND</button>
+    </div>
+
+    <div id="gameover" class="overlay hidden">
+      <h1>LINE OVERRUN</h1>
+      <p id="go-stats"></p>
+      <p class="quote">"War is mud, blood, and the man next to you."</p>
+      <button id="restart-btn">RE-ENLIST</button>
+    </div>
+  </div>
+
+  <div id="toolbar"></div>
+</div>
+
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

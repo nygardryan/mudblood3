@@ -44,7 +44,8 @@ collapses and it's game over. There is no victory, only a higher wave count.
 | Sniper | 10 | Sees the whole field, prioritizes officers, snipers, MGs. |
 | Medic | 12 | Heals nearby wounded over time. |
 | Officer | 15 | Nearby men fire faster and straighter; generates TP. |
-| Sherman | 40 | M4 tank. 75mm HE cannon, immune to small arms. Medics **cannot** repair it. |
+| Flamer | 13 | M2 flamethrower. Devastating cone of fire — burns friend and foe alike. |
+| Sherman | 40 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
 | Wire | 4 | Slows the advance until it wears out. |
 | Sandbags | 5 | Soldiers behind them dodge half of incoming fire. |
 | Mine | 6 | Invisible to Germans. Hurts tanks badly. |
@@ -64,8 +65,10 @@ veteran is worth more than anything you can buy.
 
 ### What's coming at you
 
-Riflemen at first, then stormtroopers, grenadiers, MG teams, officers who drive
-their men harder, snipers — and from wave 15 on, the occasional **Panzer IV**.
+Riflemen at first, then stormtroopers, grenadiers, MG teams, flamethrowers who
+burn anything in front of them (including their own men), officers who drive
+their men harder, the rare sniper — and from wave 15 on, the occasional
+**Panzer IV**.
 Small arms bounce off its armor; use mines, mortars, or artillery.
 
 Random battlefield events keep you honest: enemy barrages, fog, strafing runs from

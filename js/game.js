@@ -60,10 +60,18 @@ const UNIT_TYPES = {
     color: '#5d6b42', gun: 5, sfx: 'pistol',
     desc: 'Nearby men fire faster and straighter. Earns +1 TP / 10 s.',
   },
+  flamer: {
+    name: 'Flamethrower', hp: 100, range: 130, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, speed: 38,
+    color: '#4f5c3a', gun: 8, sfx: 'rifle',
+    flame: { range: 130, arc: 0.45, dps: 38 },
+    desc: 'M2 flamethrower. Burns everything in the cone — friend or foe.',
+  },
   sherman: {
     name: 'Sherman', hp: 1000, range: 360, dmg: 0, acc: 0,
-    rof: 4.0, burst: 1, burstGap: 0, speed: 14,
+    rof: 4.0, burst: 1, burstGap: 0, speed: 14, shellDmg: 80,
     color: '#4a5a3f', gun: 0, sfx: 'boom', tank: true,
+    mg: { range: 240, dmg: 8, acc: 0.45, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
     desc: 'M4 Sherman. 75mm cannon and thick armor. Medics can\'t fix steel.',
   },
 };
@@ -99,10 +107,17 @@ const ENEMY_TYPES = {
     rof: 3.4, burst: 1, burstGap: 0, reward: 4,
     color: '#525244', gun: 12, sfx: 'sniper', priority: 4,
   },
+  eflame: {
+    name: 'Flamethrower', hp: 85, speed: 34, range: 120, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 4,
+    color: '#5a5a48', gun: 8, sfx: 'rifle', priority: 3,
+    flame: { range: 120, arc: 0.45, dps: 34 },
+  },
   panzer: {
     name: 'Panzer IV', hp: 1200, speed: 8, range: 340, dmg: 0, acc: 0,
-    rof: 4.5, burst: 1, burstGap: 0, reward: 15,
+    rof: 4.5, burst: 1, burstGap: 0, reward: 15, shellDmg: 85,
     color: '#57574e', gun: 0, sfx: 'boom', priority: 0, tank: true,
+    mg: { range: 230, dmg: 7, acc: 0.4, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
   },
 };
 
@@ -134,6 +149,8 @@ const PLACEABLES = [
     desc: 'Heals nearby soldiers over time.' },
   { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
     desc: 'Buffs nearby men. Generates +1 TP every 10 s.' },
+  { key: 'flamer', label: 'FLAMER', cost: 13, kind: 'unit', hotkey: 'F',
+    desc: 'M2 flamethrower. Devastating cone of fire that burns friend and foe alike.' },
   { key: 'sherman', label: 'SHERMAN', cost: 40, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon, shrugs off small arms. Medics cannot repair it.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
@@ -237,6 +254,7 @@ function makeEnemy(type, x, y) {
     wobble: rand(0, Math.PI * 2),
     grenCd: rand(2, 4),
     turret: Math.PI / 2,
+    pushT: 0, pushCd: rand(2, 5),
   };
 }
 
@@ -257,6 +275,7 @@ function waveComposition(w) {
   if (w >= 4) pool.push('esmg', 'esmg');
   if (w >= 6) pool.push('egren');
   if (w >= 8) pool.push('emg');
+  if (w >= 9) pool.push('eflame');
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
   if (w >= 10 && Math.random() < 0.35) out.push('eoff');
@@ -508,7 +527,8 @@ function coverBlock(target) {
 }
 
 function fireShot(shooter, target, opts) {
-  const t = shooter.t;
+  // opts.weapon substitutes different gun stats (e.g. a tank's coaxial MG)
+  const t = (opts && opts.weapon) || shooter.t;
   shooter.face = Math.atan2(target.y - shooter.y, target.x - shooter.x);
   const mx = shooter.x + Math.cos(shooter.face) * (t.gun + 3);
   const my = shooter.y + Math.sin(shooter.face) * (t.gun + 3);
@@ -590,6 +610,59 @@ function sniperTarget(u, range) {
   return best;
 }
 
+function angleDiff(a, b) {
+  let d = a - b;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+// one tick of flame from `actor` toward its facing: burns EVERYTHING in the
+// cone regardless of side — that's the deal you make with a flamethrower
+function flameSpray(actor, dt) {
+  const fl = actor.t.flame;
+
+  actor.flameSfx = (actor.flameSfx || 0) - dt;
+  if (actor.flameSfx <= 0) { actor.flameSfx = 0.4; SFX.flame(); }
+
+  // roiling fire particles along the cone
+  for (let i = 0; i < 7; i++) {
+    const a = actor.face + rand(-fl.arc, fl.arc) * 0.8;
+    const d = rand(10, fl.range);
+    G.particles.push({
+      x: actor.x + Math.cos(a) * d, y: actor.y + Math.sin(a) * d,
+      vx: Math.cos(a) * rand(20, 60), vy: Math.sin(a) * rand(20, 60) - 15,
+      ttl: rand(0.15, 0.45), grav: -40, size: rand(2, 4.5),
+      color: pick(['#ff9a2a', '#ffce4a', '#e05818', '#b83a10', '#3a352c']),
+    });
+  }
+  // scorch the earth now and then
+  if (Math.random() < 0.05) {
+    const a = actor.face + rand(-fl.arc, fl.arc) * 0.6;
+    const d = rand(fl.range * 0.4, fl.range);
+    gctx.fillStyle = 'rgba(30,26,18,0.28)';
+    gctx.beginPath();
+    gctx.ellipse(actor.x + Math.cos(a) * d, actor.y + Math.sin(a) * d,
+      rand(4, 9), rand(3, 6), rand(0, 3), 0, 7);
+    gctx.fill();
+  }
+
+  const dps = fl.dps * (1 + (actor.rank || 0) * 0.04);
+  const burn = (a2) => {
+    if (a2 === actor || a2.dead) return;
+    const d = dist(actor, a2);
+    if (d > fl.range + 8) return;
+    if (Math.abs(angleDiff(Math.atan2(a2.y - actor.y, a2.x - actor.x), actor.face)) > fl.arc) return;
+    let dmg = dps * dt * rand(0.8, 1.2);
+    if (a2.t.tank) dmg *= 0.6;
+    // creditKill ignores German shooters, so passing actor is always safe
+    if (a2.side === 'us') damageUnit(a2, dmg, actor);
+    else damageEnemy(a2, dmg, actor);
+  };
+  for (const u of G.units) burn(u);
+  for (const e of G.enemies) burn(e);
+}
+
 function friendlyNearPoint(x, y, r, except) {
   for (const u of G.units) {
     if (!u.dead && u !== except && dist(u, { x, y }) < r) return true;
@@ -597,10 +670,11 @@ function friendlyNearPoint(x, y, r, except) {
   return false;
 }
 
-function nearestUnitInRange(e, range) {
+function nearestUnitInRange(e, range, pred) {
   let best = null, bd = range;
   for (const u of G.units) {
     if (u.dead) continue;
+    if (pred && !pred(u)) continue;
     const d = dist(e, u);
     if (d < bd) { bd = d; best = u; }
   }
@@ -631,6 +705,22 @@ function unitBuffs(u) {
 }
 
 function updateUnit(u, dt) {
+  // a tank crew drives and fights at the same time
+  if (u.t.tank) {
+    if (u.moveTo) {
+      const d = dist(u, u.moveTo);
+      if (d < 4) {
+        u.moveTo = null;
+      } else {
+        const ang = Math.atan2(u.moveTo.y - u.y, u.moveTo.x - u.x);
+        u.x += Math.cos(ang) * u.t.speed * dt;
+        u.y += Math.sin(ang) * u.t.speed * dt;
+      }
+    }
+    updateTankCombat(u, dt);
+    return;
+  }
+
   if (u.moveTo) {
     const d = dist(u, u.moveTo);
     if (d < 4) {
@@ -643,7 +733,14 @@ function updateUnit(u, dt) {
     }
   }
 
-  if (u.t.tank) { updateFriendlyTank(u, dt); return; }
+  if (u.t.flame) {
+    const ft = nearestEnemyInRange(u, u.t.flame.range * fogMult());
+    if (ft) {
+      u.face = Math.atan2(ft.y - u.y, ft.x - u.x);
+      flameSpray(u, dt);
+    }
+    return;
+  }
 
   const buffs = unitBuffs(u);
   const range = u.t.range * fogMult();
@@ -744,33 +841,82 @@ function updateUnit(u, dt) {
   }
 }
 
-function updateFriendlyTank(u, dt) {
-  u.cd -= dt;
-  const range = u.t.range * fogMult();
-  // enemy armor is the priority target
-  const target = nearestEnemyInRange(u, range, e => e.t.tank) ||
-                 nearestEnemyInRange(u, range);
-  if (target) {
-    const want = Math.atan2(target.y - u.y, target.x - u.x);
-    let diff = want - u.turret;
-    while (diff > Math.PI) diff -= Math.PI * 2;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    u.turret += clamp(diff, -1.2 * dt, 1.2 * dt);
-    if (u.cd <= 0 && Math.abs(diff) < 0.15) {
-      // a veteran crew reloads faster
-      u.cd = u.t.rof * (1 - u.rank * 0.04) * rand(0.9, 1.1);
-      SFX.boom(false);
-      G.flashes.push({
-        x: u.x + Math.cos(u.turret) * 26, y: u.y + Math.sin(u.turret) * 26,
-        r: 9, ttl: 0.08, max: 0.08,
-      });
-      scheduleShell(target.x + rand(-12, 12), target.y + rand(-12, 12), 0.7, 45, 80, false, u);
+// ---- shared tank gunnery: both sides alternate the main gun and coaxial MG,
+// and keep shooting while the hull is moving
+
+function tankTargets(a) {
+  const fog = fogMult();
+  const cannonRange = a.t.range * fog;
+  const mgRange = a.t.mg.range * fog;
+  if (a.side === 'us') {
+    return {
+      // enemy armor is the cannon's priority target
+      cannon: nearestEnemyInRange(a, cannonRange, e => e.t.tank) ||
+              nearestEnemyInRange(a, cannonRange),
+      mg: nearestEnemyInRange(a, mgRange, e => !e.t.tank),
+    };
+  }
+  return {
+    cannon: nearestUnitInRange(a, cannonRange),
+    mg: nearestUnitInRange(a, mgRange, u2 => !u2.t.tank),
+  };
+}
+
+function updateTankCombat(a, dt) {
+  if (!a.wpn) a.wpn = 'cannon';
+  a.cd -= dt;
+  const mgSpec = a.t.mg;
+
+  // an MG burst in progress finishes before anything else
+  if (a.burstLeft > 0) {
+    a.burstTimer -= dt;
+    if (a.burstTimer <= 0) {
+      if (a.mgTarget && !a.mgTarget.dead) fireShot(a, a.mgTarget, { weapon: mgSpec });
+      a.burstLeft--;
+      a.burstTimer = mgSpec.burstGap;
+      if (a.burstLeft <= 0) {
+        a.wpn = 'cannon';
+        a.cd = Math.max(1.2, a.t.rof - 2.3) * rand(0.85, 1.15);
+      }
     }
+    return;
+  }
+
+  const targets = tankTargets(a);
+  // nothing for the weapon whose turn it is: hand over to the other one
+  if (!targets[a.wpn]) {
+    const other = a.wpn === 'cannon' ? 'mg' : 'cannon';
+    if (targets[other]) { a.wpn = other; a.cd = Math.max(a.cd, 0.4); }
+  }
+  const target = targets[a.wpn];
+
+  if (!target) {
+    // park the turret facing the enemy side of the field
+    const home = a.side === 'us' ? -Math.PI / 2 : Math.PI / 2;
+    a.turret += clamp(angleDiff(home, a.turret), -0.8 * dt, 0.8 * dt);
+    return;
+  }
+
+  const want = Math.atan2(target.y - a.y, target.x - a.x);
+  const diff = angleDiff(want, a.turret);
+  a.turret += clamp(diff, -1.2 * dt, 1.2 * dt);
+  if (a.cd > 0 || Math.abs(diff) > 0.15) return;
+
+  if (a.wpn === 'cannon') {
+    SFX.boom(false);
+    G.flashes.push({
+      x: a.x + Math.cos(a.turret) * 26, y: a.y + Math.sin(a.turret) * 26,
+      r: 9, ttl: 0.08, max: 0.08,
+    });
+    scheduleShell(target.x + rand(-12, 12), target.y + rand(-12, 12),
+      0.7, 45, a.t.shellDmg, false, a);
+    a.wpn = 'mg';
+    // a veteran crew works the reload faster
+    a.cd = 1.5 * (1 - (a.rank || 0) * 0.04) * rand(0.85, 1.15);
   } else {
-    let diff = -Math.PI / 2 - u.turret;
-    while (diff > Math.PI) diff -= Math.PI * 2;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    u.turret += clamp(diff, -0.8 * dt, 0.8 * dt);
+    a.burstLeft = mgSpec.burst;
+    a.burstTimer = 0;
+    a.mgTarget = target;
   }
 }
 
@@ -787,7 +933,26 @@ function updateEnemy(e, dt) {
   const buffed = enemyOfficerNear(e);
   const range = e.t.range * fogMult();
 
-  if (e.t.tank) { updateTank(e, dt, range); return; }
+  if (e.t.tank) { updateTank(e, dt); return; }
+
+  // discipline only goes so far: every German periodically stops shooting and
+  // pushes up the field, so long-range shooters eventually close the distance
+  if (e.pushT > 0) {
+    e.pushT -= dt;
+    advance(e, dt, buffed);
+    return;
+  }
+
+  if (e.t.flame) {
+    const ft = nearestUnitInRange(e, e.t.flame.range);
+    if (ft) {
+      e.face = Math.atan2(ft.y - e.y, ft.x - e.x);
+      flameSpray(e, dt);
+    } else {
+      advance(e, dt, buffed);
+    }
+    return;
+  }
 
   const target = nearestUnitInRange(e, range);
 
@@ -807,6 +972,14 @@ function updateEnemy(e, dt) {
   }
 
   if (target) {
+    // roll the urge to advance; never when already on top of the target
+    e.pushCd -= dt;
+    if (e.pushCd <= 0) {
+      e.pushCd = rand(3, 6);
+      if (Math.random() < 0.4 && dist(e, target) > 70) {
+        e.pushT = rand(1.2, 2.8);
+      }
+    }
     runWeapon(e, target, dt, buffed ? { rofMult: 0.8 } : null);
     // stormtroopers keep pushing even under fire
     if (e.t.speed >= 30 && dist(e, target) > range * 0.5) {
@@ -834,29 +1007,10 @@ function advance(e, dt, buffed) {
   e.x = clamp(e.x, 14, W - 14);
 }
 
-function updateTank(e, dt, range) {
-  // grind forward, slower than infantry, ignores wire
+function updateTank(e, dt) {
+  // grind forward, slower than infantry, ignores wire — and fires on the move
   e.y += e.t.speed * dt;
-  e.cd -= dt;
-  const target = nearestUnitInRange(e, range);
-  if (target) {
-    const want = Math.atan2(target.y - e.y, target.x - e.x);
-    let diff = want - e.turret;
-    while (diff > Math.PI) diff -= Math.PI * 2;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    e.turret += clamp(diff, -1.2 * dt, 1.2 * dt);
-    if (e.cd <= 0 && Math.abs(diff) < 0.15) {
-      e.cd = e.t.rof * rand(0.9, 1.1);
-      SFX.boom(false);
-      G.flashes.push({
-        x: e.x + Math.cos(e.turret) * 26, y: e.y + Math.sin(e.turret) * 26,
-        r: 9, ttl: 0.08, max: 0.08,
-      });
-      scheduleShell(target.x + rand(-12, 12), target.y + rand(-12, 12), 0.7, 45, 85, false);
-    }
-  } else {
-    e.turret += clamp(Math.PI / 2 - e.turret, -0.8 * dt, 0.8 * dt);
-  }
+  updateTankCombat(e, dt);
 }
 
 // ============================================================ main update
@@ -1086,6 +1240,15 @@ function drawSoldier(a) {
     c.strokeStyle = '#3a3d2e';
     c.lineWidth = 2.5;
     c.beginPath(); c.moveTo(-7, 4); c.lineTo(-4, -5); c.stroke();
+  }
+  if (a.t.flame) {
+    // twin fuel tanks on his back
+    c.fillStyle = '#38392c';
+    c.beginPath(); c.ellipse(-6, -2, 2, 3.6, 0, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(-6, 3, 2, 3.6, 0, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.3)';
+    c.lineWidth = 0.8;
+    c.beginPath(); c.ellipse(-6, -2, 2, 3.6, 0, 0, 7); c.stroke();
   }
 
   c.restore();

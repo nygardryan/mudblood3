@@ -86,6 +86,10 @@ const SFX = (() => {
       noise(0.35, 0.4, 'bandpass', 900, 1, 0.4);
       tone(300, 0.35, 0.1, 'sawtooth', 90);
     },
+    flame() {
+      noise(0.45, 0.3, 'lowpass', 700, 0.8, 0.5);
+      noise(0.3, 0.12, 'bandpass', 2600, 1.5, 0.35);
+    },
     thunk() {
       tone(180, 0.13, 0.28, 'sine', 85);
       noise(0.08, 0.2, 'lowpass', 600, 1, 0.1);

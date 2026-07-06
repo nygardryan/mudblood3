@@ -22,7 +22,8 @@ const UNIT_TYPES = {
     desc: 'BAR automatic rifle. Suppressive bursts.',
   },
   grenadier: {
-    name: 'Grenadier', hp: 100, range: 170, dmg: 10, acc: 0.5,
+    // 50% more gun range than the rifleman (230): the better all-rounder
+    name: 'Grenadier', hp: 100, range: 345, dmg: 10, acc: 0.5,
     rof: 1.2, burst: 1, burstGap: 0, speed: 42,
     color: '#44583c', gun: 6, sfx: 'rifle', grenade: true,
     desc: 'Carbine most of the time; a heavy frag now and then.',
@@ -42,7 +43,7 @@ const UNIT_TYPES = {
     desc: 'Portable 60mm mortar. Indirect fire at range.',
   },
   sniper: {
-    name: 'Sniper', hp: 85, range: 620, dmg: 65, acc: 0.85,
+    name: 'Sniper', hp: 85, range: 620, dmg: 65, acc: 0.72,
     rof: 2.6, burst: 1, burstGap: 0, speed: 38,
     color: '#38442e', gun: 12, sfx: 'sniper',
     desc: 'Springfield scoped rifle. Picks off officers and MGs first.',
@@ -58,6 +59,12 @@ const UNIT_TYPES = {
     rof: 0.9, burst: 1, burstGap: 0, speed: 44,
     color: '#5d6b42', gun: 5, sfx: 'pistol',
     desc: 'Nearby men fire faster and straighter. Earns +1 TP / 10 s.',
+  },
+  sherman: {
+    name: 'Sherman', hp: 1000, range: 360, dmg: 0, acc: 0,
+    rof: 4.0, burst: 1, burstGap: 0, speed: 14,
+    color: '#4a5a3f', gun: 0, sfx: 'boom', tank: true,
+    desc: 'M4 Sherman. 75mm cannon and thick armor. Medics can\'t fix steel.',
   },
 };
 
@@ -88,7 +95,7 @@ const ENEMY_TYPES = {
     color: '#4f4f45', gun: 5, sfx: 'pistol', priority: 5, aura: true,
   },
   esniper: {
-    name: 'Sniper', hp: 55, speed: 14, range: 520, dmg: 55, acc: 0.78,
+    name: 'Sniper', hp: 55, speed: 14, range: 520, dmg: 55, acc: 0.66,
     rof: 3.4, burst: 1, burstGap: 0, reward: 4,
     color: '#525244', gun: 12, sfx: 'sniper', priority: 4,
   },
@@ -127,6 +134,8 @@ const PLACEABLES = [
     desc: 'Heals nearby soldiers over time.' },
   { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
     desc: 'Buffs nearby men. Generates +1 TP every 10 s.' },
+  { key: 'sherman', label: 'SHERMAN', cost: 40, kind: 'unit', hotkey: 'T',
+    desc: 'M4 Sherman tank. 75mm HE cannon, shrugs off small arms. Medics cannot repair it.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
   { key: 'sandbags', label: 'SANDBAGS', cost: 5, kind: 'defense', hotkey: '8',
@@ -207,6 +216,7 @@ function makeUnit(type, x, y) {
     hp: t.hp, maxhp: t.hp,
     cd: rand(0.2, 1.0), burstLeft: 0, burstTimer: 0,
     face: -Math.PI / 2,
+    turret: -Math.PI / 2,
     moveTo: null,
     healTick: 0,
     healed: 0,       // HP restored; medics rank up on this, slowly
@@ -230,6 +240,15 @@ function makeEnemy(type, x, y) {
   };
 }
 
+// ============================================================ economy
+
+// war economy attrition: each wave pays ~1% less than the one before,
+// dropping to a hard 10% floor from wave 90 on. G.tp holds fractions; the HUD floors it.
+function earnTP(amount) {
+  const mult = G.wave >= 90 ? 0.1 : Math.max(0.1, Math.pow(0.99, G.wave));
+  G.tp += amount * mult;
+}
+
 // ============================================================ waves & spawning
 
 function waveComposition(w) {
@@ -238,10 +257,11 @@ function waveComposition(w) {
   if (w >= 4) pool.push('esmg', 'esmg');
   if (w >= 6) pool.push('egren');
   if (w >= 8) pool.push('emg');
-  if (w >= 12) pool.push('esniper');
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
   if (w >= 10 && Math.random() < 0.35) out.push('eoff');
+  // snipers are a rare menace: one at most, and not often
+  if (w >= 12 && Math.random() < 0.12) out.push('esniper');
   if (w >= 15 && Math.random() < 0.12) out.push('panzer');
   return out;
 }
@@ -406,12 +426,24 @@ function stampWreck(e) {
 
 function damageUnit(u, dmg, from) {
   u.hp -= dmg;
-  bloodSplat(u.x, u.y, 3);
+  if (u.t.tank) {
+    G.particles.push({
+      x: u.x + rand(-10, 10), y: u.y + rand(-10, 10), vx: 0, vy: -20,
+      ttl: 0.4, grav: 0, size: 2, color: '#c8b872',
+    });
+  } else {
+    bloodSplat(u.x, u.y, 3);
+  }
   if (u.hp <= 0 && !u.dead) {
     u.dead = true;
-    spawnCorpse(u);
-    bloodSplat(u.x, u.y, 8);
-    SFX.scream();
+    if (u.t.tank) {
+      stampWreck(u);
+      explode(u.x, u.y, 50, 60, true);
+    } else {
+      spawnCorpse(u);
+      bloodSplat(u.x, u.y, 8);
+      SFX.scream();
+    }
     if (G.selected === u) G.selected = null;
   }
 }
@@ -446,7 +478,7 @@ function damageEnemy(e, dmg, from) {
   if (e.hp <= 0 && !e.dead) {
     e.dead = true;
     G.kills++;
-    G.tp += e.t.reward;
+    earnTP(e.t.reward);
     SFX.cash();
     creditKill(from);
     if (e.t.tank) {
@@ -465,8 +497,8 @@ function damageEnemy(e, dmg, from) {
 function fogMult() { return G.fog > 0 ? 0.6 : 1; }
 
 function coverBlock(target) {
-  // friendly units near sandbags dodge some incoming fire
-  if (target.side !== 'us') return false;
+  // friendly units near sandbags dodge some incoming fire (tanks don't duck)
+  if (target.side !== 'us' || target.t.tank) return false;
   for (const s of G.sandbags) {
     if (s.hp > 0 && dist(s, target) < 32) {
       if (Math.random() < 0.5) { s.hp -= 4; return true; }
@@ -611,6 +643,8 @@ function updateUnit(u, dt) {
     }
   }
 
+  if (u.t.tank) { updateFriendlyTank(u, dt); return; }
+
   const buffs = unitBuffs(u);
   const range = u.t.range * fogMult();
   let target;
@@ -689,7 +723,8 @@ function updateUnit(u, dt) {
       u.healTick = 0.4;
       let worst = null, frac = 1;
       for (const a of G.units) {
-        if (a.dead || a === u || a.hp >= a.maxhp) continue;
+        // no field-dressing a tank: medics cannot repair armor
+        if (a.dead || a === u || a.t.tank || a.hp >= a.maxhp) continue;
         if (dist(u, a) < 95) {
           const f = a.hp / a.maxhp;
           if (f < frac) { frac = f; worst = a; }
@@ -706,6 +741,36 @@ function updateUnit(u, dt) {
         G.particles.push({ x: worst.x + rand(-6, 6), y: worst.y - 10, vx: 0, vy: -18, ttl: 0.5, grav: 0, size: 1.6, color: '#8fe08f' });
       }
     }
+  }
+}
+
+function updateFriendlyTank(u, dt) {
+  u.cd -= dt;
+  const range = u.t.range * fogMult();
+  // enemy armor is the priority target
+  const target = nearestEnemyInRange(u, range, e => e.t.tank) ||
+                 nearestEnemyInRange(u, range);
+  if (target) {
+    const want = Math.atan2(target.y - u.y, target.x - u.x);
+    let diff = want - u.turret;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    u.turret += clamp(diff, -1.2 * dt, 1.2 * dt);
+    if (u.cd <= 0 && Math.abs(diff) < 0.15) {
+      // a veteran crew reloads faster
+      u.cd = u.t.rof * (1 - u.rank * 0.04) * rand(0.9, 1.1);
+      SFX.boom(false);
+      G.flashes.push({
+        x: u.x + Math.cos(u.turret) * 26, y: u.y + Math.sin(u.turret) * 26,
+        r: 9, ttl: 0.08, max: 0.08,
+      });
+      scheduleShell(target.x + rand(-12, 12), target.y + rand(-12, 12), 0.7, 45, 80, false, u);
+    }
+  } else {
+    let diff = -Math.PI / 2 - u.turret;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    u.turret += clamp(diff, -0.8 * dt, 0.8 * dt);
   }
 }
 
@@ -801,13 +866,13 @@ function update(dt) {
 
   // TP trickle
   G.tpTrickle -= dt;
-  if (G.tpTrickle <= 0) { G.tpTrickle = 8; G.tp++; }
+  if (G.tpTrickle <= 0) { G.tpTrickle = 8; earnTP(1); }
 
   // officer TP bonus
   G.officerTick -= dt;
   if (G.officerTick <= 0) {
     G.officerTick = 10;
-    for (const u of G.units) if (!u.dead && u.type === 'officer') G.tp++;
+    for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1);
   }
 
   // spawning
@@ -1068,10 +1133,11 @@ function drawSoldier(a) {
   }
 }
 
-function drawTank(e) {
+function drawTank(a) {
+  const us = a.side === 'us';
   const c = ctx;
   c.save();
-  c.translate(e.x, e.y);
+  c.translate(a.x, a.y);
   // shadow
   c.fillStyle = 'rgba(0,0,0,0.3)';
   c.beginPath(); c.ellipse(0, 4, 26, 18, 0, 0, 7); c.fill();
@@ -1080,26 +1146,70 @@ function drawTank(e) {
   c.fillRect(-24, -16, 8, 32);
   c.fillRect(16, -16, 8, 32);
   // hull
-  c.fillStyle = e.t.color;
+  c.fillStyle = a.t.color;
   c.fillRect(-17, -14, 34, 28);
-  c.strokeStyle = '#3a3a32';
+  c.strokeStyle = us ? '#39462f' : '#3a3a32';
   c.lineWidth = 1.5;
   c.strokeRect(-17, -14, 34, 28);
+  if (us) {
+    // white US star on the hull
+    c.strokeStyle = 'rgba(230,230,220,0.85)';
+    c.lineWidth = 1;
+    c.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const ang = -Math.PI / 2 + i * (Math.PI * 4 / 5);
+      const px = Math.cos(ang) * 5, py = 8 + Math.sin(ang) * 5;
+      if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+    }
+    c.closePath();
+    c.stroke();
+  }
   // turret
-  c.rotate(e.turret);
-  c.fillStyle = '#4c4c43';
+  c.rotate(a.turret);
+  c.fillStyle = us ? '#54634a' : '#4c4c43';
   c.fillRect(6, -2.5, 24, 5);          // barrel
   c.beginPath(); c.arc(0, 0, 10, 0, 7); c.fill();
-  c.strokeStyle = '#33332c';
+  c.strokeStyle = us ? '#39462f' : '#33332c';
   c.beginPath(); c.arc(0, 0, 10, 0, 7); c.stroke();
   c.restore();
 
-  if (e.hp < e.maxhp) {
-    const f = clamp(e.hp / e.maxhp, 0, 1);
+  if (a.hp < a.maxhp) {
+    const f = clamp(a.hp / a.maxhp, 0, 1);
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(e.x - 22, e.y - 26, 44, 4);
-    ctx.fillStyle = '#c0562e';
-    ctx.fillRect(e.x - 22, e.y - 26, 44 * f, 4);
+    ctx.fillRect(a.x - 22, a.y - 26, 44, 4);
+    ctx.fillStyle = us ? '#7ec850' : '#c0562e';
+    ctx.fillRect(a.x - 22, a.y - 26, 44 * f, 4);
+  }
+
+  // crew veterancy chevrons
+  if (us && a.rank > 0) {
+    ctx.strokeStyle = '#ffd94a';
+    ctx.lineWidth = 1;
+    let sx = a.x - (a.rank * 5 - 2) / 2;
+    const sy = a.y - 30;
+    for (let i = 0; i < a.rank; i++) {
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + 1.5, sy - 2.5);
+      ctx.lineTo(sx + 3, sy);
+      ctx.stroke();
+      sx += 5;
+    }
+  }
+
+  if (us && G.selected === a) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.arc(a.x, a.y, 30, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = 'bold 10px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' + a.xp + ' KILLS';
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillText(label, a.x + 1, a.y + 41);
+    ctx.fillStyle = '#ffe98a';
+    ctx.fillText(label, a.x, a.y + 40);
   }
 }
 
@@ -1197,7 +1307,10 @@ function draw() {
     if (e.t.tank) drawTank(e);
     else drawSoldier(e);
   }
-  for (const u of G.units) drawSoldier(u);
+  for (const u of G.units) {
+    if (u.t.tank) drawTank(u);
+    else drawSoldier(u);
+  }
 
   // tracers
   ctx.lineWidth = 1.2;
@@ -1292,7 +1405,7 @@ const hud = { tp: el('tp'), wave: el('wave'), kills: el('kills'), breach: el('br
 const bannerEl = el('banner');
 
 function updateHUD() {
-  hud.tp.textContent = G.tp;
+  hud.tp.textContent = Math.floor(G.tp);
   hud.wave.textContent = G.wave;
   hud.kills.textContent = G.kills;
   hud.breach.textContent = G.breaches + '/' + MAX_BREACH;
@@ -1338,7 +1451,11 @@ function placementValid(p, x, y) {
   if (p.kind === 'support') return y > 20 && y < H - 10;
   if (y < DEPLOY_Y + 12 || y > H - 14 || x < 16 || x > W - 16) return false;
   if (p.kind === 'unit') {
-    for (const u of G.units) if (dist(u, { x, y }) < 16) return false;
+    const tankInvolved = k => k === 'sherman';
+    for (const u of G.units) {
+      const gap = (tankInvolved(p.key) || u.t.tank) ? 34 : 16;
+      if (dist(u, { x, y }) < gap) return false;
+    }
   }
   return true;
 }
@@ -1386,10 +1503,10 @@ canvas.addEventListener('click', e => {
 
   if (placing) { place(placing, x, y); return; }
 
-  // select own soldier
+  // select own soldier (tanks are a bigger click target)
   let picked = null;
   for (const u of G.units) {
-    if (dist(u, { x, y }) < 14) { picked = u; break; }
+    if (dist(u, { x, y }) < (u.t.tank ? 26 : 14)) { picked = u; break; }
   }
   if (picked) {
     G.selected = picked;

@@ -22,7 +22,9 @@ line as long as you can — if **7 Germans** slip past the bottom edge, your sec
 collapses and it's game over. There is no victory, only a higher wave count.
 
 - **Tactical Points (TP)** are your only currency. You earn them from kills, a slow
-  trickle over time, and officers (+1 TP / 10 s each).
+  trickle over time, and officers (+1 TP / 10 s each). Supply lines thin out as the
+  battle drags on: all income shrinks ~1% per wave, dropping to a hard 10% floor
+  from wave 90 on.
 - Click a toolbar button (or press its **number key**), then click the field to
   deploy. Right-click or **Esc** cancels.
 - Men and defenses can only be placed in the **lower half** (behind the trench line).
@@ -36,12 +38,13 @@ collapses and it's game over. There is no victory, only a higher wave count.
 |---|---|---|
 | Rifleman | 4 | M1 Garand. Cheap, reliable backbone. |
 | Gunner | 7 | BAR. Long-range automatic bursts. |
-| Grenadier | 8 | Fights with his carbine; lobs a devastating frag every 11–16 s. |
+| Grenadier | 8 | Outranges the rifleman by 50%; lobs a devastating frag every 11–16 s. |
 | Bazooka | 11 | M1A1 rocket launcher. Prioritizes armor. Scatters badly at range; veterans aim better. |
 | Mortarman | 14 | Portable 60mm mortar. Long-range indirect fire, blind inside 160px. |
 | Sniper | 10 | Sees the whole field, prioritizes officers, snipers, MGs. |
 | Medic | 12 | Heals nearby wounded over time. |
 | Officer | 15 | Nearby men fire faster and straighter; generates TP. |
+| Sherman | 40 | M4 tank. 75mm HE cannon, immune to small arms. Medics **cannot** repair it. |
 | Wire | 4 | Slows the advance until it wears out. |
 | Sandbags | 5 | Soldiers behind them dodge half of incoming fire. |
 | Mine | 6 | Invisible to Germans. Hurts tanks badly. |

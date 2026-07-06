@@ -43,6 +43,7 @@ collapses and it's game over. There is no victory, only a higher wave count.
 | Mortarman | 14 | Portable 60mm mortar. Long-range indirect fire, blind inside 160px. |
 | Sniper | 10 | Sees the whole field, prioritizes officers, snipers, MGs. |
 | Medic | 12 | Heals nearby wounded over time. |
+| Engineer | 14 | Repairs tanks and emplacements; fortifies nearby sandbags/wire (more HP, better effect). SMG, close range only. |
 | Officer | 15 | Nearby men fire faster and straighter; generates TP. |
 | Flamer | 13 | M2 flamethrower. Devastating cone of fire — burns friend and foe alike. |
 | Sherman | 40 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
@@ -58,7 +59,9 @@ Every soldier earns experience for his kills and climbs the ranks:
 **PVT → PFC → CPL → SGT → SSG → SFC → MSG** (at 2 / 5 / 9 / 14 / 20 / 27 kills).
 Each rank makes him fire 5% faster and 6% more accurately, and the promotion
 itself patches him up a little. Medics rank up by healing instead — 1 XP per
-150 HP restored, a slow road — and work slightly faster with each rank.
+150 HP restored, a slow road — and work slightly faster with each rank. The
+engineer earns XP the same way through repairs, plus a bonus for each
+fortification he completes.
 Veterans wear gold chevrons over their heads —
 select a soldier to see his rank and kill count. Protect your sergeants; a
 veteran is worth more than anything you can buy.

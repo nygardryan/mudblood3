@@ -54,6 +54,12 @@ const UNIT_TYPES = {
     color: '#55684a', gun: 5, sfx: 'pistol',
     desc: 'Patches up nearby wounded. Carries a sidearm.',
   },
+  engineer: {
+    name: 'Engineer', hp: 95, range: 110, dmg: 7, acc: 0.45,
+    rof: 1.1, burst: 4, burstGap: 0.07, speed: 44,
+    color: '#51603e', gun: 6, sfx: 'mg',
+    desc: 'Repairs tanks and fortifications, upgrades emplacements. M3 grease gun up close.',
+  },
   officer: {
     name: 'Officer', hp: 95, range: 150, dmg: 9, acc: 0.5,
     rof: 0.9, burst: 1, burstGap: 0, speed: 44,
@@ -147,6 +153,8 @@ const PLACEABLES = [
     desc: 'Sees the whole field. Hunts officers, snipers and MGs.' },
   { key: 'medic', label: 'MEDIC', cost: 12, kind: 'unit', hotkey: '5',
     desc: 'Heals nearby soldiers over time.' },
+  { key: 'engineer', label: 'ENGINEER', cost: 14, kind: 'unit', hotkey: 'E',
+    desc: 'Repairs tanks and fortifications; fortifies nearby emplacements (better stats). SMG for close range only.' },
   { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
     desc: 'Buffs nearby men. Generates +1 TP every 10 s.' },
   { key: 'flamer', label: 'FLAMER', cost: 13, kind: 'unit', hotkey: 'F',
@@ -519,8 +527,9 @@ function coverBlock(target) {
   // friendly units near sandbags dodge some incoming fire (tanks don't duck)
   if (target.side !== 'us' || target.t.tank) return false;
   for (const s of G.sandbags) {
-    if (s.hp > 0 && dist(s, target) < 32) {
-      if (Math.random() < 0.5) { s.hp -= 4; return true; }
+    // fortified bags stop more and shrug off hits better
+    if (s.hp > 0 && dist(s, target) < (s.up ? 36 : 32)) {
+      if (Math.random() < (s.up ? 0.65 : 0.5)) { s.hp -= s.up ? 3 : 4; return true; }
     }
   }
   return false;
@@ -839,6 +848,81 @@ function updateUnit(u, dt) {
       }
     }
   }
+
+  if (u.type === 'engineer') updateEngineer(u, dt);
+}
+
+// engineer work, one job at a time: patch tanks first, then repair
+// emplacements, then fortify an intact one he's standing next to
+function updateEngineer(u, dt) {
+  u.healTick -= dt;
+  if (u.healTick > 0) return;
+  u.healTick = 0.4;
+  const R = 95;
+
+  const sparks = (x, y) => {
+    if (Math.random() < 0.5) SFX.hammer();
+    for (let i = 0; i < 3; i++) {
+      G.particles.push({
+        x: x + rand(-8, 8), y: y + rand(-6, 6), vx: rand(-25, 25), vy: rand(-45, -10),
+        ttl: rand(0.15, 0.35), grav: 240, size: 1.4,
+        color: pick(['#ffd94a', '#ffefa0', '#c8b872']),
+      });
+    }
+  };
+  const credit = (amt) => {
+    u.healed += amt;
+    if (u.healed >= 150) { u.healed -= 150; gainXP(u); }
+  };
+
+  // 1) welding a tank back together beats everything else
+  let tank = null;
+  for (const a of G.units) {
+    if (a.dead || !a.t.tank || a.hp >= a.maxhp) continue;
+    if (dist(u, a) < R + 15 && (!tank || a.hp / a.maxhp < tank.hp / tank.maxhp)) tank = a;
+  }
+  if (tank) {
+    const amt = Math.min(tank.maxhp - tank.hp, 6 + u.rank * 0.5);
+    tank.hp += amt;
+    credit(amt);
+    sparks(tank.x, tank.y);
+    return;
+  }
+
+  // 2) restack damaged sandbags / restring damaged wire
+  let emp = null, empFrac = 1;
+  for (const s of [...G.sandbags, ...G.wires]) {
+    if (s.hp >= s.maxhp || dist(u, s) > R) continue;
+    const f = s.hp / s.maxhp;
+    if (f < empFrac) { empFrac = f; emp = s; }
+  }
+  if (emp) {
+    const amt = Math.min(emp.maxhp - emp.hp, 8 + u.rank * 0.6);
+    emp.hp += amt;
+    credit(amt * 0.5); // lighter work than armor plate
+    sparks(emp.x, emp.y);
+    return;
+  }
+
+  // 3) fortify the nearest intact, un-upgraded emplacement (~6 s of work)
+  let target = null, td = R;
+  for (const s of [...G.sandbags, ...G.wires]) {
+    if (s.up) continue;
+    const d = dist(u, s);
+    if (d < td) { td = d; target = s; }
+  }
+  if (target) {
+    target.workProg += 0.4 * (1 + u.rank * 0.05);
+    sparks(target.x, target.y);
+    if (target.workProg >= 6) {
+      target.up = true;
+      target.maxhp = Math.round(target.maxhp * 1.5);
+      target.hp = target.maxhp;
+      gainXP(u); gainXP(u); // a fortification is worth two points of pride
+      SFX.promote();
+      G.texts.push({ x: target.x, y: target.y - 16, text: 'FORTIFIED', ttl: 2.2 });
+    }
+  }
 }
 
 // ---- shared tank gunnery: both sides alternate the main gun and coaxial MG,
@@ -993,11 +1077,11 @@ function updateEnemy(e, dt) {
 function advance(e, dt, buffed) {
   e.wobble += dt * 3;
   let speed = e.t.speed * (buffed ? 1.25 : 1);
-  // barbed wire drag
+  // barbed wire drag; fortified wire grips harder and wears slower
   for (const wr of G.wires) {
     if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-      speed *= 0.3;
-      wr.hp -= 5 * dt;
+      speed *= wr.up ? 0.15 : 0.3;
+      wr.hp -= (wr.up ? 3 : 5) * dt;
       break;
     }
   }
@@ -1221,6 +1305,13 @@ function drawSoldier(a) {
     c.fillStyle = '#ffd94a';
     c.beginPath(); c.arc(0, -1, 1.6, 0, 7); c.fill();
   }
+  if (a.type === 'engineer') {
+    // crossed-tools mark on the helmet
+    c.strokeStyle = '#e8d98a';
+    c.lineWidth = 1.1;
+    c.beginPath(); c.moveTo(-2.4, -3.4); c.lineTo(2.4, 1.4); c.stroke();
+    c.beginPath(); c.moveTo(2.4, -3.4); c.lineTo(-2.4, 1.4); c.stroke();
+  }
   if (a.side === 'us' && a.t.grenade) {
     // grenades clipped to his webbing
     c.fillStyle = '#232920';
@@ -1289,7 +1380,7 @@ function drawSoldier(a) {
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(0,0,0,0.7)';
     const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' +
-      (a.type === 'medic' ? a.xp + ' XP' : a.xp + ' KILLS');
+      (a.type === 'medic' || a.type === 'engineer' ? a.xp + ' XP' : a.xp + ' KILLS');
     ctx.fillText(label, a.x + 1, a.y + 23);
     ctx.fillStyle = '#ffe98a';
     ctx.fillText(label, a.x, a.y + 22);
@@ -1387,7 +1478,9 @@ function drawDefenses() {
     ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(0, -7); ctx.stroke();
     ctx.strokeStyle = 'rgba(60,58,50,0.9)';
     ctx.lineWidth = 1;
-    for (const yy of [-5, -1, 3]) {
+    // fortified wire carries an extra strand
+    const strands = wr.up ? [-8, -5, -1, 3] : [-5, -1, 3];
+    for (const yy of strands) {
       ctx.beginPath();
       ctx.moveTo(-32, yy);
       for (let x = -32; x <= 32; x += 4) ctx.lineTo(x, yy + ((x / 4) % 2 ? 1.6 : -1.6));
@@ -1401,13 +1494,15 @@ function drawDefenses() {
     ctx.translate(s.x, s.y);
     ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.beginPath(); ctx.ellipse(0, 4, 24, 9, 0, 0, 7); ctx.fill();
-    for (let r = 0; r < 2; r++) {
+    // fortified bags get a third row on top
+    const rows = s.up ? 3 : 2;
+    for (let r = 0; r < rows; r++) {
       for (let i = -1.5; i <= 1.5; i++) {
         ctx.fillStyle = r ? '#9a8a5e' : '#8a7a50';
         ctx.strokeStyle = '#6e6040';
         ctx.lineWidth = 1;
-        const bx = i * 12 + (r ? 6 : 0), by = -r * 6;
-        if (Math.abs(bx) > 20) continue;
+        const bx = i * 12 + (r % 2 ? 6 : 0), by = -r * 6;
+        if (Math.abs(bx) > 20 || (r === 2 && Math.abs(bx) > 14)) continue;
         ctx.beginPath();
         ctx.ellipse(bx, by, 7, 4, 0, 0, 7);
         ctx.fill(); ctx.stroke();
@@ -1632,9 +1727,9 @@ function place(p, x, y) {
   if (p.kind === 'unit') {
     G.units.push(makeUnit(p.key, x, y));
   } else if (p.key === 'sandbags') {
-    G.sandbags.push({ x, y, hp: 300 });
+    G.sandbags.push({ x, y, hp: 300, maxhp: 300, up: false, workProg: 0 });
   } else if (p.key === 'wire') {
-    G.wires.push({ x, y, hp: 250 });
+    G.wires.push({ x, y, hp: 250, maxhp: 250, up: false, workProg: 0 });
   } else if (p.key === 'mine') {
     G.mines.push({ x, y, dead: false });
   } else if (p.key === 'mortar') {

@@ -101,6 +101,10 @@ const SFX = (() => {
     },
     scream() { tone(700 + Math.random() * 300, 0.28, 0.07, 'sawtooth', 200); },
     heal()   { tone(880, 0.09, 0.06, 'sine', 1320); },
+    hammer() {
+      tone(1100 + Math.random() * 300, 0.04, 0.08, 'square');
+      noise(0.03, 0.1, 'highpass', 3000, 1, 0.04);
+    },
     cash()   { tone(1200, 0.06, 0.08, 'square'); },
     event()  {
       tone(440, 0.12, 0.15, 'square');

@@ -67,7 +67,7 @@ body {
 }
 #hud-tp { color: #ffd94a; }
 .hud-box.breach { color: #ff6b57; margin-left: auto; }
-#mute {
+#pause-btn, #mute {
   pointer-events: auto;
   cursor: pointer;
   font-family: inherit;
@@ -75,7 +75,30 @@ body {
   min-height: 32px;
   padding: 6px 12px;
 }
-#mute:hover { border-color: #8a8668; }
+#pause-btn:hover, #mute:hover { border-color: #8a8668; }
+#pause-btn.hidden { display: none; }
+
+.sandbox-wave-skip {
+  pointer-events: auto;
+  display: flex;
+  gap: 3px;
+  padding: 2px 4px;
+}
+.sandbox-wave-skip.hidden { display: none; }
+.wave-skip-btn {
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: clamp(9px, 2.5vw, 12px);
+  font-weight: bold;
+  padding: 3px 6px;
+  min-width: 32px;
+  min-height: 28px;
+  background: rgba(20, 20, 12, .9);
+  border: 1px solid #6a6648;
+  color: #ffd94a;
+}
+.wave-skip-btn:hover { border-color: #a49f7d; }
 
 #banner {
   position: absolute;

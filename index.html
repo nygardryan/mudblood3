@@ -17,8 +17,14 @@
     <div id="hud">
       <div class="hud-box" id="hud-tp" title="Tactical Points — earned from kills and over time">TP <span id="tp">0</span></div>
       <div class="hud-box" id="wavebox">WAVE 0</div>
+      <div class="hud-box sandbox-wave-skip hidden" id="sandbox-wave-skip" title="Jump ahead and spawn that wave">
+        <button type="button" class="wave-skip-btn" data-wave-skip="1">+1</button>
+        <button type="button" class="wave-skip-btn" data-wave-skip="5">+5</button>
+        <button type="button" class="wave-skip-btn" data-wave-skip="10">+10</button>
+      </div>
       <div class="hud-box">KILLS <span id="kills">0</span></div>
       <div class="hud-box breach" id="breachbox" title="Breakthroughs past the bottom edge">BREACH 0/7</div>
+      <button id="pause-btn" class="hud-box hidden" title="Pause game">PAUSE</button>
       <button id="mute" class="hud-box" title="Toggle sound">SND ON</button>
     </div>
 
@@ -50,7 +56,7 @@
       <p>Choose your supply situation. Wave attrition still applies on Easy, Medium, and Hard.</p>
       <div class="intro-btns modes">
         <button data-endless-diff="sandbox">SANDBOX
-          <span class="mode-desc">Unlimited TP. Build freely and experiment.</span></button>
+          <span class="mode-desc">Unlimited TP. Jump ahead in waves to test late-game assaults.</span></button>
         <button data-endless-diff="easy">EASY
           <span class="mode-desc">Full supply rate. The classic experience.</span></button>
         <button data-endless-diff="medium">MEDIUM
@@ -71,6 +77,17 @@
       </div>
       <div id="codex-list"></div>
       <button id="codex-back-btn">BACK</button>
+    </div>
+
+    <div id="pause" class="overlay hidden">
+      <h1>PAUSED</h1>
+      <p class="quote">The line holds — for now.</p>
+      <div class="intro-btns">
+        <button id="pause-resume-btn">RESUME</button>
+        <button id="pause-codex-btn" class="secondary">CODEX</button>
+        <button id="pause-mute-btn" class="secondary">SND ON</button>
+        <button id="pause-menu-btn" class="secondary">MAIN MENU</button>
+      </div>
     </div>
 
     <div id="gameover" class="overlay hidden">

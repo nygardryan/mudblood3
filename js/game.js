@@ -93,7 +93,7 @@ const UNIT_TYPES = {
     name: 'Sherman', hp: 1000, range: 600, dmg: 0, acc: 0,
     rof: 4.0, burst: 1, burstGap: 0, speed: 14, shellDmg: 80,
     color: '#4a5a3f', gun: 0, sfx: 'boom', tank: true,
-    fireCone: { arc: 0.4 },
+    fireCone: { arc: 0.25 },
     mg: { range: 240, dmg: 8, acc: 0.45, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
     desc: 'M4 Sherman. 75mm cannon and thick armor. Medics can\'t fix steel.',
   },
@@ -102,7 +102,7 @@ const UNIT_TYPES = {
     name: 'AT Gun', hp: 200, range: 1200, dmg: 0, acc: 0,
     rof: 8, burst: 1, burstGap: 0, speed: 0,
     color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true,
-    atgun: { arc: 0.6, shellDmg: 336, r: 26 },
+    atgun: { arc: 0.6, shellDmg: 403, r: 36 },
     desc: '57mm anti-tank gun. Immobile; direct-fire AP shells ruin any vehicle they find.',
   },
 };
@@ -173,7 +173,7 @@ const ENEMY_TYPES = {
     name: 'Panzer IV', hp: 1200, speed: 8, range: 340, dmg: 0, acc: 0,
     rof: 4.5, burst: 1, burstGap: 0, reward: 15, shellDmg: 85,
     color: '#57574e', gun: 0, sfx: 'boom', priority: 0, tank: true,
-    fireCone: { arc: 0.4 },
+    fireCone: { arc: 0.25 },
     mg: { range: 230, dmg: 7, acc: 0.4, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
   },
 };
@@ -270,7 +270,7 @@ const PLACEABLES = [
     desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — no field repairs.' },
   { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon, shrugs off small arms. Medics cannot repair it.' },
-  { key: 'atgun', label: 'AT GUN', cost: 40, kind: 'unit', hotkey: 'P',
+  { key: 'atgun', label: 'AT GUN', cost: 30, kind: 'unit', hotkey: 'P',
     desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
@@ -515,7 +515,19 @@ let drag = null;      // marquee selection in progress: { x0, y0, x1, y1, active
 let suppressClick = false; // eat the click that follows a completed drag-select or pointerup action
 let placeTouch = null;  // touch placement drag: { active, moved, startX, startY }
 let running = false;
+let paused = false;
+let codexReturnTo = 'intro';
 let lastT = 0;
+
+function isPlaying() {
+  return running && G && !G.over && !paused;
+}
+
+function syncMuteButtons() {
+  const label = SFX.muted ? 'SND OFF' : 'SND ON';
+  el('mute').textContent = label;
+  el('pause-mute-btn').textContent = label;
+}
 
 const canvas = document.getElementById('game');
 let ctx = canvas.getContext('2d');
@@ -796,20 +808,35 @@ function spawnSpecialWave(w) {
   G.spawnTimer = spawnIntervalForWave(w) + 6;
 }
 
-function spawnWave() {
-  G.wave++;
-  if (G.wave % 10 === 0) {
-    spawnSpecialWave(G.wave);
+function launchWave(w) {
+  if (w % 10 === 0) {
+    spawnSpecialWave(w);
     return;
   }
-  const comp = waveComposition(G.wave);
+  const comp = waveComposition(w);
   const cx = rand(100, W - 100);
   for (const type of comp) {
     const x = clamp(cx + rand(-90, 90), 30, W - 30);
     G.enemies.push(makeEnemy(type, x, rand(-70, -20)));
   }
-  G.spawnTimer = spawnIntervalForWave(G.wave);
+  G.spawnTimer = spawnIntervalForWave(w);
+}
+
+function spawnWave() {
+  G.wave++;
+  launchWave(G.wave);
   if (G.wave === 1) showBanner('HERE THEY COME');
+}
+
+// sandbox only: skip ahead and spawn that wave's assault immediately
+function jumpSandboxWave(steps) {
+  if (!isSandbox() || !running || !G || G.over || steps <= 0) return;
+  const target = Math.min(G.wave + steps, 999);
+  if (target <= G.wave) return;
+  G.wave = target;
+  launchWave(G.wave);
+  showBanner('SANDBOX — WAVE ' + G.wave);
+  SFX.click();
 }
 
 // allied campaign: step through the level's scripted wave list. Once the last
@@ -1870,7 +1897,7 @@ function updateATGun(u, dt) {
   let scatter = (24 + d * 0.11) * (1 - u.rank * 0.08);
   if (target.t.tank) scatter *= 0.80;
   else scatter *= 0.90;
-  scatter = Math.max(14, scatter);
+  scatter = Math.max(11, scatter * 0.8);
   scheduleShell(
     target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
     0.45, spec.r, spec.shellDmg * (1 + u.rank * 0.06), false, u);
@@ -2423,11 +2450,13 @@ function stampBunkerRubble(b) {
 function endRun(won, title, stats) {
   G.over = true;
   running = false;
+  paused = false;
   const titleEl = document.getElementById('go-title');
   titleEl.textContent = title;
   titleEl.classList.toggle('victory', won);
   document.getElementById('go-stats').textContent = stats;
   document.getElementById('gameover').classList.remove('hidden');
+  el('pause').classList.add('hidden');
 }
 
 function gameOver() {
@@ -3638,6 +3667,9 @@ function updateHUD() {
     hud.breachBox.textContent = 'BREACH ' + G.breaches + '/' + G.level.breachLimit;
   }
 
+  el('sandbox-wave-skip').classList.toggle('hidden', !(isSandbox() && isPlaying()));
+  el('pause-btn').classList.toggle('hidden', !(running && G && !G.over));
+
   if (G.banner) {
     bannerEl.textContent = G.banner.text;
     bannerEl.classList.add('show');
@@ -3675,7 +3707,7 @@ function activePlaceables() {
 }
 
 function selectPlaceable(p) {
-  if (!running) return;
+  if (!isPlaying()) return;
   if (!canAffordTP(placeableCost(p))) { SFX.error(); return; }
   if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); return; }
   SFX.click();
@@ -3781,7 +3813,7 @@ function commandRoster() {
 }
 
 function handleCanvasTap() {
-  if (!running) return;
+  if (!isPlaying()) return;
   const x = mouse.x, y = mouse.y;
 
   // axis attackers can't be selected or ordered; the toolbar is the whole game
@@ -3814,10 +3846,11 @@ canvas.addEventListener('pointerdown', e => {
   suppressClick = false;
 
   if (placing) {
+    if (!isPlaying()) return;
     placeTouch = { active: true, moved: false, startX: mouse.x, startY: mouse.y };
     return;
   }
-  if (!running || G.mode === 'axis') return;
+  if (!isPlaying() || G.mode === 'axis') return;
   drag = { x0: mouse.x, y0: mouse.y, x1: mouse.x, y1: mouse.y, active: false };
 });
 
@@ -3842,6 +3875,7 @@ canvas.addEventListener('pointerup', e => {
   }
 
   if (placeTouch?.active && placing) {
+    if (!isPlaying()) { placeTouch = null; return; }
     place(placing, mouse.x, mouse.y);
     placeTouch = null;
     suppressClick = true;
@@ -3850,7 +3884,7 @@ canvas.addEventListener('pointerup', e => {
   placeTouch = null;
 
   if (drag) {
-    if (drag.active && running && G) {
+    if (drag.active && isPlaying()) {
       const x0 = Math.min(drag.x0, drag.x1), x1 = Math.max(drag.x0, drag.x1);
       const y0 = Math.min(drag.y0, drag.y1), y1 = Math.max(drag.y0, drag.y1);
       G.selected = commandRoster().filter(u => u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1);
@@ -3860,7 +3894,7 @@ canvas.addEventListener('pointerup', e => {
     drag = null;
   }
 
-  if (e.pointerType === 'touch' && !suppressClick && running && !placing) {
+  if (e.pointerType === 'touch' && !suppressClick && isPlaying() && !placing) {
     handleCanvasTap();
     suppressClick = true;
   }
@@ -3918,7 +3952,7 @@ function issueMoveOrder(units, x, y) {
 
 canvas.addEventListener('click', e => {
   if (suppressClick) { suppressClick = false; return; }
-  if (!running) return;
+  if (!isPlaying()) return;
 
   if (placing) { place(placing, mouse.x, mouse.y); return; }
 
@@ -3934,15 +3968,28 @@ canvas.addEventListener('contextmenu', e => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { placing = null; drag = null; if (G) G.selected = []; return; }
+  if (e.key === 'Escape') {
+    if (paused) { resumeGame(); return; }
+    if (placing || drag) { placing = null; drag = null; if (G) G.selected = []; return; }
+    if (running && G && !G.over) { pauseGame(); return; }
+    placing = null; drag = null; if (G) G.selected = [];
+    return;
+  }
+  if (isSandbox() && isPlaying()) {
+    if (e.key === ']') { jumpSandboxWave(e.shiftKey ? 5 : e.ctrlKey ? 10 : 1); return; }
+  }
   const k = e.key.toUpperCase();
   const p = activePlaceables().find(pl => pl.hotkey === k);
   if (p) selectPlaceable(p);
 });
 
+for (const btn of document.querySelectorAll('[data-wave-skip]')) {
+  btn.addEventListener('click', () => jumpSandboxWave(Number(btn.dataset.waveSkip)));
+}
+
 el('mute').addEventListener('click', () => {
-  const m = SFX.toggleMute();
-  el('mute').textContent = m ? 'SND OFF' : 'SND ON';
+  SFX.toggleMute();
+  syncMuteButtons();
 });
 
 // ============================================================ codex
@@ -4265,14 +4312,26 @@ function buildCodex(tab) {
 }
 
 function openCodex() {
+  codexReturnTo = 'intro';
   buildCodex(codexTab);
   el('intro').classList.add('hidden');
   el('codex').classList.remove('hidden');
 }
 
+function openCodexFromPause() {
+  codexReturnTo = 'pause';
+  buildCodex(codexTab);
+  el('pause').classList.add('hidden');
+  el('codex').classList.remove('hidden');
+}
+
 function closeCodex() {
   el('codex').classList.add('hidden');
-  el('intro').classList.remove('hidden');
+  if (codexReturnTo === 'pause') {
+    el('pause').classList.remove('hidden');
+  } else {
+    el('intro').classList.remove('hidden');
+  }
 }
 
 el('codex-btn').addEventListener('click', openCodex);
@@ -4282,6 +4341,35 @@ for (const btn of document.querySelectorAll('.codex-tab')) {
 }
 
 // ============================================================ game flow
+
+function pauseGame() {
+  if (!running || !G || G.over || paused) return;
+  paused = true;
+  placing = null;
+  drag = null;
+  placeTouch = null;
+  G.selected = [];
+  syncMuteButtons();
+  el('pause').classList.remove('hidden');
+}
+
+function resumeGame() {
+  if (!paused) return;
+  paused = false;
+  el('pause').classList.add('hidden');
+  lastT = performance.now();
+}
+
+function returnToMenu() {
+  running = false;
+  paused = false;
+  placing = null;
+  el('pause').classList.add('hidden');
+  el('gameover').classList.add('hidden');
+  el('codex').classList.add('hidden');
+  el('endless-select').classList.add('hidden');
+  el('intro').classList.remove('hidden');
+}
 
 function openEndlessSelect() {
   el('intro').classList.add('hidden');
@@ -4302,11 +4390,13 @@ function startGame(levelId, difficultyId) {
   newGame(level, difficulty);
   placing = null;
   running = true;
+  paused = false;
   buildToolbar(level.placeables);
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('codex').classList.add('hidden');
   el('endless-select').classList.add('hidden');
+  el('pause').classList.add('hidden');
   el('tipbar').textContent = level.mode === 'axis'
     ? touchUI()
       ? 'Tap a unit, then tap the top strip to deploy. Tap the button again to cancel.'
@@ -4315,9 +4405,13 @@ function startGame(levelId, difficultyId) {
       ? touchUI()
         ? 'Tap or drag to select your men, tap ground to move. Kill the marked officer. Tap the button again to cancel placement.'
         : 'Click or drag-select your men, click ground to move them. Kill the marked officer. Right-click / Esc deselects.'
-      : touchUI()
-        ? 'Tap a soldier to select him, tap ground to move. Tap a unit button, then tap the field to deploy. Tap the button again to cancel.'
-        : 'Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.';
+      : difficulty && difficulty.sandbox
+        ? touchUI()
+          ? 'Sandbox: unlimited TP. Use +1 / +5 / +10 in the HUD to jump ahead in waves.'
+          : 'Sandbox: unlimited TP. ] / Shift+] / Ctrl+] jump ahead 1 / 5 / 10 waves, or use the HUD buttons.'
+        : touchUI()
+          ? 'Tap a soldier to select him, tap ground to move. Tap a unit button, then tap the field to deploy. Tap the button again to cancel.'
+          : 'Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.';
   if (level.briefing) showBanner(level.name);
   lastT = performance.now();
 }
@@ -4331,12 +4425,14 @@ el('start-allied').addEventListener('click', () => startGame('allied1'));
 el('start-axis').addEventListener('click', () => startGame('axis1'));
 el('start-axis2').addEventListener('click', () => startGame('axis2'));
 el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless', G?.difficulty?.id));
-el('menu-btn').addEventListener('click', () => {
-  running = false;
-  placing = null;
-  el('gameover').classList.add('hidden');
-  el('endless-select').classList.add('hidden');
-  el('intro').classList.remove('hidden');
+el('menu-btn').addEventListener('click', returnToMenu);
+el('pause-btn').addEventListener('click', pauseGame);
+el('pause-resume-btn').addEventListener('click', resumeGame);
+el('pause-codex-btn').addEventListener('click', openCodexFromPause);
+el('pause-menu-btn').addEventListener('click', returnToMenu);
+el('pause-mute-btn').addEventListener('click', () => {
+  SFX.toggleMute();
+  syncMuteButtons();
 });
 
 function frame(now) {
@@ -4344,7 +4440,7 @@ function frame(now) {
   if (!G) return;
   const dt = Math.min((now - lastT) / 1000, 0.05);
   lastT = now;
-  if (running && !G.over) update(dt);
+  if (running && !G.over && !paused) update(dt);
   draw();
   updateHUD();
 }

@@ -21,7 +21,7 @@ python3 -m http.server 8000
   screen. Hold the line as long as you can — if **7 Germans** slip past the bottom
   edge, your sector collapses and it's game over. There is no victory, only a
   higher wave count. Pick a difficulty before you deploy:
-  **Sandbox** (unlimited TP, free purchases), **Easy** (full income — the default),
+  **Sandbox** (unlimited TP, free purchases; **+1 / +5 / +10** HUD buttons or **] / Shift+] / Ctrl+]** to jump ahead and spawn later waves), **Easy** (full income — the default),
   **Medium** (66% income from kills, trickle, and officers), or **Hard** (33%
   income). Wave attrition still applies on Easy, Medium, and Hard.
 - **Allied Campaign — Level 1: Hold the Line** — survive **12 scripted waves**,
@@ -57,7 +57,9 @@ France, 1944. Pick a mode from the main menu.
   out as the battle drags on: all income shrinks ~1% per wave, dropping to a hard
   10% floor from wave 90 on. Campaign levels pay full rate.
 - Click a toolbar button (or press its **number key**), then click the field to
-  deploy. Right-click or **Esc** cancels.
+  deploy. Right-click or **Esc** cancels placement.
+- Press **Esc** or the **PAUSE** button in the HUD to open the pause menu mid-game;
+  choose **Resume** to return to the fight.
 - Men and defenses can only be placed in the **lower half** (behind the trench line).
   Mortar and artillery strikes can be called anywhere.
 - Left-click one of your soldiers to select him, then click open ground to move him.

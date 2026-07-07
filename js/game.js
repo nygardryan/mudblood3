@@ -266,11 +266,11 @@ const PLACEABLES = [
     desc: 'Buffs nearby men. Generates +1 TP every 30 s.' },
   { key: 'flamer', label: 'FLAMER', cost: 13, kind: 'unit', hotkey: 'F',
     desc: 'M2 flamethrower. Devastating cone of fire that burns friend and foe alike.' },
-  { key: 'jeep', label: 'JEEP', cost: 20, kind: 'unit', hotkey: 'J',
+  { key: 'jeep', label: 'JEEP', cost: 30, kind: 'unit', hotkey: 'J',
     desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — no field repairs.' },
   { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon, shrugs off small arms. Medics cannot repair it.' },
-  { key: 'atgun', label: 'AT GUN', cost: 25, kind: 'unit', hotkey: 'P',
+  { key: 'atgun', label: 'AT GUN', cost: 40, kind: 'unit', hotkey: 'P',
     desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
@@ -347,7 +347,7 @@ const LEVELS = {
     // bump only the units that clear the mission solo at base prices
     costOverrides: {
       rifleman: 9, gunner: 15, grenadier: 14, shotgunner: 11,
-      sniper: 14, bazooka: 18, jeep: 28,
+      sniper: 14, bazooka: 18, jeep: 38,
     },
     briefing: 'Hold your sector against 12 German assault waves. Survive the final push and the line is yours.',
     // scripted assault: delay is seconds after the previous wave steps off
@@ -1840,10 +1840,10 @@ function updateATGun(u, dt) {
   }
   // AP shells drift at range; armor is a forgiving target but this isn't a laser
   const d = dist(u, target);
-  let scatter = (15 + d * 0.08) * (1 - u.rank * 0.08);
-  if (target.t.tank) scatter *= 0.68;
-  else scatter *= 0.80;
-  scatter = Math.max(9, scatter);
+  let scatter = (17 + d * 0.09) * (1 - u.rank * 0.08);
+  if (target.t.tank) scatter *= 0.72;
+  else scatter *= 0.85;
+  scatter = Math.max(10, scatter);
   scheduleShell(
     target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
     0.45, spec.r, spec.shellDmg * (1 + u.rank * 0.06), false, u);

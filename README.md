@@ -79,9 +79,9 @@ France, 1944. Pick a mode from the main menu.
 | Engineer | 14 | Repairs emplacements; fortifies nearby sandbags/bunkers/wire (more HP, better effect). SMG, close range only. |
 | Officer | 15 | Nearby men fire faster and straighter; generates TP. |
 | Flamer | 13 | M2 flamethrower. Devastating cone of fire — burns friend and foe alike. |
-| Jeep | 20 | Willys jeep with a .50 cal HMG. Fast, fires on the move, unarmored — no field repairs. |
+| Jeep | 30 | Willys jeep with a .50 cal HMG. Fast, fires on the move, unarmored — no field repairs. |
 | Sherman | 50 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
-| AT Gun | 25 | 57mm anti-tank gun. Immobile once placed; only fires on vehicles inside its forward cone. Direct-fire AP shells wreck armor. |
+| AT Gun | 40 | 57mm anti-tank gun. Immobile once placed; only fires on vehicles inside its forward cone. Direct-fire AP shells wreck armor. |
 | Wire | 4 | Slows the advance until it wears out. |
 | Sandbags | 5 | Soldiers behind them dodge half of incoming fire. |
 | Bunker | 15 | Concrete pillbox with 10x sandbag HP. Soldiers inside dodge 75% of incoming fire; shrugs off shellfire. |

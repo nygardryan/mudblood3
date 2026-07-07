@@ -419,6 +419,70 @@ const LEVELS = {
       G.units.push(makeUnit('mortarman', W / 2, H - 60));
     },
   },
+
+  axis2: {
+    id: 'axis2',
+    name: 'AXIS 2: HIT SQUAD',
+    mode: 'hitsquad',
+    timeLimit: 300,
+    events: false,
+    placeables: [],
+    startTP: 0,
+    briefing: 'Command your six-man squad. Kill the marked American officer before the clock runs out.',
+    setup(G) {
+      // your commando squad steps off from the north edge. These are
+      // hand-picked veterans — six men against a dug-in platoon, so each one
+      // is worth three line infantry: tougher, deadlier, longer-armed, and
+      // quick back on their feet when pinned.
+      const squad = [
+        ['eoff', W / 2 - 100], ['esniper', W / 2 - 60], ['emg', W / 2 - 20],
+        ['esmg', W / 2 + 20], ['esmg', W / 2 + 60], ['egren', W / 2 + 100],
+      ];
+      for (const [type, x] of squad) {
+        const e = makeEnemy(type, x, 36);
+        // per-man stat clone so ENEMY_TYPES stays untouched for other modes
+        e.t = Object.assign({}, e.t, {
+          hp: Math.round(e.t.hp * 2.2),
+          dmg: Math.round(e.t.dmg * 1.25),
+          acc: Math.min(0.9, e.t.acc * 1.15),
+          range: Math.round(e.t.range * 1.15),
+          speed: Math.round(e.t.speed * 1.1),
+        });
+        e.hp = e.maxhp = e.t.hp;
+        e.rank = 4;   // shortens pin time in tryGoProne; Germans draw no chevrons
+        G.enemies.push(e);
+      }
+      G.squadTotal = squad.length;
+
+      // the target: a US officer well behind the line, marked for death
+      const vip = makeUnit('officer', W / 2, H - 55);
+      vip.vip = true;
+      G.units.push(vip);
+
+      // his security detail holds the center; the flanks are thinner —
+      // a small detail on purpose: six commandos cannot win a stand-up fight
+      // against a full platoon, so the mission is sized for maneuver
+      const bag = (x, y) => G.sandbags.push({ x, y, hp: 300, maxhp: 300, up: false, workProg: 0 });
+      bag(W / 2 - 60, DEPLOY_Y + 40);
+      bag(W / 2 + 60, DEPLOY_Y + 40);
+      G.units.push(makeUnit('gunner', W / 2, DEPLOY_Y + 45));
+      G.units.push(makeUnit('rifleman', W / 2 - 60, DEPLOY_Y + 36));
+      G.units.push(makeUnit('rifleman', W / 2 + 60, DEPLOY_Y + 36));
+      G.units.push(makeUnit('rifleman', W / 2 - 260, DEPLOY_Y + 55));
+      G.units.push(makeUnit('rifleman', W / 2 + 260, DEPLOY_Y + 55));
+      G.units.push(makeUnit('shotgunner', W / 2 - 50, H - 85));
+      // no mortar in the detail: indirect fire would punish the flanking
+      // routes this mission is designed around
+
+      // the direct approach is fortified: wire and mines down the middle
+      for (const wx of [W / 2 - 110, W / 2, W / 2 + 110]) {
+        G.wires.push({ x: wx, y: FORWARD_Y + 40, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
+      }
+      for (const mx of [W / 2 - 60, W / 2, W / 2 + 60]) {
+        G.mines.push({ x: mx, y: H / 2 + 10, dead: false });
+      }
+    },
+  },
 };
 
 // ============================================================ helpers
@@ -521,6 +585,7 @@ function makeEnemy(type, x, y) {
     turret: Math.PI / 2,
     pushT: 0, pushCd: rand(2, 5),
     prone: 0, proneCd: 0,
+    moveTo: null,   // hit-squad mode: player-issued destination
   };
 }
 
@@ -1081,11 +1146,10 @@ function damageUnit(u, dmg, from) {
   }
   if (u.hp <= 0 && !u.dead) {
     u.dead = true;
-    // in the axis campaign the player is paid for downed US defenders
-    if (G.mode === 'axis') {
+    // when the player fights as the Germans, downed US defenders are his kills
+    if (G.mode === 'axis' || G.mode === 'hitsquad') {
       G.kills++;
-      earnTP(u.t.reward || 2);
-      SFX.cash();
+      if (G.mode === 'axis') { earnTP(u.t.reward || 2); SFX.cash(); }
     }
     if (u.t.tank) {
       stampWreck(u);
@@ -1142,7 +1206,7 @@ function damageEnemy(e, dmg, from) {
     e.dead = true;
     // when attacking, dead Germans are your losses, not your payday —
     // but the US defenders who scored the kill still gain experience
-    if (G.mode !== 'axis') {
+    if (G.mode !== 'axis' && G.mode !== 'hitsquad') {
       G.kills++;
       earnTP(e.t.reward);
       SFX.cash();
@@ -1167,6 +1231,9 @@ function damageEnemy(e, dmg, from) {
       bloodSplat(e.x, e.y, 8);
       if (Math.random() < 0.4) SFX.scream();
     }
+    // hit-squad mode: drop the fallen man from the player's selection
+    const si = G.selected.indexOf(e);
+    if (si !== -1) G.selected.splice(si, 1);
   }
   if (dmg >= 3) tryGoProne(e, 0.65);
 }
@@ -1897,8 +1964,9 @@ function updateEnemy(e, dt) {
 
   if (e.proneCd > 0) e.proneCd -= dt;
   if (e.prone > 0) {
+    // a move order gets him up and running; otherwise he waits it out
     e.prone -= dt;
-    if (e.prone <= 0) {
+    if (e.prone <= 0 || e.moveTo) {
       e.prone = 0;
       e.proneCd = rand(4, 6);
     } else {
@@ -1908,15 +1976,40 @@ function updateEnemy(e, dt) {
 
   const buffed = enemyOfficerNear(e);
   const range = e.t.range * fogMult();
+  // hit-squad mode: the player commands the squad, so nobody advances on
+  // his own — men move only on orders and fight from where they stand
+  const command = G.mode === 'hitsquad';
 
   if (e.t.tank) { updateTank(e, dt); return; }
   if (e.t.bike) { updateBike(e, dt); return; }
   if (e.t.apc) { updateHalftrack(e, dt); return; }
   if (e.t.vehicle) { updateEnemyJeep(e, dt); return; }
 
-  // discipline only goes so far: every German periodically stops shooting and
-  // pushes up the field, so long-range shooters eventually close the distance
-  if (e.pushT > 0) {
+  // player-ordered movement: run to the marker, no shooting on the move
+  if (command) {
+    if (e.moveTo) {
+      const d = dist(e, e.moveTo);
+      if (d < 4) {
+        e.moveTo = null;
+      } else {
+        e.face = Math.atan2(e.moveTo.y - e.y, e.moveTo.x - e.x);
+        let speed = e.t.speed * (buffed ? 1.25 : 1);
+        // barbed wire drags commandos just like everyone else
+        for (const wr of G.wires) {
+          if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
+            speed *= wr.up ? 0.05 : 0.12;
+            wr.hp -= (wr.up ? 3 : 5) * dt;
+            break;
+          }
+        }
+        e.x = clamp(e.x + Math.cos(e.face) * speed * dt, 14, W - 14);
+        e.y = clamp(e.y + Math.sin(e.face) * speed * dt, 14, H - 14);
+        return;
+      }
+    }
+  } else if (e.pushT > 0) {
+    // discipline only goes so far: every German periodically stops shooting and
+    // pushes up the field, so long-range shooters eventually close the distance
     e.pushT -= dt;
     advance(e, dt, buffed);
     return;
@@ -1927,7 +2020,7 @@ function updateEnemy(e, dt) {
     if (ft) {
       e.face = Math.atan2(ft.y - e.y, ft.x - e.x);
       flameSpray(e, dt);
-    } else {
+    } else if (!command) {
       advance(e, dt, buffed);
     }
     return;
@@ -1951,20 +2044,22 @@ function updateEnemy(e, dt) {
   }
 
   if (target) {
-    // roll the urge to advance; never when already on top of the target
-    e.pushCd -= dt;
-    if (e.pushCd <= 0) {
-      e.pushCd = rand(3, 6);
-      if (Math.random() < 0.4 && dist(e, target) > 70) {
-        e.pushT = rand(1.2, 2.8);
+    if (!command) {
+      // roll the urge to advance; never when already on top of the target
+      e.pushCd -= dt;
+      if (e.pushCd <= 0) {
+        e.pushCd = rand(3, 6);
+        if (Math.random() < 0.4 && dist(e, target) > 70) {
+          e.pushT = rand(1.2, 2.8);
+        }
       }
     }
     runWeapon(e, target, dt, buffed ? { rofMult: 0.8 } : null);
     // stormtroopers keep pushing even under fire
-    if (e.t.speed >= 30 && dist(e, target) > range * 0.5) {
+    if (!command && e.t.speed >= 30 && dist(e, target) > range * 0.5) {
       advance(e, dt, buffed);
     }
-  } else {
+  } else if (!command) {
     advance(e, dt, buffed);
   }
 }
@@ -2117,19 +2212,22 @@ function stampBike(e, wrecked) {
 function update(dt) {
   G.time += dt;
 
-  // TP trickle
-  G.tpTrickle -= dt;
-  if (G.tpTrickle <= 0) { G.tpTrickle = 8; earnTP(1); }
+  // a hit squad has no supply line: no trickle, no officer income, nothing to buy
+  if (G.mode !== 'hitsquad') {
+    // TP trickle
+    G.tpTrickle -= dt;
+    if (G.tpTrickle <= 0) { G.tpTrickle = 8; earnTP(1); }
 
-  // officer TP bonus: whichever side the player commands, its officers pay
-  G.officerTick -= dt;
-  if (G.officerTick <= 0) {
-    G.officerTick = 30;
-    if (G.mode === 'axis') {
-      for (const e of G.enemies) if (!e.dead && e.type === 'eoff') earnTP(1);
-    } else {
-      // rank pays: a MSG officer brings in 3 TP where a green one brings 1
-      for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3);
+    // officer TP bonus: whichever side the player commands, its officers pay
+    G.officerTick -= dt;
+    if (G.officerTick <= 0) {
+      G.officerTick = 30;
+      if (G.mode === 'axis') {
+        for (const e of G.enemies) if (!e.dead && e.type === 'eoff') earnTP(1);
+      } else {
+        // rank pays: a MSG officer brings in 3 TP where a green one brings 1
+        for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3);
+      }
     }
   }
 
@@ -2139,6 +2237,11 @@ function update(dt) {
   } else if (G.mode === 'axis') {
     updateAxisReinforcements();
     if (G.time >= G.level.timeLimit) { gameOver(); return; }
+  } else if (G.mode === 'hitsquad') {
+    // no waves: win when the target falls, lose on the clock or a wiped squad
+    if (!G.units.some(u => !u.dead && u.vip)) { victory(); return; }
+    if (G.time >= G.level.timeLimit) { gameOver(); return; }
+    if (!G.enemies.some(e => !e.dead)) { gameOver(); return; }
   } else {
     G.spawnTimer -= dt;
     if (G.spawnTimer <= 0) spawnWave();
@@ -2209,8 +2312,9 @@ function update(dt) {
     }
   }
 
-  // breaches: a defeat marker when defending, the objective when attacking
-  for (const e of G.enemies) {
+  // breaches: a defeat marker when defending, the objective when attacking.
+  // a hit squad has nowhere to breach to — its work is on the field.
+  if (G.mode !== 'hitsquad') for (const e of G.enemies) {
     if (!e.dead && e.y > H + 10) {
       e.dead = true; e.breached = true;
       G.breaches++;
@@ -2297,6 +2401,12 @@ function gameOver() {
     endRun(false, 'ATTACK REPULSED',
       `The assault stalls after ${t} seconds. ${G.breaches}/${G.level.winBreaches} breakthroughs — ` +
       `the American line holds, and ${G.kills} defenders was not enough.`);
+  } else if (G.mode === 'hitsquad') {
+    const wiped = !G.enemies.some(e => !e.dead);
+    endRun(false, wiped ? 'SQUAD LOST' : 'MISSION FAILED',
+      wiped
+        ? `All six men are gone after ${t} seconds. The target lives; ${G.kills} Americans went with them.`
+        : `Time ran out after ${t} seconds. The target lives. ${G.kills} Americans down for nothing.`);
   } else {
     endRun(false, 'LINE OVERRUN',
       `You held for ${G.wave} waves and ${t} seconds. ` +
@@ -2310,6 +2420,11 @@ function victory() {
     endRun(true, 'LINE BROKEN',
       `The American line collapses after ${t} seconds. ` +
       `${G.breaches} men through the breach, ${G.kills} defenders down.`);
+  } else if (G.mode === 'hitsquad') {
+    const alive = G.enemies.filter(e => !e.dead).length;
+    endRun(true, 'TARGET ELIMINATED',
+      `The officer is dead after ${t} seconds. ` +
+      `${alive}/${G.squadTotal} men walk away; ${G.kills} Americans do not.`);
   } else {
     endRun(true, 'SECTOR HELD',
       `You stopped all ${G.wave} waves in ${t} seconds. ` +
@@ -2674,6 +2789,24 @@ function drawSoldierOverlays(a) {
     }
   }
 
+  // the hit-squad target is marked for death: pulsing gold ring + crosshair ticks
+  if (a.vip) {
+    const pulse = 15 + Math.sin(G.time * 4) * 2;
+    ctx.strokeStyle = '#ffd94a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(a.x, a.y, pulse, 0, 7); ctx.stroke();
+    ctx.beginPath();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      ctx.moveTo(a.x + dx * (pulse - 3), a.y + dy * (pulse - 3));
+      ctx.lineTo(a.x + dx * (pulse + 4), a.y + dy * (pulse + 4));
+    }
+    ctx.stroke();
+    ctx.font = 'bold 9px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd94a';
+    ctx.fillText('TARGET', a.x, a.y - pulse - 5);
+  }
+
   // selection ring
   if (G.selected.includes(a)) {
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
@@ -2685,8 +2818,11 @@ function drawSoldierOverlays(a) {
       ctx.font = 'bold 10px "Courier New", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' +
-        (a.type === 'medic' || a.type === 'engineer' ? a.xp + ' XP' : a.xp + ' KILLS');
+      // German squad members carry no rank or kill tally
+      const label = a.side === 'us'
+        ? RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' +
+          (a.type === 'medic' || a.type === 'engineer' ? a.xp + ' XP' : a.xp + ' KILLS')
+        : a.t.name.toUpperCase();
       ctx.fillText(label, a.x + 1, a.y + 23);
       ctx.fillStyle = '#ffe98a';
       ctx.fillText(label, a.x, a.y + 22);
@@ -3401,11 +3537,13 @@ const bannerEl = el('banner');
 function updateHUD() {
   hud.tp.textContent = Math.floor(G.tp);
   hud.kills.textContent = G.kills;
-  if (G.mode === 'axis') {
+  if (G.mode === 'axis' || G.mode === 'hitsquad') {
     const left = Math.max(0, G.level.timeLimit - G.time);
     const m = Math.floor(left / 60), s = Math.floor(left % 60);
     hud.waveBox.textContent = 'TIME ' + m + ':' + String(s).padStart(2, '0');
-    hud.breachBox.textContent = 'BREAK ' + G.breaches + '/' + G.level.winBreaches;
+    hud.breachBox.textContent = G.mode === 'hitsquad'
+      ? 'MEN ' + G.enemies.filter(e => !e.dead).length + '/' + G.squadTotal
+      : 'BREAK ' + G.breaches + '/' + G.level.winBreaches;
   } else if (G.mode === 'allied') {
     hud.waveBox.textContent = 'WAVE ' + G.wave + '/' + G.level.waves.length;
     hud.breachBox.textContent = 'BREACH ' + G.breaches + '/' + G.level.breachLimit;
@@ -3556,6 +3694,11 @@ canvas.addEventListener('mousemove', e => {
 });
 canvas.addEventListener('mouseleave', () => { mouse.inside = false; });
 
+// which soldiers answer to the player: your squad in hit-squad mode, US otherwise
+function commandRoster() {
+  return G.mode === 'hitsquad' ? G.enemies : G.units;
+}
+
 canvas.addEventListener('mousedown', e => {
   suppressClick = false;
   if (!running || placing || e.button !== 0) return;
@@ -3568,7 +3711,7 @@ window.addEventListener('mouseup', e => {
   if (drag.active && running && G) {
     const x0 = Math.min(drag.x0, drag.x1), x1 = Math.max(drag.x0, drag.x1);
     const y0 = Math.min(drag.y0, drag.y1), y1 = Math.max(drag.y0, drag.y1);
-    G.selected = G.units.filter(u => u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1);
+    G.selected = commandRoster().filter(u => u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1);
     if (G.selected.length) SFX.click();
     suppressClick = true; // the click event fires right after; don't treat it as an order
   }
@@ -3579,9 +3722,11 @@ window.addEventListener('mouseup', e => {
 function issueMoveOrder(units, x, y) {
   units = units.filter(u => !u.t.fixed);   // staked guns don't take march orders
   if (!units.length) return;
+  // a hit squad ranges the whole field; US soldiers hold behind the forward line
+  const minY = G.mode === 'hitsquad' ? 20 : FORWARD_Y + 2;
   const clampDest = (dx, dy) => ({
     x: clamp(dx, 16, W - 16),
-    y: clamp(dy, FORWARD_Y + 2, H - 14),
+    y: clamp(dy, minY, H - 14),
   });
   if (units.length === 1) {
     units[0].moveTo = clampDest(x, y);
@@ -3624,7 +3769,7 @@ canvas.addEventListener('click', e => {
 
   // select own soldier (vehicles are a bigger click target)
   let picked = null;
-  for (const u of G.units) {
+  for (const u of commandRoster()) {
     if (dist(u, { x, y }) < (u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14)) { picked = u; break; }
   }
   if (picked) {
@@ -3632,8 +3777,9 @@ canvas.addEventListener('click', e => {
     SFX.click();
     return;
   }
-  // move selected soldiers
-  if (G.selected.length && y > FORWARD_Y && y < H - 14) {
+  // move selected soldiers (the hit squad ranges the whole field)
+  const minOrderY = G.mode === 'hitsquad' ? 20 : FORWARD_Y;
+  if (G.selected.length && y > minOrderY && y < H - 14) {
     issueMoveOrder(G.selected, x, y);
     SFX.click();
     return;
@@ -4010,7 +4156,9 @@ function startGame(levelId) {
   el('codex').classList.add('hidden');
   el('tipbar').textContent = level.mode === 'axis'
     ? 'Pick a unit and drop it in the top strip — your troops advance on their own. Right-click / Esc cancels placement.'
-    : 'Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.';
+    : level.mode === 'hitsquad'
+      ? 'Click or drag-select your men, click ground to move them. Kill the marked officer. Right-click / Esc deselects.'
+      : 'Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.';
   if (level.briefing) showBanner(level.name);
   lastT = performance.now();
 }
@@ -4018,6 +4166,7 @@ function startGame(levelId) {
 el('start-endless').addEventListener('click', () => startGame('endless'));
 el('start-allied').addEventListener('click', () => startGame('allied1'));
 el('start-axis').addEventListener('click', () => startGame('axis1'));
+el('start-axis2').addEventListener('click', () => startGame('axis2'));
 el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless'));
 el('menu-btn').addEventListener('click', () => {
   running = false;

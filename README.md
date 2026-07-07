@@ -33,6 +33,17 @@ python3 -m http.server 8000
   etc.) are priced up. Combined arms — softening fire, infantry, and breach
   units together — is the way through. Get **7 men past the bottom edge** within
   **6 minutes** to win. US reinforcements arrive at the 3-minute mark.
+- **Axis Campaign — Level 2: Hit Squad** — a commando mission with direct
+  control. You command a fixed six-man squad (officer, sniper, MG gunner, two
+  stormtroopers, a grenadier) exactly like US soldiers: click or drag-select,
+  then click ground to move. Nobody advances without orders. Your men are
+  hand-picked veterans — tougher, deadlier, and longer-armed than line
+  infantry — but six guns cannot win a stand-up fight against the whole
+  detail. **Kill the marked US officer** at the bottom of the map within
+  **5 minutes**. The direct approach is wired and mined; the flanks are thin —
+  work around the line and let the sniper finish the job from range. Lose if
+  the clock runs out or the whole squad dies. No TP, no purchases — the six
+  men are all you get.
 
 ## How to play
 

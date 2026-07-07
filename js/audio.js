@@ -69,6 +69,10 @@ const SFX = (() => {
 
     rifle()   { noise(0.09, 0.5, 'bandpass', 1800 + Math.random() * 600, 2, 0.11); },
     mg()      { noise(0.06, 0.4, 'bandpass', 1400 + Math.random() * 500, 2, 0.07); },
+    hmg()     {
+      noise(0.09, 0.55, 'bandpass', 800 + Math.random() * 300, 2, 0.11);
+      tone(120, 0.07, 0.12, 'triangle', 70);
+    },
     sniper()  {
       noise(0.14, 0.65, 'bandpass', 1100, 1.5, 0.22);
       tone(220, 0.18, 0.1, 'triangle', 60);
@@ -95,6 +99,13 @@ const SFX = (() => {
       noise(0.08, 0.2, 'lowpass', 600, 1, 0.1);
     },
 
+    motor() {
+      tone(80 + Math.random() * 25, 0.14, 0.06, 'sawtooth', 55);
+    },
+    brake() {
+      tone(900, 0.25, 0.07, 'sawtooth', 250);
+      noise(0.2, 0.12, 'bandpass', 1800, 2, 0.22);
+    },
     alarm() {
       tone(660, 0.16, 0.2, 'square');
       setTimeout(() => tone(520, 0.2, 0.2, 'square'), 170);

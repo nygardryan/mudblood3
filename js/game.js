@@ -51,7 +51,7 @@ const UNIT_TYPES = {
   medic: {
     name: 'Medic', hp: 90, range: 140, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, speed: 46,
-    color: '#55684a', gun: 5, sfx: 'pistol',
+    color: '#60744f', gun: 5, sfx: 'pistol',
     desc: 'Patches up nearby wounded. Carries a sidearm.',
   },
   engineer: {
@@ -63,7 +63,7 @@ const UNIT_TYPES = {
   officer: {
     name: 'Officer', hp: 95, range: 150, dmg: 9, acc: 0.5,
     rof: 0.9, burst: 1, burstGap: 0, speed: 44,
-    color: '#5d6b42', gun: 5, sfx: 'pistol',
+    color: '#6b6d44', gun: 5, sfx: 'pistol',
     desc: 'Nearby men fire faster and straighter. Earns +1 TP / 10 s.',
   },
   flamer: {
@@ -72,6 +72,12 @@ const UNIT_TYPES = {
     color: '#4f5c3a', gun: 8, sfx: 'rifle',
     flame: { range: 130, arc: 0.45, dps: 38 },
     desc: 'M2 flamethrower. Burns everything in the cone — friend or foe.',
+  },
+  jeep: {
+    name: 'Jeep', hp: 250, range: 300, dmg: 13, acc: 0.42,
+    rof: 2.1, burst: 8, burstGap: 0.07, speed: 55,
+    color: '#4a5a3f', gun: 14, sfx: 'hmg', vehicle: true,
+    desc: 'Willys jeep, pintle-mounted .50 cal. Fast and hard-hitting, but unarmored.',
   },
   sherman: {
     name: 'Sherman', hp: 1000, range: 360, dmg: 0, acc: 0,
@@ -119,6 +125,16 @@ const ENEMY_TYPES = {
     color: '#5a5a48', gun: 8, sfx: 'rifle', priority: 3,
     flame: { range: 120, arc: 0.45, dps: 34 },
   },
+  ebike: {
+    name: 'Kradschützen', hp: 80, speed: 85, range: 0, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 5,
+    color: '#55554a', gun: 0, sfx: 'rifle', priority: 2, bike: true,
+  },
+  ejeep: {
+    name: 'Kübelwagen', hp: 220, speed: 45, range: 280, dmg: 11, acc: 0.38,
+    rof: 2.3, burst: 8, burstGap: 0.07, reward: 8,
+    color: '#57574a', gun: 14, sfx: 'hmg', priority: 3, vehicle: true,
+  },
   panzer: {
     name: 'Panzer IV', hp: 1200, speed: 8, range: 340, dmg: 0, acc: 0,
     rof: 4.5, burst: 1, burstGap: 0, reward: 15, shellDmg: 85,
@@ -159,6 +175,8 @@ const PLACEABLES = [
     desc: 'Buffs nearby men. Generates +1 TP every 10 s.' },
   { key: 'flamer', label: 'FLAMER', cost: 13, kind: 'unit', hotkey: 'F',
     desc: 'M2 flamethrower. Devastating cone of fire that burns friend and foe alike.' },
+  { key: 'jeep', label: 'JEEP', cost: 20, kind: 'unit', hotkey: 'J',
+    desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — engineer repairs, medics can\'t.' },
   { key: 'sherman', label: 'SHERMAN', cost: 40, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon, shrugs off small arms. Medics cannot repair it.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
@@ -287,6 +305,10 @@ function waveComposition(w) {
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
   if (w >= 10 && Math.random() < 0.35) out.push('eoff');
+  // a motorcycle team races ahead of some waves
+  if (w >= 7 && Math.random() < 0.2) out.push('ebike');
+  // a Kübelwagen gun car rolls in occasionally
+  if (w >= 8 && Math.random() < 0.15) out.push('ejeep');
   // snipers are a rare menace: one at most, and not often
   if (w >= 12 && Math.random() < 0.12) out.push('esniper');
   if (w >= 15 && Math.random() < 0.12) out.push('panzer');
@@ -453,7 +475,7 @@ function stampWreck(e) {
 
 function damageUnit(u, dmg, from) {
   u.hp -= dmg;
-  if (u.t.tank) {
+  if (u.t.tank || u.t.vehicle) {
     G.particles.push({
       x: u.x + rand(-10, 10), y: u.y + rand(-10, 10), vx: 0, vy: -20,
       ttl: 0.4, grav: 0, size: 2, color: '#c8b872',
@@ -466,6 +488,9 @@ function damageUnit(u, dmg, from) {
     if (u.t.tank) {
       stampWreck(u);
       explode(u.x, u.y, 50, 60, true);
+    } else if (u.t.vehicle) {
+      stampJeepWreck(u);
+      explode(u.x, u.y, 30, 45, false);
     } else {
       spawnCorpse(u);
       bloodSplat(u.x, u.y, 8);
@@ -494,7 +519,7 @@ function creditKill(u) {
 
 function damageEnemy(e, dmg, from) {
   e.hp -= dmg;
-  if (e.t.tank) {
+  if (e.t.tank || e.t.vehicle) {
     G.particles.push({
       x: e.x + rand(-10, 10), y: e.y + rand(-10, 10), vx: 0, vy: -20,
       ttl: 0.4, grav: 0, size: 2, color: '#c8b872',
@@ -511,6 +536,14 @@ function damageEnemy(e, dmg, from) {
     if (e.t.tank) {
       stampWreck(e);
       explode(e.x, e.y, 50, 60, true);
+    } else if (e.t.bike) {
+      // bike shot out from under the crew: it crashes with both men aboard
+      stampBike(e, true);
+      bloodSplat(e.x, e.y, 10);
+      SFX.scream();
+    } else if (e.t.vehicle) {
+      stampJeepWreck(e);
+      explode(e.x, e.y, 30, 45, false);
     } else {
       spawnCorpse(e);
       bloodSplat(e.x, e.y, 8);
@@ -524,8 +557,8 @@ function damageEnemy(e, dmg, from) {
 function fogMult() { return G.fog > 0 ? 0.6 : 1; }
 
 function coverBlock(target) {
-  // friendly units near sandbags dodge some incoming fire (tanks don't duck)
-  if (target.side !== 'us' || target.t.tank) return false;
+  // friendly units near sandbags dodge some incoming fire (vehicles don't duck)
+  if (target.side !== 'us' || target.t.tank || target.t.vehicle) return false;
   for (const s of G.sandbags) {
     // fortified bags stop more and shrug off hits better
     if (s.hp > 0 && dist(s, target) < (s.up ? 36 : 32)) {
@@ -730,6 +763,23 @@ function updateUnit(u, dt) {
     return;
   }
 
+  // the jeep's gunner keeps the .50 talking while the driver drives
+  if (u.t.vehicle) {
+    if (u.moveTo) {
+      const d = dist(u, u.moveTo);
+      if (d < 4) {
+        u.moveTo = null;
+      } else {
+        const ang = Math.atan2(u.moveTo.y - u.y, u.moveTo.x - u.x);
+        u.x += Math.cos(ang) * u.t.speed * dt;
+        u.y += Math.sin(ang) * u.t.speed * dt;
+      }
+    }
+    const vt = nearestEnemyInRange(u, u.t.range * fogMult());
+    runWeapon(u, vt, dt, unitBuffs(u));
+    return;
+  }
+
   if (u.moveTo) {
     const d = dist(u, u.moveTo);
     if (d < 4) {
@@ -829,8 +879,8 @@ function updateUnit(u, dt) {
       u.healTick = 0.4;
       let worst = null, frac = 1;
       for (const a of G.units) {
-        // no field-dressing a tank: medics cannot repair armor
-        if (a.dead || a === u || a.t.tank || a.hp >= a.maxhp) continue;
+        // no field-dressing machines: medics treat men, not metal
+        if (a.dead || a === u || a.t.tank || a.t.vehicle || a.hp >= a.maxhp) continue;
         if (dist(u, a) < 95) {
           const f = a.hp / a.maxhp;
           if (f < frac) { frac = f; worst = a; }
@@ -875,10 +925,10 @@ function updateEngineer(u, dt) {
     if (u.healed >= 150) { u.healed -= 150; gainXP(u); }
   };
 
-  // 1) welding a tank back together beats everything else
+  // 1) welding a vehicle back together beats everything else
   let tank = null;
   for (const a of G.units) {
-    if (a.dead || !a.t.tank || a.hp >= a.maxhp) continue;
+    if (a.dead || !(a.t.tank || a.t.vehicle) || a.hp >= a.maxhp) continue;
     if (dist(u, a) < R + 15 && (!tank || a.hp / a.maxhp < tank.hp / tank.maxhp)) tank = a;
   }
   if (tank) {
@@ -1018,6 +1068,8 @@ function updateEnemy(e, dt) {
   const range = e.t.range * fogMult();
 
   if (e.t.tank) { updateTank(e, dt); return; }
+  if (e.t.bike) { updateBike(e, dt); return; }
+  if (e.t.vehicle) { updateEnemyJeep(e, dt); return; }
 
   // discipline only goes so far: every German periodically stops shooting and
   // pushes up the field, so long-range shooters eventually close the distance
@@ -1097,6 +1149,87 @@ function updateTank(e, dt) {
   updateTankCombat(e, dt);
 }
 
+// ---- motorcycle & sidecar: races down the field, then the crew dismounts
+
+const BIKE_CREW_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren', 'emg', 'eflame'];
+
+function updateBike(e, dt) {
+  e.sfxT = (e.sfxT || 0) - dt;
+  if (e.sfxT <= 0) { e.sfxT = 0.5; SFX.motor(); }
+
+  // barbed wire ends the ride on the spot
+  let hitWire = false;
+  for (const wr of G.wires) {
+    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
+      hitWire = true;
+      wr.hp -= 30;
+      break;
+    }
+  }
+
+  // dismount at rifle range of the defenders; if nobody contests the ride,
+  // it keeps going deep into the backfield before dropping the crew
+  if (hitWire || nearestUnitInRange(e, 230 * fogMult()) || e.y > H - 60) {
+    dismountBike(e);
+    return;
+  }
+
+  e.x = clamp(e.x + Math.sin(e.y * 0.02) * 22 * dt, 20, W - 20);
+  e.y += e.t.speed * dt;
+}
+
+// Kübelwagen: drives at the line, halts in HMG range and hoses the defenders
+function updateEnemyJeep(e, dt) {
+  e.sfxT = (e.sfxT || 0) - dt;
+  const target = nearestUnitInRange(e, e.t.range * fogMult());
+  if (target) {
+    runWeapon(e, target, dt, null);
+    return;
+  }
+  if (e.sfxT <= 0) { e.sfxT = 0.6; SFX.motor(); }
+  let speed = e.t.speed;
+  for (const wr of G.wires) {
+    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
+      speed *= 0.25;
+      wr.hp -= 8 * dt;
+      break;
+    }
+  }
+  e.x = clamp(e.x + Math.sin(e.y * 0.015) * 12 * dt, 20, W - 20);
+  e.y += speed * dt;
+  e.face = Math.PI / 2;
+}
+
+function dismountBike(e) {
+  e.dead = true;            // the vehicle leaves play; not a kill, no reward
+  stampBike(e, false);
+  SFX.brake();
+  // two-man crew, each a random trooper type
+  for (const off of [-13, 13]) {
+    const crew = makeEnemy(pick(BIKE_CREW_POOL),
+      clamp(e.x + off, 14, W - 14), e.y + rand(-6, 6));
+    crew.cd = rand(0.4, 1.0);   // a beat to shoulder their weapons
+    G.enemies.push(crew);
+  }
+}
+
+// parked (dismounted) or wrecked (shot up) bike left on the field
+function stampBike(e, wrecked) {
+  gctx.save();
+  gctx.translate(e.x, e.y);
+  gctx.rotate(wrecked ? rand(-0.9, 0.9) : rand(-0.15, 0.15));
+  gctx.globalAlpha = 0.9;
+  gctx.fillStyle = wrecked ? '#3a3831' : '#4a4a3f';
+  gctx.fillRect(-5, -10, 4, 20);                 // bike frame
+  gctx.fillRect(3, -5, 6, 11);                   // sidecar tub
+  gctx.fillStyle = '#2c2b24';
+  gctx.fillRect(-5.5, -11, 5, 4);                // front wheel
+  gctx.fillRect(-5.5, 7, 5, 4);                  // rear wheel
+  gctx.fillRect(3.5, 4, 5, 3);                   // sidecar wheel
+  gctx.restore();
+  gctx.globalAlpha = 1;
+}
+
 // ============================================================ main update
 
 function update(dt) {
@@ -1135,7 +1268,7 @@ function update(dt) {
     if (m.dead) continue;
     for (const e of G.enemies) {
       if (e.dead) continue;
-      const trig = e.t.tank ? 22 : 11;
+      const trig = e.t.tank ? 22 : e.t.vehicle ? 16 : 11;
       if (dist(m, e) < trig) {
         m.dead = true;
         explode(m.x, m.y, 44, 130, false);
@@ -1268,6 +1401,13 @@ function paintGround() {
 
 function drawSoldier(a) {
   const c = ctx;
+  const type = a.type;
+  const us = a.side === 'us';
+  const isSniper = type === 'sniper' || type === 'esniper';
+  const isMG = type === 'gunner' || type === 'emg';
+  const isSMG = type === 'engineer' || type === 'esmg';
+  const isOfficer = type === 'officer' || type === 'eoff';
+  const fx = Math.cos(a.face), fy = Math.sin(a.face);
   c.save();
   c.translate(a.x, a.y);
 
@@ -1275,35 +1415,146 @@ function drawSoldier(a) {
   c.fillStyle = 'rgba(0,0,0,0.25)';
   c.beginPath(); c.ellipse(0, 3, 8, 4, 0, 0, 7); c.fill();
 
-  // gun
-  c.strokeStyle = '#2a2a22';
-  c.lineWidth = 2;
+  // ---- weapon: silhouette varies by class
+  c.strokeStyle = '#26261e';
+  c.lineWidth = isMG ? 3 : isSMG ? 2.6 : isSniper ? 1.6 : 2;
   c.beginPath();
-  c.moveTo(Math.cos(a.face) * 2, Math.sin(a.face) * 2);
-  c.lineTo(Math.cos(a.face) * a.t.gun, Math.sin(a.face) * a.t.gun);
+  c.moveTo(fx * 2, fy * 2);
+  c.lineTo(fx * a.t.gun, fy * a.t.gun);
   c.stroke();
+  if (isMG) {
+    // bipod prongs at the muzzle
+    c.lineWidth = 1.2;
+    for (const s of [-0.55, 0.55]) {
+      c.beginPath();
+      c.moveTo(fx * a.t.gun, fy * a.t.gun);
+      c.lineTo(Math.cos(a.face + s) * (a.t.gun + 3.5), Math.sin(a.face + s) * (a.t.gun + 3.5));
+      c.stroke();
+    }
+  }
+  if (isSMG) {
+    // box magazine hanging under the gun
+    c.lineWidth = 2.4;
+    c.beginPath();
+    c.moveTo(fx * (a.t.gun * 0.55), fy * (a.t.gun * 0.55));
+    c.lineTo(fx * (a.t.gun * 0.55) - fy * 3, fy * (a.t.gun * 0.55) + fx * 3);
+    c.stroke();
+  }
+  if (isSniper) {
+    // scope block midway down the barrel
+    c.fillStyle = '#1c1c16';
+    c.beginPath(); c.arc(fx * (a.t.gun * 0.5), fy * (a.t.gun * 0.5), 1.7, 0, 7); c.fill();
+  }
+  if (a.t.flame) {
+    // orange pilot light at the nozzle
+    c.fillStyle = '#ff9a2a';
+    c.beginPath(); c.arc(fx * (a.t.gun + 1), fy * (a.t.gun + 1), 1.5, 0, 7); c.fill();
+  }
 
-  // body
+  // ---- body
   c.fillStyle = a.t.color;
   c.beginPath(); c.ellipse(0, 0, 6.5, 5, a.face, 0, 7); c.fill();
-
-  // helmet
-  c.fillStyle = a.side === 'us' ? '#5b6b4a' : '#61615a';
-  c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill();
-  c.strokeStyle = 'rgba(0,0,0,0.35)';
-  c.lineWidth = 1;
-  c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.stroke();
-
-  // medic cross / officer cap dot
-  if (a.type === 'medic') {
-    c.fillStyle = '#fff';
-    c.fillRect(-3, -2.2, 6, 2.2); c.fillRect(-1.2, -4, 2.4, 6);
-    c.fillStyle = '#c22';
-    c.fillRect(-2.4, -1.7, 4.8, 1.2); c.fillRect(-0.7, -3.4, 1.4, 4.6);
+  if (isSniper) {
+    // ghillie mottle
+    c.fillStyle = 'rgba(30,36,22,0.55)';
+    c.beginPath(); c.ellipse(-2, 1.5, 2.4, 1.5, 0.5, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(2.5, -1, 2, 1.3, -0.7, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(0.5, 3, 1.7, 1.1, 0.2, 0, 7); c.fill();
   }
-  if (a.type === 'officer' || (a.t && a.t.aura)) {
+  if (isMG) {
+    // ammo bandolier slung across the chest
+    c.strokeStyle = us ? '#8a7a48' : '#4a4a3e';
+    c.lineWidth = 1.6;
+    c.beginPath();
+    c.moveTo(-fy * 5 - fx * 2, fx * 5 - fy * 2);
+    c.lineTo(fy * 5 - fx * 2, -fx * 5 - fy * 2);
+    c.stroke();
+  }
+  if (type === 'esmg') {
+    // stormtrooper y-straps
+    c.strokeStyle = '#3c3c33';
+    c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(-3, -3); c.lineTo(0, 2); c.lineTo(3, -3); c.stroke();
+  }
+
+  // ---- class kit
+  if (us && a.t.grenade) {
+    // frags clipped to his webbing
+    c.fillStyle = '#232920';
+    c.beginPath(); c.arc(-4.5, 3, 1.9, 0, 7); c.fill();
+    c.beginPath(); c.arc(-1.2, 4.7, 1.9, 0, 7); c.fill();
+    c.strokeStyle = '#111';
+    c.lineWidth = 0.7;
+    c.beginPath(); c.arc(-4.5, 3, 1.9, 0, 7); c.stroke();
+  }
+  if (type === 'egren') {
+    // stick grenade at the belt
+    c.strokeStyle = '#6b5330';
+    c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(-6, 2); c.lineTo(-2, 5.5); c.stroke();
+    c.fillStyle = '#33332a';
+    c.beginPath(); c.arc(-6.5, 1.5, 1.8, 0, 7); c.fill();
+  }
+  if (a.t.rocket) {
+    // launcher tube across the shoulders, open ends visible
+    c.strokeStyle = '#5a5c42';
+    c.lineWidth = 3.2;
+    c.beginPath(); c.moveTo(-8, -4); c.lineTo(8, -6.5); c.stroke();
+    c.fillStyle = '#1c1c16';
+    c.beginPath(); c.arc(8, -6.5, 1.6, 0, 7); c.fill();
+  }
+  if (a.t.mortar) {
+    // baseplate and angled tube beside him
+    c.fillStyle = '#2f3328';
+    c.beginPath(); c.ellipse(-7.5, 4.5, 4, 2.3, 0, 0, 7); c.fill();
+    c.strokeStyle = '#5a5c42';
+    c.lineWidth = 3;
+    c.beginPath(); c.moveTo(-7.5, 4.5); c.lineTo(-4, -6); c.stroke();
+    c.fillStyle = '#1c1c16';
+    c.beginPath(); c.arc(-4, -6, 1.5, 0, 7); c.fill();
+  }
+  if (a.t.flame) {
+    // twin fuel tanks on his back
+    c.fillStyle = '#6b3d20';
+    c.beginPath(); c.ellipse(-6, -2, 2.1, 3.8, 0, 0, 7); c.fill();
+    c.fillStyle = '#38392c';
+    c.beginPath(); c.ellipse(-6, 3, 2.1, 3.8, 0, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 0.8;
+    c.beginPath(); c.ellipse(-6, -2, 2.1, 3.8, 0, 0, 7); c.stroke();
+    c.beginPath(); c.ellipse(-6, 3, 2.1, 3.8, 0, 0, 7); c.stroke();
+  }
+
+  // ---- headgear
+  if (isOfficer) {
+    // peaked cap with a brim toward the facing
+    c.fillStyle = us ? '#3f4a2e' : '#3c3c33';
+    c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill();
+    c.fillStyle = 'rgba(0,0,0,0.4)';
+    c.beginPath();
+    c.ellipse(fx * 3.2, -1 + fy * 3.2, 2.6, 1.4, a.face, 0, 7);
+    c.fill();
     c.fillStyle = '#ffd94a';
-    c.beginPath(); c.arc(0, -1, 1.6, 0, 7); c.fill();
+    c.beginPath(); c.arc(0, -1, 1.5, 0, 7); c.fill();
+  } else if (isSniper) {
+    // hood, no shine, no outline — he doesn't want to be seen
+    c.fillStyle = us ? '#2e3823' : '#3f3f34';
+    c.beginPath(); c.arc(0, -1, 4.0, 0, 7); c.fill();
+  } else if (type === 'medic') {
+    // white helmet with the red cross
+    c.fillStyle = '#ddd8c8';
+    c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.3)';
+    c.lineWidth = 1;
+    c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.stroke();
+    c.fillStyle = '#b8261c';
+    c.fillRect(-2.4, -1.7, 4.8, 1.4); c.fillRect(-0.7, -3.4, 1.4, 4.8);
+  } else {
+    c.fillStyle = us ? '#5b6b4a' : '#61615a';
+    c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 1;
+    c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.stroke();
   }
   if (a.type === 'engineer') {
     // crossed-tools mark on the helmet
@@ -1311,35 +1562,6 @@ function drawSoldier(a) {
     c.lineWidth = 1.1;
     c.beginPath(); c.moveTo(-2.4, -3.4); c.lineTo(2.4, 1.4); c.stroke();
     c.beginPath(); c.moveTo(2.4, -3.4); c.lineTo(-2.4, 1.4); c.stroke();
-  }
-  if (a.side === 'us' && a.t.grenade) {
-    // grenades clipped to his webbing
-    c.fillStyle = '#232920';
-    c.beginPath(); c.arc(-4.5, 3, 1.7, 0, 7); c.fill();
-    c.beginPath(); c.arc(-1.5, 4.5, 1.7, 0, 7); c.fill();
-  }
-  if (a.t.rocket) {
-    // launcher tube across the shoulders
-    c.strokeStyle = '#3a3d2e';
-    c.lineWidth = 3;
-    c.beginPath(); c.moveTo(-7, -4); c.lineTo(7, -6); c.stroke();
-  }
-  if (a.t.mortar) {
-    // baseplate and tube beside him
-    c.fillStyle = '#2f3328';
-    c.beginPath(); c.ellipse(-7, 4, 3.5, 2, 0, 0, 7); c.fill();
-    c.strokeStyle = '#3a3d2e';
-    c.lineWidth = 2.5;
-    c.beginPath(); c.moveTo(-7, 4); c.lineTo(-4, -5); c.stroke();
-  }
-  if (a.t.flame) {
-    // twin fuel tanks on his back
-    c.fillStyle = '#38392c';
-    c.beginPath(); c.ellipse(-6, -2, 2, 3.6, 0, 0, 7); c.fill();
-    c.beginPath(); c.ellipse(-6, 3, 2, 3.6, 0, 0, 7); c.fill();
-    c.strokeStyle = 'rgba(0,0,0,0.3)';
-    c.lineWidth = 0.8;
-    c.beginPath(); c.ellipse(-6, -2, 2, 3.6, 0, 0, 7); c.stroke();
   }
 
   c.restore();
@@ -1467,6 +1689,127 @@ function drawTank(a) {
   }
 }
 
+function stampJeepWreck(a) {
+  gctx.save();
+  gctx.translate(a.x, a.y);
+  gctx.rotate(rand(-0.5, 0.5));
+  gctx.fillStyle = '#33322a';
+  gctx.fillRect(-7, -12, 14, 24);
+  gctx.fillStyle = '#211f1a';
+  gctx.beginPath(); gctx.arc(0, -2, 5, 0, 7); gctx.fill();
+  gctx.restore();
+}
+
+function drawJeep(a) {
+  const us = a.side === 'us';
+  const c = ctx;
+  c.save();
+  c.translate(a.x, a.y);
+  // shadow
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  c.beginPath(); c.ellipse(0, 3, 11, 14, 0, 0, 7); c.fill();
+  // wheels
+  c.fillStyle = '#26251f';
+  for (const [wx, wy] of [[-8, -8], [8, -8], [-8, 8], [8, 8]]) c.fillRect(wx - 1.5, wy - 3, 3, 6);
+  // hull
+  c.fillStyle = a.t.color;
+  c.fillRect(-7, -12, 14, 24);
+  c.strokeStyle = us ? '#39462f' : '#3c3c32';
+  c.lineWidth = 1.2;
+  c.strokeRect(-7, -12, 14, 24);
+  // hood seam + windshield (front faces the enemy for us, downfield for them)
+  const front = us ? -1 : 1;
+  c.strokeStyle = 'rgba(0,0,0,0.35)';
+  c.beginPath(); c.moveTo(-7, front * 5); c.lineTo(7, front * 5); c.stroke();
+  c.fillStyle = 'rgba(20,22,18,0.5)';
+  c.fillRect(-5.5, front * 3 - 1, 11, 2);
+  if (us) {
+    c.fillStyle = 'rgba(230,230,220,0.85)';
+    c.beginPath(); c.arc(0, 7, 2, 0, 7); c.fill();
+  }
+  // pintle .50 cal and gunner
+  c.rotate(a.face);
+  c.strokeStyle = '#1c1c16';
+  c.lineWidth = 2.6;
+  c.beginPath(); c.moveTo(2, 0); c.lineTo(a.t.gun + 2, 0); c.stroke();
+  c.rotate(-a.face);
+  c.fillStyle = us ? '#5b6b4a' : '#61615a';
+  c.beginPath(); c.arc(0, 0, 3.2, 0, 7); c.fill();
+  c.restore();
+
+  if (a.hp < a.maxhp) {
+    const f = clamp(a.hp / a.maxhp, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(a.x - 11, a.y - 19, 22, 3);
+    ctx.fillStyle = us ? '#7ec850' : '#c0562e';
+    ctx.fillRect(a.x - 11, a.y - 19, 22 * f, 3);
+  }
+
+  // crew chevrons / selection for our side
+  if (us && a.rank > 0) {
+    ctx.strokeStyle = '#ffd94a';
+    ctx.lineWidth = 1;
+    let sx = a.x - (a.rank * 5 - 2) / 2;
+    const sy = a.y - 23;
+    for (let i = 0; i < a.rank; i++) {
+      ctx.beginPath();
+      ctx.moveTo(sx, sy); ctx.lineTo(sx + 1.5, sy - 2.5); ctx.lineTo(sx + 3, sy);
+      ctx.stroke();
+      sx += 5;
+    }
+  }
+  if (us && G.selected === a) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.arc(a.x, a.y, 20, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = 'bold 10px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' + a.xp + ' KILLS';
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillText(label, a.x + 1, a.y + 31);
+    ctx.fillStyle = '#ffe98a';
+    ctx.fillText(label, a.x, a.y + 30);
+  }
+}
+
+function drawBike(e) {
+  const c = ctx;
+  const lean = Math.sin(e.y * 0.02) * 0.12; // matches the weave
+  c.save();
+  c.translate(e.x, e.y);
+  c.rotate(lean);
+  // shadow
+  c.fillStyle = 'rgba(0,0,0,0.25)';
+  c.beginPath(); c.ellipse(1, 3, 10, 7, 0, 0, 7); c.fill();
+  // wheels
+  c.fillStyle = '#26251f';
+  c.fillRect(-5.5, -11, 5, 4);
+  c.fillRect(-5.5, 7, 5, 4);
+  c.fillRect(3.5, 4, 5, 3);
+  // frame and sidecar
+  c.fillStyle = e.t.color;
+  c.fillRect(-5, -10, 4, 20);
+  c.fillRect(3, -5, 6, 11);
+  c.strokeStyle = '#3a3a30';
+  c.lineWidth = 1;
+  c.strokeRect(3, -5, 6, 11);
+  // rider and passenger helmets
+  c.fillStyle = '#61615a';
+  c.beginPath(); c.arc(-3, -1, 3, 0, 7); c.fill();
+  c.beginPath(); c.arc(6, -1, 2.6, 0, 7); c.fill();
+  c.restore();
+
+  if (e.hp < e.maxhp) {
+    const f = clamp(e.hp / e.maxhp, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(e.x - 10, e.y - 17, 20, 3);
+    ctx.fillStyle = '#c0562e';
+    ctx.fillRect(e.x - 10, e.y - 17, 20 * f, 3);
+  }
+}
+
 function drawDefenses() {
   for (const wr of G.wires) {
     ctx.save();
@@ -1563,10 +1906,13 @@ function draw() {
 
   for (const e of G.enemies) {
     if (e.t.tank) drawTank(e);
+    else if (e.t.bike) drawBike(e);
+    else if (e.t.vehicle) drawJeep(e);
     else drawSoldier(e);
   }
   for (const u of G.units) {
     if (u.t.tank) drawTank(u);
+    else if (u.t.vehicle) drawJeep(u);
     else drawSoldier(u);
   }
 
@@ -1709,9 +2055,9 @@ function placementValid(p, x, y) {
   if (p.kind === 'support') return y > 20 && y < H - 10;
   if (y < DEPLOY_Y + 12 || y > H - 14 || x < 16 || x > W - 16) return false;
   if (p.kind === 'unit') {
-    const tankInvolved = k => k === 'sherman';
+    const bulk = k => k === 'sherman' ? 34 : k === 'jeep' ? 26 : 16;
     for (const u of G.units) {
-      const gap = (tankInvolved(p.key) || u.t.tank) ? 34 : 16;
+      const gap = Math.max(bulk(p.key), u.t.tank ? 34 : u.t.vehicle ? 26 : 16);
       if (dist(u, { x, y }) < gap) return false;
     }
   }
@@ -1761,10 +2107,10 @@ canvas.addEventListener('click', e => {
 
   if (placing) { place(placing, x, y); return; }
 
-  // select own soldier (tanks are a bigger click target)
+  // select own soldier (vehicles are a bigger click target)
   let picked = null;
   for (const u of G.units) {
-    if (dist(u, { x, y }) < (u.t.tank ? 26 : 14)) { picked = u; break; }
+    if (dist(u, { x, y }) < (u.t.tank ? 26 : u.t.vehicle ? 20 : 14)) { picked = u; break; }
   }
   if (picked) {
     G.selected = picked;

@@ -46,6 +46,7 @@ collapses and it's game over. There is no victory, only a higher wave count.
 | Engineer | 14 | Repairs tanks and emplacements; fortifies nearby sandbags/wire (more HP, better effect). SMG, close range only. |
 | Officer | 15 | Nearby men fire faster and straighter; generates TP. |
 | Flamer | 13 | M2 flamethrower. Devastating cone of fire — burns friend and foe alike. |
+| Jeep | 20 | Willys jeep with a .50 cal HMG. Fast, fires on the move, unarmored — engineer repairs it, medics can't. |
 | Sherman | 40 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
 | Wire | 4 | Slows the advance until it wears out. |
 | Sandbags | 5 | Soldiers behind them dodge half of incoming fire. |
@@ -71,7 +72,11 @@ veteran is worth more than anything you can buy.
 Riflemen at first, then stormtroopers, grenadiers, MG teams, flamethrowers who
 burn anything in front of them (including their own men), officers who drive
 their men harder, the rare sniper — and from wave 15 on, the occasional
-**Panzer IV**.
+**Panzer IV**. From wave 7, watch for **motorcycle sidecar teams** that race
+down the field and drop a two-man crew (random types) at rifle range. Shoot
+the bike early and the crew dies with it; barbed wire ends the ride instantly.
+From wave 8 the **Kübelwagen** gun car may roll in — it halts at range and
+hoses your line with an MG42 until someone deals with it.
 Small arms bounce off its armor; use mines, mortars, or artillery.
 
 Random battlefield events keep you honest: enemy barrages, fog, strafing runs from

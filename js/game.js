@@ -28,6 +28,13 @@ const UNIT_TYPES = {
     color: '#44583c', gun: 6, sfx: 'rifle', grenade: true,
     desc: 'Carbine most of the time; a heavy frag now and then.',
   },
+  shotgunner: {
+    name: 'Shotgunner', hp: 145, range: 0, dmg: 0, acc: 0,
+    rof: 1.5, burst: 1, burstGap: 0, speed: 34,
+    color: '#424f38', gun: 9, sfx: 'shotgun',
+    shotgun: { range: 130, arc: 0.52, pellets: 8, dmg: 11, spread: 0.45 },
+    desc: 'M97 trench gun and steel plate. Buckshot shreds clusters up close.',
+  },
   bazooka: {
     name: 'Bazooka', hp: 90, range: 120, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, speed: 40,
@@ -43,7 +50,7 @@ const UNIT_TYPES = {
     desc: 'Portable 60mm mortar. Indirect fire at range.',
   },
   sniper: {
-    name: 'Sniper', hp: 85, range: 465, dmg: 46, acc: 0.72,
+    name: 'Sniper', hp: 85, range: 372, dmg: 46, acc: 0.72,
     rof: 2.6, burst: 1, burstGap: 0, speed: 38,
     color: '#38442e', gun: 12, sfx: 'sniper',
     desc: 'Springfield scoped rifle. Picks off officers and MGs first.',
@@ -115,7 +122,7 @@ const ENEMY_TYPES = {
     color: '#4f4f45', gun: 5, sfx: 'pistol', priority: 5, aura: true,
   },
   esniper: {
-    name: 'Sniper', hp: 55, speed: 14, range: 390, dmg: 39, acc: 0.66,
+    name: 'Sniper', hp: 55, speed: 14, range: 312, dmg: 39, acc: 0.66,
     rof: 3.4, burst: 1, burstGap: 0, reward: 4,
     color: '#525244', gun: 12, sfx: 'sniper', priority: 4,
   },
@@ -166,6 +173,8 @@ const PLACEABLES = [
     desc: 'BAR gunner. Long range automatic fire.' },
   { key: 'grenadier', label: 'GRENADIER', cost: 8, kind: 'unit', hotkey: '3',
     desc: 'Carbine rifleman who lobs a devastating frag every 11-16 s. Blast can hurt your own men.' },
+  { key: 'shotgunner', label: 'SHOTGUN', cost: 6, kind: 'unit', hotkey: 'G',
+    desc: 'M97 trench gun and body armor. High HP; each blast can hit every enemy in the cone.' },
   { key: 'bazooka', label: 'BAZOOKA', cost: 11, kind: 'unit', hotkey: 'B',
     desc: 'M1A1 rocket launcher. Wildly inaccurate at range, but armor is a big target. Splash hurts friends.' },
   { key: 'mortarman', label: 'MORTARMAN', cost: 14, kind: 'unit', hotkey: 'M',
@@ -244,7 +253,7 @@ function newGame() {
     texts: [],       // floating notices (promotions)
     corpses: [],     // fallen soldiers, cleared away after CORPSE_TTL
 
-    spawnTimer: 5,
+    spawnTimer: 6,
     tpTrickle: 8,
     officerTick: 10,
     eventTimer: rand(40, 60),
@@ -273,6 +282,7 @@ function makeUnit(type, x, y) {
     rocketCd: rand(1, 2),
     mortCd: rand(2, 4),
     xp: 0, rank: 0,
+    prone: 0, proneCd: 0,
   };
 }
 
@@ -287,6 +297,7 @@ function makeEnemy(type, x, y) {
     grenCd: rand(2, 4),
     turret: Math.PI / 2,
     pushT: 0, pushCd: rand(2, 5),
+    prone: 0, proneCd: 0,
   };
 }
 
@@ -301,27 +312,43 @@ function earnTP(amount) {
 
 // ============================================================ waves & spawning
 
+function wavesPast99(w) {
+  return Math.max(0, w - 99);
+}
+
+function spawnIntervalForWave(w) {
+  if (w <= 99) return clamp(16 - w * 0.2, 6, 16);
+  return clamp(6 - wavesPast99(w) * 0.06, 3, 16);
+}
+
 function waveComposition(w) {
-  const size = Math.min(2 + Math.floor(w / 3) + (Math.random() < 0.4 ? 1 : 0), 8);
+  const late = wavesPast99(w);
+  const size = Math.min(
+    2 + Math.floor(w / 4) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 5),
+    7 + Math.floor(late / 10),
+  );
   const pool = ['erifle', 'erifle', 'erifle'];
   if (w >= 4) pool.push('esmg', 'esmg');
-  if (w >= 6) pool.push('egren');
-  if (w >= 8) pool.push('emg');
-  if (w >= 9) pool.push('eflame');
+  if (w >= 7) pool.push('egren');
+  if (w >= 10) pool.push('emg');
+  if (w >= 12) pool.push('eflame');
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
-  if (w >= 10 && Math.random() < 0.35) out.push('eoff');
+  if (w >= 12 && Math.random() < 0.30 + late * 0.004) out.push('eoff');
   // a motorcycle team races ahead of some waves; as German logistics spin
-  // up, bikes ramp from 20% at wave 7 to a 90% cap at wave 99
-  const bikeChance = Math.min(0.9, 0.2 + (w - 7) * (0.7 / 92));
-  if (w >= 7 && Math.random() < bikeChance) out.push('ebike');
-  // a Kübelwagen gun car rolls in occasionally
-  if (w >= 8 && Math.random() < 0.15) out.push('ejeep');
+  // up, bikes ramp from 20% at wave 9 to a 90% cap at wave 99, then keep climbing
+  const bikeChance = late > 0
+    ? Math.min(1, 0.9 + late * 0.006)
+    : Math.min(0.9, w >= 9 ? 0.2 + (w - 9) * (0.7 / 90) : 0);
+  if (w >= 9 && Math.random() < bikeChance) out.push('ebike');
+  const vehChance = 0.10 * (1 + late * 0.04);
+  // a Kübelwagen gun car rolls in occasionally — not until mid-game
+  if (w >= 16 && Math.random() < vehChance) out.push('ejeep');
   // an armored halftrack hauls a full squad to the front
-  if (w >= 11 && Math.random() < 0.12) out.push('ehalftrack');
+  if (w >= 18 && Math.random() < vehChance) out.push('ehalftrack');
   // snipers are a rare menace: one at most, and not often
-  if (w >= 12 && Math.random() < 0.12) out.push('esniper');
-  if (w >= 15 && Math.random() < 0.12) out.push('panzer');
+  if (w >= 14 && Math.random() < vehChance) out.push('esniper');
+  if (w >= 25 && Math.random() < vehChance) out.push('panzer');
   return out;
 }
 
@@ -333,7 +360,7 @@ function spawnWave() {
     const x = clamp(cx + rand(-90, 90), 30, W - 30);
     G.enemies.push(makeEnemy(type, x, rand(-70, -20)));
   }
-  G.spawnTimer = clamp(14 - G.wave * 0.25, 6, 14);
+  G.spawnTimer = spawnIntervalForWave(G.wave);
   if (G.wave === 1) showBanner('HERE THEY COME');
 }
 
@@ -430,7 +457,9 @@ function explode(x, y, r, dmg, big, by) {
   const hitArea = (e) => {
     const d = dist(e, { x, y });
     if (d > r) return 0;
-    return dmg * (1 - (d / r) * 0.7) * rand(0.8, 1.2);
+    let hd = dmg * (1 - (d / r) * 0.7) * rand(0.8, 1.2);
+    if (e.prone > 0) hd *= 0.5;   // flat on the ground, under most of the blast
+    return hd;
   };
   for (const e of G.enemies) {
     let hd = hitArea(e);
@@ -622,12 +651,16 @@ function damageUnit(u, dmg, from) {
     }
     if (G.selected === u) G.selected = null;
   }
+  // taking real fire (bullets, shells) sends a man diving; flame's tiny
+  // per-tick damage is handled in flameSpray with a time-scaled roll
+  if (dmg >= 3) tryGoProne(u, 0.65);
 }
 
 function gainXP(u) {
   u.xp++;
   const next = RANKS[u.rank + 1];
-  if (next && u.xp >= next.kills) {
+  const need = next && (u.t.tank ? next.kills * 5 : next.kills);
+  if (next && u.xp >= need) {
     u.rank++;
     u.hp = Math.min(u.maxhp, u.hp + 15);   // a promotion is good for morale
     SFX.promote();
@@ -677,11 +710,23 @@ function damageEnemy(e, dmg, from) {
       if (Math.random() < 0.4) SFX.scream();
     }
   }
+  if (dmg >= 3) tryGoProne(e, 0.65);
 }
 
 // ============================================================ shooting
 
 function fogMult() { return G.fog > 0 ? 0.6 : 1; }
+
+// infantry under fire hit the dirt: prone men can't shoot but dodge 60% of
+// incoming rounds. Veterans get back up fast; green troops stay down a while.
+function tryGoProne(u, chance) {
+  if (!u || u.dead || !u.t) return;
+  if (u.t.tank || u.t.vehicle || u.t.apc || u.t.bike) return;   // crews don't dive
+  if (u.prone > 0 || u.proneCd > 0 || u.moveTo) return;          // running men keep running
+  if (Math.random() >= chance) return;
+  const rank = u.rank || 0;   // Germans carry no rank and eat dirt the longest
+  u.prone = rand(2.5, 4.5) * (1 - rank * 0.12);
+}
 
 function coverBlock(target) {
   // friendly units near sandbags dodge some incoming fire (vehicles don't duck)
@@ -715,6 +760,12 @@ function fireShot(shooter, target, opts) {
   G.tracers.push({ x1: mx, y1: my, x2: hx, y2: hy, ttl: 0.06 });
 
   if (hit) {
+    // a prone man is a small target: 60% of rounds kick dirt over him.
+    // Rolled separately from sandbag cover, so the two stack multiplicatively.
+    if (target.prone > 0 && Math.random() < 0.6) {
+      G.particles.push({ x: hx + rand(-6, 6), y: hy + 4, vx: rand(-25, 25), vy: rand(-55, -20), ttl: 0.3, grav: 200, size: 1.3, color: '#6e6046' });
+      return;
+    }
     if (coverBlock(target)) {
       G.particles.push({ x: hx, y: hy + 6, vx: rand(-20, 20), vy: -40, ttl: 0.3, grav: 150, size: 1.5, color: '#b8a878' });
       return;
@@ -726,6 +777,8 @@ function fireShot(shooter, target, opts) {
     else damageEnemy(target, dmg, shooter);
   } else {
     G.particles.push({ x: hx, y: hy, vx: rand(-15, 15), vy: rand(-50, -10), ttl: 0.25, grav: 200, size: 1.2, color: '#6e6046' });
+    // a near miss is warning enough to hit the dirt
+    tryGoProne(target, 0.4);
   }
 }
 
@@ -828,9 +881,65 @@ function flameSpray(actor, dt) {
     // creditKill ignores German shooters, so passing actor is always safe
     if (a2.side === 'us') damageUnit(a2, dmg, actor);
     else damageEnemy(a2, dmg, actor);
+    // men dive under the fire stream within a second or so
+    tryGoProne(a2, 1.5 * dt);
   };
   for (const u of G.units) burn(u);
   for (const e of G.enemies) burn(e);
+}
+
+// pump-action buckshot: one blast, every enemy caught in the cone takes
+// pellet damage scaled by distance and how centered they are in the spread
+function fireShotgun(actor, buffs) {
+  const sg = actor.t.shotgun;
+  const range = sg.range * fogMult();
+  const arc = sg.arc * (1 + (buffs && buffs.accBonus ? buffs.accBonus * 0.25 : 0));
+  const mx = actor.x + Math.cos(actor.face) * (actor.t.gun + 2);
+  const my = actor.y + Math.sin(actor.face) * (actor.t.gun + 2);
+
+  SFX.shotgun();
+  G.flashes.push({ x: mx, y: my, r: 8, ttl: 0.07, max: 0.07 });
+  for (let i = 0; i < sg.pellets; i++) {
+    const a = actor.face + rand(-sg.spread, sg.spread);
+    const d = rand(25, range);
+    G.tracers.push({
+      x1: mx, y1: my,
+      x2: actor.x + Math.cos(a) * d, y2: actor.y + Math.sin(a) * d,
+      ttl: 0.05,
+    });
+  }
+  G.particles.push({
+    x: mx + Math.cos(actor.face) * 10, y: my + Math.sin(actor.face) * 10,
+    vx: Math.cos(actor.face) * rand(30, 55), vy: Math.sin(actor.face) * rand(30, 55),
+    ttl: 0.18, grav: 90, size: rand(1.5, 2.5), color: '#c8b898',
+  });
+
+  const rank = actor.rank || 0;
+  for (const e of G.enemies) {
+    if (e.dead || e.y < 0) continue;
+    const d = dist(actor, e);
+    if (d > range + 8) continue;
+    const ang = Math.atan2(e.y - actor.y, e.x - actor.x);
+    const off = Math.abs(angleDiff(ang, actor.face));
+    if (off > arc) continue;
+
+    if (e.prone > 0 && Math.random() < 0.6) {
+      G.particles.push({ x: e.x + rand(-6, 6), y: e.y + 4, vx: rand(-25, 25), vy: rand(-55, -20), ttl: 0.3, grav: 200, size: 1.3, color: '#6e6046' });
+      continue;
+    }
+    if (coverBlock(e)) {
+      G.particles.push({ x: e.x, y: e.y + 6, vx: rand(-20, 20), vy: -40, ttl: 0.3, grav: 150, size: 1.5, color: '#b8a878' });
+      continue;
+    }
+
+    const centered = 1 - off / arc;
+    const falloff = 1 - (d / range) * 0.5;
+    const pelletsHit = Math.max(1, Math.round(centered * 2.5 + rand(0, sg.pellets * 0.35)));
+    let dmg = sg.dmg * pelletsHit * falloff * (1 + rank * 0.06) * rand(0.9, 1.1);
+    if (e.t.tank) dmg *= 0.06;
+    else if (e.t.apc) dmg *= 0.2;
+    damageEnemy(e, dmg, actor);
+  }
 }
 
 function friendlyNearPoint(x, y, r, except) {
@@ -875,6 +984,18 @@ function unitBuffs(u) {
 }
 
 function updateUnit(u, dt) {
+  if (u.proneCd > 0) u.proneCd -= dt;
+  if (u.prone > 0) {
+    // a move order gets him up and running; otherwise he waits it out
+    u.prone -= dt;
+    if (u.prone <= 0 || u.moveTo) {
+      u.prone = 0;
+      u.proneCd = rand(4, 6);
+    } else {
+      return; // pinned: no shooting, no grenades, no field work
+    }
+  }
+
   // a tank crew drives and fights at the same time
   if (u.t.tank) {
     if (u.moveTo) {
@@ -925,6 +1046,19 @@ function updateUnit(u, dt) {
     if (ft) {
       u.face = Math.atan2(ft.y - u.y, ft.x - u.x);
       flameSpray(u, dt);
+    }
+    return;
+  }
+
+  if (u.t.shotgun) {
+    const sg = u.t.shotgun;
+    const st = nearestEnemyInRange(u, sg.range * fogMult());
+    const buffs = unitBuffs(u);
+    if (st) u.face = Math.atan2(st.y - u.y, st.x - u.x);
+    u.cd -= dt;
+    if (st && u.cd <= 0) {
+      fireShotgun(u, buffs);
+      u.cd = u.t.rof * buffs.rofMult * rand(0.85, 1.15);
     }
     return;
   }
@@ -995,7 +1129,7 @@ function updateUnit(u, dt) {
         u.face = Math.atan2(target.y - u.y, target.x - u.x);
         SFX.thunk();
         G.flashes.push({ x: u.x, y: u.y - 6, r: 4, ttl: 0.06, max: 0.06 });
-        scheduleShell(target.x + rand(-24, 24), target.y + rand(-24, 24),
+        scheduleShell(target.x + rand(-40, 40), target.y + rand(-40, 40),
           mt.flight, mt.r, mt.dmg, false, u);
       }
     }
@@ -1060,7 +1194,7 @@ function updateEngineer(u, dt) {
     if (dist(u, a) < R + 15 && (!tank || a.hp / a.maxhp < tank.hp / tank.maxhp)) tank = a;
   }
   if (tank) {
-    const amt = Math.min(tank.maxhp - tank.hp, 6 + u.rank * 0.5);
+    const amt = Math.min(tank.maxhp - tank.hp, (6 + u.rank * 0.5) / 3);
     tank.hp += amt;
     credit(amt);
     sparks(tank.x, tank.y);
@@ -1170,7 +1304,9 @@ function updateTankCombat(a, dt) {
       x: a.x + Math.cos(a.turret) * 26, y: a.y + Math.sin(a.turret) * 26,
       r: 9, ttl: 0.08, max: 0.08,
     });
-    scheduleShell(target.x + rand(-12, 12), target.y + rand(-12, 12),
+    const d = dist(a, target);
+    const scatter = Math.max(18, 16 + d * 0.055 - (a.rank || 0) * 2);
+    scheduleShell(target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
       0.7, 45, a.t.shellDmg, false, a);
     a.wpn = 'mg';
     // a veteran crew works the reload faster
@@ -1192,6 +1328,17 @@ function enemyOfficerNear(e) {
 }
 
 function updateEnemy(e, dt) {
+  if (e.proneCd > 0) e.proneCd -= dt;
+  if (e.prone > 0) {
+    e.prone -= dt;
+    if (e.prone <= 0) {
+      e.prone = 0;
+      e.proneCd = rand(4, 6);
+    } else {
+      return; // pinned: no shooting, no advancing
+    }
+  }
+
   const buffed = enemyOfficerNear(e);
   const range = e.t.range * fogMult();
 
@@ -1261,7 +1408,7 @@ function advance(e, dt, buffed) {
   // barbed wire drag; fortified wire grips harder and wears slower
   for (const wr of G.wires) {
     if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-      speed *= wr.up ? 0.15 : 0.3;
+      speed *= wr.up ? 0.05 : 0.12;
       wr.hp -= (wr.up ? 3 : 5) * dt;
       break;
     }
@@ -1319,7 +1466,7 @@ function updateEnemyJeep(e, dt) {
   let speed = e.t.speed;
   for (const wr of G.wires) {
     if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
-      speed *= 0.25;
+      speed *= 0.08;
       wr.hp -= 8 * dt;
       break;
     }
@@ -1369,7 +1516,7 @@ function updateHalftrack(e, dt) {
   let speed = e.t.speed;
   for (const wr of G.wires) {
     if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
-      speed *= 0.5;
+      speed *= 0.2;
       wr.hp -= 15 * dt;
       break;
     }
@@ -1432,7 +1579,8 @@ function update(dt) {
   if (G.wave >= 3) {
     G.eventTimer -= dt;
     if (G.eventTimer <= 0) {
-      G.eventTimer = rand(40, 70);
+      const late = wavesPast99(G.wave);
+      G.eventTimer = late > 0 ? rand(28, 52) : rand(40, 70);
       triggerEvent();
     }
   }
@@ -1481,10 +1629,15 @@ function update(dt) {
     if (f >= 1) { r.done = true; explode(r.tx, r.ty, r.r, r.dmg, false, r.by); }
   }
 
-  // grenades in flight
+  // grenades in flight, then a 3-second fuse once they hit the ground
   for (const g of G.grenades) {
-    g.t += dt;
-    if (g.t >= g.dur) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); }
+    if (!g.landed) {
+      g.t += dt;
+      if (g.t >= g.dur) { g.landed = true; g.fuse = 3; }
+    } else {
+      g.fuse -= dt;
+      if (g.fuse <= 0) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); }
+    }
   }
 
   // breaches
@@ -1581,13 +1734,50 @@ function paintGround() {
   }
 }
 
+// a man flat in the dirt: long low silhouette, rifle grounded beside him
+function drawProneSoldier(a) {
+  const c = ctx;
+  const us = a.side === 'us';
+  c.save();
+  c.translate(a.x, a.y);
+  c.rotate(a.face);
+  // ground shadow
+  c.fillStyle = 'rgba(0,0,0,0.2)';
+  c.beginPath(); c.ellipse(-1, 1.5, 10.5, 4, 0, 0, 7); c.fill();
+  // weapon laid out beside him, not shouldered
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 1.8;
+  c.beginPath(); c.moveTo(3, 2.8); c.lineTo(3 + a.t.gun * 0.8, 2.8); c.stroke();
+  // legs trailing behind
+  c.strokeStyle = a.t.color;
+  c.lineWidth = 2.4;
+  c.beginPath(); c.moveTo(-4, 0); c.lineTo(-10, -1.8); c.stroke();
+  c.beginPath(); c.moveTo(-4, 0); c.lineTo(-10, 1.8); c.stroke();
+  // torso stretched along the facing
+  c.fillStyle = a.t.color;
+  c.beginPath(); c.ellipse(-1, 0, 6.5, 3.2, 0, 0, 7); c.fill();
+  // helmet at the head end
+  c.fillStyle = a.type === 'medic' ? '#ddd8c8' : us ? '#5b6b4a' : '#61615a';
+  c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.35)';
+  c.lineWidth = 1;
+  c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.stroke();
+  c.restore();
+}
+
 function drawSoldier(a) {
+  if (a.prone > 0) {
+    drawProneSoldier(a);
+    drawSoldierOverlays(a);
+    return;
+  }
   const c = ctx;
   const type = a.type;
   const us = a.side === 'us';
   const isSniper = type === 'sniper' || type === 'esniper';
   const isMG = type === 'gunner' || type === 'emg';
   const isSMG = type === 'engineer' || type === 'esmg';
+  const isShotgun = type === 'shotgunner';
   const isOfficer = type === 'officer' || type === 'eoff';
   const fx = Math.cos(a.face), fy = Math.sin(a.face);
   c.save();
@@ -1599,11 +1789,25 @@ function drawSoldier(a) {
 
   // ---- weapon: silhouette varies by class
   c.strokeStyle = '#26261e';
-  c.lineWidth = isMG ? 3 : isSMG ? 2.6 : isSniper ? 1.6 : 2;
+  c.lineWidth = isMG ? 3 : isSMG ? 2.6 : isSniper ? 1.6 : isShotgun ? 3.2 : 2;
   c.beginPath();
   c.moveTo(fx * 2, fy * 2);
   c.lineTo(fx * a.t.gun, fy * a.t.gun);
   c.stroke();
+  if (isShotgun) {
+    // wide muzzle on the trench gun
+    c.lineWidth = 2.2;
+    c.beginPath();
+    c.moveTo(fx * (a.t.gun - 1.5) - fy * 1.2, fy * (a.t.gun - 1.5) + fx * 1.2);
+    c.lineTo(fx * (a.t.gun - 1.5) + fy * 1.2, fy * (a.t.gun - 1.5) - fx * 1.2);
+    c.stroke();
+    // pump grip under the barrel
+    c.lineWidth = 1.8;
+    c.beginPath();
+    c.moveTo(fx * (a.t.gun * 0.45), fy * (a.t.gun * 0.45));
+    c.lineTo(fx * (a.t.gun * 0.45) - fy * 3.5, fy * (a.t.gun * 0.45) + fx * 3.5);
+    c.stroke();
+  }
   if (isMG) {
     // bipod prongs at the muzzle
     c.lineWidth = 1.2;
@@ -1635,7 +1839,18 @@ function drawSoldier(a) {
 
   // ---- body
   c.fillStyle = a.t.color;
-  c.beginPath(); c.ellipse(0, 0, 6.5, 5, a.face, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(0, 0, isShotgun ? 7.5 : 6.5, isShotgun ? 5.8 : 5, a.face, 0, 7); c.fill();
+  if (isShotgun) {
+    // steel chest plate and pauldrons
+    c.fillStyle = '#4a5245';
+    c.beginPath(); c.ellipse(fx * 1.2, fy * 1.2, 5.8, 4.8, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#2e3328';
+    c.lineWidth = 1;
+    c.stroke();
+    c.fillStyle = '#555f4a';
+    c.beginPath(); c.ellipse(-fy * 4.5, fx * 4.5, 2.2, 2.8, a.face, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(fy * 4.5, -fx * 4.5, 2.2, 2.8, a.face, 0, 7); c.fill();
+  }
   if (isSniper) {
     // ghillie mottle
     c.fillStyle = 'rgba(30,36,22,0.55)';
@@ -1748,6 +1963,11 @@ function drawSoldier(a) {
 
   c.restore();
 
+  drawSoldierOverlays(a);
+}
+
+// health bar, rank chevrons, selection ring: drawn whether standing or prone
+function drawSoldierOverlays(a) {
   // health bar when wounded
   if (a.hp < a.maxhp) {
     const f = clamp(a.hp / a.maxhp, 0, 1);
@@ -2149,13 +2369,24 @@ function draw() {
     ctx.fill();
   }
 
-  // grenades in flight (arc via fake height)
+  // grenades in flight (arc via fake height), then resting on the ground
   for (const g of G.grenades) {
-    const f = g.t / g.dur;
-    const x = g.sx + (g.tx - g.sx) * f;
-    const y = g.sy + (g.ty - g.sy) * f - Math.sin(f * Math.PI) * 34;
-    ctx.fillStyle = '#2e3226';
-    ctx.beginPath(); ctx.arc(x, y, 2.5, 0, 7); ctx.fill();
+    if (g.landed) {
+      // sitting on the ground, blinking faster as the fuse burns down
+      const blink = Math.sin(g.fuse * (14 - g.fuse * 2)) > 0;
+      ctx.fillStyle = '#2e3226';
+      ctx.beginPath(); ctx.arc(g.tx, g.ty, 2.5, 0, 7); ctx.fill();
+      if (blink) {
+        ctx.fillStyle = '#ff5a2a';
+        ctx.beginPath(); ctx.arc(g.tx, g.ty - 3, 1.2, 0, 7); ctx.fill();
+      }
+    } else {
+      const f = g.t / g.dur;
+      const x = g.sx + (g.tx - g.sx) * f;
+      const y = g.sy + (g.ty - g.sy) * f - Math.sin(f * Math.PI) * 34;
+      ctx.fillStyle = '#2e3226';
+      ctx.beginPath(); ctx.arc(x, y, 2.5, 0, 7); ctx.fill();
+    }
   }
 
   for (const e of G.enemies) {
@@ -2247,6 +2478,7 @@ function drawPlacementGhost() {
       let r = ut.range;
       if (ut.rocket) r = ut.rocket.range;
       if (ut.mortar) r = ut.mortar.range;
+      if (ut.shotgun) r = ut.shotgun.range;
       ctx.strokeStyle = 'rgba(255,255,255,0.35)';
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(x, y, r * fogMult(), 0, 7); ctx.stroke();
@@ -2339,7 +2571,7 @@ function place(p, x, y) {
   } else if (p.key === 'mortar') {
     showBanner('MORTAR FIRE MISSION');
     for (let i = 0; i < 3; i++) {
-      scheduleShell(x + rand(-32, 32), y + rand(-26, 26), 1.2 + i * 0.5, 42, 90, false);
+      scheduleShell(x + rand(-52, 52), y + rand(-44, 44), 1.2 + i * 0.5, 42, 90, false);
     }
   } else if (p.key === 'artillery') {
     showBanner('105mm BARRAGE INBOUND');

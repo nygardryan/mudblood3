@@ -39,6 +39,7 @@ collapses and it's game over. There is no victory, only a higher wave count.
 | Rifleman | 3 | M1 Garand. Cheap, reliable backbone. |
 | Gunner | 7 | BAR. Long-range automatic bursts. |
 | Grenadier | 8 | Outranges the rifleman by 50%; lobs a devastating frag every 11–16 s. |
+| Shotgunner | 9 | M97 trench gun and body armor. High HP; buckshot shreds every enemy in the cone up close. |
 | Bazooka | 11 | M1A1 rocket launcher. Prioritizes armor. Scatters badly at range; veterans aim better. |
 | Mortarman | 14 | Portable 60mm mortar. Long-range indirect fire, blind inside 220px. |
 | Sniper | 10 | Sees the whole field, prioritizes officers, snipers, MGs. |

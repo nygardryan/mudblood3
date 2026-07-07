@@ -78,6 +78,11 @@ const SFX = (() => {
       tone(220, 0.18, 0.1, 'triangle', 60);
     },
     pistol()  { noise(0.06, 0.3, 'bandpass', 2400, 3, 0.07); },
+    shotgun() {
+      noise(0.12, 0.55, 'lowpass', 500 + Math.random() * 200, 0.8, 0.18);
+      noise(0.08, 0.35, 'bandpass', 1200, 1.5, 0.1);
+      tone(90, 0.15, 0.2, 'sine', 45);
+    },
 
     boom(big) {
       const v = big ? 0.9 : 0.65;

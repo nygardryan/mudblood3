@@ -500,7 +500,8 @@ let G = null;         // game state
 let placing = null;   // placeable currently being placed
 let mouse = { x: W / 2, y: H / 2, inside: false };
 let drag = null;      // marquee selection in progress: { x0, y0, x1, y1, active }
-let suppressClick = false; // eat the click that follows a completed drag-select
+let suppressClick = false; // eat the click that follows a completed drag-select or pointerup action
+let placeTouch = null;  // touch placement drag: { active, moved, startX, startY }
 let running = false;
 let lastT = 0;
 
@@ -3531,6 +3532,56 @@ function drawPlacementGhost() {
 // ============================================================ HUD / DOM
 
 const el = id => document.getElementById(id);
+const touchUI = () => window.matchMedia('(hover: none)').matches;
+const sideToolbarLayout = () =>
+  window.matchMedia('(orientation: landscape) and (max-height: 520px) and (hover: none)').matches;
+
+function fitLayout() {
+  const wrap = el('wrap');
+  const toolbar = el('toolbar');
+  const stage = el('stage');
+  const pad = 16;
+  const maxW = window.innerWidth - pad;
+  const maxH = window.innerHeight - pad;
+  const side = sideToolbarLayout();
+
+  wrap.classList.toggle('side-toolbar', side);
+
+  if (side) {
+    const tbW = 68;
+    let stageH = maxH;
+    let stageW = stageH * (W / H);
+    if (stageW + tbW + 6 > maxW) {
+      stageW = Math.max(200, maxW - tbW - 6);
+      stageH = stageW * (H / W);
+    }
+    stageW = Math.min(stageW, W);
+    stage.style.width = stageW + 'px';
+    stage.style.height = stageH + 'px';
+    toolbar.style.maxHeight = stageH + 'px';
+    wrap.style.width = (tbW + stageW + 6) + 'px';
+    wrap.style.height = '';
+    return;
+  }
+
+  stage.style.width = '';
+  stage.style.height = '';
+  toolbar.style.maxHeight = '';
+  wrap.style.height = '';
+
+  const widthCap = Math.min(W, maxW);
+  let w = widthCap;
+  for (let i = 0; i < 4; i++) {
+    wrap.style.width = w + 'px';
+    const stageH = w * (H / W);
+    const total = stageH + toolbar.offsetHeight + 12;
+    if (total <= maxH) break;
+    w = (maxH - toolbar.offsetHeight - 12) / (H / W);
+    w = Math.max(260, Math.min(w, widthCap));
+  }
+  wrap.style.width = w + 'px';
+}
+
 const hud = { tp: el('tp'), waveBox: el('wavebox'), kills: el('kills'), breachBox: el('breachbox') };
 const bannerEl = el('banner');
 
@@ -3581,6 +3632,7 @@ function buildToolbar(placeables) {
     bar.appendChild(b);
     toolButtons.push({ p, el: b });
   });
+  fitLayout();
 }
 
 function activePlaceables() {
@@ -3681,41 +3733,113 @@ function place(p, x, y) {
   if (p.kind === 'support' || G.tp < placeableCost(p) || (p.key === 'officer' && officerCount() >= MAX_OFFICERS)) placing = null;
 }
 
-canvas.addEventListener('mousemove', e => {
+function updatePointer(e) {
   const r = canvas.getBoundingClientRect();
   mouse.x = (e.clientX - r.left) * (W / r.width);
   mouse.y = (e.clientY - r.top) * (H / r.height);
   mouse.inside = true;
-  if (drag) {
-    drag.x1 = mouse.x;
-    drag.y1 = mouse.y;
-    if (!drag.active && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > 6) drag.active = true;
-  }
-});
-canvas.addEventListener('mouseleave', () => { mouse.inside = false; });
+}
 
 // which soldiers answer to the player: your squad in hit-squad mode, US otherwise
 function commandRoster() {
   return G.mode === 'hitsquad' ? G.enemies : G.units;
 }
 
-canvas.addEventListener('mousedown', e => {
+function handleCanvasTap() {
+  if (!running) return;
+  const x = mouse.x, y = mouse.y;
+
+  // axis attackers can't be selected or ordered; the toolbar is the whole game
+  if (G.mode === 'axis') return;
+
+  // select own soldier (vehicles are a bigger click target)
+  let picked = null;
+  for (const u of commandRoster()) {
+    if (dist(u, { x, y }) < (u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14)) { picked = u; break; }
+  }
+  if (picked) {
+    G.selected = [picked];
+    SFX.click();
+    return;
+  }
+  // move selected soldiers (the hit squad ranges the whole field)
+  const minOrderY = G.mode === 'hitsquad' ? 20 : FORWARD_Y;
+  if (G.selected.length && y > minOrderY && y < H - 14) {
+    issueMoveOrder(G.selected, x, y);
+    SFX.click();
+    return;
+  }
+  G.selected = [];
+}
+
+canvas.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  canvas.setPointerCapture(e.pointerId);
+  updatePointer(e);
   suppressClick = false;
-  if (!running || placing || e.button !== 0) return;
-  if (G.mode === 'axis') return; // attackers advance on their own; no selecting
+
+  if (placing) {
+    placeTouch = { active: true, moved: false, startX: mouse.x, startY: mouse.y };
+    return;
+  }
+  if (!running || G.mode === 'axis') return;
   drag = { x0: mouse.x, y0: mouse.y, x1: mouse.x, y1: mouse.y, active: false };
 });
 
-window.addEventListener('mouseup', e => {
-  if (e.button !== 0 || !drag) return;
-  if (drag.active && running && G) {
-    const x0 = Math.min(drag.x0, drag.x1), x1 = Math.max(drag.x0, drag.x1);
-    const y0 = Math.min(drag.y0, drag.y1), y1 = Math.max(drag.y0, drag.y1);
-    G.selected = commandRoster().filter(u => u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1);
-    if (G.selected.length) SFX.click();
-    suppressClick = true; // the click event fires right after; don't treat it as an order
+canvas.addEventListener('pointermove', e => {
+  updatePointer(e);
+  if (!canvas.hasPointerCapture(e.pointerId)) return;
+  if (placeTouch?.active) {
+    if (Math.hypot(mouse.x - placeTouch.startX, mouse.y - placeTouch.startY) > 6) placeTouch.moved = true;
   }
+  if (drag) {
+    drag.x1 = mouse.x;
+    drag.y1 = mouse.y;
+    if (!drag.active && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > 6) drag.active = true;
+  }
+});
+
+canvas.addEventListener('pointerup', e => {
+  if (e.button !== 0) return;
+  if (canvas.hasPointerCapture(e.pointerId)) {
+    updatePointer(e);
+    canvas.releasePointerCapture(e.pointerId);
+  }
+
+  if (placeTouch?.active && placing) {
+    place(placing, mouse.x, mouse.y);
+    placeTouch = null;
+    suppressClick = true;
+    return;
+  }
+  placeTouch = null;
+
+  if (drag) {
+    if (drag.active && running && G) {
+      const x0 = Math.min(drag.x0, drag.x1), x1 = Math.max(drag.x0, drag.x1);
+      const y0 = Math.min(drag.y0, drag.y1), y1 = Math.max(drag.y0, drag.y1);
+      G.selected = commandRoster().filter(u => u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1);
+      if (G.selected.length) SFX.click();
+      suppressClick = true;
+    }
+    drag = null;
+  }
+
+  if (e.pointerType === 'touch' && !suppressClick && running && !placing) {
+    handleCanvasTap();
+    suppressClick = true;
+  }
+});
+
+canvas.addEventListener('pointercancel', e => {
+  if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+  placeTouch = null;
   drag = null;
+  mouse.inside = false;
+});
+
+canvas.addEventListener('pointerleave', e => {
+  if (!canvas.hasPointerCapture(e.pointerId)) mouse.inside = false;
 });
 
 // spread a group order into a tight grid around the target so men don't stack
@@ -3760,36 +3884,16 @@ function issueMoveOrder(units, x, y) {
 canvas.addEventListener('click', e => {
   if (suppressClick) { suppressClick = false; return; }
   if (!running) return;
-  const x = mouse.x, y = mouse.y;
 
-  if (placing) { place(placing, x, y); return; }
+  if (placing) { place(placing, mouse.x, mouse.y); return; }
 
-  // axis attackers can't be selected or ordered; the toolbar is the whole game
-  if (G.mode === 'axis') return;
-
-  // select own soldier (vehicles are a bigger click target)
-  let picked = null;
-  for (const u of commandRoster()) {
-    if (dist(u, { x, y }) < (u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14)) { picked = u; break; }
-  }
-  if (picked) {
-    G.selected = [picked];
-    SFX.click();
-    return;
-  }
-  // move selected soldiers (the hit squad ranges the whole field)
-  const minOrderY = G.mode === 'hitsquad' ? 20 : FORWARD_Y;
-  if (G.selected.length && y > minOrderY && y < H - 14) {
-    issueMoveOrder(G.selected, x, y);
-    SFX.click();
-    return;
-  }
-  G.selected = [];
+  handleCanvasTap();
 });
 
 canvas.addEventListener('contextmenu', e => {
   e.preventDefault();
   placing = null;
+  placeTouch = null;
   drag = null;
   G && (G.selected = []);
 });
@@ -4155,10 +4259,16 @@ function startGame(levelId) {
   el('gameover').classList.add('hidden');
   el('codex').classList.add('hidden');
   el('tipbar').textContent = level.mode === 'axis'
-    ? 'Pick a unit and drop it in the top strip — your troops advance on their own. Right-click / Esc cancels placement.'
+    ? touchUI()
+      ? 'Tap a unit, then tap the top strip to deploy. Tap the button again to cancel.'
+      : 'Pick a unit and drop it in the top strip — your troops advance on their own. Right-click / Esc cancels placement.'
     : level.mode === 'hitsquad'
-      ? 'Click or drag-select your men, click ground to move them. Kill the marked officer. Right-click / Esc deselects.'
-      : 'Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.';
+      ? touchUI()
+        ? 'Tap or drag to select your men, tap ground to move. Kill the marked officer. Tap the button again to cancel placement.'
+        : 'Click or drag-select your men, click ground to move them. Kill the marked officer. Right-click / Esc deselects.'
+      : touchUI()
+        ? 'Tap a soldier to select him, tap ground to move. Tap a unit button, then tap the field to deploy. Tap the button again to cancel.'
+        : 'Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.';
   if (level.briefing) showBanner(level.name);
   lastT = performance.now();
 }
@@ -4186,4 +4296,7 @@ function frame(now) {
 }
 
 buildToolbar(PLACEABLES);
+fitLayout();
+window.addEventListener('resize', fitLayout);
+window.addEventListener('orientationchange', () => setTimeout(fitLayout, 100));
 requestAnimationFrame(frame);

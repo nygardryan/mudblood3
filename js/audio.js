@@ -102,6 +102,11 @@ const SFX = (() => {
     motor() {
       tone(80 + Math.random() * 25, 0.14, 0.06, 'sawtooth', 55);
     },
+    plane() {
+      // big radial engine: low sawtooth growl with a rough overtone
+      tone(110 + Math.random() * 20, 0.12, 0.1, 'sawtooth', 95);
+      tone(220 + Math.random() * 40, 0.1, 0.04, 'square', 190);
+    },
     brake() {
       tone(900, 0.25, 0.07, 'sawtooth', 250);
       noise(0.2, 0.12, 'bandpass', 1800, 2, 0.22);

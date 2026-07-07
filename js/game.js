@@ -11,13 +11,13 @@ const MAX_BREACH = 7;
 const UNIT_TYPES = {
   rifleman: {
     name: 'Rifleman', hp: 100, range: 230, dmg: 13, acc: 0.55,
-    rof: 1.1, burst: 1, burstGap: 0, speed: 42,
+    rof: 0.88, burst: 1, burstGap: 0, speed: 42,
     color: '#4a5d3a', gun: 7, sfx: 'rifle',
     desc: 'M1 Garand. The backbone of your line.',
   },
   gunner: {
-    name: 'Gunner', hp: 100, range: 270, dmg: 9, acc: 0.4,
-    rof: 1.7, burst: 6, burstGap: 0.09, speed: 36,
+    name: 'Gunner', hp: 100, range: 297, dmg: 9, acc: 0.4,
+    rof: 1.36, burst: 6, burstGap: 0.09, speed: 36,
     color: '#3d5236', gun: 10, sfx: 'mg',
     desc: 'BAR automatic rifle. Suppressive bursts.',
   },
@@ -32,18 +32,18 @@ const UNIT_TYPES = {
     name: 'Bazooka', hp: 90, range: 120, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, speed: 40,
     color: '#3f5138', gun: 5, sfx: 'pistol',
-    rocket: { range: 330, cdMin: 4, cdMax: 5.5, r: 30, dmg: 120, speed: 380 },
+    rocket: { range: 330, cdMin: 6.7, cdMax: 9.2, r: 30, dmg: 120, speed: 380 },
     desc: 'M1A1 rocket launcher. The answer to armor.',
   },
   mortarman: {
     name: 'Mortarman', hp: 90, range: 120, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, speed: 38,
     color: '#4c5a3f', gun: 5, sfx: 'pistol',
-    mortar: { range: 520, min: 160, cdMin: 5.5, cdMax: 7.5, r: 40, dmg: 75, flight: 1.6 },
+    mortar: { range: 520, min: 220, cdMin: 5.5, cdMax: 7.5, r: 40, dmg: 75, flight: 1.6 },
     desc: 'Portable 60mm mortar. Indirect fire at range.',
   },
   sniper: {
-    name: 'Sniper', hp: 85, range: 620, dmg: 65, acc: 0.72,
+    name: 'Sniper', hp: 85, range: 465, dmg: 46, acc: 0.72,
     rof: 2.6, burst: 1, burstGap: 0, speed: 38,
     color: '#38442e', gun: 12, sfx: 'sniper',
     desc: 'Springfield scoped rifle. Picks off officers and MGs first.',
@@ -115,7 +115,7 @@ const ENEMY_TYPES = {
     color: '#4f4f45', gun: 5, sfx: 'pistol', priority: 5, aura: true,
   },
   esniper: {
-    name: 'Sniper', hp: 55, speed: 14, range: 520, dmg: 55, acc: 0.66,
+    name: 'Sniper', hp: 55, speed: 14, range: 390, dmg: 39, acc: 0.66,
     rof: 3.4, burst: 1, burstGap: 0, reward: 4,
     color: '#525244', gun: 12, sfx: 'sniper', priority: 4,
   },
@@ -134,6 +134,11 @@ const ENEMY_TYPES = {
     name: 'Kübelwagen', hp: 220, speed: 45, range: 280, dmg: 11, acc: 0.38,
     rof: 2.3, burst: 8, burstGap: 0.07, reward: 8,
     color: '#57574a', gun: 14, sfx: 'hmg', priority: 3, vehicle: true,
+  },
+  ehalftrack: {
+    name: 'Sd.Kfz. 251', hp: 500, speed: 30, range: 240, dmg: 7, acc: 0.38,
+    rof: 2.2, burst: 6, burstGap: 0.08, reward: 12,
+    color: '#54544a', gun: 16, sfx: 'mg', priority: 3, vehicle: true, apc: true,
   },
   panzer: {
     name: 'Panzer IV', hp: 1200, speed: 8, range: 340, dmg: 0, acc: 0,
@@ -155,7 +160,7 @@ const RANKS = [
 ];
 
 const PLACEABLES = [
-  { key: 'rifleman', label: 'RIFLEMAN', cost: 4, kind: 'unit', hotkey: '1',
+  { key: 'rifleman', label: 'RIFLEMAN', cost: 3, kind: 'unit', hotkey: '1',
     desc: 'M1 Garand rifleman. Cheap, reliable.' },
   { key: 'gunner', label: 'GUNNER', cost: 7, kind: 'unit', hotkey: '2',
     desc: 'BAR gunner. Long range automatic fire.' },
@@ -177,7 +182,7 @@ const PLACEABLES = [
     desc: 'M2 flamethrower. Devastating cone of fire that burns friend and foe alike.' },
   { key: 'jeep', label: 'JEEP', cost: 20, kind: 'unit', hotkey: 'J',
     desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — engineer repairs, medics can\'t.' },
-  { key: 'sherman', label: 'SHERMAN', cost: 40, kind: 'unit', hotkey: 'T',
+  { key: 'sherman', label: 'SHERMAN', cost: 50, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon, shrugs off small arms. Medics cannot repair it.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
@@ -232,6 +237,7 @@ function newGame() {
     shells: [],      // incoming ordnance {x,y,timer,r,dmg,big}
     grenades: [],    // thrown grenades in flight
     rockets: [],     // bazooka rockets in flight
+    planes: [],      // friendly aircraft making strafing passes
     tracers: [],
     particles: [],
     flashes: [],
@@ -305,10 +311,14 @@ function waveComposition(w) {
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
   if (w >= 10 && Math.random() < 0.35) out.push('eoff');
-  // a motorcycle team races ahead of some waves
-  if (w >= 7 && Math.random() < 0.2) out.push('ebike');
+  // a motorcycle team races ahead of some waves; as German logistics spin
+  // up, bikes ramp from 20% at wave 7 to a 90% cap at wave 99
+  const bikeChance = Math.min(0.9, 0.2 + (w - 7) * (0.7 / 92));
+  if (w >= 7 && Math.random() < bikeChance) out.push('ebike');
   // a Kübelwagen gun car rolls in occasionally
   if (w >= 8 && Math.random() < 0.15) out.push('ejeep');
+  // an armored halftrack hauls a full squad to the front
+  if (w >= 11 && Math.random() < 0.12) out.push('ehalftrack');
   // snipers are a rare menace: one at most, and not often
   if (w >= 12 && Math.random() < 0.12) out.push('esniper');
   if (w >= 15 && Math.random() < 0.12) out.push('panzer');
@@ -370,8 +380,19 @@ function triggerEvent() {
   } else if (ev === 'airstrike') {
     showBanner('P-47 STRAFING RUN!');
     const x = rand(120, W - 120);
-    for (let i = 0; i < 5; i++) {
-      scheduleShell(x + rand(-35, 35), 60 + i * 70, 0.6 + i * 0.18, 40, 90, false);
+    const speed = 380;
+    const startY = H + 70;
+    const plane = {
+      x, y: startY, speed,
+      drift: rand(-10, 10),
+      gunT: 0.4, sfxT: 0, gunSfxT: 0,
+      done: false,
+    };
+    G.planes.push(plane);
+    // a stick of bombs timed to burst right as the plane passes overhead
+    for (let i = 0; i < 3; i++) {
+      const by = 90 + i * 95;
+      scheduleShell(x + rand(-22, 22), by, (startY - by) / speed + 0.12, 42, 90, false);
     }
   }
 }
@@ -434,6 +455,94 @@ function explode(x, y, r, dmg, big, by) {
       explode(m.x, m.y, 42, 120, false);
     }
   }
+}
+
+// P-47 pass: roars in from behind the friendly line and hoses the field
+// with eight .50 cals on its way out, walking fire up its flight path
+function updatePlane(p, dt) {
+  p.y -= p.speed * dt;
+  p.x += p.drift * dt;
+
+  p.sfxT -= dt;
+  if (p.sfxT <= 0) { p.sfxT = 0.09; SFX.plane(); }
+
+  // guns hold fire until the nose is past the trench line
+  if (p.y < DEPLOY_Y + 40 && p.y > 40) {
+    p.gunT -= dt;
+    while (p.gunT <= 0) {
+      p.gunT += 0.035;
+      // rounds strike well ahead of the aircraft
+      const ix = p.x + rand(-16, 16);
+      const iy = p.y - rand(70, 150);
+      if (iy < 0) continue;
+
+      G.tracers.push({ x1: p.x + rand(-4, 4), y1: p.y - 20, x2: ix, y2: iy, ttl: 0.07 });
+      G.particles.push({
+        x: ix, y: iy, vx: rand(-25, 25), vy: rand(-70, -20),
+        ttl: rand(0.2, 0.45), grav: 260, size: rand(1.2, 2.2),
+        color: pick(['#6e6046', '#57492f', '#8a7a5a']),
+      });
+
+      p.gunSfxT = (p.gunSfxT || 0) - 0.035;
+      if (p.gunSfxT <= 0) { p.gunSfxT = 0.09; SFX.hmg(); }
+
+      for (const e of G.enemies) {
+        if (e.dead) continue;
+        if (dist(e, { x: ix, y: iy }) < 13) {
+          let dmg = rand(14, 26);
+          if (e.t.tank) dmg *= 0.15; // even .50 cal only chips a Panzer
+          damageEnemy(e, dmg, { x: ix, y: iy });
+        }
+      }
+    }
+  }
+
+  if (p.y < -90) p.done = true;
+}
+
+function drawPlane(p) {
+  const c = ctx;
+
+  // shadow racing along the ground, offset to the side
+  c.fillStyle = 'rgba(0,0,0,0.22)';
+  c.save();
+  c.translate(p.x + 26, p.y + 34);
+  c.beginPath(); c.ellipse(0, 0, 9, 20, 0, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(0, -2, 22, 5, 0, 0, 7); c.fill();
+  c.restore();
+
+  c.save();
+  c.translate(p.x, p.y);
+
+  // fuselage, nose pointed up-field
+  c.fillStyle = '#3f4a3a';
+  c.beginPath(); c.ellipse(0, 0, 6, 21, 0, 0, 7); c.fill();
+  // wings
+  c.fillStyle = '#46523f';
+  c.beginPath(); c.ellipse(0, -2, 30, 7, 0, 0, 7); c.fill();
+  // tailplane
+  c.beginPath(); c.ellipse(0, 16, 12, 4, 0, 0, 7); c.fill();
+  // canopy
+  c.fillStyle = '#20261e';
+  c.beginPath(); c.ellipse(0, 2, 3, 6, 0, 0, 7); c.fill();
+  // spinning prop disc
+  c.fillStyle = 'rgba(200,200,180,0.25)';
+  c.beginPath(); c.ellipse(0, -21, 11, 2.5, 0, 0, 7); c.fill();
+  // US roundels on the wings
+  c.fillStyle = 'rgba(230,230,220,0.9)';
+  c.beginPath(); c.arc(-20, -2, 3, 0, 7); c.fill();
+  c.beginPath(); c.arc(20, -2, 3, 0, 7); c.fill();
+
+  // wing gun muzzle flashes while firing
+  if (p.y < DEPLOY_Y + 40 && p.y > 40) {
+    c.fillStyle = 'rgba(255,220,120,0.9)';
+    for (const gx of [-14, -8, 8, 14]) {
+      if (Math.random() < 0.6) {
+        c.beginPath(); c.arc(gx, -8 - rand(0, 3), rand(1, 2.2), 0, 7); c.fill();
+      }
+    }
+  }
+  c.restore();
 }
 
 // ============================================================ damage & death
@@ -556,6 +665,9 @@ function damageEnemy(e, dmg, from) {
       stampBike(e, true);
       bloodSplat(e.x, e.y, 10);
       SFX.scream();
+    } else if (e.t.apc) {
+      stampHalftrackWreck(e);
+      explode(e.x, e.y, 38, 55, false);
     } else if (e.t.vehicle) {
       stampJeepWreck(e);
       explode(e.x, e.y, 30, 45, false);
@@ -609,6 +721,7 @@ function fireShot(shooter, target, opts) {
     }
     let dmg = t.dmg * rand(0.75, 1.25);
     if (target.t && target.t.tank) dmg *= 0.04;   // rifle rounds ping off armor
+    else if (target.t && target.t.apc) dmg *= 0.3; // halftrack plate shrugs off most of it
     if (target.side === 'us') damageUnit(target, dmg, shooter);
     else damageEnemy(target, dmg, shooter);
   } else {
@@ -1084,6 +1197,7 @@ function updateEnemy(e, dt) {
 
   if (e.t.tank) { updateTank(e, dt); return; }
   if (e.t.bike) { updateBike(e, dt); return; }
+  if (e.t.apc) { updateHalftrack(e, dt); return; }
   if (e.t.vehicle) { updateEnemyJeep(e, dt); return; }
 
   // discipline only goes so far: every German periodically stops shooting and
@@ -1215,6 +1329,55 @@ function updateEnemyJeep(e, dt) {
   e.face = Math.PI / 2;
 }
 
+// Sd.Kfz. 251 halftrack: an armored bus for a full squad. Troopers hop off
+// the tailgate one per second on the drive in; at rifle distance of any
+// defender it slams the brakes and the remaining six pile out at once.
+// Afterward it fights on as a slow gun truck with its bow MG.
+const APC_TRICKLE_POOL = ['erifle', 'erifle', 'esmg'];
+
+function updateHalftrack(e, dt) {
+  e.sfxT = (e.sfxT || 0) - dt;
+  if (e.sfxT <= 0) { e.sfxT = 0.55; SFX.motor(); }
+
+  if (!e.unloaded) {
+    // one man off the tailgate every second while rolling
+    e.dropT = (e.dropT === undefined ? 1 : e.dropT) - dt;
+    if (e.dropT <= 0) {
+      e.dropT = 1;
+      const inf = makeEnemy(pick(APC_TRICKLE_POOL),
+        clamp(e.x + rand(-10, 10), 14, W - 14), e.y - 24);
+      G.enemies.push(inf);
+    }
+    // rifle distance of a defender: halt and unload the whole squad
+    if (nearestUnitInRange(e, 230 * fogMult())) {
+      e.unloaded = true;
+      SFX.brake();
+      for (let i = 0; i < 6; i++) {
+        const crew = makeEnemy(pick(BIKE_CREW_POOL),
+          clamp(e.x + rand(-28, 28), 14, W - 14), e.y + rand(-18, 14));
+        crew.cd = rand(0.4, 1.2);   // a beat to shake out into line
+        G.enemies.push(crew);
+      }
+      return;
+    }
+  } else {
+    const target = nearestUnitInRange(e, e.t.range * fogMult());
+    if (target) { runWeapon(e, target, dt, null); return; }
+  }
+
+  // drive on; wire slows it but the tracks chew through fast
+  let speed = e.t.speed;
+  for (const wr of G.wires) {
+    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
+      speed *= 0.5;
+      wr.hp -= 15 * dt;
+      break;
+    }
+  }
+  e.y += speed * dt;
+  e.face = Math.PI / 2;
+}
+
 function dismountBike(e) {
   e.dead = true;            // the vehicle leaves play; not a kill, no reward
   stampBike(e, false);
@@ -1283,7 +1446,7 @@ function update(dt) {
     if (m.dead) continue;
     for (const e of G.enemies) {
       if (e.dead) continue;
-      const trig = e.t.tank ? 22 : e.t.vehicle ? 16 : 11;
+      const trig = e.t.tank ? 22 : e.t.apc ? 19 : e.t.vehicle ? 16 : 11;
       if (dist(m, e) < trig) {
         m.dead = true;
         explode(m.x, m.y, 44, 130, false);
@@ -1298,6 +1461,9 @@ function update(dt) {
     s.timer -= dt;
     if (s.timer <= 0) { s.done = true; explode(s.x, s.y, s.r, s.dmg, s.big, s.by); }
   }
+
+  // friendly aircraft on strafing passes
+  for (const p of G.planes) updatePlane(p, dt);
 
   // rockets in flight
   for (const r of G.rockets) {
@@ -1354,6 +1520,7 @@ function update(dt) {
   G.shells = G.shells.filter(s => !s.done);
   G.grenades = G.grenades.filter(g => !g.done);
   G.rockets = G.rockets.filter(r => !r.done);
+  G.planes = G.planes.filter(p => !p.done);
   G.particles = G.particles.filter(p => p.ttl > 0);
   if (G.particles.length > 400) G.particles.splice(0, G.particles.length - 400);
   G.tracers = G.tracers.filter(t => t.ttl > 0);
@@ -1789,6 +1956,78 @@ function drawJeep(a) {
   }
 }
 
+function stampHalftrackWreck(a) {
+  gctx.save();
+  gctx.translate(a.x, a.y);
+  gctx.rotate(rand(-0.4, 0.4));
+  gctx.fillStyle = '#33322a';
+  gctx.fillRect(-10, -17, 20, 34);
+  gctx.fillStyle = '#211f1a';
+  gctx.beginPath(); gctx.arc(0, -4, 6, 0, 7); gctx.fill();
+  gctx.fillRect(-13, -16, 4, 16);
+  gctx.fillRect(9, -16, 4, 16);
+  gctx.restore();
+}
+
+function drawHalftrack(e) {
+  const c = ctx;
+  c.save();
+  c.translate(e.x, e.y);
+
+  // shadow
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  c.beginPath(); c.ellipse(0, 4, 14, 19, 0, 0, 7); c.fill();
+
+  // rear tracks (the back half) and front wheels — it drives downfield
+  c.fillStyle = '#2f2f28';
+  c.fillRect(-12, -16, 5, 18);
+  c.fillRect(7, -16, 5, 18);
+  c.fillStyle = '#26251f';
+  c.fillRect(-11, 8, 4, 7);
+  c.fillRect(7, 8, 4, 7);
+
+  // angular armored hull, tapering toward the nose
+  c.fillStyle = e.t.color;
+  c.beginPath();
+  c.moveTo(-9, -17); c.lineTo(9, -17);
+  c.lineTo(10, 4); c.lineTo(6, 16); c.lineTo(-6, 16); c.lineTo(-10, 4);
+  c.closePath(); c.fill();
+  c.strokeStyle = '#3a3a32';
+  c.lineWidth = 1.2;
+  c.stroke();
+  // engine deck seam at the nose
+  c.strokeStyle = 'rgba(0,0,0,0.35)';
+  c.beginPath(); c.moveTo(-8, 7); c.lineTo(8, 7); c.stroke();
+
+  // open troop bay; helmets visible until the squad piles out
+  c.fillStyle = '#3c3c33';
+  c.fillRect(-7, -15, 14, 16);
+  if (!e.unloaded) {
+    c.fillStyle = '#61615a';
+    for (const [hx, hy] of [[-3.5, -11], [3.5, -11], [-3.5, -5], [3.5, -5], [0, -8]]) {
+      c.beginPath(); c.arc(hx, hy, 2.4, 0, 7); c.fill();
+    }
+  }
+
+  // bow MG and gunner
+  c.rotate(e.face);
+  c.strokeStyle = '#1c1c16';
+  c.lineWidth = 2.4;
+  c.beginPath(); c.moveTo(4, 0); c.lineTo(e.t.gun + 4, 0); c.stroke();
+  c.rotate(-e.face);
+  c.fillStyle = '#61615a';
+  c.beginPath(); c.arc(0, 2.5, 2.8, 0, 7); c.fill();
+  c.restore();
+
+  if (e.hp < e.maxhp) {
+    const f = clamp(e.hp / e.maxhp, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(e.x - 14, e.y - 24, 28, 3.5);
+    ctx.fillStyle = '#c0562e';
+    ctx.fillRect(e.x - 14, e.y - 24, 28 * f, 3.5);
+  }
+}
+
 function drawBike(e) {
   const c = ctx;
   const lean = Math.sin(e.y * 0.02) * 0.12; // matches the weave
@@ -1922,6 +2161,7 @@ function draw() {
   for (const e of G.enemies) {
     if (e.t.tank) drawTank(e);
     else if (e.t.bike) drawBike(e);
+    else if (e.t.apc) drawHalftrack(e);
     else if (e.t.vehicle) drawJeep(e);
     else drawSoldier(e);
   }
@@ -1954,6 +2194,9 @@ function draw() {
     ctx.fillStyle = grd;
     ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.fill();
   }
+
+  // aircraft overhead, above every ground effect
+  for (const p of G.planes) drawPlane(p);
 
   // floating notices
   ctx.font = 'bold 11px "Courier New", monospace';

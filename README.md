@@ -36,18 +36,18 @@ collapses and it's game over. There is no victory, only a higher wave count.
 
 | Item | TP | Notes |
 |---|---|---|
-| Rifleman | 4 | M1 Garand. Cheap, reliable backbone. |
+| Rifleman | 3 | M1 Garand. Cheap, reliable backbone. |
 | Gunner | 7 | BAR. Long-range automatic bursts. |
 | Grenadier | 8 | Outranges the rifleman by 50%; lobs a devastating frag every 11–16 s. |
 | Bazooka | 11 | M1A1 rocket launcher. Prioritizes armor. Scatters badly at range; veterans aim better. |
-| Mortarman | 14 | Portable 60mm mortar. Long-range indirect fire, blind inside 160px. |
+| Mortarman | 14 | Portable 60mm mortar. Long-range indirect fire, blind inside 220px. |
 | Sniper | 10 | Sees the whole field, prioritizes officers, snipers, MGs. |
 | Medic | 12 | Heals nearby wounded over time. |
 | Engineer | 14 | Repairs tanks and emplacements; fortifies nearby sandbags/wire (more HP, better effect). SMG, close range only. |
 | Officer | 15 | Nearby men fire faster and straighter; generates TP. |
 | Flamer | 13 | M2 flamethrower. Devastating cone of fire — burns friend and foe alike. |
 | Jeep | 20 | Willys jeep with a .50 cal HMG. Fast, fires on the move, unarmored — engineer repairs it, medics can't. |
-| Sherman | 40 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
+| Sherman | 50 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
 | Wire | 4 | Slows the advance until it wears out. |
 | Sandbags | 5 | Soldiers behind them dodge half of incoming fire. |
 | Mine | 6 | Invisible to Germans. Hurts tanks badly. |
@@ -77,7 +77,11 @@ down the field and drop a two-man crew (random types) at rifle range. Shoot
 the bike early and the crew dies with it; barbed wire ends the ride instantly.
 From wave 8 the **Kübelwagen** gun car may roll in — it halts at range and
 hoses your line with an MG42 until someone deals with it.
-Small arms bounce off its armor; use mines, mortars, or artillery.
+From wave 11 the **Sd.Kfz. 251 halftrack** hauls a full squad forward: it
+drops one trooper per second on the drive in, dumps six more the moment it
+reaches rifle distance of your line, then keeps fighting as an armored gun
+truck. Kill the bus early, before it delivers.
+Small arms bounce off armor; use mines, mortars, or artillery.
 
 Random battlefield events keep you honest: enemy barrages (more shells, heavier
 hits, and tighter salvos as waves climb), fog, strafing runs from a friendly P-47,

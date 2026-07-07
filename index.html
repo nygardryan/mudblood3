@@ -13,9 +13,9 @@
 
     <div id="hud">
       <div class="hud-box" id="hud-tp" title="Tactical Points — earned from kills and over time">TP <span id="tp">0</span></div>
-      <div class="hud-box">WAVE <span id="wave">0</span></div>
+      <div class="hud-box" id="wavebox">WAVE 0</div>
       <div class="hud-box">KILLS <span id="kills">0</span></div>
-      <div class="hud-box breach" title="7 breaches and it's over">BREACH <span id="breach">0/7</span></div>
+      <div class="hud-box breach" id="breachbox" title="Breakthroughs past the bottom edge">BREACH 0/7</div>
       <button id="mute" class="hud-box" title="Toggle sound">SND ON</button>
     </div>
 
@@ -26,16 +26,16 @@
     <div id="intro" class="overlay">
       <h1>MUD &amp; BLOOD</h1>
       <h2>An HTML5 tribute to the classic Flash game</h2>
-      <p>France, 1944. Your sector. Germans are coming from the north, and they will not stop coming.</p>
-      <ul>
-        <li>Earn <b>Tactical Points (TP)</b> from kills. Spend them on men, defenses and fire support.</li>
-        <li>Deploy your men in the <b>lower half</b> of the field. Mortar &amp; artillery can hit anywhere.</li>
-        <li>Fire support is <b>dangerous to your own men</b>. So it was in real life.</li>
-        <li>If <b>7 Germans</b> slip past the bottom of your screen, your line collapses. Game over.</li>
-        <li>There is no winning. There is only lasting one more wave.</li>
-      </ul>
+      <p>France, 1944. Earn <b>Tactical Points (TP)</b> from kills and spend them on men, defenses and fire support. Fire support is <b>dangerous to your own men</b> — so it was in real life.</p>
+      <div class="intro-btns modes">
+        <button id="start-endless">ENDLESS
+          <span class="mode-desc">Hold the line against waves without end. There is no winning — only lasting one more wave.</span></button>
+        <button id="start-allied">ALLIED CAMPAIGN
+          <span class="mode-desc">Level 1: Hold the Line. Survive 12 scripted German waves. 7 breaches and the sector falls.</span></button>
+        <button id="start-axis">AXIS CAMPAIGN
+          <span class="mode-desc">Level 1: Break the Line. 30 TP, 6 minutes. Soften the line, then push infantry and breach units through together.</span></button>
+      </div>
       <div class="intro-btns">
-        <button id="start-btn">TAKE COMMAND</button>
         <button id="codex-btn" class="secondary">CODEX</button>
       </div>
     </div>
@@ -53,10 +53,13 @@
     </div>
 
     <div id="gameover" class="overlay hidden">
-      <h1>LINE OVERRUN</h1>
+      <h1 id="go-title">LINE OVERRUN</h1>
       <p id="go-stats"></p>
       <p class="quote">"War is mud, blood, and the man next to you."</p>
-      <button id="restart-btn">RE-ENLIST</button>
+      <div class="intro-btns">
+        <button id="restart-btn">RE-ENLIST</button>
+        <button id="menu-btn" class="secondary">MAIN MENU</button>
+      </div>
     </div>
   </div>
 

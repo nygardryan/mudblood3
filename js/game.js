@@ -7,6 +7,7 @@
 const W = 900, H = 620;
 const DEPLOY_Y = 380;          // your side of the field starts here
 const FORWARD_Y = H / 3;       // units may advance and mines/wire may be laid this far up
+const AXIS_DEPLOY_Y = 90;      // axis campaign: attackers step off from this top strip
 const MAX_BREACH = 7;
 const MAX_OFFICERS = 5;
 
@@ -89,13 +90,32 @@ const UNIT_TYPES = {
     desc: 'Willys jeep, pintle-mounted .50 cal. Fast and hard-hitting, but unarmored.',
   },
   sherman: {
-    name: 'Sherman', hp: 1000, range: 360, dmg: 0, acc: 0,
+    name: 'Sherman', hp: 1000, range: 600, dmg: 0, acc: 0,
     rof: 4.0, burst: 1, burstGap: 0, speed: 14, shellDmg: 80,
     color: '#4a5a3f', gun: 0, sfx: 'boom', tank: true,
+    fireCone: { arc: 0.6 },
     mg: { range: 240, dmg: 8, acc: 0.45, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
     desc: 'M4 Sherman. 75mm cannon and thick armor. Medics can\'t fix steel.',
   },
+  atgun: {
+    // trails are staked into the ground: it traverses inside its cone but never moves
+    name: 'AT Gun', hp: 200, range: 1200, dmg: 0, acc: 0,
+    rof: 4.5, burst: 1, burstGap: 0, speed: 0,
+    color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true,
+    atgun: { arc: 0.6, shellDmg: 420, r: 26 },
+    desc: '57mm anti-tank gun. Immobile; AP shells scatter, but ruin any vehicle they find.',
+  },
 };
+
+// TP paid to an Axis attacker for destroying each US defender (mirrors ENEMY_TYPES.reward)
+{
+  const UNIT_REWARDS = {
+    rifleman: 2, gunner: 3, grenadier: 3, shotgunner: 3, bazooka: 4,
+    mortarman: 5, sniper: 4, medic: 4, engineer: 4, officer: 5,
+    flamer: 4, jeep: 6, sherman: 15, atgun: 8,
+  };
+  for (const [k, r] of Object.entries(UNIT_REWARDS)) UNIT_TYPES[k].reward = r;
+}
 
 const ENEMY_TYPES = {
   erifle: {
@@ -202,6 +222,12 @@ const EVENT_INFO = [
     wave: 8,
     desc: 'Allied Thunderbolts strafe the field and drop bombs. Helps your cause, but ordnance is indiscriminate.',
   },
+  {
+    key: 'special',
+    name: 'Themed Assaults',
+    wave: 10,
+    desc: 'Every 10th wave the Germans commit to a set-piece attack: a motorcycle blitz, a mass paradrop, a human wave, an armor column, or an assault under fog. The themes rotate, and each one returns bigger and meaner the next time around.',
+  },
 ];
 
 // promotion ladder: kills needed to reach each rank. Veterancy bites hard:
@@ -243,10 +269,14 @@ const PLACEABLES = [
     desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — no field repairs.' },
   { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon, shrugs off small arms. Medics cannot repair it.' },
+  { key: 'atgun', label: 'AT GUN', cost: 25, kind: 'unit', hotkey: 'P',
+    desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. Inaccurate, but its AP shells wreck armor.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
   { key: 'sandbags', label: 'SANDBAGS', cost: 5, kind: 'defense', hotkey: '8',
     desc: 'Cover. Soldiers behind it dodge half of incoming fire.' },
+  { key: 'bunker', label: 'BUNKER', cost: 15, kind: 'defense', hotkey: 'K',
+    desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },
   { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
     desc: 'Cluster of 3 anti-personnel mines. Hurts tanks too. Germans can\'t see them.' },
   { key: 'mortar', label: 'MORTAR STRIKE', cost: 8, kind: 'support', hotkey: '0',
@@ -254,6 +284,142 @@ const PLACEABLES = [
   { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 16, kind: 'support', hotkey: 'A',
     desc: '105mm barrage: 16 heavy shells, wide spread. Devastating. Indiscriminate.' },
 ];
+
+// axis campaign toolbar: you buy German units, drop them in the top strip,
+// and their standard attack AI carries them south. kind 'eunit' routes
+// placement through makeEnemy instead of makeUnit.
+const AXIS_PLACEABLES = [
+  { key: 'erifle', label: 'RIFLEMAN', cost: 2, kind: 'eunit', hotkey: '1',
+    desc: 'Wehrmacht rifleman. Slow, steady, expendable.' },
+  { key: 'esmg', label: 'STORMTROOP', cost: 3, kind: 'eunit', hotkey: '2',
+    desc: 'MP40 assault trooper. Fast mover, deadly up close.' },
+  { key: 'egren', label: 'GRENADIER', cost: 4, kind: 'eunit', hotkey: '3',
+    desc: 'Carries stick grenades into the fray. Blast ignores friend and foe.' },
+  { key: 'emg', label: 'MG42 TEAM', cost: 5, kind: 'eunit', hotkey: '4',
+    desc: 'MG42 gunner. Pins the Americans down from long range.' },
+  { key: 'esniper', label: 'SNIPER', cost: 6, kind: 'eunit', hotkey: '5',
+    desc: 'Camouflaged marksman. Picks off gunners and medics from afar.' },
+  { key: 'eflame', label: 'FLAMMEN', cost: 6, kind: 'eunit', hotkey: 'F',
+    desc: 'Flammenwerfer operator. Burns through wire, sandbags and flesh alike.' },
+  { key: 'eoff', label: 'OFFICER', cost: 8, kind: 'eunit', hotkey: '6',
+    desc: 'Leutnant. Nearby troops fight harder; earns +1 TP every 30 s while alive.' },
+  { key: 'ebike', label: 'KRAD', cost: 7, kind: 'eunit', hotkey: 'K',
+    desc: 'Kradschützen motorcycle team. Blazing speed — races for the breach.' },
+  { key: 'ejeep', label: 'KÜBELWAGEN', cost: 12, kind: 'eunit', hotkey: 'J',
+    desc: 'Gun car with a mounted MG. Mobile fire support, lightly armored.' },
+  { key: 'ehalftrack', label: 'HALFTRACK', cost: 20, kind: 'eunit', hotkey: 'H',
+    desc: 'Sd.Kfz. 251. Heavy armor, bow MG, and a squad that dismounts at the line.' },
+  { key: 'panzer', label: 'PANZER IV', cost: 40, kind: 'eunit', hotkey: 'T',
+    desc: '75mm cannon and thick armor. The American line\'s worst nightmare.' },
+  { key: 'ebarrage', label: 'ARTILLERY', cost: 14, kind: 'support', hotkey: 'A',
+    desc: 'German 105mm barrage: 10 heavy shells on target. Indiscriminate.' },
+];
+
+// ============================================================ levels
+// every mode is a level. endless is the classic open-ended defense; campaign
+// levels script their own forces, waves and win conditions.
+
+const LEVELS = {
+  endless: {
+    id: 'endless',
+    name: 'ENDLESS',
+    mode: 'endless',
+    breachLimit: MAX_BREACH,
+    events: true,
+    placeables: PLACEABLES,
+    startTP: 15,
+    setup(G) {
+      // you start with two riflemen already dug in
+      G.units.push(makeUnit('rifleman', W / 2 - 70, 470));
+      G.units.push(makeUnit('rifleman', W / 2 + 70, 470));
+    },
+  },
+
+  allied1: {
+    id: 'allied1',
+    name: 'ALLIED 1: HOLD THE LINE',
+    mode: 'allied',
+    breachLimit: MAX_BREACH,
+    events: false,
+    placeables: PLACEABLES,
+    startTP: 20,
+    // bump only the units that clear the mission solo at base prices
+    costOverrides: {
+      rifleman: 9, gunner: 15, grenadier: 14, shotgunner: 11,
+      sniper: 14, bazooka: 18, jeep: 28,
+    },
+    briefing: 'Hold your sector against 12 German assault waves. Survive the final push and the line is yours.',
+    // scripted assault: delay is seconds after the previous wave steps off
+    waves: [
+      { delay: 8,  comp: ['erifle', 'erifle', 'erifle'], banner: 'HERE THEY COME' },
+      { delay: 22, comp: ['erifle', 'erifle', 'erifle', 'erifle'] },
+      { delay: 20, comp: ['erifle', 'erifle', 'esmg', 'esmg'] },
+      { delay: 18, comp: ['esmg', 'esmg', 'erifle', 'erifle', 'erifle'] },
+      { delay: 18, comp: ['erifle', 'erifle', 'egren', 'esmg', 'esmg'] },
+      { delay: 16, comp: ['ebike', 'erifle', 'erifle', 'esmg'], banner: 'KRADSCHÜTZEN INBOUND' },
+      { delay: 16, comp: ['emg', 'erifle', 'erifle', 'erifle', 'esmg', 'esmg'] },
+      { delay: 16, comp: ['egren', 'egren', 'esmg', 'esmg', 'erifle', 'erifle'] },
+      { delay: 15, comp: ['eoff', 'emg', 'erifle', 'erifle', 'erifle', 'esmg'], banner: 'OFFICER LEADING THE ASSAULT' },
+      { delay: 15, comp: ['eflame', 'esmg', 'esmg', 'erifle', 'erifle'] },
+      { delay: 14, comp: ['ebike', 'ebike', 'esmg', 'esmg', 'egren', 'erifle'] },
+      { delay: 18, comp: ['ehalftrack', 'eoff', 'emg', 'egren', 'esmg', 'esmg', 'erifle', 'erifle'],
+        banner: 'FINAL ASSAULT! HALFTRACK LEADING!' },
+    ],
+    setup(G) {
+      G.units.push(makeUnit('rifleman', W / 2 - 70, 470));
+      G.units.push(makeUnit('rifleman', W / 2 + 70, 470));
+      G.sandbags.push({ x: W / 2, y: 455, hp: 300, maxhp: 300, up: false, workProg: 0 });
+    },
+  },
+
+  axis1: {
+    id: 'axis1',
+    name: 'AXIS 1: BREAK THE LINE',
+    mode: 'axis',
+    winBreaches: 7,
+    timeLimit: 360,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    startTP: 30,
+    // bump only the units that break through solo at base prices
+    costOverrides: {
+      erifle: 6, esmg: 8, emg: 12, ebike: 20, egren: 9, eflame: 11, esniper: 10, ehalftrack: 58,
+    },
+    briefing: 'Punch through the American line. Get 7 men past the bottom edge before the clock runs out.',
+    // one reinforcement wave mid-mission
+    reinforcements: [
+      { at: 180, banner: 'US REINFORCEMENTS ARRIVE', units: [
+        { type: 'rifleman', x: W / 2 - 50, y: H - 30 },
+        { type: 'rifleman', x: W / 2 + 50, y: H - 30 },
+        { type: 'gunner', x: W / 2, y: H - 26 },
+      ] },
+    ],
+    setup(G) {
+      // dug-in American defense along the trench line
+      const bag = (x, y) => G.sandbags.push({ x, y, hp: 300, maxhp: 300, up: false, workProg: 0 });
+      bag(W / 2 - 180, DEPLOY_Y + 40);
+      bag(W / 2 - 60, DEPLOY_Y + 40);
+      bag(W / 2 + 60, DEPLOY_Y + 40);
+      bag(W / 2 + 180, DEPLOY_Y + 40);
+      G.bunkers.push({ x: W / 2, y: DEPLOY_Y + 85, hp: 3000, maxhp: 3000, up: false, workProg: 0 });
+      G.wires.push({ x: W / 2 - 130, y: DEPLOY_Y - 55, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
+      G.wires.push({ x: W / 2 + 130, y: DEPLOY_Y - 55, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
+      for (const pos of [
+        { x: W / 2 - 240, y: H / 2 + 20 }, { x: W / 2, y: H / 2 - 10 }, { x: W / 2 + 240, y: H / 2 + 20 },
+      ]) {
+        G.mines.push({ x: pos.x, y: pos.y, dead: false });
+      }
+      G.units.push(makeUnit('gunner', W / 2, DEPLOY_Y + 85));
+      G.units.push(makeUnit('rifleman', W / 2 - 180, DEPLOY_Y + 36));
+      G.units.push(makeUnit('rifleman', W / 2 - 60, DEPLOY_Y + 36));
+      G.units.push(makeUnit('rifleman', W / 2 + 60, DEPLOY_Y + 36));
+      G.units.push(makeUnit('rifleman', W / 2 + 180, DEPLOY_Y + 36));
+      G.units.push(makeUnit('sniper', W / 2 - 130, H - 90));
+      G.units.push(makeUnit('medic', W / 2 + 130, H - 90));
+      G.units.push(makeUnit('mortarman', W / 2, H - 60));
+    },
+  },
+};
 
 // ============================================================ helpers
 
@@ -282,10 +448,14 @@ const groundCanvas = document.createElement('canvas');
 groundCanvas.width = W; groundCanvas.height = H;
 const gctx = groundCanvas.getContext('2d');
 
-function newGame() {
+function newGame(level) {
   G = {
-    tp: 15,
+    level,
+    mode: level.mode,
+    tp: level.startTP != null ? level.startTP : 15,
     wave: 0,
+    waveIdx: 0,        // allied campaign: next scripted wave
+    reinforceIdx: 0,   // axis campaign: next scripted US reinforcement
     kills: 0,
     breaches: 0,
     time: 0,
@@ -294,6 +464,7 @@ function newGame() {
     units: [],
     enemies: [],
     sandbags: [],
+    bunkers: [],
     wires: [],
     mines: [],
     shells: [],      // incoming ordnance {x,y,timer,r,dmg,big}
@@ -307,7 +478,7 @@ function newGame() {
     corpses: [],     // fallen soldiers, cleared away after CORPSE_TTL
     groundMarks: [], // blood stains and blast craters, fade after GROUND_MARK_TTL
 
-    spawnTimer: 6,
+    spawnTimer: level.mode === 'allied' ? level.waves[0].delay : 6,
     tpTrickle: 8,
     officerTick: 30,
     eventTimer: rand(40, 60),
@@ -316,9 +487,7 @@ function newGame() {
     selected: [],
   };
   paintGround();
-  // you start with two riflemen already dug in
-  G.units.push(makeUnit('rifleman', W / 2 - 70, 470));
-  G.units.push(makeUnit('rifleman', W / 2 + 70, 470));
+  level.setup(G);
 }
 
 function makeUnit(type, x, y) {
@@ -357,11 +526,21 @@ function makeEnemy(type, x, y) {
 
 // ============================================================ economy
 
-// war economy attrition: each wave pays ~1% less than the one before,
-// dropping to a hard 10% floor from wave 90 on. G.tp holds fractions; the HUD floors it.
+// war economy attrition (endless only): each wave pays ~1% less than the one
+// before, dropping to a hard 10% floor from wave 90 on. Campaign levels pay
+// full rate. G.tp holds fractions; the HUD floors it.
 function earnTP(amount) {
-  const mult = G.wave >= 90 ? 0.1 : Math.max(0.1, Math.pow(0.99, G.wave));
+  const mult = G.mode === 'endless'
+    ? (G.wave >= 90 ? 0.1 : Math.max(0.1, Math.pow(0.99, G.wave)))
+    : 1;
   G.tp += amount * mult;
+}
+
+// campaign levels can override toolbar costs so no single purchase type
+// can cheese the mission; endless uses the base PLACEABLES prices.
+function placeableCost(p) {
+  const ov = G && G.level && G.level.costOverrides;
+  return (ov && ov[p.key] != null) ? ov[p.key] : p.cost;
 }
 
 // ============================================================ waves & spawning
@@ -405,8 +584,130 @@ function waveComposition(w) {
   return out;
 }
 
+// ---- themed set-piece assaults: every 10th wave the Germans commit to a
+// scripted attack. Themes cycle; the tier (wave/10) keeps climbing forever,
+// so each theme returns bigger and meaner the next time around.
+
+function spawnEnemyAt(type, x, y) {
+  const e = makeEnemy(type, clamp(x, 30, W - 30), y);
+  G.enemies.push(e);
+  return e;
+}
+
+const SPECIAL_WAVES = [
+  {
+    key: 'blitz',
+    banner: 'BLITZKRIEG! KRADSCHÜTZEN SWARM!',
+    // a torrent of motorcycles racing for your line, gun cars in the second echelon
+    spawn(t) {
+      const bikes = 3 + t;
+      for (let i = 0; i < bikes; i++) {
+        spawnEnemyAt('ebike', rand(60, W - 60), -20 - i * rand(30, 70));
+      }
+      for (let i = 0; i < Math.floor(t / 2); i++) {
+        spawnEnemyAt('ejeep', rand(100, W - 100), -80 - i * 100);
+      }
+    },
+  },
+  {
+    key: 'parastorm',
+    banner: 'FALLSCHIRMJÄGER ASSAULT!',
+    // a mass drop behind your line while a ground element pins you frontally
+    spawn(t) {
+      const pool = ['erifle', 'esmg', 'esmg', 'egren'];
+      if (t >= 3) pool.push('emg');
+      const count = 6 + 2 * t;
+      for (let i = 0; i < count; i++) {
+        const e = spawnEnemyAt(pick(pool), rand(40, W - 40), rand(40, H * (2 / 3) - 10));
+        e.chute = rand(2.8, 4.0) + i * 0.15;
+        e.chuteMax = e.chute;
+      }
+      if (t >= 4) {
+        const o = spawnEnemyAt('eoff', rand(120, W - 120), rand(60, H / 2));
+        o.chute = rand(3, 4);
+        o.chuteMax = o.chute;
+      }
+      for (let i = 0; i < 3 + Math.floor(t / 2); i++) {
+        spawnEnemyAt(pick(['erifle', 'esmg']), rand(80, W - 80), rand(-70, -20));
+      }
+    },
+  },
+  {
+    key: 'sturm',
+    banner: 'STURMANGRIFF! HUMAN WAVE!',
+    // a shoulder-to-shoulder line of shock infantry across the whole field
+    spawn(t) {
+      const count = 8 + 2 * t;
+      for (let i = 0; i < count; i++) {
+        const x = (W / (count + 1)) * (i + 1) + rand(-25, 25);
+        const roll = Math.random();
+        const type = roll < 0.5 ? 'esmg' : roll < 0.65 && t >= 3 ? 'eflame' : 'erifle';
+        spawnEnemyAt(type, x, rand(-90, -20));
+      }
+      const officers = 1 + Math.floor(t / 5);
+      for (let i = 0; i < officers; i++) {
+        spawnEnemyAt('eoff', rand(120, W - 120), rand(-130, -90));
+      }
+    },
+  },
+  {
+    key: 'panzerkeil',
+    banner: 'PANZERKEIL! ARMOR COLUMN!',
+    // tanks and halftracks in column with an infantry screen out front
+    spawn(t) {
+      const cx = rand(180, W - 180);
+      const panzers = t < 6 ? 1 : Math.max(1, Math.floor(t / 3));
+      for (let i = 0; i < panzers; i++) {
+        spawnEnemyAt('panzer', cx + rand(-120, 120), -40 - i * 150);
+      }
+      const tracks = t < 6 ? 0 : 1 + Math.floor((t - 6) / 5);
+      for (let i = 0; i < tracks; i++) {
+        spawnEnemyAt('ehalftrack', cx + rand(-160, 160), -110 - i * 130);
+      }
+      const jeeps = t < 5 ? 0 : Math.floor((t - 4) / 3);
+      for (let i = 0; i < jeeps; i++) {
+        spawnEnemyAt('ejeep', cx + rand(-200, 200), -70 - i * 100);
+      }
+      for (let i = 0; i < 4 + Math.floor(t / 2); i++) {
+        spawnEnemyAt(pick(['erifle', 'esmg', 'egren']), cx + rand(-200, 200), rand(-60, -20));
+      }
+    },
+  },
+  {
+    key: 'nebel',
+    banner: 'NEBELSTURM! THEY COME IN THE FOG!',
+    // fog blankets the field while marksmen and MGs creep in behind the infantry
+    spawn(t) {
+      G.fog = Math.max(G.fog, 24 + t);
+      for (let i = 0; i < 2 + Math.floor(t / 4); i++) {
+        spawnEnemyAt('esniper', rand(60, W - 60), rand(-140, -60));
+      }
+      for (let i = 0; i < 1 + Math.floor(t / 4); i++) {
+        spawnEnemyAt('emg', rand(80, W - 80), rand(-110, -40));
+      }
+      for (let i = 0; i < 6 + t; i++) {
+        spawnEnemyAt(pick(['erifle', 'erifle', 'esmg']), rand(50, W - 50), rand(-90, -20));
+      }
+    },
+  },
+];
+
+function spawnSpecialWave(w) {
+  const tier = w / 10;
+  const theme = SPECIAL_WAVES[(tier - 1) % SPECIAL_WAVES.length];
+  showBanner(theme.banner);
+  SFX.alarm();
+  theme.spawn(tier);
+  // a breather while you police up the aftermath
+  G.spawnTimer = spawnIntervalForWave(w) + 6;
+}
+
 function spawnWave() {
   G.wave++;
+  if (G.wave % 10 === 0) {
+    spawnSpecialWave(G.wave);
+    return;
+  }
   const comp = waveComposition(G.wave);
   const cx = rand(100, W - 100);
   for (const type of comp) {
@@ -415,6 +716,39 @@ function spawnWave() {
   }
   G.spawnTimer = spawnIntervalForWave(G.wave);
   if (G.wave === 1) showBanner('HERE THEY COME');
+}
+
+// allied campaign: step through the level's scripted wave list. Once the last
+// wave is launched, victory comes when the field is clear.
+function updateAlliedWaves(dt) {
+  const waves = G.level.waves;
+  if (G.waveIdx >= waves.length) {
+    if (G.enemies.length === 0) victory();
+    return;
+  }
+  G.spawnTimer -= dt;
+  if (G.spawnTimer > 0) return;
+  const wv = waves[G.waveIdx++];
+  G.wave++;
+  if (wv.banner) { showBanner(wv.banner); SFX.alarm(); }
+  const cx = rand(100, W - 100);
+  for (const type of wv.comp) {
+    const x = clamp(cx + rand(-90, 90), 30, W - 30);
+    G.enemies.push(makeEnemy(type, x, rand(-70, -20)));
+  }
+  const next = waves[G.waveIdx];
+  if (next) G.spawnTimer = next.delay;
+}
+
+// axis campaign: the player is the wave source; scripted US reinforcements
+// arrive on a timetable to stiffen the defense.
+function updateAxisReinforcements() {
+  const list = G.level.reinforcements || [];
+  while (G.reinforceIdx < list.length && G.time >= list[G.reinforceIdx].at) {
+    const r = list[G.reinforceIdx++];
+    if (r.banner) { showBanner(r.banner); SFX.alarm(); }
+    for (const spec of r.units) G.units.push(makeUnit(spec.type, spec.x, spec.y));
+  }
 }
 
 // ============================================================ random events
@@ -551,6 +885,10 @@ function explode(x, y, r, dmg, big, by) {
   }
   for (const s of G.sandbags) {
     if (dist(s, { x, y }) < r) s.hp -= dmg * 0.8;
+  }
+  for (const b of G.bunkers) {
+    // reinforced concrete: blast does far less than it would to sandbags
+    if (dist(b, { x, y }) < r) b.hp -= dmg * 0.4;
   }
   for (const wr of G.wires) {
     if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;
@@ -743,12 +1081,21 @@ function damageUnit(u, dmg, from) {
   }
   if (u.hp <= 0 && !u.dead) {
     u.dead = true;
+    // in the axis campaign the player is paid for downed US defenders
+    if (G.mode === 'axis') {
+      G.kills++;
+      earnTP(u.t.reward || 2);
+      SFX.cash();
+    }
     if (u.t.tank) {
       stampWreck(u);
       explode(u.x, u.y, 50, 60, true);
     } else if (u.t.vehicle) {
       stampJeepWreck(u);
       explode(u.x, u.y, 30, 45, false);
+    } else if (u.t.atgun) {
+      stampATGunWreck(u);
+      explode(u.x, u.y, 26, 35, false);
     } else {
       spawnCorpse(u);
       bloodSplat(u.x, u.y, 8);
@@ -793,9 +1140,13 @@ function damageEnemy(e, dmg, from) {
   }
   if (e.hp <= 0 && !e.dead) {
     e.dead = true;
-    G.kills++;
-    earnTP(e.t.reward);
-    SFX.cash();
+    // when attacking, dead Germans are your losses, not your payday —
+    // but the US defenders who scored the kill still gain experience
+    if (G.mode !== 'axis') {
+      G.kills++;
+      earnTP(e.t.reward);
+      SFX.cash();
+    }
     creditKill(from);
     if (e.t.tank) {
       stampWreck(e);
@@ -828,7 +1179,7 @@ function fogMult() { return G.fog > 0 ? 0.6 : 1; }
 // incoming rounds. Veterans get back up fast; green troops stay down a while.
 function tryGoProne(u, chance) {
   if (!u || u.dead || !u.t || u.chute > 0) return;
-  if (u.t.tank || u.t.vehicle || u.t.apc || u.t.bike) return;   // crews don't dive
+  if (u.t.tank || u.t.vehicle || u.t.apc || u.t.bike || u.t.fixed) return;   // crews don't dive
   if (u.prone > 0 || u.proneCd > 0 || u.moveTo) return;          // running men keep running
   if (Math.random() >= chance) return;
   const rank = u.rank || 0;   // Germans carry no rank and eat dirt the longest
@@ -838,6 +1189,12 @@ function tryGoProne(u, chance) {
 function coverBlock(target) {
   // friendly units near sandbags dodge some incoming fire (vehicles don't duck)
   if (target.side !== 'us' || target.t.tank || target.t.vehicle) return false;
+  // bunker walls first: they stop more fire and barely notice small arms
+  for (const b of G.bunkers) {
+    if (b.hp > 0 && dist(b, target) < (b.up ? 40 : 36)) {
+      if (Math.random() < (b.up ? 0.85 : 0.75)) { b.hp -= b.up ? 1 : 2; return true; }
+    }
+  }
   for (const s of G.sandbags) {
     // fortified bags stop more and shrug off hits better
     if (s.hp > 0 && dist(s, target) < (s.up ? 36 : 32)) {
@@ -946,6 +1303,20 @@ function angleDiff(a, b) {
   while (d > Math.PI) d -= Math.PI * 2;
   while (d < -Math.PI) d += Math.PI * 2;
   return d;
+}
+
+function inFireCone(shooter, target, bearing, arc) {
+  return Math.abs(angleDiff(Math.atan2(target.y - shooter.y, target.x - shooter.x), bearing)) <= arc;
+}
+
+function drawFireCone(x, y, bearing, arc, range, alpha) {
+  ctx.strokeStyle = `rgba(255,255,255,${alpha != null ? alpha : 0.35})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.arc(x, y, range, bearing - arc, bearing + arc);
+  ctx.closePath();
+  ctx.stroke();
 }
 
 // one tick of flame from `actor` toward its facing: burns EVERYTHING in the
@@ -1111,6 +1482,13 @@ function updateUnit(u, dt) {
     } else {
       return; // pinned: no shooting, no grenades, no field work
     }
+  }
+
+  // the AT gun is staked in: it traverses and shoots, but never moves
+  if (u.t.atgun) {
+    u.moveTo = null;
+    updateATGun(u, dt);
+    return;
   }
 
   // a tank crew drives and fights at the same time
@@ -1313,9 +1691,9 @@ function updateEngineer(u, dt) {
     if (u.healed >= 150) { u.healed -= 150; gainXP(u); }
   };
 
-  // 1) restack damaged sandbags / restring damaged wire
+  // 1) restack damaged sandbags / patch bunker concrete / restring damaged wire
   let emp = null, empFrac = 1;
-  for (const s of [...G.sandbags, ...G.wires]) {
+  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires]) {
     if (s.hp >= s.maxhp || dist(u, s) > R) continue;
     const f = s.hp / s.maxhp;
     if (f < empFrac) { empFrac = f; emp = s; }
@@ -1330,7 +1708,7 @@ function updateEngineer(u, dt) {
 
   // 2) fortify the nearest intact, un-upgraded emplacement (~6 s of work)
   let target = null, td = R;
-  for (const s of [...G.sandbags, ...G.wires]) {
+  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires]) {
     if (s.up) continue;
     const d = dist(u, s);
     if (d < td) { td = d; target = s; }
@@ -1349,6 +1727,56 @@ function updateEngineer(u, dt) {
   }
 }
 
+// ---- 57mm anti-tank gun: a dug-in direct-fire piece. It only answers to
+// vehicles, and only inside the traverse cone its trails allow.
+function updateATGun(u, dt) {
+  const spec = u.t.atgun;
+  const range = u.t.range * fogMult();
+  const HOME = -Math.PI / 2;   // staked facing the German end of the field
+  const inCone = e => inFireCone(u, e, HOME, spec.arc);
+
+  u.cd -= dt;
+
+  // armor is the priority; soft vehicles after. Infantry is not this gun's job.
+  const target =
+    nearestEnemyInRange(u, range, e => e.t.tank && inCone(e)) ||
+    nearestEnemyInRange(u, range, e => (e.t.vehicle || e.t.bike) && inCone(e));
+
+  if (!target) {
+    // crank the tube back to center
+    u.turret += clamp(angleDiff(HOME, u.turret), -0.7 * dt, 0.7 * dt);
+    u.face = u.turret;
+    return;
+  }
+
+  const want = Math.atan2(target.y - u.y, target.x - u.x);
+  const diff = angleDiff(want, u.turret);
+  u.turret += clamp(diff, -0.9 * dt, 0.9 * dt);
+  u.face = u.turret;
+  if (u.cd > 0 || Math.abs(diff) > 0.12) return;
+
+  SFX.boom(false);
+  G.flashes.push({
+    x: u.x + Math.cos(u.turret) * 24, y: u.y + Math.sin(u.turret) * 24,
+    r: 8, ttl: 0.07, max: 0.07,
+  });
+  // recoil kicks dust off the trails
+  for (let i = 0; i < 4; i++) {
+    G.particles.push({
+      x: u.x + rand(-8, 8), y: u.y + rand(-4, 6), vx: rand(-30, 30), vy: rand(-40, -10),
+      ttl: rand(0.2, 0.4), grav: 200, size: rand(1.2, 2.2),
+      color: pick(['#6e6046', '#57492f', '#8a7a5a']),
+    });
+  }
+  // AP shot scatters badly; veteran crews walk their rounds in
+  const d = dist(u, target);
+  const scatter = (24 + d * 0.13) * (1 - u.rank * 0.08);
+  scheduleShell(
+    target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
+    0.45, spec.r, spec.shellDmg * (1 + u.rank * 0.06), false, u);
+  u.cd = u.t.rof * (1 - u.rank * 0.08) * rand(0.85, 1.15);
+}
+
 // ---- shared tank gunnery: both sides alternate the main gun and coaxial MG,
 // and keep shooting while the hull is moving
 
@@ -1356,11 +1784,13 @@ function tankTargets(a) {
   const fog = fogMult();
   const cannonRange = a.t.range * fog;
   const mgRange = a.t.mg.range * fog;
+  const cone = a.t.fireCone;
+  const inCannonCone = e => !cone || inFireCone(a, e, a.turret, cone.arc);
   if (a.side === 'us') {
     return {
-      // enemy armor is the cannon's priority target
-      cannon: nearestEnemyInRange(a, cannonRange, e => e.t.tank) ||
-              nearestEnemyInRange(a, cannonRange),
+      // enemy armor is the cannon's priority target, inside the turret arc
+      cannon: nearestEnemyInRange(a, cannonRange, e => e.t.tank && inCannonCone(e)) ||
+              nearestEnemyInRange(a, cannonRange, inCannonCone),
       mg: nearestEnemyInRange(a, mgRange, e => !e.t.tank),
     };
   }
@@ -1691,20 +2121,31 @@ function update(dt) {
   G.tpTrickle -= dt;
   if (G.tpTrickle <= 0) { G.tpTrickle = 8; earnTP(1); }
 
-  // officer TP bonus
+  // officer TP bonus: whichever side the player commands, its officers pay
   G.officerTick -= dt;
   if (G.officerTick <= 0) {
     G.officerTick = 30;
-    // rank pays: a MSG officer brings in 3 TP where a green one brings 1
-    for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3);
+    if (G.mode === 'axis') {
+      for (const e of G.enemies) if (!e.dead && e.type === 'eoff') earnTP(1);
+    } else {
+      // rank pays: a MSG officer brings in 3 TP where a green one brings 1
+      for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3);
+    }
   }
 
-  // spawning
-  G.spawnTimer -= dt;
-  if (G.spawnTimer <= 0) spawnWave();
+  // spawning: each mode has its own wave source
+  if (G.mode === 'allied') {
+    updateAlliedWaves(dt);
+  } else if (G.mode === 'axis') {
+    updateAxisReinforcements();
+    if (G.time >= G.level.timeLimit) { gameOver(); return; }
+  } else {
+    G.spawnTimer -= dt;
+    if (G.spawnTimer <= 0) spawnWave();
+  }
 
   // random events
-  if (G.wave >= 3) {
+  if (G.level.events && G.wave >= 3) {
     G.eventTimer -= dt;
     if (G.eventTimer <= 0) {
       const late = wavesPast99(G.wave);
@@ -1768,14 +2209,20 @@ function update(dt) {
     }
   }
 
-  // breaches
+  // breaches: a defeat marker when defending, the objective when attacking
   for (const e of G.enemies) {
     if (!e.dead && e.y > H + 10) {
       e.dead = true; e.breached = true;
       G.breaches++;
-      SFX.alarm();
-      showBanner('GERMAN BREAKTHROUGH! (' + G.breaches + '/' + MAX_BREACH + ')');
-      if (G.breaches >= MAX_BREACH) gameOver();
+      if (G.mode === 'axis') {
+        SFX.cash();
+        showBanner('BREAKTHROUGH! (' + G.breaches + '/' + G.level.winBreaches + ')');
+        if (G.breaches >= G.level.winBreaches) victory();
+      } else {
+        SFX.alarm();
+        showBanner('GERMAN BREAKTHROUGH! (' + G.breaches + '/' + G.level.breachLimit + ')');
+        if (G.breaches >= G.level.breachLimit) gameOver();
+      }
     }
   }
 
@@ -1797,6 +2244,7 @@ function update(dt) {
   G.units = G.units.filter(u => !u.dead);
   G.enemies = G.enemies.filter(e => !e.dead);
   G.sandbags = G.sandbags.filter(s => { if (s.hp <= 0) stampSandbagRubble(s); return s.hp > 0; });
+  G.bunkers = G.bunkers.filter(b => { if (b.hp <= 0) stampBunkerRubble(b); return b.hp > 0; });
   G.wires = G.wires.filter(w => w.hp > 0);
   G.mines = G.mines.filter(m => !m.dead);
   G.shells = G.shells.filter(s => !s.done);
@@ -1819,13 +2267,54 @@ function stampSandbagRubble(s) {
   gctx.fill();
 }
 
-function gameOver() {
+function stampBunkerRubble(b) {
+  // shattered concrete slab plus scattered chunks
+  gctx.fillStyle = 'rgba(105,102,92,0.6)';
+  gctx.beginPath();
+  gctx.ellipse(b.x, b.y, 26, 12, 0, 0, 7);
+  gctx.fill();
+  gctx.fillStyle = 'rgba(80,78,70,0.55)';
+  for (let i = 0; i < 6; i++) {
+    gctx.beginPath();
+    gctx.ellipse(b.x + rand(-22, 22), b.y + rand(-9, 9), rand(3, 7), rand(2, 5), rand(0, 3), 0, 7);
+    gctx.fill();
+  }
+}
+
+function endRun(won, title, stats) {
   G.over = true;
   running = false;
-  document.getElementById('go-stats').textContent =
-    `You held for ${G.wave} waves and ${Math.floor(G.time)} seconds. ` +
-    `${G.kills} Germans will not go home.`;
+  const titleEl = document.getElementById('go-title');
+  titleEl.textContent = title;
+  titleEl.classList.toggle('victory', won);
+  document.getElementById('go-stats').textContent = stats;
   document.getElementById('gameover').classList.remove('hidden');
+}
+
+function gameOver() {
+  const t = Math.floor(G.time);
+  if (G.mode === 'axis') {
+    endRun(false, 'ATTACK REPULSED',
+      `The assault stalls after ${t} seconds. ${G.breaches}/${G.level.winBreaches} breakthroughs — ` +
+      `the American line holds, and ${G.kills} defenders was not enough.`);
+  } else {
+    endRun(false, 'LINE OVERRUN',
+      `You held for ${G.wave} waves and ${t} seconds. ` +
+      `${G.kills} Germans will not go home.`);
+  }
+}
+
+function victory() {
+  const t = Math.floor(G.time);
+  if (G.mode === 'axis') {
+    endRun(true, 'LINE BROKEN',
+      `The American line collapses after ${t} seconds. ` +
+      `${G.breaches} men through the breach, ${G.kills} defenders down.`);
+  } else {
+    endRun(true, 'SECTOR HELD',
+      `You stopped all ${G.wave} waves in ${t} seconds. ` +
+      `${G.kills} Germans will not go home. The line is yours.`);
+  }
 }
 
 // ============================================================ rendering
@@ -2270,6 +2759,9 @@ function drawTank(a) {
   }
 
   if (us && G.selected.includes(a)) {
+    if (a.t.fireCone) {
+      drawFireCone(a.x, a.y, a.turret, a.t.fireCone.arc, a.t.range * fogMult(), 0.3);
+    }
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 3]);
@@ -2285,6 +2777,22 @@ function drawTank(a) {
       ctx.fillText(label, a.x, a.y + 40);
     }
   }
+}
+
+function stampATGunWreck(a) {
+  gctx.save();
+  gctx.translate(a.x, a.y);
+  gctx.rotate(rand(-0.6, 0.6));
+  // overturned carriage and a bent tube
+  gctx.fillStyle = '#33322a';
+  gctx.fillRect(-12, -5, 24, 10);
+  gctx.strokeStyle = '#2a2822';
+  gctx.lineWidth = 3;
+  gctx.beginPath(); gctx.moveTo(0, 0); gctx.lineTo(16, -12); gctx.stroke();
+  gctx.fillStyle = '#211f1a';
+  gctx.beginPath(); gctx.arc(-8, 6, 4, 0, 7); gctx.fill();
+  gctx.beginPath(); gctx.arc(9, 5, 4, 0, 7); gctx.fill();
+  gctx.restore();
 }
 
 function stampJeepWreck(a) {
@@ -2385,6 +2893,109 @@ function stampHalftrackWreck(a) {
   gctx.fillRect(-13, -16, 4, 16);
   gctx.fillRect(9, -16, 4, 16);
   gctx.restore();
+}
+
+function drawATGun(a) {
+  const c = ctx;
+  c.save();
+  c.translate(a.x, a.y);
+
+  // shadow
+  c.fillStyle = 'rgba(0,0,0,0.25)';
+  c.beginPath(); c.ellipse(0, 4, 16, 10, 0, 0, 7); c.fill();
+
+  // everything but the crew pivots with the tube
+  c.rotate(a.turret + Math.PI / 2);   // sprite is authored pointing "up"
+
+  // split trails staked out behind the breech
+  c.strokeStyle = '#3d4a34';
+  c.lineWidth = 3;
+  c.beginPath(); c.moveTo(-2, 4); c.lineTo(-11, 16); c.stroke();
+  c.beginPath(); c.moveTo(2, 4); c.lineTo(11, 16); c.stroke();
+  // trail spades
+  c.fillStyle = '#2f3a29';
+  c.fillRect(-13, 14, 5, 4);
+  c.fillRect(8, 14, 5, 4);
+
+  // wheels
+  c.fillStyle = '#2f2f28';
+  c.beginPath(); c.ellipse(-9, 1, 3, 5, 0, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(9, 1, 3, 5, 0, 0, 7); c.fill();
+
+  // carriage
+  c.fillStyle = a.t.color;
+  c.fillRect(-4, -2, 8, 8);
+
+  // gun shield, slightly angled plates
+  c.fillStyle = '#54634a';
+  c.strokeStyle = '#39462f';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.moveTo(-11, -3);
+  c.lineTo(-3, -6);
+  c.lineTo(3, -6);
+  c.lineTo(11, -3);
+  c.lineTo(11, 1);
+  c.lineTo(-11, 1);
+  c.closePath();
+  c.fill(); c.stroke();
+
+  // barrel with muzzle brake
+  c.fillStyle = '#4c5a42';
+  c.fillRect(-1.5, -22, 3, 17);
+  c.fillRect(-2.5, -23, 5, 3);
+
+  c.restore();
+
+  // crewman crouched at the breech, on the field (not rotated with the gun)
+  const bx = a.x - Math.cos(a.turret) * 10, by = a.y - Math.sin(a.turret) * 10;
+  ctx.fillStyle = a.t.color;
+  ctx.beginPath(); ctx.arc(bx, by, 3.4, 0, 7); ctx.fill();
+  ctx.fillStyle = '#5b6b4a';
+  ctx.beginPath(); ctx.arc(bx, by - 1, 2, 0, 7); ctx.fill();
+
+  if (a.hp < a.maxhp) {
+    const f = clamp(a.hp / a.maxhp, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(a.x - 14, a.y - 24, 28, 3.5);
+    ctx.fillStyle = '#7ec850';
+    ctx.fillRect(a.x - 14, a.y - 24, 28 * f, 3.5);
+  }
+
+  // crew veterancy chevrons
+  if (a.rank > 0) {
+    ctx.strokeStyle = '#ffd94a';
+    ctx.lineWidth = 1;
+    let sx = a.x - (a.rank * 5 - 2) / 2;
+    const sy = a.y - 28;
+    for (let i = 0; i < a.rank; i++) {
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + 1.5, sy - 2.5);
+      ctx.lineTo(sx + 3, sy);
+      ctx.stroke();
+      sx += 5;
+    }
+  }
+
+  if (G.selected.includes(a)) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.arc(a.x, a.y, 22, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    // show the traverse cone so the player knows what the gun can answer
+    drawFireCone(a.x, a.y, -Math.PI / 2, a.t.atgun.arc, a.t.range * fogMult(), 0.3);
+    if (G.selected.length === 1) {
+      ctx.font = 'bold 10px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' + a.xp + ' KILLS';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillText(label, a.x + 1, a.y + 35);
+      ctx.fillStyle = '#ffe98a';
+      ctx.fillText(label, a.x, a.y + 34);
+    }
+  }
 }
 
 function drawHalftrack(e) {
@@ -2526,6 +3137,61 @@ function drawDefenses() {
     ctx.restore();
   }
 
+  for (const b of G.bunkers) {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    // drop shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath(); ctx.ellipse(0, 5, 30, 11, 0, 0, 7); ctx.fill();
+    // concrete slab body
+    ctx.fillStyle = b.up ? '#8d8b80' : '#7f7d72';
+    ctx.strokeStyle = '#4e4c44';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-28, 8);
+    ctx.lineTo(-28, -6);
+    ctx.quadraticCurveTo(-28, -14, -18, -14);
+    ctx.lineTo(18, -14);
+    ctx.quadraticCurveTo(28, -14, 28, -6);
+    ctx.lineTo(28, 8);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // roof highlight
+    ctx.fillStyle = b.up ? '#a09e92' : '#93917f';
+    ctx.beginPath();
+    ctx.moveTo(-24, -2);
+    ctx.lineTo(-24, -6);
+    ctx.quadraticCurveTo(-24, -11, -17, -11);
+    ctx.lineTo(17, -11);
+    ctx.quadraticCurveTo(24, -11, 24, -6);
+    ctx.lineTo(24, -2);
+    ctx.closePath();
+    ctx.fill();
+    // firing slit facing the German line
+    ctx.fillStyle = '#1e1c16';
+    ctx.fillRect(-16, -9, 32, 4);
+    // fortified bunkers get steel plating over the slit corners
+    if (b.up) {
+      ctx.fillStyle = '#5a5850';
+      ctx.fillRect(-20, -10, 5, 6);
+      ctx.fillRect(15, -10, 5, 6);
+    }
+    // battle damage: cracks appear as the concrete wears down
+    const f = b.hp / b.maxhp;
+    if (f < 0.66) {
+      ctx.strokeStyle = 'rgba(30,28,22,0.7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-12, -14); ctx.lineTo(-8, -4); ctx.lineTo(-11, 4); ctx.stroke();
+    }
+    if (f < 0.33) {
+      ctx.strokeStyle = 'rgba(30,28,22,0.7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(14, -14); ctx.lineTo(10, -2); ctx.lineTo(16, 6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(-18, 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   for (const m of G.mines) {
     ctx.fillStyle = '#38352a';
     ctx.beginPath(); ctx.arc(m.x, m.y, 5, 0, 7); ctx.fill();
@@ -2598,6 +3264,7 @@ function draw() {
   }
   for (const u of G.units) {
     if (u.t.tank) drawTank(u);
+    else if (u.t.atgun) drawATGun(u);
     else if (u.t.vehicle) drawJeep(u);
     else drawSoldier(u);
   }
@@ -2674,12 +3341,24 @@ function drawPlacementGhost() {
   if (p.kind === 'support') {
     ctx.strokeStyle = valid ? '#ffd94a' : '#d04030';
     ctx.lineWidth = 1.5;
-    const r = p.key === 'artillery' ? 95 : 55;
+    const r = p.key === 'artillery' ? 95 : p.key === 'ebarrage' ? 85 : 55;
     ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y);
     ctx.moveTo(x, y - 10); ctx.lineTo(x, y + 10);
     ctx.stroke();
+  } else if (p.kind === 'eunit') {
+    // attackers deploy in the top strip; everything south of it is off limits
+    ctx.fillStyle = 'rgba(200,50,40,0.12)';
+    ctx.fillRect(0, AXIS_DEPLOY_Y, W, H - AXIS_DEPLOY_Y);
+    ctx.fillStyle = valid ? 'rgba(120,200,90,0.8)' : 'rgba(210,70,50,0.8)';
+    ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fill();
+    const et = ENEMY_TYPES[p.key];
+    if (et && et.range > 0) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(x, y, et.range * fogMult(), 0, 7); ctx.stroke();
+    }
   } else {
     // shade the invalid zone
     ctx.fillStyle = 'rgba(200,50,40,0.12)';
@@ -2690,7 +3369,11 @@ function drawPlacementGhost() {
       ctx.beginPath(); ctx.arc(pos.x, pos.y, p.key === 'mine' ? 5 : 9, 0, 7); ctx.fill();
     }
     const ut = UNIT_TYPES[p.key];
-    if (ut) {
+    if (ut && ut.atgun) {
+      drawFireCone(x, y, -Math.PI / 2, ut.atgun.arc, ut.range * fogMult(), 0.35);
+    } else if (ut && ut.fireCone) {
+      drawFireCone(x, y, -Math.PI / 2, ut.fireCone.arc, ut.range * fogMult(), 0.35);
+    } else if (ut) {
       // show the reach of his main weapon, not the sidearm
       let r = ut.range;
       if (ut.rocket) r = ut.rocket.range;
@@ -2712,14 +3395,24 @@ function drawPlacementGhost() {
 // ============================================================ HUD / DOM
 
 const el = id => document.getElementById(id);
-const hud = { tp: el('tp'), wave: el('wave'), kills: el('kills'), breach: el('breach') };
+const hud = { tp: el('tp'), waveBox: el('wavebox'), kills: el('kills'), breachBox: el('breachbox') };
 const bannerEl = el('banner');
 
 function updateHUD() {
   hud.tp.textContent = Math.floor(G.tp);
-  hud.wave.textContent = G.wave;
   hud.kills.textContent = G.kills;
-  hud.breach.textContent = G.breaches + '/' + MAX_BREACH;
+  if (G.mode === 'axis') {
+    const left = Math.max(0, G.level.timeLimit - G.time);
+    const m = Math.floor(left / 60), s = Math.floor(left % 60);
+    hud.waveBox.textContent = 'TIME ' + m + ':' + String(s).padStart(2, '0');
+    hud.breachBox.textContent = 'BREAK ' + G.breaches + '/' + G.level.winBreaches;
+  } else if (G.mode === 'allied') {
+    hud.waveBox.textContent = 'WAVE ' + G.wave + '/' + G.level.waves.length;
+    hud.breachBox.textContent = 'BREACH ' + G.breaches + '/' + G.level.breachLimit;
+  } else {
+    hud.waveBox.textContent = 'WAVE ' + G.wave;
+    hud.breachBox.textContent = 'BREACH ' + G.breaches + '/' + G.level.breachLimit;
+  }
 
   if (G.banner) {
     bannerEl.textContent = G.banner.text;
@@ -2730,28 +3423,35 @@ function updateHUD() {
 
   for (const btn of toolButtons) {
     const capped = btn.p.key === 'officer' && officerCount() >= MAX_OFFICERS;
-    btn.el.disabled = G.tp < btn.p.cost || capped;
+    btn.el.disabled = G.tp < placeableCost(btn.p) || capped;
     btn.el.classList.toggle('active', placing === btn.p);
   }
 }
 
-const toolButtons = [];
-function buildToolbar() {
+let toolButtons = [];
+function buildToolbar(placeables) {
   const bar = el('toolbar');
-  PLACEABLES.forEach((p) => {
+  bar.innerHTML = '';
+  toolButtons = [];
+  placeables.forEach((p) => {
+    const cost = placeableCost(p);
     const b = document.createElement('button');
     b.className = 'tool-btn';
     b.title = p.desc;
-    b.innerHTML = `<span class="key">[${p.hotkey}]</span>${p.label}<span class="cost">${p.cost} TP</span>`;
+    b.innerHTML = `<span class="key">[${p.hotkey}]</span>${p.label}<span class="cost">${cost} TP</span>`;
     b.addEventListener('click', () => selectPlaceable(p));
     bar.appendChild(b);
     toolButtons.push({ p, el: b });
   });
 }
 
+function activePlaceables() {
+  return (G && G.level) ? G.level.placeables : PLACEABLES;
+}
+
 function selectPlaceable(p) {
   if (!running) return;
-  if (G.tp < p.cost) { SFX.error(); return; }
+  if (G.tp < placeableCost(p)) { SFX.error(); return; }
   if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); return; }
   SFX.click();
   placing = (placing === p) ? null : p;
@@ -2775,13 +3475,24 @@ function placementMinY(p) {
 
 function placementValid(p, x, y) {
   if (p.kind === 'support') return y > 20 && y < H - 10;
+  if (p.kind === 'eunit') {
+    // axis attackers step off from the top strip and march south on their own
+    if (y < 14 || y > AXIS_DEPLOY_Y || x < 16 || x > W - 16) return false;
+    const t = ENEMY_TYPES[p.key];
+    const bulk = t.tank ? 34 : t.apc ? 30 : t.vehicle || t.bike ? 26 : 16;
+    for (const e of G.enemies) {
+      const gap = Math.max(bulk, e.t.tank ? 34 : e.t.vehicle ? 26 : 16);
+      if (dist(e, { x, y }) < gap) return false;
+    }
+    return true;
+  }
   const positions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
   const minY = placementMinY(p);
   for (const pos of positions) {
     if (pos.y < minY || pos.y > H - 14 || pos.x < 16 || pos.x > W - 16) return false;
   }
   if (p.kind === 'unit') {
-    const bulk = k => k === 'sherman' ? 34 : k === 'jeep' ? 26 : 16;
+    const bulk = k => k === 'sherman' ? 34 : k === 'jeep' ? 26 : k === 'atgun' ? 24 : 16;
     for (const u of G.units) {
       const gap = Math.max(bulk(p.key), u.t.tank ? 34 : u.t.vehicle ? 26 : 16);
       if (dist(u, { x, y }) < gap) return false;
@@ -2792,15 +3503,25 @@ function placementValid(p, x, y) {
 
 function place(p, x, y) {
   if (!placementValid(p, x, y)) { SFX.error(); return; }
-  if (G.tp < p.cost) { SFX.error(); placing = null; return; }
+  const cost = placeableCost(p);
+  if (G.tp < cost) { SFX.error(); placing = null; return; }
   if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); placing = null; return; }
-  G.tp -= p.cost;
+  G.tp -= cost;
   SFX.click();
 
   if (p.kind === 'unit') {
     G.units.push(makeUnit(p.key, x, y));
+  } else if (p.kind === 'eunit') {
+    G.enemies.push(makeEnemy(p.key, x, y));
+  } else if (p.key === 'ebarrage') {
+    showBanner('DEUTSCHE ARTILLERIE!');
+    for (let i = 0; i < 10; i++) {
+      scheduleShell(x + rand(-80, 80), y + rand(-65, 65), 1.6 + i * 0.5, 50, 95, true);
+    }
   } else if (p.key === 'sandbags') {
     G.sandbags.push({ x, y, hp: 300, maxhp: 300, up: false, workProg: 0 });
+  } else if (p.key === 'bunker') {
+    G.bunkers.push({ x, y, hp: 3000, maxhp: 3000, up: false, workProg: 0 });
   } else if (p.key === 'wire') {
     G.wires.push({ x, y, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
   } else if (p.key === 'mine') {
@@ -2819,7 +3540,7 @@ function place(p, x, y) {
     }
   }
   // keep placing defenses if affordable; supports are one-shot
-  if (p.kind === 'support' || G.tp < p.cost || (p.key === 'officer' && officerCount() >= MAX_OFFICERS)) placing = null;
+  if (p.kind === 'support' || G.tp < placeableCost(p) || (p.key === 'officer' && officerCount() >= MAX_OFFICERS)) placing = null;
 }
 
 canvas.addEventListener('mousemove', e => {
@@ -2838,6 +3559,7 @@ canvas.addEventListener('mouseleave', () => { mouse.inside = false; });
 canvas.addEventListener('mousedown', e => {
   suppressClick = false;
   if (!running || placing || e.button !== 0) return;
+  if (G.mode === 'axis') return; // attackers advance on their own; no selecting
   drag = { x0: mouse.x, y0: mouse.y, x1: mouse.x, y1: mouse.y, active: false };
 });
 
@@ -2855,6 +3577,8 @@ window.addEventListener('mouseup', e => {
 
 // spread a group order into a tight grid around the target so men don't stack
 function issueMoveOrder(units, x, y) {
+  units = units.filter(u => !u.t.fixed);   // staked guns don't take march orders
+  if (!units.length) return;
   const clampDest = (dx, dy) => ({
     x: clamp(dx, 16, W - 16),
     y: clamp(dy, FORWARD_Y + 2, H - 14),
@@ -2895,10 +3619,13 @@ canvas.addEventListener('click', e => {
 
   if (placing) { place(placing, x, y); return; }
 
+  // axis attackers can't be selected or ordered; the toolbar is the whole game
+  if (G.mode === 'axis') return;
+
   // select own soldier (vehicles are a bigger click target)
   let picked = null;
   for (const u of G.units) {
-    if (dist(u, { x, y }) < (u.t.tank ? 26 : u.t.vehicle ? 20 : 14)) { picked = u; break; }
+    if (dist(u, { x, y }) < (u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14)) { picked = u; break; }
   }
   if (picked) {
     G.selected = [picked];
@@ -2924,7 +3651,7 @@ canvas.addEventListener('contextmenu', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { placing = null; drag = null; if (G) G.selected = []; return; }
   const k = e.key.toUpperCase();
-  const p = PLACEABLES.find(pl => pl.hotkey === k);
+  const p = activePlaceables().find(pl => pl.hotkey === k);
   if (p) selectPlaceable(p);
 });
 
@@ -2973,6 +3700,24 @@ function drawCodexIcon(key) {
         c.strokeRect(14 + col * 12 + (row % 2 ? 4 : 0), 46 - row * 12, 11, 9);
       }
     }
+  } else if (key === 'bunker') {
+    // concrete pillbox, firing slit forward
+    c.fillStyle = '#7f7d72';
+    c.strokeStyle = '#4e4c44';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(12, 52);
+    c.lineTo(12, 30);
+    c.quadraticCurveTo(12, 20, 22, 20);
+    c.lineTo(CODEX_PW - 22, 20);
+    c.quadraticCurveTo(CODEX_PW - 12, 20, CODEX_PW - 12, 30);
+    c.lineTo(CODEX_PW - 12, 52);
+    c.closePath();
+    c.fill(); c.stroke();
+    c.fillStyle = '#93917f';
+    c.fillRect(17, 25, CODEX_PW - 34, 8);
+    c.fillStyle = '#1e1c16';
+    c.fillRect(20, 28, CODEX_PW - 40, 5);
   } else if (key === 'mine') {
     c.fillStyle = '#3a3828';
     c.beginPath(); c.arc(cx, cy + 4, 14, 0, 7); c.fill();
@@ -3063,6 +3808,19 @@ function drawCodexIcon(key) {
     for (const bx of [28, 40, 52]) {
       c.beginPath(); c.arc(bx, cy + 16, 5, 0, 7); c.fill();
     }
+  } else if (key === 'special') {
+    // military map symbol: stacked assault chevrons driving downfield
+    c.strokeStyle = '#b8443a';
+    c.lineWidth = 3.5;
+    c.lineJoin = 'miter';
+    for (let i = 0; i < 3; i++) {
+      const y = 16 + i * 13;
+      c.beginPath();
+      c.moveTo(cx - 15, y);
+      c.lineTo(cx, y + 9);
+      c.lineTo(cx + 15, y);
+      c.stroke();
+    }
   }
 }
 
@@ -3075,7 +3833,7 @@ function renderPortrait(typeKey, side) {
   ctx = pc.getContext('2d');
   G = { selected: [] };
 
-  const defenseKeys = ['wire', 'sandbags', 'mine', 'mortar', 'artillery'];
+  const defenseKeys = ['wire', 'sandbags', 'bunker', 'mine', 'mortar', 'artillery'];
   const eventKeys = EVENT_INFO.map(e => e.key);
   if (defenseKeys.includes(typeKey) || eventKeys.includes(typeKey)) {
     drawCodexIcon(typeKey);
@@ -3113,6 +3871,13 @@ function renderPortrait(typeKey, side) {
       ctx.restore();
     } else if (t.bike) {
       drawBike(actor);
+    } else if (t.atgun) {
+      ctx.save();
+      ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 2);
+      ctx.scale(1.3, 1.3);
+      ctx.translate(-CODEX_PW / 2, -(CODEX_PH / 2 + 2));
+      drawATGun(actor);
+      ctx.restore();
     } else {
       drawSoldier(actor);
     }
@@ -3131,6 +3896,7 @@ function formatUnitStats(p, ut) {
   if (ut.flame) parts.push('FLAME');
   if (ut.rocket) parts.push('ROCKET');
   if (ut.mortar) parts.push('MORTAR');
+  if (ut.atgun) parts.push('AP SHELL', 'VEHICLES ONLY', 'IMMOBILE');
   parts.push(`${p.cost} TP`, `[${p.hotkey}]`);
   return parts.join(' · ');
 }
@@ -3232,19 +3998,33 @@ for (const btn of document.querySelectorAll('.codex-tab')) {
 
 // ============================================================ game flow
 
-function startGame() {
+function startGame(levelId) {
+  const level = LEVELS[levelId] || LEVELS.endless;
   SFX.resume();
-  newGame();
+  newGame(level);
   placing = null;
   running = true;
+  buildToolbar(level.placeables);
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('codex').classList.add('hidden');
+  el('tipbar').textContent = level.mode === 'axis'
+    ? 'Pick a unit and drop it in the top strip — your troops advance on their own. Right-click / Esc cancels placement.'
+    : 'Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.';
+  if (level.briefing) showBanner(level.name);
   lastT = performance.now();
 }
 
-el('start-btn').addEventListener('click', startGame);
-el('restart-btn').addEventListener('click', startGame);
+el('start-endless').addEventListener('click', () => startGame('endless'));
+el('start-allied').addEventListener('click', () => startGame('allied1'));
+el('start-axis').addEventListener('click', () => startGame('axis1'));
+el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless'));
+el('menu-btn').addEventListener('click', () => {
+  running = false;
+  placing = null;
+  el('gameover').classList.add('hidden');
+  el('intro').classList.remove('hidden');
+});
 
 function frame(now) {
   requestAnimationFrame(frame);
@@ -3256,5 +4036,5 @@ function frame(now) {
   updateHUD();
 }
 
-buildToolbar();
+buildToolbar(PLACEABLES);
 requestAnimationFrame(frame);

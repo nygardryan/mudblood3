@@ -158,6 +158,7 @@ body {
 .overlay button:hover { background: #5a5322; }
 
 #gameover h1 { color: #c22; }
+#gameover h1.victory { color: #8fbf5a; }
 #go-stats { font-size: 17px; color: #ffd94a; letter-spacing: 1px; }
 
 .intro-btns {
@@ -165,6 +166,28 @@ body {
   gap: 16px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+/* mode select: one column of wide buttons, each with a briefing line */
+.intro-btns.modes {
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 560px;
+  margin-bottom: 18px;
+}
+.intro-btns.modes button {
+  width: 100%;
+  padding: 10px 20px;
+  font-size: 16px;
+}
+.mode-desc {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: normal;
+  letter-spacing: 0.5px;
+  color: #c9c19a;
 }
 .overlay button.secondary {
   border-color: #8a8668;

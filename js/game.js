@@ -7,6 +7,7 @@
 const W = 900, H = 620;
 const DEPLOY_Y = 380;          // your side of the field starts here
 const MAX_BREACH = 7;
+const MAX_OFFICERS = 5;
 
 const UNIT_TYPES = {
   rifleman: {
@@ -46,7 +47,7 @@ const UNIT_TYPES = {
     name: 'Mortarman', hp: 90, range: 120, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, speed: 38,
     color: '#4c5a3f', gun: 5, sfx: 'pistol',
-    mortar: { range: 520, min: 220, cdMin: 5.5, cdMax: 7.5, r: 40, dmg: 75, flight: 1.6 },
+    mortar: { range: 520, min: 220, cdMin: 11, cdMax: 15, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
     desc: 'Portable 60mm mortar. Indirect fire at range.',
   },
   sniper: {
@@ -71,7 +72,7 @@ const UNIT_TYPES = {
     name: 'Officer', hp: 95, range: 150, dmg: 9, acc: 0.5,
     rof: 0.9, burst: 1, burstGap: 0, speed: 44,
     color: '#6b6d44', gun: 5, sfx: 'pistol',
-    desc: 'Nearby men fire faster and straighter. Earns +1 TP / 10 s.',
+    desc: 'Nearby men fire faster and straighter. Earns +1 TP / 30 s.',
   },
   flamer: {
     name: 'Flamethrower', hp: 100, range: 130, dmg: 0, acc: 0,
@@ -143,7 +144,7 @@ const ENEMY_TYPES = {
     color: '#57574a', gun: 14, sfx: 'hmg', priority: 3, vehicle: true,
   },
   ehalftrack: {
-    name: 'Sd.Kfz. 251', hp: 500, speed: 30, range: 240, dmg: 7, acc: 0.38,
+    name: 'Sd.Kfz. 251', hp: 1000, speed: 30, range: 240, dmg: 7, acc: 0.38,
     rof: 2.2, burst: 6, burstGap: 0.08, reward: 12,
     color: '#54544a', gun: 16, sfx: 'mg', priority: 3, vehicle: true, apc: true,
   },
@@ -155,7 +156,8 @@ const ENEMY_TYPES = {
   },
 };
 
-// promotion ladder: kills needed to reach each rank; every rank = faster, straighter fire
+// promotion ladder: kills needed to reach each rank. Veterancy bites hard:
+// a max-rank man is roughly 3-4x the soldier a green private is.
 const RANKS = [
   { name: 'PVT', kills: 0 },
   { name: 'PFC', kills: 2 },
@@ -186,23 +188,23 @@ const PLACEABLES = [
   { key: 'engineer', label: 'ENGINEER', cost: 14, kind: 'unit', hotkey: 'E',
     desc: 'Repairs tanks and fortifications; fortifies nearby emplacements (better stats). SMG for close range only.' },
   { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
-    desc: 'Buffs nearby men. Generates +1 TP every 10 s.' },
+    desc: 'Buffs nearby men. Generates +1 TP every 30 s.' },
   { key: 'flamer', label: 'FLAMER', cost: 13, kind: 'unit', hotkey: 'F',
     desc: 'M2 flamethrower. Devastating cone of fire that burns friend and foe alike.' },
   { key: 'jeep', label: 'JEEP', cost: 20, kind: 'unit', hotkey: 'J',
     desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — engineer repairs, medics can\'t.' },
-  { key: 'sherman', label: 'SHERMAN', cost: 50, kind: 'unit', hotkey: 'T',
+  { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon, shrugs off small arms. Medics cannot repair it.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
   { key: 'sandbags', label: 'SANDBAGS', cost: 5, kind: 'defense', hotkey: '8',
     desc: 'Cover. Soldiers behind it dodge half of incoming fire.' },
-  { key: 'mine', label: 'MINE', cost: 6, kind: 'defense', hotkey: '9',
-    desc: 'Anti-personnel mine. Hurts tanks too. Germans can\'t see it.' },
+  { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
+    desc: 'Cluster of 3 anti-personnel mines. Hurts tanks too. Germans can\'t see them.' },
   { key: 'mortar', label: 'MORTAR', cost: 8, kind: 'support', hotkey: '0',
     desc: '3 mortar shells on target. DANGER CLOSE — friendly fire is real.' },
   { key: 'artillery', label: 'ARTY', cost: 16, kind: 'support', hotkey: 'A',
-    desc: '105mm barrage: 8 heavy shells, wide spread. Devastating. Indiscriminate.' },
+    desc: '105mm barrage: 16 heavy shells, wide spread. Devastating. Indiscriminate.' },
 ];
 
 // ============================================================ helpers
@@ -212,6 +214,7 @@ const randi = (a, b) => Math.floor(rand(a, b + 1));
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const officerCount = () => G.units.filter(u => !u.dead && u.type === 'officer').length;
 
 // ============================================================ state
 
@@ -224,7 +227,7 @@ let lastT = 0;
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
-// persistent ground layer (blood, craters, corpses get stamped here)
+// persistent ground layer (wrecks, terrain — blood and craters are temporary overlays)
 const groundCanvas = document.createElement('canvas');
 groundCanvas.width = W; groundCanvas.height = H;
 const gctx = groundCanvas.getContext('2d');
@@ -252,10 +255,11 @@ function newGame() {
     flashes: [],
     texts: [],       // floating notices (promotions)
     corpses: [],     // fallen soldiers, cleared away after CORPSE_TTL
+    groundMarks: [], // blood stains and blast craters, fade after GROUND_MARK_TTL
 
     spawnTimer: 6,
     tpTrickle: 8,
-    officerTick: 10,
+    officerTick: 30,
     eventTimer: rand(40, 60),
     fog: 0,
     banner: null,
@@ -280,7 +284,7 @@ function makeUnit(type, x, y) {
     healed: 0,       // HP restored; medics rank up on this, slowly
     grenCd: rand(5, 9),
     rocketCd: rand(1, 2),
-    mortCd: rand(2, 4),
+    mortCd: rand(4, 8),
     xp: 0, rank: 0,
     prone: 0, proneCd: 0,
   };
@@ -378,6 +382,33 @@ function barrageForWave(w) {
   };
 }
 
+// paratroopers drop into the top 2/3 of the field: 4 men minimum,
+// growing steadily with the wave count
+function paradropCount(w) {
+  return Math.min(4 + Math.floor(w / 6), 12);
+}
+
+const PARA_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];
+
+function triggerParadrop() {
+  showBanner('FALLSCHIRMJÄGER! PARATROOPERS!');
+  SFX.alarm();
+  const w = G.wave;
+  const pool = PARA_POOL.slice();
+  if (w >= 10) pool.push('emg');
+  const count = paradropCount(w);
+  const cx = rand(120, W - 120);
+  for (let i = 0; i < count; i++) {
+    const x = clamp(cx + rand(-120, 120), 20, W - 20);
+    const y = rand(40, H * (2 / 3) - 10);
+    const e = makeEnemy(pick(pool), x, y);
+    // untouchable while the canopy is up; staggered so the stick lands in sequence
+    e.chute = rand(2.8, 3.6) + i * 0.2;
+    e.chuteMax = e.chute;
+    G.enemies.push(e);
+  }
+}
+
 function triggerEvent() {
   const w = G.wave;
   const events = ['fog', 'fng'];
@@ -386,6 +417,7 @@ function triggerEvent() {
   if (w >= 24) events.push('barrage');
   if (w >= 40) events.push('barrage');
   if (w >= 8) events.push('airstrike');
+  if (w >= 6) events.push('paradrop');
   const ev = pick(events);
   SFX.event();
 
@@ -397,6 +429,8 @@ function triggerEvent() {
       scheduleShell(rand(60, W - 60), rand(DEPLOY_Y - 30, H - 40),
         rand(b.dMin, b.dMax), b.r, b.dmg, b.big);
     }
+  } else if (ev === 'paradrop') {
+    triggerParadrop();
   } else if (ev === 'fog') {
     showBanner('FOG ROLLS IN');
     G.fog = 22;
@@ -436,14 +470,7 @@ function scheduleShell(x, y, delay, r, dmg, big, by) {
 
 function explode(x, y, r, dmg, big, by) {
   SFX.boom(big);
-  // crater on ground layer
-  gctx.save();
-  gctx.translate(x, y);
-  gctx.fillStyle = 'rgba(30,26,18,0.55)';
-  gctx.beginPath(); gctx.ellipse(0, 0, r * 0.55, r * 0.42, rand(0, 3), 0, 7); gctx.fill();
-  gctx.fillStyle = 'rgba(20,17,12,0.6)';
-  gctx.beginPath(); gctx.ellipse(0, 0, r * 0.3, r * 0.22, rand(0, 3), 0, 7); gctx.fill();
-  gctx.restore();
+  addGroundMark({ type: 'crater', x, y, r, rot1: rand(0, 3), rot2: rand(0, 3) });
 
   G.flashes.push({ x, y, r: r * 1.15, ttl: 0.22, max: 0.22 });
   for (let i = 0; i < 26; i++) {
@@ -584,22 +611,50 @@ function bloodSplat(x, y, amount) {
       color: pick(['#7a1410', '#95201a', '#5c0e0a']),
     });
   }
-  gctx.fillStyle = `rgba(${randi(90, 130)},${randi(10, 22)},${randi(8, 16)},${rand(0.25, 0.5)})`;
-  gctx.beginPath();
-  gctx.ellipse(x + rand(-6, 6), y + rand(-4, 8), rand(3, 9), rand(2, 6), rand(0, 3), 0, 7);
-  gctx.fill();
+  addGroundMark({
+    type: 'blood',
+    x: x + rand(-6, 6), y: y + rand(-4, 8),
+    rx: rand(3, 9), ry: rand(2, 6), rot: rand(0, 3),
+    color: `rgba(${randi(90, 130)},${randi(10, 22)},${randi(8, 16)},${rand(0.25, 0.5)})`,
+  });
 }
 
 const CORPSE_TTL = 120; // bodies are carried off after two minutes
+const GROUND_MARK_TTL = 120; // blood stains and blast craters fade after two minutes
+
+function addGroundMark(mark) {
+  G.groundMarks.push({ ttl: GROUND_MARK_TTL, ...mark });
+}
+
+function drawGroundMark(m, c) {
+  const alpha = clamp(m.ttl / 8, 0, 1);
+  c.save();
+  c.globalAlpha = alpha;
+  if (m.type === 'blood') {
+    c.fillStyle = m.color;
+    c.beginPath();
+    c.ellipse(m.x, m.y, m.rx, m.ry, m.rot, 0, 7);
+    c.fill();
+  } else if (m.type === 'bloodpool') {
+    c.fillStyle = m.color;
+    c.translate(m.x, m.y);
+    c.rotate(m.rot);
+    c.beginPath(); c.ellipse(0, 2, 13, 8, 0, 0, 7); c.fill();
+  } else if (m.type === 'crater') {
+    c.translate(m.x, m.y);
+    c.fillStyle = 'rgba(30,26,18,0.55)';
+    c.beginPath(); c.ellipse(0, 0, m.r * 0.55, m.r * 0.42, m.rot1, 0, 7); c.fill();
+    c.fillStyle = 'rgba(20,17,12,0.6)';
+    c.beginPath(); c.ellipse(0, 0, m.r * 0.3, m.r * 0.22, m.rot2, 0, 7); c.fill();
+  }
+  c.restore();
+}
 
 function spawnCorpse(a) {
-  // the blood pool soaks into the ground for good; the body itself is temporary
-  gctx.fillStyle = `rgba(${randi(90, 120)},${randi(10, 20)},10,0.45)`;
-  gctx.save();
-  gctx.translate(a.x, a.y);
-  gctx.rotate(rand(0, Math.PI * 2));
-  gctx.beginPath(); gctx.ellipse(0, 2, 13, 8, 0, 0, 7); gctx.fill();
-  gctx.restore();
+  addGroundMark({
+    type: 'bloodpool', x: a.x, y: a.y, rot: rand(0, Math.PI * 2),
+    color: `rgba(${randi(90, 120)},${randi(10, 20)},10,0.45)`,
+  });
   G.corpses.push({ x: a.x, y: a.y, rot: rand(0, Math.PI * 2), side: a.side, ttl: CORPSE_TTL });
 }
 
@@ -725,7 +780,7 @@ function tryGoProne(u, chance) {
   if (u.prone > 0 || u.proneCd > 0 || u.moveTo) return;          // running men keep running
   if (Math.random() >= chance) return;
   const rank = u.rank || 0;   // Germans carry no rank and eat dirt the longest
-  u.prone = rand(2.5, 4.5) * (1 - rank * 0.12);
+  u.prone = rand(2.5, 4.5) * (1 - rank * 0.15);
 }
 
 function coverBlock(target) {
@@ -770,7 +825,7 @@ function fireShot(shooter, target, opts) {
       G.particles.push({ x: hx, y: hy + 6, vx: rand(-20, 20), vy: -40, ttl: 0.3, grav: 150, size: 1.5, color: '#b8a878' });
       return;
     }
-    let dmg = t.dmg * rand(0.75, 1.25);
+    let dmg = t.dmg * rand(0.75, 1.25) * (opts && opts.dmgMult ? opts.dmgMult : 1);
     if (target.t && target.t.tank) dmg *= 0.04;   // rifle rounds ping off armor
     else if (target.t && target.t.apc) dmg *= 0.3; // halftrack plate shrugs off most of it
     if (target.side === 'us') damageUnit(target, dmg, shooter);
@@ -792,7 +847,8 @@ function runWeapon(actor, target, dt, buffs) {
     if (actor.burstTimer <= 0) {
       if (target) fireShot(actor, target, buffs);
       actor.burstLeft--;
-      actor.burstTimer = t.burstGap;
+      // veteran automatic gunners hold tighter, faster bursts too
+      actor.burstTimer = t.burstGap * rofMult;
     }
     return;
   }
@@ -870,7 +926,8 @@ function flameSpray(actor, dt) {
     gctx.fill();
   }
 
-  const dps = fl.dps * (1 + (actor.rank || 0) * 0.04);
+  // a veteran keeps the stream on target: burn scales hard with rank
+  const dps = fl.dps * (1 + (actor.rank || 0) * 0.35);
   const burn = (a2) => {
     if (a2 === actor || a2.dead) return;
     const d = dist(actor, a2);
@@ -935,7 +992,7 @@ function fireShotgun(actor, buffs) {
     const centered = 1 - off / arc;
     const falloff = 1 - (d / range) * 0.5;
     const pelletsHit = Math.max(1, Math.round(centered * 2.5 + rand(0, sg.pellets * 0.35)));
-    let dmg = sg.dmg * pelletsHit * falloff * (1 + rank * 0.06) * rand(0.9, 1.1);
+    let dmg = sg.dmg * pelletsHit * falloff * (1 + rank * 0.09) * rand(0.9, 1.1);
     if (e.t.tank) dmg *= 0.06;
     else if (e.t.apc) dmg *= 0.2;
     damageEnemy(e, dmg, actor);
@@ -965,20 +1022,23 @@ function nearestUnitInRange(e, range, pred) {
 function officerBuff(u) {
   for (const o of G.units) {
     if (!o.dead && o.type === 'officer' && o !== u && dist(o, u) < 130) {
-      return { rofMult: 0.75, accBonus: 0.18 };
+      // a veteran officer drives his men harder
+      return { rofMult: 0.75 - o.rank * 0.03, accBonus: 0.18 + o.rank * 0.04 };
     }
   }
   return null;
 }
 
-// officer aura + veterancy: each rank is 5% faster and 6% straighter fire
+// officer aura + veterancy: each rank is 8% faster, 8% straighter and 4%
+// harder-hitting — a MSG puts out roughly 3.5x the fire of a green private
 function unitBuffs(u) {
-  const b = { rofMult: 1, accBonus: 0 };
+  const b = { rofMult: 1, accBonus: 0, dmgMult: 1 };
   const ob = officerBuff(u);
   if (ob) { b.rofMult *= ob.rofMult; b.accBonus += ob.accBonus; }
   if (u.rank > 0) {
-    b.rofMult *= 1 - u.rank * 0.05;
-    b.accBonus += u.rank * 0.06;
+    b.rofMult *= 1 - u.rank * 0.08;
+    b.accBonus += u.rank * 0.08;
+    b.dmgMult *= 1 + u.rank * 0.04;
   }
   return b;
 }
@@ -1076,14 +1136,16 @@ function updateUnit(u, dt) {
       // never inside his own blast, never onto a danger-close buddy
       const gt = nearestEnemyInRange(u, 200 * fogMult(), e => dist(u, e) > 60);
       if (gt && !friendlyNearPoint(gt.x, gt.y, 55, u)) {
-        // grenades are a rare, heavy punch — the carbine does the daily work
-        u.grenCd = rand(11, 16);
+        // grenades are a rare, heavy punch — the carbine does the daily work.
+        // Veterans throw more often, tighter and harder.
+        u.grenCd = rand(11, 16) * (1 - u.rank * 0.08);
         SFX.grenadeToss();
+        const sc = 12 * (1 - u.rank * 0.08);
         G.grenades.push({
           x: u.x, y: u.y,
-          tx: gt.x + rand(-12, 12), ty: gt.y + rand(-12, 12),
+          tx: gt.x + rand(-sc, sc), ty: gt.y + rand(-sc, sc),
           t: 0, dur: 1.0, sx: u.x, sy: u.y, by: u,
-          r: 46, dmg: 115,
+          r: 46, dmg: 115 * (1 + u.rank * 0.05),
         });
       }
     }
@@ -1094,25 +1156,27 @@ function updateUnit(u, dt) {
     if (u.rocketCd <= 0) {
       const rk = u.t.rocket;
       const rr = rk.range * fogMult();
-      // armor first, infantry when there is none; never inside his own blast
+      // tanks first, then soft vehicles, infantry only when there is nothing
+      // on wheels; never inside his own blast
       const safe = e => dist(u, e) > rk.r + 20;
       const rt = nearestEnemyInRange(u, rr, e => e.t.tank && safe(e)) ||
+                 nearestEnemyInRange(u, rr, e => (e.t.vehicle || e.t.bike) && safe(e)) ||
                  nearestEnemyInRange(u, rr, safe);
       if (rt && !friendlyNearPoint(rt.x, rt.y, 40, u)) {
-        u.rocketCd = rand(rk.cdMin, rk.cdMax);
+        // a veteran crew reloads faster and walks his shots in
+        u.rocketCd = rand(rk.cdMin, rk.cdMax) * (1 - u.rank * 0.08);
         u.face = Math.atan2(rt.y - u.y, rt.x - u.x);
         SFX.rocket();
-        // rockets scatter badly with distance; a tank is a big, slow target,
-        // and a veteran gunner walks his shots in
+        // rockets scatter badly with distance; a tank is a big, slow target
         const d = dist(u, rt);
         let scatter = 8 + d * 0.11;
         if (rt.t.tank) scatter *= 0.45;
-        scatter = Math.max(6, scatter * (1 - u.rank * 0.06));
+        scatter = Math.max(6, scatter * (1 - u.rank * 0.08));
         const tx = rt.x + rand(-scatter, scatter), ty = rt.y + rand(-scatter, scatter);
         G.rockets.push({
           sx: u.x, sy: u.y, x: u.x, y: u.y, tx, ty,
           t: 0, dur: Math.max(dist(u, { x: tx, y: ty }) / rk.speed, 0.15),
-          r: rk.r, dmg: rk.dmg, by: u,
+          r: rk.r, dmg: rk.dmg * (1 + u.rank * 0.04), by: u,
         });
       }
     }
@@ -1125,12 +1189,14 @@ function updateUnit(u, dt) {
       const mr = mt.range * fogMult();
       const target = nearestEnemyInRange(u, mr, e => dist(u, e) > mt.min);
       if (target && !friendlyNearPoint(target.x, target.y, 55, u)) {
-        u.mortCd = rand(mt.cdMin, mt.cdMax);
+        // veteran crews drop rounds faster, tighter and heavier
+        u.mortCd = rand(mt.cdMin, mt.cdMax) * (1 - u.rank * 0.08);
         u.face = Math.atan2(target.y - u.y, target.x - u.x);
         SFX.thunk();
         G.flashes.push({ x: u.x, y: u.y - 6, r: 4, ttl: 0.06, max: 0.06 });
-        scheduleShell(target.x + rand(-40, 40), target.y + rand(-40, 40),
-          mt.flight, mt.r, mt.dmg, false, u);
+        const sc = mt.scatter * (1 - u.rank * 0.08);
+        scheduleShell(target.x + rand(-sc, sc), target.y + rand(-sc, sc),
+          mt.flight, mt.r, mt.dmg * (1 + u.rank * 0.05), false, u);
       }
     }
   }
@@ -1149,8 +1215,8 @@ function updateUnit(u, dt) {
         }
       }
       if (worst) {
-        // experienced medics work a little faster
-        const amt = Math.min(worst.maxhp - worst.hp, 3 + u.rank * 0.3);
+        // experienced medics work far faster — a MSG patches at ~3.4x the rate
+        const amt = Math.min(worst.maxhp - worst.hp, 3 + u.rank * 1.2);
         worst.hp += amt;
         u.healed += amt;
         // 1 XP per 150 HP patched up — a slow road to sergeant
@@ -1194,7 +1260,7 @@ function updateEngineer(u, dt) {
     if (dist(u, a) < R + 15 && (!tank || a.hp / a.maxhp < tank.hp / tank.maxhp)) tank = a;
   }
   if (tank) {
-    const amt = Math.min(tank.maxhp - tank.hp, (6 + u.rank * 0.5) / 3);
+    const amt = Math.min(tank.maxhp - tank.hp, (6 + u.rank * 2) / 3);
     tank.hp += amt;
     credit(amt);
     sparks(tank.x, tank.y);
@@ -1209,7 +1275,7 @@ function updateEngineer(u, dt) {
     if (f < empFrac) { empFrac = f; emp = s; }
   }
   if (emp) {
-    const amt = Math.min(emp.maxhp - emp.hp, 8 + u.rank * 0.6);
+    const amt = Math.min(emp.maxhp - emp.hp, 8 + u.rank * 2.7);
     emp.hp += amt;
     credit(amt * 0.5); // lighter work than armor plate
     sparks(emp.x, emp.y);
@@ -1224,7 +1290,7 @@ function updateEngineer(u, dt) {
     if (d < td) { td = d; target = s; }
   }
   if (target) {
-    target.workProg += 0.4 * (1 + u.rank * 0.05);
+    target.workProg += 0.4 * (1 + u.rank * 0.35);
     sparks(target.x, target.y);
     if (target.workProg >= 6) {
       target.up = true;
@@ -1267,12 +1333,16 @@ function updateTankCombat(a, dt) {
   if (a.burstLeft > 0) {
     a.burstTimer -= dt;
     if (a.burstTimer <= 0) {
-      if (a.mgTarget && !a.mgTarget.dead) fireShot(a, a.mgTarget, { weapon: mgSpec });
+      if (a.mgTarget && !a.mgTarget.dead) {
+        // a veteran crew keeps the coax on target too
+        const r = a.rank || 0;
+        fireShot(a, a.mgTarget, { weapon: mgSpec, accBonus: r * 0.08, dmgMult: 1 + r * 0.04 });
+      }
       a.burstLeft--;
       a.burstTimer = mgSpec.burstGap;
       if (a.burstLeft <= 0) {
         a.wpn = 'cannon';
-        a.cd = Math.max(1.2, a.t.rof - 2.3) * rand(0.85, 1.15);
+        a.cd = Math.max(1.2, a.t.rof - 2.3) * (1 - (a.rank || 0) * 0.08) * rand(0.85, 1.15);
       }
     }
     return;
@@ -1305,12 +1375,13 @@ function updateTankCombat(a, dt) {
       r: 9, ttl: 0.08, max: 0.08,
     });
     const d = dist(a, target);
-    const scatter = Math.max(18, 16 + d * 0.055 - (a.rank || 0) * 2);
+    // a veteran gunner lays shells on the mark and hits harder
+    const scatter = Math.max(18, 16 + d * 0.055) * (1 - (a.rank || 0) * 0.08);
     scheduleShell(target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
-      0.7, 45, a.t.shellDmg, false, a);
+      0.7, 45, a.t.shellDmg * (1 + (a.rank || 0) * 0.06), false, a);
     a.wpn = 'mg';
     // a veteran crew works the reload faster
-    a.cd = 1.5 * (1 - (a.rank || 0) * 0.04) * rand(0.85, 1.15);
+    a.cd = 1.5 * (1 - (a.rank || 0) * 0.08) * rand(0.85, 1.15);
   } else {
     a.burstLeft = mgSpec.burst;
     a.burstTimer = 0;
@@ -1476,25 +1547,15 @@ function updateEnemyJeep(e, dt) {
   e.face = Math.PI / 2;
 }
 
-// Sd.Kfz. 251 halftrack: an armored bus for a full squad. Troopers hop off
-// the tailgate one per second on the drive in; at rifle distance of any
-// defender it slams the brakes and the remaining six pile out at once.
+// Sd.Kfz. 251 halftrack: an armored bus for a full squad. At rifle distance
+// of any defender it slams the brakes and the squad piles out at once.
 // Afterward it fights on as a slow gun truck with its bow MG.
-const APC_TRICKLE_POOL = ['erifle', 'erifle', 'esmg'];
 
 function updateHalftrack(e, dt) {
   e.sfxT = (e.sfxT || 0) - dt;
   if (e.sfxT <= 0) { e.sfxT = 0.55; SFX.motor(); }
 
   if (!e.unloaded) {
-    // one man off the tailgate every second while rolling
-    e.dropT = (e.dropT === undefined ? 1 : e.dropT) - dt;
-    if (e.dropT <= 0) {
-      e.dropT = 1;
-      const inf = makeEnemy(pick(APC_TRICKLE_POOL),
-        clamp(e.x + rand(-10, 10), 14, W - 14), e.y - 24);
-      G.enemies.push(inf);
-    }
     // rifle distance of a defender: halt and unload the whole squad
     if (nearestUnitInRange(e, 230 * fogMult())) {
       e.unloaded = true;
@@ -1567,8 +1628,9 @@ function update(dt) {
   // officer TP bonus
   G.officerTick -= dt;
   if (G.officerTick <= 0) {
-    G.officerTick = 10;
-    for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1);
+    G.officerTick = 30;
+    // rank pays: a MSG officer brings in 3 TP where a green one brings 1
+    for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3);
   }
 
   // spawning
@@ -1662,6 +1724,7 @@ function update(dt) {
   for (const f of G.flashes) f.ttl -= dt;
   for (const tx of G.texts) { tx.ttl -= dt; tx.y -= 14 * dt; }
   for (const cp of G.corpses) cp.ttl -= dt;
+  for (const m of G.groundMarks) m.ttl -= dt;
   if (G.banner) { G.banner.ttl -= dt; if (G.banner.ttl <= 0) G.banner = null; }
 
   // cleanup
@@ -1680,6 +1743,7 @@ function update(dt) {
   G.flashes = G.flashes.filter(f => f.ttl > 0);
   G.texts = G.texts.filter(t => t.ttl > 0);
   G.corpses = G.corpses.filter(c => c.ttl > 0);
+  G.groundMarks = G.groundMarks.filter(m => m.ttl > 0);
 }
 
 function stampSandbagRubble(s) {
@@ -2338,6 +2402,7 @@ function drawDefenses() {
 
 function draw() {
   ctx.drawImage(groundCanvas, 0, 0);
+  for (const m of G.groundMarks) drawGroundMark(m, ctx);
 
   for (const cp of G.corpses) drawCorpse(cp);
 
@@ -2470,8 +2535,11 @@ function drawPlacementGhost() {
     // shade the invalid zone
     ctx.fillStyle = 'rgba(200,50,40,0.12)';
     ctx.fillRect(0, 0, W, DEPLOY_Y);
+    const ghostPositions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
     ctx.fillStyle = valid ? 'rgba(120,200,90,0.8)' : 'rgba(210,70,50,0.8)';
-    ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fill();
+    for (const pos of ghostPositions) {
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, p.key === 'mine' ? 5 : 9, 0, 7); ctx.fill();
+    }
     const ut = UNIT_TYPES[p.key];
     if (ut) {
       // show the reach of his main weapon, not the sidearm
@@ -2512,7 +2580,8 @@ function updateHUD() {
   }
 
   for (const btn of toolButtons) {
-    btn.el.disabled = G.tp < btn.p.cost;
+    const capped = btn.p.key === 'officer' && officerCount() >= MAX_OFFICERS;
+    btn.el.disabled = G.tp < btn.p.cost || capped;
     btn.el.classList.toggle('active', placing === btn.p);
   }
 }
@@ -2534,6 +2603,7 @@ function buildToolbar() {
 function selectPlaceable(p) {
   if (!running) return;
   if (G.tp < p.cost) { SFX.error(); return; }
+  if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); return; }
   SFX.click();
   placing = (placing === p) ? null : p;
   G.selected = null;
@@ -2541,9 +2611,20 @@ function selectPlaceable(p) {
 
 // ============================================================ placement & input
 
+function minefieldPositions(cx, cy) {
+  return [
+    { x: cx, y: cy },
+    { x: cx + 24, y: cy - 8 },
+    { x: cx - 18, y: cy + 16 },
+  ];
+}
+
 function placementValid(p, x, y) {
   if (p.kind === 'support') return y > 20 && y < H - 10;
-  if (y < DEPLOY_Y + 12 || y > H - 14 || x < 16 || x > W - 16) return false;
+  const positions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
+  for (const pos of positions) {
+    if (pos.y < DEPLOY_Y + 12 || pos.y > H - 14 || pos.x < 16 || pos.x > W - 16) return false;
+  }
   if (p.kind === 'unit') {
     const bulk = k => k === 'sherman' ? 34 : k === 'jeep' ? 26 : 16;
     for (const u of G.units) {
@@ -2557,6 +2638,7 @@ function placementValid(p, x, y) {
 function place(p, x, y) {
   if (!placementValid(p, x, y)) { SFX.error(); return; }
   if (G.tp < p.cost) { SFX.error(); placing = null; return; }
+  if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); placing = null; return; }
   G.tp -= p.cost;
   SFX.click();
 
@@ -2567,20 +2649,22 @@ function place(p, x, y) {
   } else if (p.key === 'wire') {
     G.wires.push({ x, y, hp: 250, maxhp: 250, up: false, workProg: 0 });
   } else if (p.key === 'mine') {
-    G.mines.push({ x, y, dead: false });
+    for (const pos of minefieldPositions(x, y)) {
+      G.mines.push({ x: pos.x, y: pos.y, dead: false });
+    }
   } else if (p.key === 'mortar') {
     showBanner('MORTAR FIRE MISSION');
     for (let i = 0; i < 3; i++) {
-      scheduleShell(x + rand(-52, 52), y + rand(-44, 44), 1.2 + i * 0.5, 42, 90, false);
+      scheduleShell(x + rand(-68, 68), y + rand(-57, 57), 2.4 + i * 1.0, 42, 90, false);
     }
   } else if (p.key === 'artillery') {
     showBanner('105mm BARRAGE INBOUND');
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 16; i++) {
       scheduleShell(x + rand(-90, 90), y + rand(-70, 70), 1.6 + i * 0.45, 55, 105, true);
     }
   }
   // keep placing defenses if affordable; supports are one-shot
-  if (p.kind === 'support' || G.tp < p.cost) placing = null;
+  if (p.kind === 'support' || G.tp < p.cost || (p.key === 'officer' && officerCount() >= MAX_OFFICERS)) placing = null;
 }
 
 canvas.addEventListener('mousemove', e => {

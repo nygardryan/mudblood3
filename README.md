@@ -51,19 +51,25 @@ collapses and it's game over. There is no victory, only a higher wave count.
 | Sherman | 50 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
 | Wire | 4 | Slows the advance until it wears out. |
 | Sandbags | 5 | Soldiers behind them dodge half of incoming fire. |
-| Mine | 6 | Invisible to Germans. Hurts tanks badly. |
+| Minefield | 6 | Places 3 invisible mines. Hurts tanks badly. |
 | Mortar | 8 | 3 shells on target. Friendly fire is very real. |
-| Artillery | 16 | 8 heavy 105mm shells, wide spread. Indiscriminate. |
+| Artillery | 16 | 16 heavy 105mm shells, wide spread. Indiscriminate. |
 
 ### Promotions
 
 Every soldier earns experience for his kills and climbs the ranks:
 **PVT → PFC → CPL → SGT → SSG → SFC → MSG** (at 2 / 5 / 9 / 14 / 20 / 27 kills).
-Each rank makes him fire 5% faster and 6% more accurately, and the promotion
-itself patches him up a little. Medics rank up by healing instead — 1 XP per
-150 HP restored, a slow road — and work slightly faster with each rank. The
-engineer earns XP the same way through repairs, plus a bonus for each
-fortification he completes.
+Veterancy bites hard: each rank makes a man fire 8% faster, 8% more accurately
+and 4% harder-hitting, and the promotion itself patches him up a little. A
+max-rank soldier is roughly **3–4x** the fighter a green private is, and
+specialists scale their trade too — bazookas and mortars reload faster and land
+tighter and heavier, grenadiers throw more often, flamethrowers burn far hotter,
+Sherman crews reload and shoot straighter, and a veteran officer casts a
+stronger aura and brings in up to 3 TP per tick. Medics rank up by healing
+instead — 1 XP per 150 HP restored, a slow road — and a MSG medic patches men
+at over three times the rate. The engineer earns XP the same way through
+repairs, plus a bonus for each fortification he completes, and works about 3x
+faster at the top.
 Veterans wear gold chevrons over their heads —
 select a soldier to see his rank and kill count. Protect your sergeants; a
 veteran is worth more than anything you can buy.
@@ -79,9 +85,8 @@ the bike early and the crew dies with it; barbed wire ends the ride instantly.
 From wave 8 the **Kübelwagen** gun car may roll in — it halts at range and
 hoses your line with an MG42 until someone deals with it.
 From wave 11 the **Sd.Kfz. 251 halftrack** hauls a full squad forward: it
-drops one trooper per second on the drive in, dumps six more the moment it
-reaches rifle distance of your line, then keeps fighting as an armored gun
-truck. Kill the bus early, before it delivers.
+dumps six troopers the moment it reaches rifle distance of your line, then
+keeps fighting as an armored gun truck. Kill the bus early, before it delivers.
 Small arms bounce off armor; use mines, mortars, or artillery.
 
 Random battlefield events keep you honest: enemy barrages (more shells, heavier

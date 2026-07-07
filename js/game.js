@@ -100,7 +100,7 @@ const UNIT_TYPES = {
   atgun: {
     // trails are staked into the ground: it traverses inside its cone but never moves
     name: 'AT Gun', hp: 200, range: 1200, dmg: 0, acc: 0,
-    rof: 4.5, burst: 1, burstGap: 0, speed: 0,
+    rof: 8, burst: 1, burstGap: 0, speed: 0,
     color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true,
     atgun: { arc: 0.6, shellDmg: 336, r: 26 },
     desc: '57mm anti-tank gun. Immobile; direct-fire AP shells ruin any vehicle they find.',
@@ -320,6 +320,17 @@ const AXIS_PLACEABLES = [
 // every mode is a level. endless is the classic open-ended defense; campaign
 // levels script their own forces, waves and win conditions.
 
+const ENDLESS_DIFFICULTIES = {
+  sandbox: { id: 'sandbox', name: 'SANDBOX', incomeMult: 1, sandbox: true,
+    desc: 'Unlimited TP. Experiment with any loadout.' },
+  easy: { id: 'easy', name: 'EASY', incomeMult: 1, sandbox: false,
+    desc: 'Full supply rate. The classic experience.' },
+  medium: { id: 'medium', name: 'MEDIUM', incomeMult: 0.66, sandbox: false,
+    desc: '66% income. Tighter logistics.' },
+  hard: { id: 'hard', name: 'HARD', incomeMult: 0.33, sandbox: false,
+    desc: '33% income. Every TP counts.' },
+};
+
 const LEVELS = {
   endless: {
     id: 'endless',
@@ -514,10 +525,13 @@ const groundCanvas = document.createElement('canvas');
 groundCanvas.width = W; groundCanvas.height = H;
 const gctx = groundCanvas.getContext('2d');
 
-function newGame(level) {
+function newGame(level, difficulty) {
   G = {
     level,
     mode: level.mode,
+    difficulty: level.mode === 'endless'
+      ? (difficulty || ENDLESS_DIFFICULTIES.easy)
+      : null,
     tp: level.startTP != null ? level.startTP : 15,
     wave: 0,
     waveIdx: 0,        // allied campaign: next scripted wave
@@ -597,10 +611,23 @@ function makeEnemy(type, x, y) {
 // before, dropping to a hard 10% floor from wave 90 on. Campaign levels pay
 // full rate. G.tp holds fractions; the HUD floors it.
 function earnTP(amount) {
-  const mult = G.mode === 'endless'
+  let mult = G.mode === 'endless'
     ? (G.wave >= 90 ? 0.1 : Math.max(0.1, Math.pow(0.99, G.wave)))
     : 1;
+  if (G.mode === 'endless' && G.difficulty) mult *= G.difficulty.incomeMult;
   G.tp += amount * mult;
+}
+
+function isSandbox() {
+  return G && G.mode === 'endless' && G.difficulty && G.difficulty.sandbox;
+}
+
+function canAffordTP(cost) {
+  return isSandbox() || G.tp >= cost;
+}
+
+function spendTP(cost) {
+  if (!isSandbox()) G.tp -= cost;
 }
 
 // campaign levels can override toolbar costs so no single purchase type
@@ -1823,7 +1850,7 @@ function updateATGun(u, dt) {
   const diff = angleDiff(want, u.turret);
   u.turret += clamp(diff, -0.9 * dt, 0.9 * dt);
   u.face = u.turret;
-  if (u.cd > 0 || Math.abs(diff) > 0.12) return;
+  if (u.cd > 0 || Math.abs(diff) > 0.17) return;
 
   SFX.boom(false);
   G.flashes.push({
@@ -1840,10 +1867,10 @@ function updateATGun(u, dt) {
   }
   // AP shells drift at range; armor is a forgiving target but this isn't a laser
   const d = dist(u, target);
-  let scatter = (17 + d * 0.09) * (1 - u.rank * 0.08);
-  if (target.t.tank) scatter *= 0.72;
-  else scatter *= 0.85;
-  scatter = Math.max(10, scatter);
+  let scatter = (24 + d * 0.11) * (1 - u.rank * 0.08);
+  if (target.t.tank) scatter *= 0.80;
+  else scatter *= 0.90;
+  scatter = Math.max(14, scatter);
   scheduleShell(
     target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
     0.45, spec.r, spec.shellDmg * (1 + u.rank * 0.06), false, u);
@@ -2416,8 +2443,9 @@ function gameOver() {
         ? `All six men are gone after ${t} seconds. The target lives; ${G.kills} Americans went with them.`
         : `Time ran out after ${t} seconds. The target lives. ${G.kills} Americans down for nothing.`);
   } else {
+    const diffPrefix = G.mode === 'endless' && G.difficulty ? `${G.difficulty.name} — ` : '';
     endRun(false, 'LINE OVERRUN',
-      `You held for ${G.wave} waves and ${t} seconds. ` +
+      `${diffPrefix}You held for ${G.wave} waves and ${t} seconds. ` +
       `${G.kills} Germans will not go home.`);
   }
 }
@@ -3593,7 +3621,7 @@ const hud = { tp: el('tp'), waveBox: el('wavebox'), kills: el('kills'), breachBo
 const bannerEl = el('banner');
 
 function updateHUD() {
-  hud.tp.textContent = Math.floor(G.tp);
+  hud.tp.textContent = isSandbox() ? '∞' : Math.floor(G.tp);
   hud.kills.textContent = G.kills;
   if (G.mode === 'axis' || G.mode === 'hitsquad') {
     const left = Math.max(0, G.level.timeLimit - G.time);
@@ -3619,7 +3647,7 @@ function updateHUD() {
 
   for (const btn of toolButtons) {
     const capped = btn.p.key === 'officer' && officerCount() >= MAX_OFFICERS;
-    btn.el.disabled = G.tp < placeableCost(btn.p) || capped;
+    btn.el.disabled = !canAffordTP(placeableCost(btn.p)) || capped;
     btn.el.classList.toggle('active', placing === btn.p);
   }
 }
@@ -3648,7 +3676,7 @@ function activePlaceables() {
 
 function selectPlaceable(p) {
   if (!running) return;
-  if (G.tp < placeableCost(p)) { SFX.error(); return; }
+  if (!canAffordTP(placeableCost(p))) { SFX.error(); return; }
   if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); return; }
   SFX.click();
   placing = (placing === p) ? null : p;
@@ -3701,9 +3729,9 @@ function placementValid(p, x, y) {
 function place(p, x, y) {
   if (!placementValid(p, x, y)) { SFX.error(); return; }
   const cost = placeableCost(p);
-  if (G.tp < cost) { SFX.error(); placing = null; return; }
+  if (!canAffordTP(cost)) { SFX.error(); placing = null; return; }
   if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); placing = null; return; }
-  G.tp -= cost;
+  spendTP(cost);
   SFX.click();
 
   if (p.kind === 'unit') {
@@ -3737,7 +3765,7 @@ function place(p, x, y) {
     }
   }
   // keep placing defenses if affordable; supports are one-shot
-  if (p.kind === 'support' || G.tp < placeableCost(p) || (p.key === 'officer' && officerCount() >= MAX_OFFICERS)) placing = null;
+  if (p.kind === 'support' || !canAffordTP(placeableCost(p)) || (p.key === 'officer' && officerCount() >= MAX_OFFICERS)) placing = null;
 }
 
 function updatePointer(e) {
@@ -4255,16 +4283,30 @@ for (const btn of document.querySelectorAll('.codex-tab')) {
 
 // ============================================================ game flow
 
-function startGame(levelId) {
+function openEndlessSelect() {
+  el('intro').classList.add('hidden');
+  el('endless-select').classList.remove('hidden');
+}
+
+function closeEndlessSelect() {
+  el('endless-select').classList.add('hidden');
+  el('intro').classList.remove('hidden');
+}
+
+function startGame(levelId, difficultyId) {
   const level = LEVELS[levelId] || LEVELS.endless;
+  const difficulty = level.mode === 'endless'
+    ? (ENDLESS_DIFFICULTIES[difficultyId] || ENDLESS_DIFFICULTIES.easy)
+    : null;
   SFX.resume();
-  newGame(level);
+  newGame(level, difficulty);
   placing = null;
   running = true;
   buildToolbar(level.placeables);
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('codex').classList.add('hidden');
+  el('endless-select').classList.add('hidden');
   el('tipbar').textContent = level.mode === 'axis'
     ? touchUI()
       ? 'Tap a unit, then tap the top strip to deploy. Tap the button again to cancel.'
@@ -4280,15 +4322,20 @@ function startGame(levelId) {
   lastT = performance.now();
 }
 
-el('start-endless').addEventListener('click', () => startGame('endless'));
+el('start-endless').addEventListener('click', openEndlessSelect);
+el('endless-back-btn').addEventListener('click', closeEndlessSelect);
+for (const btn of document.querySelectorAll('[data-endless-diff]')) {
+  btn.addEventListener('click', () => startGame('endless', btn.dataset.endlessDiff));
+}
 el('start-allied').addEventListener('click', () => startGame('allied1'));
 el('start-axis').addEventListener('click', () => startGame('axis1'));
 el('start-axis2').addEventListener('click', () => startGame('axis2'));
-el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless'));
+el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless', G?.difficulty?.id));
 el('menu-btn').addEventListener('click', () => {
   running = false;
   placing = null;
   el('gameover').classList.add('hidden');
+  el('endless-select').classList.add('hidden');
   el('intro').classList.remove('hidden');
 });
 

@@ -20,7 +20,10 @@ python3 -m http.server 8000
 - **Endless** — the classic. Germans attack in endless waves from the top of the
   screen. Hold the line as long as you can — if **7 Germans** slip past the bottom
   edge, your sector collapses and it's game over. There is no victory, only a
-  higher wave count.
+  higher wave count. Pick a difficulty before you deploy:
+  **Sandbox** (unlimited TP, free purchases), **Easy** (full income — the default),
+  **Medium** (66% income from kills, trickle, and officers), or **Hard** (33%
+  income). Wave attrition still applies on Easy, Medium, and Hard.
 - **Allied Campaign — Level 1: Hold the Line** — survive **12 scripted waves**,
   ramping from rifle squads to a halftrack-led final assault. Wipe out the last
   wave and the sector is yours. 7 breaches still lose it. No income attrition and

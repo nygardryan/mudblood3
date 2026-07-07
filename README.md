@@ -79,8 +79,9 @@ From wave 8 the **Kübelwagen** gun car may roll in — it halts at range and
 hoses your line with an MG42 until someone deals with it.
 Small arms bounce off its armor; use mines, mortars, or artillery.
 
-Random battlefield events keep you honest: enemy barrages, fog, strafing runs from
-a friendly P-47, and the occasional fresh replacement wandering in.
+Random battlefield events keep you honest: enemy barrages (more shells, heavier
+hits, and tighter salvos as waves climb), fog, strafing runs from a friendly P-47,
+and the occasional fresh replacement wandering in.
 
 ## Files
 

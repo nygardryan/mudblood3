@@ -329,21 +329,36 @@ function spawnWave() {
 
 // ============================================================ random events
 
+function barrageForWave(w) {
+  const t = clamp((w - 4) / 56, 0, 1); // ramps from wave 4 to ~60
+  return {
+    count: Math.round(6 + t * 6),
+    r: Math.round(48 + t * 14),
+    dmg: Math.round(80 + t * 35),
+    dMin: 1.5 - t * 0.6,
+    dMax: 4.5 - t * 1.8,
+    big: w >= 36,
+  };
+}
+
 function triggerEvent() {
   const w = G.wave;
-  const events = [];
+  const events = ['fog', 'fng'];
   if (w >= 4) events.push('barrage');
-  events.push('fog', 'fng');
+  if (w >= 12) events.push('barrage');
+  if (w >= 24) events.push('barrage');
+  if (w >= 40) events.push('barrage');
   if (w >= 8) events.push('airstrike');
   const ev = pick(events);
   SFX.event();
 
   if (ev === 'barrage') {
-    showBanner('INCOMING BARRAGE!');
+    const b = barrageForWave(w);
+    showBanner(w >= 40 ? 'HEAVY BARRAGE!' : w >= 20 ? 'ARTILLERY INBOUND!' : 'INCOMING BARRAGE!');
     SFX.alarm();
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < b.count; i++) {
       scheduleShell(rand(60, W - 60), rand(DEPLOY_Y - 30, H - 40),
-        rand(1.5, 4.5), 48, 80, false);
+        rand(b.dMin, b.dMax), b.r, b.dmg, b.big);
     }
   } else if (ev === 'fog') {
     showBanner('FOG ROLLS IN');

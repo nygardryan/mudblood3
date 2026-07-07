@@ -86,14 +86,14 @@ const UNIT_TYPES = {
   jeep: {
     name: 'Jeep', hp: 250, range: 300, dmg: 13, acc: 0.42,
     rof: 2.1, burst: 8, burstGap: 0.07, speed: 55,
-    color: '#4a5a3f', gun: 14, sfx: 'hmg', vehicle: true,
+    color: '#4a5a3f', gun: 14, sfx: 'hmg', vehicle: true, rankMult: 3,
     desc: 'Willys jeep, pintle-mounted .50 cal. Fast and hard-hitting, but unarmored.',
   },
   sherman: {
     name: 'Sherman', hp: 1000, range: 600, dmg: 0, acc: 0,
     rof: 4.0, burst: 1, burstGap: 0, speed: 14, shellDmg: 80,
     color: '#4a5a3f', gun: 0, sfx: 'boom', tank: true,
-    fireCone: { arc: 0.6 },
+    fireCone: { arc: 0.4 },
     mg: { range: 240, dmg: 8, acc: 0.45, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
     desc: 'M4 Sherman. 75mm cannon and thick armor. Medics can\'t fix steel.',
   },
@@ -102,8 +102,8 @@ const UNIT_TYPES = {
     name: 'AT Gun', hp: 200, range: 1200, dmg: 0, acc: 0,
     rof: 4.5, burst: 1, burstGap: 0, speed: 0,
     color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true,
-    atgun: { arc: 0.6, shellDmg: 420, r: 26 },
-    desc: '57mm anti-tank gun. Immobile; AP shells scatter, but ruin any vehicle they find.',
+    atgun: { arc: 0.6, shellDmg: 336, r: 26 },
+    desc: '57mm anti-tank gun. Immobile; direct-fire AP shells ruin any vehicle they find.',
   },
 };
 
@@ -173,6 +173,7 @@ const ENEMY_TYPES = {
     name: 'Panzer IV', hp: 1200, speed: 8, range: 340, dmg: 0, acc: 0,
     rof: 4.5, burst: 1, burstGap: 0, reward: 15, shellDmg: 85,
     color: '#57574e', gun: 0, sfx: 'boom', priority: 0, tank: true,
+    fireCone: { arc: 0.4 },
     mg: { range: 230, dmg: 7, acc: 0.4, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
   },
 };
@@ -270,7 +271,7 @@ const PLACEABLES = [
   { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon, shrugs off small arms. Medics cannot repair it.' },
   { key: 'atgun', label: 'AT GUN', cost: 25, kind: 'unit', hotkey: 'P',
-    desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. Inaccurate, but its AP shells wreck armor.' },
+    desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
   { key: 'sandbags', label: 'SANDBAGS', cost: 5, kind: 'defense', hotkey: '8',
@@ -280,7 +281,7 @@ const PLACEABLES = [
   { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
     desc: 'Cluster of 3 anti-personnel mines. Hurts tanks too. Germans can\'t see them.' },
   { key: 'mortar', label: 'MORTAR STRIKE', cost: 8, kind: 'support', hotkey: '0',
-    desc: '3 mortar shells on target. DANGER CLOSE — friendly fire is real.' },
+    desc: '6 mortar shells on target. DANGER CLOSE — friendly fire is real.' },
   { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 16, kind: 'support', hotkey: 'A',
     desc: '105mm barrage: 16 heavy shells, wide spread. Devastating. Indiscriminate.' },
 ];
@@ -1177,7 +1178,8 @@ function damageUnit(u, dmg, from) {
 function gainXP(u) {
   u.xp++;
   const next = RANKS[u.rank + 1];
-  const need = next && (u.t.tank ? next.kills * 5 : next.kills);
+  const rankMult = u.t.tank ? 5 : (u.t.rankMult || 1);
+  const need = next && next.kills * rankMult;
   if (next && u.xp >= need) {
     u.rank++;
     u.hp = Math.min(u.maxhp, u.hp + 15);   // a promotion is good for morale
@@ -1836,9 +1838,12 @@ function updateATGun(u, dt) {
       color: pick(['#6e6046', '#57492f', '#8a7a5a']),
     });
   }
-  // AP shot scatters badly; veteran crews walk their rounds in
+  // AP shells drift at range; armor is a forgiving target but this isn't a laser
   const d = dist(u, target);
-  const scatter = (24 + d * 0.13) * (1 - u.rank * 0.08);
+  let scatter = (15 + d * 0.08) * (1 - u.rank * 0.08);
+  if (target.t.tank) scatter *= 0.68;
+  else scatter *= 0.80;
+  scatter = Math.max(9, scatter);
   scheduleShell(
     target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
     0.45, spec.r, spec.shellDmg * (1 + u.rank * 0.06), false, u);
@@ -1863,7 +1868,7 @@ function tankTargets(a) {
     };
   }
   return {
-    cannon: nearestUnitInRange(a, cannonRange),
+    cannon: nearestUnitInRange(a, cannonRange, inCannonCone),
     mg: nearestUnitInRange(a, mgRange, u2 => !u2.t.tank),
   };
 }
@@ -1872,6 +1877,8 @@ function updateTankCombat(a, dt) {
   if (!a.wpn) a.wpn = 'cannon';
   a.cd -= dt;
   const mgSpec = a.t.mg;
+  const TURRET_TRACK = 0.18; // rad/s — glacial traverse onto new targets
+  const TURRET_HOME = 0.14;
 
   // an MG burst in progress finishes before anything else
   if (a.burstLeft > 0) {
@@ -1903,13 +1910,13 @@ function updateTankCombat(a, dt) {
   if (!target) {
     // park the turret facing the enemy side of the field
     const home = a.side === 'us' ? -Math.PI / 2 : Math.PI / 2;
-    a.turret += clamp(angleDiff(home, a.turret), -0.8 * dt, 0.8 * dt);
+    a.turret += clamp(angleDiff(home, a.turret), -TURRET_HOME * dt, TURRET_HOME * dt);
     return;
   }
 
   const want = Math.atan2(target.y - a.y, target.x - a.x);
   const diff = angleDiff(want, a.turret);
-  a.turret += clamp(diff, -1.2 * dt, 1.2 * dt);
+  a.turret += clamp(diff, -TURRET_TRACK * dt, TURRET_TRACK * dt);
   if (a.cd > 0 || Math.abs(diff) > 0.15) return;
 
   if (a.wpn === 'cannon') {
@@ -3720,7 +3727,7 @@ function place(p, x, y) {
     }
   } else if (p.key === 'mortar') {
     showBanner('MORTAR FIRE MISSION');
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       scheduleShell(x + rand(-68, 68), y + rand(-57, 57), 2.4 + i * 1.0, 42, 90, false);
     }
   } else if (p.key === 'artillery') {

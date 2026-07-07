@@ -44,16 +44,16 @@ collapses and it's game over. There is no victory, only a higher wave count.
 | Mortarman | 14 | Portable 60mm mortar. Long-range indirect fire, blind inside 220px. |
 | Sniper | 10 | Sees the whole field, prioritizes officers, snipers, MGs. |
 | Medic | 12 | Heals nearby wounded over time. |
-| Engineer | 14 | Repairs tanks and emplacements; fortifies nearby sandbags/wire (more HP, better effect). SMG, close range only. |
+| Engineer | 14 | Repairs emplacements; fortifies nearby sandbags/wire (more HP, better effect). SMG, close range only. |
 | Officer | 15 | Nearby men fire faster and straighter; generates TP. |
 | Flamer | 13 | M2 flamethrower. Devastating cone of fire — burns friend and foe alike. |
-| Jeep | 20 | Willys jeep with a .50 cal HMG. Fast, fires on the move, unarmored — engineer repairs it, medics can't. |
+| Jeep | 20 | Willys jeep with a .50 cal HMG. Fast, fires on the move, unarmored — no field repairs. |
 | Sherman | 50 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
 | Wire | 4 | Slows the advance until it wears out. |
 | Sandbags | 5 | Soldiers behind them dodge half of incoming fire. |
 | Minefield | 6 | Places 3 invisible mines. Hurts tanks badly. |
-| Mortar | 8 | 3 shells on target. Friendly fire is very real. |
-| Artillery | 16 | 16 heavy 105mm shells, wide spread. Indiscriminate. |
+| Mortar Strike | 8 | 3 shells on target. Friendly fire is very real. |
+| Artillery Strike | 16 | 16 heavy 105mm shells, wide spread. Indiscriminate. |
 
 ### Promotions
 

@@ -66,7 +66,7 @@ const UNIT_TYPES = {
     name: 'Engineer', hp: 95, range: 110, dmg: 7, acc: 0.45,
     rof: 1.1, burst: 4, burstGap: 0.07, speed: 44,
     color: '#51603e', gun: 6, sfx: 'mg',
-    desc: 'Repairs tanks and fortifications, upgrades emplacements. M3 grease gun up close.',
+    desc: 'Repairs fortifications, upgrades emplacements. M3 grease gun up close.',
   },
   officer: {
     name: 'Officer', hp: 95, range: 150, dmg: 9, acc: 0.5,
@@ -186,13 +186,13 @@ const PLACEABLES = [
   { key: 'medic', label: 'MEDIC', cost: 12, kind: 'unit', hotkey: '5',
     desc: 'Heals nearby soldiers over time.' },
   { key: 'engineer', label: 'ENGINEER', cost: 14, kind: 'unit', hotkey: 'E',
-    desc: 'Repairs tanks and fortifications; fortifies nearby emplacements (better stats). SMG for close range only.' },
+    desc: 'Repairs fortifications; fortifies nearby emplacements (better stats). SMG for close range only.' },
   { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
     desc: 'Buffs nearby men. Generates +1 TP every 30 s.' },
   { key: 'flamer', label: 'FLAMER', cost: 13, kind: 'unit', hotkey: 'F',
     desc: 'M2 flamethrower. Devastating cone of fire that burns friend and foe alike.' },
   { key: 'jeep', label: 'JEEP', cost: 20, kind: 'unit', hotkey: 'J',
-    desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — engineer repairs, medics can\'t.' },
+    desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — no field repairs.' },
   { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon, shrugs off small arms. Medics cannot repair it.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
@@ -201,9 +201,9 @@ const PLACEABLES = [
     desc: 'Cover. Soldiers behind it dodge half of incoming fire.' },
   { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
     desc: 'Cluster of 3 anti-personnel mines. Hurts tanks too. Germans can\'t see them.' },
-  { key: 'mortar', label: 'MORTAR', cost: 8, kind: 'support', hotkey: '0',
+  { key: 'mortar', label: 'MORTAR STRIKE', cost: 8, kind: 'support', hotkey: '0',
     desc: '3 mortar shells on target. DANGER CLOSE — friendly fire is real.' },
-  { key: 'artillery', label: 'ARTY', cost: 16, kind: 'support', hotkey: 'A',
+  { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 16, kind: 'support', hotkey: 'A',
     desc: '105mm barrage: 16 heavy shells, wide spread. Devastating. Indiscriminate.' },
 ];
 
@@ -1230,8 +1230,8 @@ function updateUnit(u, dt) {
   if (u.type === 'engineer') updateEngineer(u, dt);
 }
 
-// engineer work, one job at a time: patch tanks first, then repair
-// emplacements, then fortify an intact one he's standing next to
+// engineer work, one job at a time: repair emplacements, then fortify
+// an intact one he's standing next to
 function updateEngineer(u, dt) {
   u.healTick -= dt;
   if (u.healTick > 0) return;
@@ -1253,21 +1253,7 @@ function updateEngineer(u, dt) {
     if (u.healed >= 150) { u.healed -= 150; gainXP(u); }
   };
 
-  // 1) welding a vehicle back together beats everything else
-  let tank = null;
-  for (const a of G.units) {
-    if (a.dead || !(a.t.tank || a.t.vehicle) || a.hp >= a.maxhp) continue;
-    if (dist(u, a) < R + 15 && (!tank || a.hp / a.maxhp < tank.hp / tank.maxhp)) tank = a;
-  }
-  if (tank) {
-    const amt = Math.min(tank.maxhp - tank.hp, (6 + u.rank * 2) / 3);
-    tank.hp += amt;
-    credit(amt);
-    sparks(tank.x, tank.y);
-    return;
-  }
-
-  // 2) restack damaged sandbags / restring damaged wire
+  // 1) restack damaged sandbags / restring damaged wire
   let emp = null, empFrac = 1;
   for (const s of [...G.sandbags, ...G.wires]) {
     if (s.hp >= s.maxhp || dist(u, s) > R) continue;
@@ -1277,12 +1263,12 @@ function updateEngineer(u, dt) {
   if (emp) {
     const amt = Math.min(emp.maxhp - emp.hp, 8 + u.rank * 2.7);
     emp.hp += amt;
-    credit(amt * 0.5); // lighter work than armor plate
+    credit(amt * 0.5);
     sparks(emp.x, emp.y);
     return;
   }
 
-  // 3) fortify the nearest intact, un-upgraded emplacement (~6 s of work)
+  // 2) fortify the nearest intact, un-upgraded emplacement (~6 s of work)
   let target = null, td = R;
   for (const s of [...G.sandbags, ...G.wires]) {
     if (s.up) continue;
@@ -2612,10 +2598,11 @@ function selectPlaceable(p) {
 // ============================================================ placement & input
 
 function minefieldPositions(cx, cy) {
+  // keep mines beyond explode() chain radius (r * 0.8 ≈ 35 for mine blasts)
   return [
     { x: cx, y: cy },
-    { x: cx + 24, y: cy - 8 },
-    { x: cx - 18, y: cy + 16 },
+    { x: cx + 48, y: cy - 14 },
+    { x: cx - 48, y: cy + 14 },
   ];
 }
 

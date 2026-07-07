@@ -269,6 +269,8 @@ const officerCount = () => G.units.filter(u => !u.dead && u.type === 'officer').
 let G = null;         // game state
 let placing = null;   // placeable currently being placed
 let mouse = { x: W / 2, y: H / 2, inside: false };
+let drag = null;      // marquee selection in progress: { x0, y0, x1, y1, active }
+let suppressClick = false; // eat the click that follows a completed drag-select
 let running = false;
 let lastT = 0;
 
@@ -311,7 +313,7 @@ function newGame() {
     eventTimer: rand(40, 60),
     fog: 0,
     banner: null,
-    selected: null,
+    selected: [],
   };
   paintGround();
   // you start with two riflemen already dug in
@@ -752,7 +754,8 @@ function damageUnit(u, dmg, from) {
       bloodSplat(u.x, u.y, 8);
       SFX.scream();
     }
-    if (G.selected === u) G.selected = null;
+    const si = G.selected.indexOf(u);
+    if (si !== -1) G.selected.splice(si, 1);
   }
   // taking real fire (bullets, shells) sends a man diving; flame's tiny
   // per-tick damage is handled in flameSpray with a time-scaled roll
@@ -2183,20 +2186,22 @@ function drawSoldierOverlays(a) {
   }
 
   // selection ring
-  if (G.selected === a) {
+  if (G.selected.includes(a)) {
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.arc(a.x, a.y, 12, 0, 7); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.font = 'bold 10px "Courier New", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' +
-      (a.type === 'medic' || a.type === 'engineer' ? a.xp + ' XP' : a.xp + ' KILLS');
-    ctx.fillText(label, a.x + 1, a.y + 23);
-    ctx.fillStyle = '#ffe98a';
-    ctx.fillText(label, a.x, a.y + 22);
+    if (G.selected.length === 1) {
+      ctx.font = 'bold 10px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' +
+        (a.type === 'medic' || a.type === 'engineer' ? a.xp + ' XP' : a.xp + ' KILLS');
+      ctx.fillText(label, a.x + 1, a.y + 23);
+      ctx.fillStyle = '#ffe98a';
+      ctx.fillText(label, a.x, a.y + 22);
+    }
   }
 }
 
@@ -2264,19 +2269,21 @@ function drawTank(a) {
     }
   }
 
-  if (us && G.selected === a) {
+  if (us && G.selected.includes(a)) {
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.arc(a.x, a.y, 30, 0, 7); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.font = 'bold 10px "Courier New", monospace';
-    ctx.textAlign = 'center';
-    const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' + a.xp + ' KILLS';
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillText(label, a.x + 1, a.y + 41);
-    ctx.fillStyle = '#ffe98a';
-    ctx.fillText(label, a.x, a.y + 40);
+    if (G.selected.length === 1) {
+      ctx.font = 'bold 10px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' + a.xp + ' KILLS';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillText(label, a.x + 1, a.y + 41);
+      ctx.fillStyle = '#ffe98a';
+      ctx.fillText(label, a.x, a.y + 40);
+    }
   }
 }
 
@@ -2349,19 +2356,21 @@ function drawJeep(a) {
       sx += 5;
     }
   }
-  if (us && G.selected === a) {
+  if (us && G.selected.includes(a)) {
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.arc(a.x, a.y, 20, 0, 7); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.font = 'bold 10px "Courier New", monospace';
-    ctx.textAlign = 'center';
-    const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' + a.xp + ' KILLS';
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillText(label, a.x + 1, a.y + 31);
-    ctx.fillStyle = '#ffe98a';
-    ctx.fillText(label, a.x, a.y + 30);
+    if (G.selected.length === 1) {
+      ctx.font = 'bold 10px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' + a.xp + ' KILLS';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillText(label, a.x + 1, a.y + 31);
+      ctx.fillStyle = '#ffe98a';
+      ctx.fillText(label, a.x, a.y + 30);
+    }
   }
 }
 
@@ -2639,6 +2648,20 @@ function draw() {
   }
 
   drawPlacementGhost();
+  drawDragBox();
+}
+
+function drawDragBox() {
+  if (!drag || !drag.active) return;
+  const x = Math.min(drag.x0, drag.x1), y = Math.min(drag.y0, drag.y1);
+  const w = Math.abs(drag.x1 - drag.x0), h = Math.abs(drag.y1 - drag.y0);
+  ctx.fillStyle = 'rgba(180,220,140,0.10)';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = 'rgba(220,240,190,0.85)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([5, 3]);
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
 }
 
 function drawPlacementGhost() {
@@ -2732,7 +2755,7 @@ function selectPlaceable(p) {
   if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); return; }
   SFX.click();
   placing = (placing === p) ? null : p;
-  G.selected = null;
+  G.selected = [];
 }
 
 // ============================================================ placement & input
@@ -2804,10 +2827,69 @@ canvas.addEventListener('mousemove', e => {
   mouse.x = (e.clientX - r.left) * (W / r.width);
   mouse.y = (e.clientY - r.top) * (H / r.height);
   mouse.inside = true;
+  if (drag) {
+    drag.x1 = mouse.x;
+    drag.y1 = mouse.y;
+    if (!drag.active && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > 6) drag.active = true;
+  }
 });
 canvas.addEventListener('mouseleave', () => { mouse.inside = false; });
 
+canvas.addEventListener('mousedown', e => {
+  suppressClick = false;
+  if (!running || placing || e.button !== 0) return;
+  drag = { x0: mouse.x, y0: mouse.y, x1: mouse.x, y1: mouse.y, active: false };
+});
+
+window.addEventListener('mouseup', e => {
+  if (e.button !== 0 || !drag) return;
+  if (drag.active && running && G) {
+    const x0 = Math.min(drag.x0, drag.x1), x1 = Math.max(drag.x0, drag.x1);
+    const y0 = Math.min(drag.y0, drag.y1), y1 = Math.max(drag.y0, drag.y1);
+    G.selected = G.units.filter(u => u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1);
+    if (G.selected.length) SFX.click();
+    suppressClick = true; // the click event fires right after; don't treat it as an order
+  }
+  drag = null;
+});
+
+// spread a group order into a tight grid around the target so men don't stack
+function issueMoveOrder(units, x, y) {
+  const clampDest = (dx, dy) => ({
+    x: clamp(dx, 16, W - 16),
+    y: clamp(dy, FORWARD_Y + 2, H - 14),
+  });
+  if (units.length === 1) {
+    units[0].moveTo = clampDest(x, y);
+    return;
+  }
+  const spacing = Math.max(...units.map(u => u.t.tank ? 44 : u.t.vehicle ? 32 : 22));
+  const cols = Math.ceil(Math.sqrt(units.length));
+  const rows = Math.ceil(units.length / cols);
+  const slots = [];
+  for (let i = 0; i < units.length; i++) {
+    const row = Math.floor(i / cols);
+    const inRow = (row === rows - 1) ? units.length - row * cols : cols;
+    const col = i % cols;
+    slots.push(clampDest(
+      x + (col - (inRow - 1) / 2) * spacing,
+      y + (row - (rows - 1) / 2) * spacing,
+    ));
+  }
+  // hand each slot to the nearest remaining man so paths don't cross
+  const pool = units.slice();
+  for (const s of slots) {
+    let bi = 0, bd = Infinity;
+    for (let i = 0; i < pool.length; i++) {
+      const d = dist(pool[i], s);
+      if (d < bd) { bd = d; bi = i; }
+    }
+    pool.splice(bi, 1)[0].moveTo = s;
+  }
+}
+
 canvas.addEventListener('click', e => {
+  if (suppressClick) { suppressClick = false; return; }
   if (!running) return;
   const x = mouse.x, y = mouse.y;
 
@@ -2819,27 +2901,28 @@ canvas.addEventListener('click', e => {
     if (dist(u, { x, y }) < (u.t.tank ? 26 : u.t.vehicle ? 20 : 14)) { picked = u; break; }
   }
   if (picked) {
-    G.selected = picked;
+    G.selected = [picked];
     SFX.click();
     return;
   }
-  // move selected soldier
-  if (G.selected && y > FORWARD_Y && y < H - 14) {
-    G.selected.moveTo = { x: clamp(x, 16, W - 16), y };
+  // move selected soldiers
+  if (G.selected.length && y > FORWARD_Y && y < H - 14) {
+    issueMoveOrder(G.selected, x, y);
     SFX.click();
     return;
   }
-  G.selected = null;
+  G.selected = [];
 });
 
 canvas.addEventListener('contextmenu', e => {
   e.preventDefault();
   placing = null;
-  G && (G.selected = null);
+  drag = null;
+  G && (G.selected = []);
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { placing = null; if (G) G.selected = null; return; }
+  if (e.key === 'Escape') { placing = null; drag = null; if (G) G.selected = []; return; }
   const k = e.key.toUpperCase();
   const p = PLACEABLES.find(pl => pl.hotkey === k);
   if (p) selectPlaceable(p);
@@ -2990,7 +3073,7 @@ function renderPortrait(typeKey, side) {
   const savedCtx = ctx;
   const savedG = G;
   ctx = pc.getContext('2d');
-  G = { selected: null };
+  G = { selected: [] };
 
   const defenseKeys = ['wire', 'sandbags', 'mine', 'mortar', 'artillery'];
   const eventKeys = EVENT_INFO.map(e => e.key);

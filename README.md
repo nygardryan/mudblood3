@@ -31,6 +31,8 @@ collapses and it's game over. There is no victory, only a higher wave count.
   Mortar and artillery strikes can be called anywhere.
 - Left-click one of your soldiers to select him, then click open ground to move him.
   He can't shoot while running.
+- Drag a box over several soldiers to select the whole group; a move order spreads
+  them into a tight formation around the target instead of piling everyone on one spot.
 
 ### Your arsenal
 

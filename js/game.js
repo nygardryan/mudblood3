@@ -95,7 +95,7 @@ const UNIT_TYPES = {
     color: '#4a5a3f', gun: 0, sfx: 'boom', tank: true,
     fireCone: { arc: 0.25 },
     mg: { range: 240, dmg: 8, acc: 0.45, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
-    desc: 'M4 Sherman. 75mm cannon and thick armor. Medics can\'t fix steel.',
+    desc: 'M4 Sherman. 75mm cannon on a rotating turret and thick armor. Medics can\'t fix steel.',
   },
   atgun: {
     // trails are staked into the ground: it traverses inside its cone but never moves
@@ -269,7 +269,7 @@ const PLACEABLES = [
   { key: 'jeep', label: 'JEEP', cost: 30, kind: 'unit', hotkey: 'J',
     desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — no field repairs.' },
   { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
-    desc: 'M4 Sherman tank. 75mm HE cannon, shrugs off small arms. Medics cannot repair it.' },
+    desc: 'M4 Sherman tank. 75mm HE cannon on a rotating turret; shrugs off small arms. Medics cannot repair it.' },
   { key: 'atgun', label: 'AT GUN', cost: 30, kind: 'unit', hotkey: 'P',
     desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
@@ -1912,18 +1912,18 @@ function tankTargets(a) {
   const cannonRange = a.t.range * fog;
   const mgRange = a.t.mg.range * fog;
   const cone = a.t.fireCone;
-  const inCannonCone = e => !cone || inFireCone(a, e, a.turret, cone.arc);
+  const inCone = e => !cone || inFireCone(a, e, a.turret, cone.arc);
   if (a.side === 'us') {
     return {
       // enemy armor is the cannon's priority target, inside the turret arc
-      cannon: nearestEnemyInRange(a, cannonRange, e => e.t.tank && inCannonCone(e)) ||
-              nearestEnemyInRange(a, cannonRange, inCannonCone),
-      mg: nearestEnemyInRange(a, mgRange, e => !e.t.tank),
+      cannon: nearestEnemyInRange(a, cannonRange, e => e.t.tank && inCone(e)) ||
+              nearestEnemyInRange(a, cannonRange, inCone),
+      mg: nearestEnemyInRange(a, mgRange, e => !e.t.tank && inCone(e)),
     };
   }
   return {
-    cannon: nearestUnitInRange(a, cannonRange, inCannonCone),
-    mg: nearestUnitInRange(a, mgRange, u2 => !u2.t.tank),
+    cannon: nearestUnitInRange(a, cannonRange, inCone),
+    mg: nearestUnitInRange(a, mgRange, u2 => !u2.t.tank && inCone(u2)),
   };
 }
 
@@ -1938,7 +1938,9 @@ function updateTankCombat(a, dt) {
   if (a.burstLeft > 0) {
     a.burstTimer -= dt;
     if (a.burstTimer <= 0) {
-      if (a.mgTarget && !a.mgTarget.dead) {
+      const cone = a.t.fireCone;
+      const inCone = t => !cone || inFireCone(a, t, a.turret, cone.arc);
+      if (a.mgTarget && !a.mgTarget.dead && inCone(a.mgTarget)) {
         // a veteran crew keeps the coax on target too
         const r = a.rank || 0;
         fireShot(a, a.mgTarget, { weapon: mgSpec, accBonus: r * 0.08, dmgMult: 1 + r * 0.04 });

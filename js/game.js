@@ -6,6 +6,7 @@
 
 const W = 900, H = 620;
 const DEPLOY_Y = 380;          // your side of the field starts here
+const FORWARD_Y = H / 3;       // units may advance and mines/wire may be laid this far up
 const MAX_BREACH = 7;
 const MAX_OFFICERS = 5;
 
@@ -52,7 +53,7 @@ const UNIT_TYPES = {
   },
   sniper: {
     name: 'Sniper', hp: 85, range: 372, dmg: 46, acc: 0.72,
-    rof: 2.6, burst: 1, burstGap: 0, speed: 38,
+    rof: 5.2, burst: 1, burstGap: 0, speed: 38,
     color: '#38442e', gun: 12, sfx: 'sniper',
     desc: 'Springfield scoped rifle. Picks off officers and MGs first.',
   },
@@ -124,7 +125,7 @@ const ENEMY_TYPES = {
   },
   esniper: {
     name: 'Sniper', hp: 55, speed: 14, range: 312, dmg: 39, acc: 0.66,
-    rof: 3.4, burst: 1, burstGap: 0, reward: 4,
+    rof: 6.8, burst: 1, burstGap: 0, reward: 4,
     color: '#525244', gun: 12, sfx: 'sniper', priority: 4,
   },
   eflame: {
@@ -155,6 +156,53 @@ const ENEMY_TYPES = {
     mg: { range: 230, dmg: 7, acc: 0.4, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
   },
 };
+
+const ENEMY_INFO = {
+  erifle: 'Standard Wehrmacht infantry. Slow, steady, and expendable — but there are always more of them.',
+  esmg: 'Assault troops with MP40s. Fast movers who shred your line in close bursts.',
+  egren: 'Carries stick grenades into the fray. The blast ignores friend and foe.',
+  emg: 'MG42 team. Pins your men down from long range with sustained fire.',
+  eoff: 'Leutnant rallying nearby troops. Kill him first — his aura stiffens German morale.',
+  esniper: 'Camouflaged sharpshooter. Picks off officers, medics, and gunners from afar.',
+  eflame: 'Flammenwerfer operator. Burns through wire, sandbags, and flesh alike.',
+  ebike: 'Kradschützen on motorcycles. Blazing speed — they breach before you can react.',
+  ejeep: 'Kübelwagen with a mounted MG. Mobile fire support, lightly armored.',
+  ehalftrack: 'Sd.Kfz. 251 halftrack. Heavy armor, bow MG, and a squad ready to dismount.',
+  panzer: 'Panzer IV. Thick armor and a 75mm cannon. Your line\'s worst nightmare.',
+};
+
+const EVENT_INFO = [
+  {
+    key: 'fog',
+    name: 'Fog Rolls In',
+    wave: 3,
+    desc: 'Battlefield visibility drops. Your men and the enemy fight blind until the fog lifts.',
+  },
+  {
+    key: 'fng',
+    name: 'FNG Reinforcements',
+    wave: 3,
+    desc: 'A green rifleman reports for duty — free of charge. He\'s untested, but every body counts.',
+  },
+  {
+    key: 'barrage',
+    name: 'Enemy Barrage',
+    wave: 4,
+    desc: 'German artillery shells your sector. Shell count, blast radius, and damage escalate with each wave tier.',
+  },
+  {
+    key: 'paradrop',
+    name: 'Fallschirmjäger Paradrop',
+    wave: 6,
+    desc: 'Enemy paratroopers drift in behind your line. They are vulnerable under canopy — shoot them before they land.',
+  },
+  {
+    key: 'airstrike',
+    name: 'P-47 Strafing Run',
+    wave: 8,
+    desc: 'Allied Thunderbolts strafe the field and drop bombs. Helps your cause, but ordnance is indiscriminate.',
+  },
+];
 
 // promotion ladder: kills needed to reach each rank. Veterancy bites hard:
 // a max-rank man is roughly 3-4x the soldier a green private is.
@@ -225,7 +273,7 @@ let running = false;
 let lastT = 0;
 
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+let ctx = canvas.getContext('2d');
 
 // persistent ground layer (wrecks, terrain — blood and craters are temporary overlays)
 const groundCanvas = document.createElement('canvas');
@@ -336,6 +384,7 @@ function waveComposition(w) {
   if (w >= 7) pool.push('egren');
   if (w >= 10) pool.push('emg');
   if (w >= 12) pool.push('eflame');
+  if (w >= 14) pool.push('esniper');
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
   if (w >= 12 && Math.random() < 0.30 + late * 0.004) out.push('eoff');
@@ -350,8 +399,6 @@ function waveComposition(w) {
   if (w >= 16 && Math.random() < vehChance) out.push('ejeep');
   // an armored halftrack hauls a full squad to the front
   if (w >= 18 && Math.random() < vehChance) out.push('ehalftrack');
-  // snipers are a rare menace: one at most, and not often
-  if (w >= 14 && Math.random() < vehChance) out.push('esniper');
   if (w >= 25 && Math.random() < vehChance) out.push('panzer');
   return out;
 }
@@ -385,7 +432,7 @@ function barrageForWave(w) {
 // paratroopers drop into the top 2/3 of the field: 4 men minimum,
 // growing steadily with the wave count
 function paradropCount(w) {
-  return Math.min(4 + Math.floor(w / 6), 12);
+  return Math.min(4 + Math.floor(w / 6), 12 + Math.floor(wavesPast99(w) / 10));
 }
 
 const PARA_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];
@@ -489,6 +536,7 @@ function explode(x, y, r, dmg, big, by) {
     return hd;
   };
   for (const e of G.enemies) {
+    if (e.chute > 0) continue;   // blast passes under the descending stick
     let hd = hitArea(e);
     if (hd > 0) {
       if (e.t.tank) hd *= 2.2;                    // HE vs armor: effective
@@ -730,6 +778,7 @@ function creditKill(u) {
 }
 
 function damageEnemy(e, dmg, from) {
+  if (e.chute > 0) return; // untouchable while the canopy is up
   e.hp -= dmg;
   if (e.t.tank || e.t.vehicle) {
     G.particles.push({
@@ -775,7 +824,7 @@ function fogMult() { return G.fog > 0 ? 0.6 : 1; }
 // infantry under fire hit the dirt: prone men can't shoot but dodge 60% of
 // incoming rounds. Veterans get back up fast; green troops stay down a while.
 function tryGoProne(u, chance) {
-  if (!u || u.dead || !u.t) return;
+  if (!u || u.dead || !u.t || u.chute > 0) return;
   if (u.t.tank || u.t.vehicle || u.t.apc || u.t.bike) return;   // crews don't dive
   if (u.prone > 0 || u.proneCd > 0 || u.moveTo) return;          // running men keep running
   if (Math.random() >= chance) return;
@@ -868,7 +917,7 @@ function runWeapon(actor, target, dt, buffs) {
 function nearestEnemyInRange(u, range, pred) {
   let best = null, bd = range;
   for (const e of G.enemies) {
-    if (e.dead || e.y < 0) continue;
+    if (e.dead || e.y < 0 || e.chute > 0) continue;
     if (pred && !pred(e)) continue;
     const d = dist(u, e);
     if (d < bd) { bd = d; best = e; }
@@ -879,7 +928,7 @@ function nearestEnemyInRange(u, range, pred) {
 function sniperTarget(u, range) {
   let best = null, bp = -1, bd = Infinity;
   for (const e of G.enemies) {
-    if (e.dead || e.t.tank || e.y < 0) continue;
+    if (e.dead || e.t.tank || e.y < 0 || e.chute > 0) continue;
     const d = dist(u, e);
     if (d > range) continue;
     if (e.t.priority > bp || (e.t.priority === bp && d < bd)) {
@@ -973,7 +1022,7 @@ function fireShotgun(actor, buffs) {
 
   const rank = actor.rank || 0;
   for (const e of G.enemies) {
-    if (e.dead || e.y < 0) continue;
+    if (e.dead || e.y < 0 || e.chute > 0) continue;
     const d = dist(actor, e);
     if (d > range + 8) continue;
     const ang = Math.atan2(e.y - actor.y, e.x - actor.x);
@@ -1043,6 +1092,11 @@ function unitBuffs(u) {
   return b;
 }
 
+// veterans hustle: each rank moves 4% quicker, so a MSG covers ground 24% faster
+function unitSpeed(u) {
+  return u.t.speed * (1 + (u.rank || 0) * 0.04);
+}
+
 function updateUnit(u, dt) {
   if (u.proneCd > 0) u.proneCd -= dt;
   if (u.prone > 0) {
@@ -1064,8 +1118,9 @@ function updateUnit(u, dt) {
         u.moveTo = null;
       } else {
         const ang = Math.atan2(u.moveTo.y - u.y, u.moveTo.x - u.x);
-        u.x += Math.cos(ang) * u.t.speed * dt;
-        u.y += Math.sin(ang) * u.t.speed * dt;
+        const sp = unitSpeed(u);
+        u.x += Math.cos(ang) * sp * dt;
+        u.y += Math.sin(ang) * sp * dt;
       }
     }
     updateTankCombat(u, dt);
@@ -1080,8 +1135,9 @@ function updateUnit(u, dt) {
         u.moveTo = null;
       } else {
         const ang = Math.atan2(u.moveTo.y - u.y, u.moveTo.x - u.x);
-        u.x += Math.cos(ang) * u.t.speed * dt;
-        u.y += Math.sin(ang) * u.t.speed * dt;
+        const sp = unitSpeed(u);
+        u.x += Math.cos(ang) * sp * dt;
+        u.y += Math.sin(ang) * sp * dt;
       }
     }
     const vt = nearestEnemyInRange(u, u.t.range * fogMult());
@@ -1095,8 +1151,9 @@ function updateUnit(u, dt) {
       u.moveTo = null;
     } else {
       u.face = Math.atan2(u.moveTo.y - u.y, u.moveTo.x - u.x);
-      u.x += Math.cos(u.face) * u.t.speed * dt;
-      u.y += Math.sin(u.face) * u.t.speed * dt;
+      const sp = unitSpeed(u);
+      u.x += Math.cos(u.face) * sp * dt;
+      u.y += Math.sin(u.face) * sp * dt;
       return; // no shooting while running
     }
   }
@@ -1385,6 +1442,26 @@ function enemyOfficerNear(e) {
 }
 
 function updateEnemy(e, dt) {
+  // still under canopy: drift down, sway in the wind, do nothing else
+  if (e.chute > 0) {
+    e.chute -= dt;
+    e.sway = (e.sway || 0) + dt * 2.2;
+    e.x = clamp(e.x + Math.sin(e.sway) * 9 * dt, 14, W - 14);
+    if (e.chute <= 0) {
+      e.chute = 0;
+      // boots hit the dirt: kick up a little dust
+      for (let i = 0; i < 6; i++) {
+        G.particles.push({
+          x: e.x + rand(-6, 6), y: e.y + rand(-2, 4),
+          vx: rand(-30, 30), vy: rand(-40, -10),
+          ttl: rand(0.25, 0.5), grav: 160, size: rand(1.2, 2.4),
+          color: pick(['#6e6046', '#57492f', '#8a7a5a']),
+        });
+      }
+    }
+    return;
+  }
+
   if (e.proneCd > 0) e.proneCd -= dt;
   if (e.prone > 0) {
     e.prone -= dt;
@@ -1641,7 +1718,7 @@ function update(dt) {
   for (const m of G.mines) {
     if (m.dead) continue;
     for (const e of G.enemies) {
-      if (e.dead) continue;
+      if (e.dead || e.chute > 0) continue;
       const trig = e.t.tank ? 22 : e.t.apc ? 19 : e.t.vehicle ? 16 : 11;
       if (dist(m, e) < trig) {
         m.dead = true;
@@ -1812,6 +1889,68 @@ function drawProneSoldier(a) {
   c.strokeStyle = 'rgba(0,0,0,0.35)';
   c.lineWidth = 1;
   c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.stroke();
+  c.restore();
+}
+
+// a Fallschirmjäger under canopy: shadow on the deck, man swinging below
+// the silk, descending from altitude as the chute timer burns down
+function drawParatrooper(e) {
+  const c = ctx;
+  const p = clamp(e.chute / (e.chuteMax || 3), 0, 1);   // 1 = high, 0 = touchdown
+  const alt = p * 130;
+  const sway = Math.sin(e.sway || 0) * (3 + p * 5);
+
+  // ground shadow sharpens and grows as he comes down
+  c.fillStyle = `rgba(0,0,0,${0.08 + (1 - p) * 0.17})`;
+  c.beginPath(); c.ellipse(e.x, e.y + 2, 4 + (1 - p) * 5, 2 + (1 - p) * 2.5, 0, 0, 7); c.fill();
+
+  const mx = e.x + sway;          // man, pendulum under the canopy
+  const my = e.y - alt;
+  const cx = e.x + sway * 0.35;   // canopy lags the swing
+  const cy = my - 22;
+
+  c.save();
+
+  // shroud lines
+  c.strokeStyle = 'rgba(60,58,48,0.85)';
+  c.lineWidth = 0.7;
+  for (const off of [-13, -6, 6, 13]) {
+    c.beginPath();
+    c.moveTo(cx + off, cy + 3);
+    c.lineTo(mx, my - 4);
+    c.stroke();
+  }
+
+  // canopy dome with gore seams
+  c.fillStyle = '#8b8570';
+  c.beginPath();
+  c.moveTo(cx - 15, cy + 3);
+  c.quadraticCurveTo(cx, cy - 14, cx + 15, cy + 3);
+  c.quadraticCurveTo(cx, cy + 7, cx - 15, cy + 3);
+  c.fill();
+  c.strokeStyle = 'rgba(50,48,38,0.6)';
+  c.lineWidth = 0.8;
+  for (const gx of [-7.5, 0, 7.5]) {
+    c.beginPath();
+    c.moveTo(cx + gx, cy + (Math.abs(gx) > 5 ? 3.6 : 4.8));
+    c.quadraticCurveTo(cx + gx * 0.4, cy - 8, cx, cy - 12);
+    c.stroke();
+  }
+
+  // the jumper: body, dangling legs, helmet
+  c.strokeStyle = '#4a4a40';
+  c.lineWidth = 1.6;
+  for (const lx of [-1.6, 1.6]) {
+    c.beginPath();
+    c.moveTo(mx + lx, my + 1);
+    c.lineTo(mx + lx + sway * 0.15, my + 6);
+    c.stroke();
+  }
+  c.fillStyle = e.t.color;
+  c.beginPath(); c.ellipse(mx, my - 1, 3.4, 4.6, 0, 0, 7); c.fill();
+  c.fillStyle = '#5a5a4c';
+  c.beginPath(); c.arc(mx, my - 6, 2.6, 0, 7); c.fill();
+
   c.restore();
 }
 
@@ -2441,7 +2580,8 @@ function draw() {
   }
 
   for (const e of G.enemies) {
-    if (e.t.tank) drawTank(e);
+    if (e.chute > 0) drawParatrooper(e);
+    else if (e.t.tank) drawTank(e);
     else if (e.t.bike) drawBike(e);
     else if (e.t.apc) drawHalftrack(e);
     else if (e.t.vehicle) drawJeep(e);
@@ -2520,7 +2660,7 @@ function drawPlacementGhost() {
   } else {
     // shade the invalid zone
     ctx.fillStyle = 'rgba(200,50,40,0.12)';
-    ctx.fillRect(0, 0, W, DEPLOY_Y);
+    ctx.fillRect(0, 0, W, placementMinY(p));
     const ghostPositions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
     ctx.fillStyle = valid ? 'rgba(120,200,90,0.8)' : 'rgba(210,70,50,0.8)';
     for (const pos of ghostPositions) {
@@ -2606,11 +2746,16 @@ function minefieldPositions(cx, cy) {
   ];
 }
 
+function placementMinY(p) {
+  return (p.key === 'mine' || p.key === 'wire') ? FORWARD_Y : DEPLOY_Y + 12;
+}
+
 function placementValid(p, x, y) {
   if (p.kind === 'support') return y > 20 && y < H - 10;
   const positions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
+  const minY = placementMinY(p);
   for (const pos of positions) {
-    if (pos.y < DEPLOY_Y + 12 || pos.y > H - 14 || pos.x < 16 || pos.x > W - 16) return false;
+    if (pos.y < minY || pos.y > H - 14 || pos.x < 16 || pos.x > W - 16) return false;
   }
   if (p.kind === 'unit') {
     const bulk = k => k === 'sherman' ? 34 : k === 'jeep' ? 26 : 16;
@@ -2634,7 +2779,7 @@ function place(p, x, y) {
   } else if (p.key === 'sandbags') {
     G.sandbags.push({ x, y, hp: 300, maxhp: 300, up: false, workProg: 0 });
   } else if (p.key === 'wire') {
-    G.wires.push({ x, y, hp: 250, maxhp: 250, up: false, workProg: 0 });
+    G.wires.push({ x, y, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
   } else if (p.key === 'mine') {
     for (const pos of minefieldPositions(x, y)) {
       G.mines.push({ x: pos.x, y: pos.y, dead: false });
@@ -2679,7 +2824,7 @@ canvas.addEventListener('click', e => {
     return;
   }
   // move selected soldier
-  if (G.selected && y > DEPLOY_Y + 12 && y < H - 14) {
+  if (G.selected && y > FORWARD_Y && y < H - 14) {
     G.selected.moveTo = { x: clamp(x, 16, W - 16), y };
     SFX.click();
     return;
@@ -2705,6 +2850,303 @@ el('mute').addEventListener('click', () => {
   el('mute').textContent = m ? 'SND OFF' : 'SND ON';
 });
 
+// ============================================================ codex
+
+const CODEX_PW = 72, CODEX_PH = 72;
+let codexTab = 'troops';
+
+function drawCodexIcon(key) {
+  const c = ctx;
+  const cx = CODEX_PW / 2, cy = CODEX_PH / 2;
+  c.fillStyle = '#2a2a1e';
+  c.fillRect(0, 0, CODEX_PW, CODEX_PH);
+
+  if (key === 'wire') {
+    c.strokeStyle = '#6b6354';
+    c.lineWidth = 1.5;
+    for (const yy of [-6, 0, 6]) {
+      c.beginPath();
+      c.moveTo(10, cy + yy);
+      for (let x = 10; x <= CODEX_PW - 10; x += 5) {
+        c.lineTo(x, cy + yy + (x / 5 % 2 ? 2 : -2));
+      }
+      c.stroke();
+    }
+    c.strokeStyle = '#4b4438';
+    c.lineWidth = 2;
+    c.beginPath(); c.moveTo(14, cy + 8); c.lineTo(18, cy - 10); c.stroke();
+    c.beginPath(); c.moveTo(CODEX_PW - 14, cy + 8); c.lineTo(CODEX_PW - 18, cy - 10); c.stroke();
+  } else if (key === 'sandbags') {
+    c.fillStyle = '#6a5a42';
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 4; col++) {
+        c.fillRect(14 + col * 12 + (row % 2 ? 4 : 0), 46 - row * 12, 11, 9);
+      }
+    }
+    c.strokeStyle = '#4a4030';
+    c.lineWidth = 1;
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 4; col++) {
+        c.strokeRect(14 + col * 12 + (row % 2 ? 4 : 0), 46 - row * 12, 11, 9);
+      }
+    }
+  } else if (key === 'mine') {
+    c.fillStyle = '#3a3828';
+    c.beginPath(); c.arc(cx, cy + 4, 14, 0, 7); c.fill();
+    c.strokeStyle = '#8a8668';
+    c.lineWidth = 1.2;
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      c.beginPath();
+      c.moveTo(cx + Math.cos(a) * 10, cy + 4 + Math.sin(a) * 10);
+      c.lineTo(cx + Math.cos(a) * 18, cy + 4 + Math.sin(a) * 18);
+      c.stroke();
+    }
+    c.fillStyle = '#ffd94a';
+    c.beginPath(); c.arc(cx, cy + 4, 4, 0, 7); c.fill();
+  } else if (key === 'mortar') {
+    c.strokeStyle = '#8a8668';
+    c.lineWidth = 1.5;
+    c.setLineDash([3, 3]);
+    c.beginPath(); c.moveTo(16, CODEX_PH - 14); c.quadraticCurveTo(cx, 10, CODEX_PW - 16, CODEX_PH - 14);
+    c.stroke();
+    c.setLineDash([]);
+    c.fillStyle = '#5a5c42';
+    c.beginPath(); c.arc(CODEX_PW - 16, CODEX_PH - 14, 5, 0, 7); c.fill();
+    c.fillStyle = 'rgba(255,120,40,0.5)';
+    c.beginPath(); c.arc(CODEX_PW - 16, CODEX_PH - 14, 10, 0, 7); c.fill();
+  } else if (key === 'artillery') {
+    for (const [ox, oy] of [[cx - 14, cy + 6], [cx + 10, cy - 4], [cx - 2, cy + 14]]) {
+      c.fillStyle = 'rgba(255,100,30,0.35)';
+      c.beginPath(); c.arc(ox, oy, 12, 0, 7); c.fill();
+      c.fillStyle = '#ffd94a';
+      c.beginPath(); c.arc(ox, oy, 4, 0, 7); c.fill();
+    }
+  } else if (key === 'fog') {
+    c.fillStyle = 'rgba(140,140,130,0.35)';
+    for (let i = 0; i < 5; i++) {
+      c.beginPath();
+      c.ellipse(12 + i * 14, cy + Math.sin(i) * 8, 16, 10, 0, 0, 7);
+      c.fill();
+    }
+  } else if (key === 'fng') {
+    c.fillStyle = '#5b6b4a';
+    c.beginPath(); c.arc(cx, cy + 2, 16, 0, 7); c.fill();
+    c.fillStyle = '#4a5d3a';
+    c.beginPath(); c.ellipse(cx, cy + 6, 12, 8, 0, 0, 7); c.fill();
+    c.fillStyle = '#5b6b4a';
+    c.beginPath(); c.arc(cx, cy - 6, 8, 0, 7); c.fill();
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 2;
+    c.beginPath(); c.moveTo(cx, cy + 2); c.lineTo(cx, cy - 18); c.stroke();
+  } else if (key === 'barrage') {
+    c.fillStyle = '#5a5a48';
+    c.beginPath();
+    c.moveTo(cx, 12);
+    c.lineTo(cx + 7, 28);
+    c.lineTo(cx + 3, 28);
+    c.lineTo(cx + 5, CODEX_PH - 12);
+    c.lineTo(cx - 5, CODEX_PH - 12);
+    c.lineTo(cx - 3, 28);
+    c.lineTo(cx - 7, 28);
+    c.closePath();
+    c.fill();
+    c.fillStyle = 'rgba(255,120,40,0.45)';
+    c.beginPath(); c.arc(cx, CODEX_PH - 10, 14, 0, 7); c.fill();
+  } else if (key === 'paradrop') {
+    c.strokeStyle = '#c9c19a';
+    c.lineWidth = 1.2;
+    c.beginPath();
+    c.moveTo(cx - 18, cy - 16);
+    c.quadraticCurveTo(cx, cy - 28, cx + 18, cy - 16);
+    c.lineTo(cx + 18, cy - 16);
+    c.quadraticCurveTo(cx, cy - 4, cx - 18, cy - 16);
+    c.stroke();
+    c.strokeStyle = '#8a8668';
+    c.beginPath(); c.moveTo(cx, cy - 16); c.lineTo(cx, cy + 10); c.stroke();
+    c.fillStyle = '#61615a';
+    c.beginPath(); c.arc(cx, cy + 12, 5, 0, 7); c.fill();
+  } else if (key === 'airstrike') {
+    c.fillStyle = '#4a5a3f';
+    c.beginPath();
+    c.moveTo(10, cy + 4);
+    c.lineTo(CODEX_PW - 10, cy - 2);
+    c.lineTo(CODEX_PW - 14, cy + 2);
+    c.lineTo(CODEX_PW - 10, cy + 6);
+    c.lineTo(10, cy + 10);
+    c.closePath();
+    c.fill();
+    c.fillStyle = 'rgba(255,120,40,0.4)';
+    for (const bx of [28, 40, 52]) {
+      c.beginPath(); c.arc(bx, cy + 16, 5, 0, 7); c.fill();
+    }
+  }
+}
+
+function renderPortrait(typeKey, side) {
+  const pc = document.createElement('canvas');
+  pc.width = CODEX_PW;
+  pc.height = CODEX_PH;
+  const savedCtx = ctx;
+  const savedG = G;
+  ctx = pc.getContext('2d');
+  G = { selected: null };
+
+  const defenseKeys = ['wire', 'sandbags', 'mine', 'mortar', 'artillery'];
+  const eventKeys = EVENT_INFO.map(e => e.key);
+  if (defenseKeys.includes(typeKey) || eventKeys.includes(typeKey)) {
+    drawCodexIcon(typeKey);
+  } else {
+    ctx.fillStyle = '#2a2a1e';
+    ctx.fillRect(0, 0, CODEX_PW, CODEX_PH);
+    const actor = side === 'us'
+      ? makeUnit(typeKey, CODEX_PW / 2, CODEX_PH / 2 + 6)
+      : makeEnemy(typeKey, CODEX_PW / 2, CODEX_PH / 2 + 6);
+    actor.hp = actor.maxhp;
+    actor.face = side === 'us' ? -Math.PI / 2 : Math.PI / 2;
+    actor.turret = actor.face;
+
+    const t = actor.t;
+    if (t.tank) {
+      ctx.save();
+      ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 4);
+      ctx.scale(0.72, 0.72);
+      ctx.translate(-CODEX_PW / 2, -(CODEX_PH / 2 + 4));
+      drawTank(actor);
+      ctx.restore();
+    } else if (t.vehicle && t.apc) {
+      ctx.save();
+      ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 2);
+      ctx.scale(0.8, 0.8);
+      ctx.translate(-CODEX_PW / 2, -(CODEX_PH / 2 + 2));
+      drawHalftrack(actor);
+      ctx.restore();
+    } else if (t.vehicle) {
+      ctx.save();
+      ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 2);
+      ctx.scale(0.85, 0.85);
+      ctx.translate(-CODEX_PW / 2, -(CODEX_PH / 2 + 2));
+      drawJeep(actor);
+      ctx.restore();
+    } else if (t.bike) {
+      drawBike(actor);
+    } else {
+      drawSoldier(actor);
+    }
+  }
+
+  ctx = savedCtx;
+  G = savedG;
+  return pc;
+}
+
+function formatUnitStats(p, ut) {
+  const parts = [`${ut.hp} HP`];
+  if (ut.dmg > 0) parts.push(`${ut.dmg} DMG`);
+  if (ut.range > 0) parts.push(`${ut.range} RNG`);
+  if (ut.shotgun) parts.push('BUCKSHOT');
+  if (ut.flame) parts.push('FLAME');
+  if (ut.rocket) parts.push('ROCKET');
+  if (ut.mortar) parts.push('MORTAR');
+  parts.push(`${p.cost} TP`, `[${p.hotkey}]`);
+  return parts.join(' · ');
+}
+
+function codexEntries(tab) {
+  if (tab === 'troops') {
+    return PLACEABLES.filter(p => p.kind === 'unit').map(p => {
+      const ut = UNIT_TYPES[p.key];
+      return {
+        key: p.key,
+        side: 'us',
+        name: ut.name,
+        stats: formatUnitStats(p, ut),
+        desc: p.desc,
+      };
+    });
+  }
+  if (tab === 'defenses') {
+    return PLACEABLES.filter(p => p.kind !== 'unit').map(p => ({
+      key: p.key,
+      side: null,
+      name: p.label,
+      stats: `${p.cost} TP · [${p.hotkey}] · ${p.kind.toUpperCase()}`,
+      desc: p.desc,
+    }));
+  }
+  if (tab === 'enemies') {
+    return Object.entries(ENEMY_TYPES).map(([key, t]) => {
+      const parts = [`${t.hp} HP`, `${t.reward} TP REWARD`];
+      if (t.dmg > 0) parts.splice(1, 0, `${t.dmg} DMG`);
+      if (t.range > 0) parts.splice(t.dmg > 0 ? 2 : 1, 0, `${t.range} RNG`);
+      if (t.flame) parts.push('FLAME');
+      if (t.tank) parts.push('ARMOR');
+      return {
+        key,
+        side: 'de',
+        name: t.name,
+        stats: parts.join(' · '),
+        desc: ENEMY_INFO[key],
+      };
+    });
+  }
+  return EVENT_INFO.map(ev => ({
+    key: ev.key,
+    side: null,
+    name: ev.name,
+    stats: `FROM WAVE ${ev.wave}`,
+    desc: ev.desc,
+  }));
+}
+
+function buildCodex(tab) {
+  codexTab = tab;
+  for (const btn of document.querySelectorAll('.codex-tab')) {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  }
+  const list = el('codex-list');
+  list.innerHTML = '';
+  for (const entry of codexEntries(tab)) {
+    const card = document.createElement('div');
+    card.className = 'codex-entry';
+
+    const portrait = document.createElement('canvas');
+    portrait.className = 'codex-portrait';
+    portrait.width = CODEX_PW;
+    portrait.height = CODEX_PH;
+    const pctx = portrait.getContext('2d');
+    pctx.drawImage(renderPortrait(entry.key, entry.side), 0, 0);
+
+    const body = document.createElement('div');
+    body.className = 'codex-body';
+    body.innerHTML =
+      `<div class="codex-name">${entry.name}</div>` +
+      `<div class="codex-stats">${entry.stats}</div>` +
+      `<div class="codex-desc">${entry.desc}</div>`;
+
+    card.appendChild(portrait);
+    card.appendChild(body);
+    list.appendChild(card);
+  }
+}
+
+function openCodex() {
+  buildCodex(codexTab);
+  el('intro').classList.add('hidden');
+  el('codex').classList.remove('hidden');
+}
+
+function closeCodex() {
+  el('codex').classList.add('hidden');
+  el('intro').classList.remove('hidden');
+}
+
+el('codex-btn').addEventListener('click', openCodex);
+el('codex-back-btn').addEventListener('click', closeCodex);
+for (const btn of document.querySelectorAll('.codex-tab')) {
+  btn.addEventListener('click', () => buildCodex(btn.dataset.tab));
+}
+
 // ============================================================ game flow
 
 function startGame() {
@@ -2714,6 +3156,7 @@ function startGame() {
   running = true;
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');
+  el('codex').classList.add('hidden');
   lastT = performance.now();
 }
 

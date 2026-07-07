@@ -34,7 +34,22 @@
         <li>If <b>7 Germans</b> slip past the bottom of your screen, your line collapses. Game over.</li>
         <li>There is no winning. There is only lasting one more wave.</li>
       </ul>
-      <button id="start-btn">TAKE COMMAND</button>
+      <div class="intro-btns">
+        <button id="start-btn">TAKE COMMAND</button>
+        <button id="codex-btn" class="secondary">CODEX</button>
+      </div>
+    </div>
+
+    <div id="codex" class="overlay hidden">
+      <h1>FIELD CODEX</h1>
+      <div id="codex-tabs">
+        <button class="codex-tab active" data-tab="troops">YOUR TROOPS</button>
+        <button class="codex-tab" data-tab="defenses">DEFENSES &amp; SUPPORT</button>
+        <button class="codex-tab" data-tab="enemies">ENEMY FORCES</button>
+        <button class="codex-tab" data-tab="events">EVENTS</button>
+      </div>
+      <div id="codex-list"></div>
+      <button id="codex-back-btn">BACK</button>
     </div>
 
     <div id="gameover" class="overlay hidden">

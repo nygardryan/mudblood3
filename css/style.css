@@ -159,3 +159,103 @@ body {
 
 #gameover h1 { color: #c22; }
 #go-stats { font-size: 17px; color: #ffd94a; letter-spacing: 1px; }
+
+.intro-btns {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.overlay button.secondary {
+  border-color: #8a8668;
+  color: #c9c19a;
+  background: #262417;
+}
+.overlay button.secondary:hover { background: #33301d; border-color: #a49f7d; }
+
+/* ---- Codex ---- */
+#codex {
+  justify-content: flex-start;
+  padding: 24px 28px 20px;
+  text-align: left;
+}
+#codex h1 {
+  font-size: 28px;
+  letter-spacing: 6px;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+#codex-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.codex-tab {
+  background: #262417;
+  border: 1px solid #4a4836;
+  color: #8a8668;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.codex-tab:hover { border-color: #8a8668; color: #c9c19a; }
+.codex-tab.active {
+  border-color: #ffd94a;
+  color: #ffd94a;
+  background: #3d3819;
+}
+#codex-list {
+  flex: 1;
+  width: 100%;
+  overflow-y: auto;
+  margin-bottom: 14px;
+  padding-right: 4px;
+}
+#codex-list::-webkit-scrollbar { width: 6px; }
+#codex-list::-webkit-scrollbar-thumb { background: #4a4836; border-radius: 3px; }
+.codex-entry {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: rgba(20, 20, 12, 0.55);
+  border: 1px solid #3a3828;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.codex-portrait {
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  background: #2a2a1e;
+  border: 1px solid #4a4836;
+  image-rendering: pixelated;
+}
+.codex-body { flex: 1; min-width: 0; }
+.codex-name {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffd94a;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.codex-stats {
+  font-size: 11px;
+  color: #8a8668;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+.codex-desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #d8d2b8;
+}
+#codex-back-btn {
+  flex-shrink: 0;
+  font-size: 14px;
+  padding: 10px 28px;
+}

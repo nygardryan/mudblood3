@@ -1522,6 +1522,17 @@ function angleDiff(a, b) {
   return d;
 }
 
+function vehicleHomeFace(a) {
+  return a.side === 'us' ? -Math.PI / 2 : Math.PI / 2;
+}
+
+function vehicleHullAngle(a) {
+  const home = vehicleHomeFace(a);
+  return a.moveTo
+    ? Math.atan2(a.moveTo.y - a.y, a.moveTo.x - a.x)
+    : home;
+}
+
 function inFireCone(shooter, target, bearing, arc) {
   return Math.abs(angleDiff(Math.atan2(target.y - shooter.y, target.x - shooter.x), bearing)) <= arc;
 }
@@ -2136,11 +2147,12 @@ function updateUnit(u, dt) {
       const d = dist(u, u.moveTo);
       if (d < 4) {
         u.moveTo = null;
+        u.face = vehicleHomeFace(u);
       } else {
-        const ang = Math.atan2(u.moveTo.y - u.y, u.moveTo.x - u.x);
+        u.face = Math.atan2(u.moveTo.y - u.y, u.moveTo.x - u.x);
         const sp = unitSpeed(u);
-        u.x += Math.cos(ang) * sp * dt;
-        u.y += Math.sin(ang) * sp * dt;
+        u.x += Math.cos(u.face) * sp * dt;
+        u.y += Math.sin(u.face) * sp * dt;
       }
     }
     updateTankCombat(u, dt);
@@ -2153,6 +2165,7 @@ function updateUnit(u, dt) {
       const d = dist(u, u.moveTo);
       if (d < 4) {
         u.moveTo = null;
+        u.face = vehicleHomeFace(u);
       } else {
         const ang = Math.atan2(u.moveTo.y - u.y, u.moveTo.x - u.x);
         const sp = unitSpeed(u);
@@ -4571,11 +4584,15 @@ function drawSoldierOverlays(a) {
 function drawTank(a) {
   const us = a.side === 'us';
   const c = ctx;
+  const home = vehicleHomeFace(a);
+  const hullAng = vehicleHullAngle(a);
+  const hullRot = hullAng - home;
   c.save();
   c.translate(a.x, a.y);
   // shadow
   c.fillStyle = 'rgba(0,0,0,0.3)';
   c.beginPath(); c.ellipse(0, 4, 26, 18, 0, 0, 7); c.fill();
+  if (a.moveTo) c.rotate(hullRot);
   // tracks
   c.fillStyle = '#2f2f28';
   c.fillRect(-24, -16, 8, 32);
@@ -4599,8 +4616,8 @@ function drawTank(a) {
     c.closePath();
     c.stroke();
   }
-  // turret
-  c.rotate(a.turret);
+  // turret — compensate for hull rotation so barrel stays at world bearing a.turret
+  c.rotate(a.turret - hullAng + home);
   c.fillStyle = us ? '#54634a' : '#4c4c43';
   c.fillRect(6, -2.5, 24, 5);          // barrel
   c.beginPath(); c.arc(0, 0, 10, 0, 7); c.fill();
@@ -4836,11 +4853,16 @@ function stampJeepWreck(a) {
 function drawJeep(a) {
   const us = a.side === 'us';
   const c = ctx;
+  const home = vehicleHomeFace(a);
+  const hullAng = vehicleHullAngle(a);
+  const hullRot = hullAng - home;
   c.save();
   c.translate(a.x, a.y);
 
   c.fillStyle = 'rgba(0,0,0,0.28)';
   c.beginPath(); c.ellipse(0, 4, 12, 15, 0, 0, 7); c.fill();
+
+  c.rotate(hullRot);
 
   for (const [wx, wy] of [[-8, -8], [8, -8], [-8, 8], [8, 8]]) {
     drawJeepWheel(c, wx, wy);
@@ -4848,7 +4870,7 @@ function drawJeep(a) {
 
   drawJeepBody(c, a.t.color, us);
 
-  c.rotate(a.face);
+  c.rotate(a.face - hullAng + home);
   drawVehicleHMG(c, a.t.gun, us);
   c.fillStyle = us ? '#5b6b4a' : '#61615a';
   c.beginPath(); c.ellipse(-5.5, 0, 3.6, 4.8, 0, 0, 7); c.fill();

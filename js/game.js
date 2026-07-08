@@ -541,9 +541,8 @@ let viewCam = { x: 0, y: 0, zoom: 1 };
 let viewDirty = false;
 let viewGesture = null;   // two-finger pinch/pan snapshot
 const activePointers = new Map();
-const VIEW_ZOOM_MIN = 1;
-const VIEW_ZOOM_MAX = 2.2;
-const VIEW_ZOOM_DEFAULT = 1.35;
+const VIEW_ZOOM_MAX_MUL = 2.5;
+let lastCoverZoom = null;
 let running = false;
 let paused = false;
 let codexReturnTo = 'intro';
@@ -5323,7 +5322,8 @@ function drawDefenses() {
 function draw() {
   ctx.save();
   if (mobileViewActive()) {
-    ctx.scale(viewCam.zoom, viewCam.zoom);
+    const s = viewScale();
+    ctx.scale(s, s);
     ctx.translate(-viewCam.x, -viewCam.y);
   }
   ctx.drawImage(groundCanvas, 0, 0);
@@ -5678,18 +5678,54 @@ function mobileViewActive() {
   return touchUI() && window.innerWidth <= 768;
 }
 
+function canvasAspect() {
+  if (canvas.width > 0 && canvas.height > 0) return canvas.height / canvas.width;
+  return H / W;
+}
+
+function coverZoom() {
+  if (!mobileViewActive()) return 1;
+  return Math.max(1, canvasAspect() * W / H);
+}
+
+function viewZoomMin() {
+  return mobileViewActive() ? coverZoom() : 1;
+}
+
+function viewZoomMax() {
+  return mobileViewActive() ? coverZoom() * VIEW_ZOOM_MAX_MUL : 1;
+}
+
+function viewSize(zoom = viewCam.zoom) {
+  const viewW = W / zoom;
+  const viewH = mobileViewActive() ? canvasAspect() * W / zoom : H / zoom;
+  return { viewW, viewH };
+}
+
+function viewScale() {
+  if (!mobileViewActive()) return 1;
+  return canvas.width / viewSize().viewW;
+}
+
 function clampCamera() {
-  const vw = W / viewCam.zoom, vh = H / viewCam.zoom;
-  viewCam.x = clamp(viewCam.x, 0, Math.max(0, W - vw));
-  viewCam.y = clamp(viewCam.y, 0, Math.max(0, H - vh));
+  const { viewW, viewH } = viewSize();
+  viewCam.x = clamp(viewCam.x, 0, Math.max(0, W - viewW));
+  viewCam.y = clamp(viewCam.y, 0, Math.max(0, H - viewH));
 }
 
 function resetViewCam(mode) {
-  viewCam.zoom = mobileViewActive() ? VIEW_ZOOM_DEFAULT : 1;
-  viewCam.x = (W - W / viewCam.zoom) / 2;
-  if (mode === 'axis') viewCam.y = 0;
-  else if (mode === 'hitsquad') viewCam.y = 120;
-  else viewCam.y = DEPLOY_Y - (H / viewCam.zoom) * 0.55;
+  if (!mobileViewActive()) {
+    viewCam.zoom = 1;
+    viewCam.x = 0;
+    viewCam.y = 0;
+  } else {
+    viewCam.zoom = coverZoom();
+    viewCam.x = (W - W / viewCam.zoom) / 2;
+    const { viewH } = viewSize();
+    if (mode === 'axis') viewCam.y = 0;
+    else if (mode === 'hitsquad') viewCam.y = 120;
+    else viewCam.y = DEPLOY_Y - viewH * 0.55;
+  }
   clampCamera();
   viewDirty = true;
 }
@@ -5699,8 +5735,8 @@ function clientToWorld(clientX, clientY) {
   const nx = (clientX - r.left) / r.width;
   const ny = (clientY - r.top) / r.height;
   if (!mobileViewActive()) return { x: nx * W, y: ny * H };
-  const vw = W / viewCam.zoom, vh = H / viewCam.zoom;
-  return { x: viewCam.x + nx * vw, y: viewCam.y + ny * vh };
+  const { viewW, viewH } = viewSize();
+  return { x: viewCam.x + nx * viewW, y: viewCam.y + ny * viewH };
 }
 
 function pointerMid() {
@@ -5738,16 +5774,14 @@ function applyViewGesture() {
   if (!mid || viewGesture.d0 < 1) return;
 
   const r = canvas.getBoundingClientRect();
-  const vw0 = W / viewGesture.zoom0;
-  const vh0 = H / viewGesture.zoom0;
+  const { viewW: vw0, viewH: vh0 } = viewSize(viewGesture.zoom0);
   const nx0 = (viewGesture.mid0.x - r.left) / r.width;
   const ny0 = (viewGesture.mid0.y - r.top) / r.height;
   const worldX = viewGesture.camX0 + nx0 * vw0;
   const worldY = viewGesture.camY0 + ny0 * vh0;
 
-  viewCam.zoom = clamp(viewGesture.zoom0 * (d / viewGesture.d0), VIEW_ZOOM_MIN, VIEW_ZOOM_MAX);
-  const vw = W / viewCam.zoom;
-  const vh = H / viewCam.zoom;
+  viewCam.zoom = clamp(viewGesture.zoom0 * (d / viewGesture.d0), viewZoomMin(), viewZoomMax());
+  const { viewW: vw, viewH: vh } = viewSize();
   const nx1 = (mid.x - r.left) / r.width;
   const ny1 = (mid.y - r.top) / r.height;
   viewCam.x = worldX - nx1 * vw;
@@ -5778,12 +5812,19 @@ function fitLayout() {
   const maxW = window.innerWidth;
   const maxH = window.innerHeight - padY;
   const ratio = W / H;
+  const mobile = mobileViewActive();
 
-  let w = maxW;
-  let h = w / ratio;
-  if (h > maxH) {
+  let w, h;
+  if (mobile) {
+    w = maxW;
     h = maxH;
-    w = h * ratio;
+  } else {
+    w = maxW;
+    h = w / ratio;
+    if (h > maxH) {
+      h = maxH;
+      w = h * ratio;
+    }
   }
 
   w = Math.floor(w);
@@ -5793,7 +5834,27 @@ function fitLayout() {
   wrap.style.height = (h + padY) + 'px';
   stage.style.width = '100%';
   stage.style.height = '100%';
-  if (mobileViewActive()) clampCamera();
+
+  if (mobile) {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.floor(w * dpr));
+    canvas.height = Math.max(1, Math.floor(h * dpr));
+  } else {
+    canvas.width = W;
+    canvas.height = H;
+  }
+
+  const newCover = mobile ? coverZoom() : 1;
+  if (mobile) {
+    if (G && lastCoverZoom != null && Math.abs(newCover - lastCoverZoom) > 0.05) {
+      resetViewCam(G.mode);
+    } else {
+      viewCam.zoom = clamp(viewCam.zoom, viewZoomMin(), viewZoomMax());
+      clampCamera();
+    }
+  }
+  lastCoverZoom = newCover;
+
   syncMobileViewUI();
   syncToolbarLayout();
   viewDirty = true;
@@ -7036,5 +7097,10 @@ if (hudEl && typeof ResizeObserver !== 'undefined') {
   new ResizeObserver(() => syncToolbarLayout()).observe(hudEl);
 }
 window.addEventListener('resize', fitLayout);
-window.addEventListener('orientationchange', () => setTimeout(fitLayout, 100));
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    fitLayout();
+    if (G && mobileViewActive()) resetViewCam(G.mode);
+  }, 100);
+});
 requestAnimationFrame(frame);

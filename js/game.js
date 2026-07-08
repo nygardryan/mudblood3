@@ -5932,6 +5932,17 @@ function placeablesForCategory(categoryId) {
     .sort((a, b) => placeableCost(a) - placeableCost(b));
 }
 
+function categoryForPlaceable(p) {
+  const cat = TOOLBAR_CATEGORIES.find(c => c.filter(p));
+  return cat ? cat.id : 'categories';
+}
+
+function clearPlacing() {
+  if (!placing) return;
+  placing = null;
+  renderToolbar();
+}
+
 function visibleToolbarCategories() {
   return TOOLBAR_CATEGORIES.filter(c => placeablesForCategory(c.id).length > 0);
 }
@@ -5950,8 +5961,41 @@ function renderToolbar() {
 
   if (!toolbarPlaceables.length) {
     bar.classList.add('hidden');
+    bar.classList.remove('toolbar-placing');
     return;
   }
+
+  if (touchUI() && placing) {
+    bar.classList.add('toolbar-placing');
+    const active = placing;
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'tool-btn tool-back-btn';
+    back.textContent = '← BACK';
+    back.addEventListener('click', () => {
+      placing = null;
+      if (toolbarView === 'categories') toolbarView = categoryForPlaceable(active);
+      SFX.click();
+      renderToolbar();
+    });
+    bar.appendChild(back);
+
+    const cost = placeableCost(active);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tool-btn active';
+    b.title = active.desc;
+    b.innerHTML = `<span class="key">[${active.hotkey}]</span>${active.label}<span class="cost">${cost} TP</span>`;
+    b.addEventListener('click', () => selectPlaceable(active));
+    bar.appendChild(b);
+    toolButtons.push({ p: active, el: b });
+
+    syncToolbarVisibility();
+    syncToolbarLayout();
+    return;
+  }
+
+  bar.classList.remove('toolbar-placing');
 
   if (toolbarView === 'categories') {
     for (const cat of visibleToolbarCategories()) {
@@ -5973,6 +6017,7 @@ function renderToolbar() {
     back.className = 'tool-btn tool-back-btn';
     back.textContent = '← BACK';
     back.addEventListener('click', () => {
+      placing = null;
       toolbarView = 'categories';
       SFX.click();
       renderToolbar();
@@ -6014,7 +6059,11 @@ function selectPlaceable(p) {
   if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); return; }
   SFX.click();
   placing = (placing === p) ? null : p;
+  if (placing && touchUI() && toolbarView === 'categories') {
+    toolbarView = categoryForPlaceable(p);
+  }
   G.selected = [];
+  renderToolbar();
 }
 
 // ============================================================ placement & input
@@ -6080,8 +6129,8 @@ function placementValid(p, x, y) {
 function place(p, x, y) {
   if (!placementValid(p, x, y)) { SFX.error(); return; }
   const cost = placeableCost(p);
-  if (!canAffordTP(cost)) { SFX.error(); placing = null; return; }
-  if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); placing = null; return; }
+  if (!canAffordTP(cost)) { SFX.error(); clearPlacing(); return; }
+  if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); clearPlacing(); return; }
   spendTP(cost);
   SFX.click();
 
@@ -6116,7 +6165,7 @@ function place(p, x, y) {
     }
   }
   // keep placing defenses if affordable; supports are one-shot
-  if (p.kind === 'support' || !canAffordTP(placeableCost(p)) || (p.key === 'officer' && officerCount() >= MAX_OFFICERS)) placing = null;
+  if (p.kind === 'support' || !canAffordTP(placeableCost(p)) || (p.key === 'officer' && officerCount() >= MAX_OFFICERS)) clearPlacing();
 }
 
 function updatePointer(e) {
@@ -6331,7 +6380,7 @@ canvas.addEventListener('click', e => {
 
 canvas.addEventListener('contextmenu', e => {
   e.preventDefault();
-  placing = null;
+  clearPlacing();
   placeTouch = null;
   drag = null;
   G && (G.selected = []);
@@ -6340,11 +6389,11 @@ canvas.addEventListener('contextmenu', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (paused) { resumeGame(); return; }
-    if (placing) { placing = null; return; }
+    if (placing) { clearPlacing(); return; }
     if (G && G.selected.length) { G.selected = []; return; }
     if (drag) { drag = null; return; }
     if (running && G && !G.over) { pauseGame(); return; }
-    placing = null; drag = null; if (G) G.selected = [];
+    clearPlacing(); drag = null; if (G) G.selected = [];
     return;
   }
   if (isSandbox() && isPlaying()) {
@@ -6969,7 +7018,7 @@ el('sound-volume-slider').addEventListener('input', e => {
 function pauseGame() {
   if (!running || !G || G.over || paused) return;
   paused = true;
-  placing = null;
+  clearPlacing();
   drag = null;
   placeTouch = null;
   G.selected = [];
@@ -7032,7 +7081,7 @@ function startGame(levelId, difficultyId) {
   const viewHint = mobileViewActive() ? ' Pinch to zoom, drag with two fingers to pan.' : '';
   el('tipbar').textContent = (level.mode === 'axis'
     ? touchUI()
-      ? 'Tap Units or Abilities, pick an option, then tap the top strip to deploy. Tap again to cancel.'
+      ? 'Tap Units or Abilities, pick an option, then tap the field to deploy. Back returns to the list; tap the item again to cancel.'
       : 'Open Units or Abilities, pick a troop or strike, then drop it in the top strip. Right-click / Esc cancels placement.'
     : level.mode === 'hitsquad'
       ? touchUI()
@@ -7043,7 +7092,7 @@ function startGame(levelId, difficultyId) {
         ? 'Sandbox: unlimited TP. Use +1 / +5 / +10 in the HUD to jump ahead in waves.'
         : 'Sandbox: unlimited TP. ] / Shift+] / Ctrl+] jump ahead 1 / 5 / 10 waves, or use the HUD buttons.'
       : touchUI()
-        ? 'Tap a soldier to select him, tap ground to move. Open Units, Abilities, or Emplacements to deploy. Tap again to cancel.'
+        ? 'Tap a soldier to select him, tap ground to move. Open Units, Abilities, or Emplacements to deploy. Back returns to the list; tap the item again to cancel.'
         : 'Left-click a soldier to select him, click ground to move. Open Units, Abilities, or Emplacements to deploy. Right-click / Esc cancels placement.') + viewHint;
   if (level.briefing) showBanner(level.name);
   lastT = performance.now();

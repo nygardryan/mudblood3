@@ -536,6 +536,10 @@ body {
     gap: 3px;
   }
 
+  #toolbar.toolbar-placing {
+    width: calc(56px * var(--tool-scale));
+  }
+
   #tipbar {
     bottom: 2px;
     left: 2px;

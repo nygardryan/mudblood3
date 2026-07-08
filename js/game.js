@@ -3918,7 +3918,7 @@ function placeablesForCategory(categoryId) {
   return toolbarPlaceables
     .filter(cat.filter)
     .slice()
-    .sort((a, b) => placeableCost(b) - placeableCost(a));
+    .sort((a, b) => placeableCost(a) - placeableCost(b));
 }
 
 function visibleToolbarCategories() {

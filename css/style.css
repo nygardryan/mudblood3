@@ -36,6 +36,7 @@ body {
   width: 100%;
   height: 100%;
   background: #5c5a3f;
+  --tool-scale: 1;
 }
 
 #game {
@@ -67,7 +68,7 @@ body {
 }
 #hud-tp { color: #ffd94a; }
 .hud-box.breach { color: #ff6b57; margin-left: auto; }
-#pause-btn, #mute {
+#pause-btn {
   pointer-events: auto;
   cursor: pointer;
   font-family: inherit;
@@ -75,7 +76,17 @@ body {
   min-height: 32px;
   padding: 6px 12px;
 }
-#pause-btn:hover, #mute:hover { border-color: #8a8668; }
+#pause-btn:hover { border-color: #8a8668; }
+#view-reset {
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 44px;
+  min-height: 32px;
+  padding: 6px 12px;
+}
+#view-reset:hover { border-color: #8a8668; }
+#stage:not(.mobile-view) #view-reset { display: none !important; }
 #pause-btn.hidden { display: none; }
 
 .sandbox-wave-skip {
@@ -133,7 +144,7 @@ body {
   top: 52px; /* overridden by syncToolbarLayout() once HUD height is known */
   left: 4px;
   bottom: 28px;
-  width: 72px;
+  width: calc(72px * var(--tool-scale));
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
@@ -145,30 +156,33 @@ body {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: 2px 0;
 }
+#toolbar::-webkit-scrollbar { display: none; }
 #toolbar.hidden { display: none; }
 .tool-btn {
   background: rgba(38, 36, 23, .92);
   border: 2px solid #4a4836;
   color: #d8d2b8;
   font-family: inherit;
-  font-size: 9px;
-  padding: 6px 3px 5px;
+  font-size: calc(9px * var(--tool-scale));
+  padding: calc(6px * var(--tool-scale)) calc(3px * var(--tool-scale)) calc(5px * var(--tool-scale));
   cursor: pointer;
   text-align: center;
   line-height: 1.25;
-  min-height: 40px;
+  min-height: calc(40px * var(--tool-scale));
   width: 100%;
   pointer-events: auto;
   flex: 0 0 auto;
 }
 .tool-btn .key {
   display: block;
-  font-size: 8px;
+  font-size: calc(8px * var(--tool-scale));
   color: #8a8668;
 }
-.tool-btn .cost { display: block; color: #ffd94a; font-weight: bold; font-size: 8px; }
+.tool-btn .cost { display: block; color: #ffd94a; font-weight: bold; font-size: calc(8px * var(--tool-scale)); }
 .tool-btn:hover { border-color: #a49f7d; background: rgba(51, 48, 29, .95); }
 .tool-btn.active { border-color: #ffd94a; background: rgba(61, 56, 25, .95); }
 .tool-btn:disabled {
@@ -178,46 +192,46 @@ body {
 .tool-cat-btn {
   font-weight: bold;
   letter-spacing: 0.5px;
-  padding: 8px 4px;
-  min-height: 44px;
+  padding: calc(8px * var(--tool-scale)) calc(4px * var(--tool-scale));
+  min-height: calc(44px * var(--tool-scale));
 }
 .tool-back-btn {
   border-color: #8a8668;
   color: #c9c19a;
   font-weight: bold;
   letter-spacing: 0.5px;
-  min-height: 36px;
+  min-height: calc(36px * var(--tool-scale));
 }
 .tool-back-btn:hover { border-color: #a49f7d; }
 
 @media (max-width: 700px) {
   #toolbar {
-    width: 68px;
+    width: calc(68px * var(--tool-scale));
   }
   .tool-btn {
-    font-size: 8px;
-    padding: 6px 2px;
-    min-height: 38px;
+    font-size: calc(8px * var(--tool-scale));
+    padding: calc(6px * var(--tool-scale)) calc(2px * var(--tool-scale));
+    min-height: calc(38px * var(--tool-scale));
   }
 }
 
 @media (orientation: landscape) and (max-height: 520px) and (hover: none) {
   #toolbar {
     bottom: 22px;
-    width: 64px;
+    width: calc(64px * var(--tool-scale));
     gap: 3px;
   }
   .tool-btn {
-    font-size: 8px;
-    padding: 5px 2px;
-    min-height: 34px;
+    font-size: calc(8px * var(--tool-scale));
+    padding: calc(5px * var(--tool-scale)) calc(2px * var(--tool-scale));
+    min-height: calc(34px * var(--tool-scale));
     line-height: 1.15;
   }
   .tool-btn .cost {
-    font-size: 7px;
+    font-size: calc(7px * var(--tool-scale));
   }
   .tool-cat-btn {
-    min-height: 36px;
+    min-height: calc(36px * var(--tool-scale));
   }
 }
 
@@ -331,6 +345,59 @@ body {
 }
 .overlay button.secondary:hover { background: #33301d; border-color: #a49f7d; }
 
+/* ---- Settings ---- */
+#settings {
+  justify-content: flex-start;
+  padding: clamp(16px, 5vw, 32px);
+}
+#settings h1 {
+  margin-bottom: 18px;
+}
+.settings-panel {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(20, 20, 12, 0.55);
+  border: 1px solid #3a3828;
+  padding: clamp(14px, 4vw, 20px);
+  margin-bottom: 20px;
+  text-align: left;
+}
+.settings-label {
+  display: block;
+  font-size: clamp(13px, 3.5vw, 15px);
+  font-weight: bold;
+  color: #ffd94a;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.settings-hint {
+  font-size: clamp(11px, 3vw, 13px);
+  line-height: 1.5;
+  color: #8a8668;
+  margin-bottom: 16px;
+}
+#toolbar-size-slider,
+#sound-volume-slider {
+  width: 100%;
+  accent-color: #ffd94a;
+  cursor: pointer;
+}
+.settings-value {
+  margin-top: 10px;
+  margin-bottom: 20px;
+  font-size: clamp(14px, 4vw, 18px);
+  font-weight: bold;
+  color: #c9c19a;
+  letter-spacing: 1px;
+  text-align: center;
+}
+#settings-mute-btn {
+  width: 100%;
+}
+#settings-back-btn {
+  flex-shrink: 0;
+}
+
 /* ---- Codex ---- */
 #codex {
   justify-content: flex-start;
@@ -414,6 +481,20 @@ body {
   line-height: 1.5;
   color: #d8d2b8;
 }
+.codex-play-btn {
+  margin-top: 8px;
+  background: #262417;
+  border: 1px solid #4a4836;
+  color: #c9c19a;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding: 6px 14px;
+  cursor: pointer;
+  min-height: 32px;
+}
+.codex-play-btn:hover { border-color: #ffd94a; color: #ffd94a; }
 #codex-back-btn {
   flex-shrink: 0;
   font-size: 14px;

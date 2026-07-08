@@ -42,7 +42,7 @@ const UNIT_TYPES = {
     name: 'Bazooka', hp: 90, range: 120, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, speed: 40,
     color: '#3f5138', gun: 5, sfx: 'pistol',
-    rocket: { range: 363, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380 },
+    rocket: { range: 363, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
     desc: 'M1A1 rocket launcher. The answer to armor.',
   },
   mortarman: {
@@ -536,9 +536,17 @@ let mouse = { x: W / 2, y: H / 2, inside: false };
 let drag = null;      // marquee selection in progress: { x0, y0, x1, y1, active }
 let suppressClick = false; // eat the click that follows a completed drag-select or pointerup action
 let placeTouch = null;  // touch placement drag: { active, moved, startX, startY }
+let viewCam = { x: 0, y: 0, zoom: 1 };
+let viewDirty = false;
+let viewGesture = null;   // two-finger pinch/pan snapshot
+const activePointers = new Map();
+const VIEW_ZOOM_MIN = 1;
+const VIEW_ZOOM_MAX = 2.2;
+const VIEW_ZOOM_DEFAULT = 1.35;
 let running = false;
 let paused = false;
 let codexReturnTo = 'intro';
+let settingsReturnTo = 'intro';
 let lastT = 0;
 let hudAccum = 0;
 
@@ -553,8 +561,8 @@ function isPlaying() {
 
 function syncMuteButtons() {
   const label = SFX.muted ? 'SND OFF' : 'SND ON';
-  el('mute').textContent = label;
-  el('pause-mute-btn').textContent = label;
+  const btn = el('settings-mute-btn');
+  if (btn) btn.textContent = label;
 }
 
 const canvas = document.getElementById('game');
@@ -752,6 +760,7 @@ const SPECIAL_WAVES = [
     banner: 'FALLSCHIRMJÄGER ASSAULT!',
     // a mass drop behind your line while a ground element pins you frontally
     spawn(t) {
+      spawnTransportFlyby();
       const pool = ['erifle', 'esmg', 'esmg', 'egren'];
       if (t >= 3) pool.push('emg');
       const count = 6 + 2 * t;
@@ -834,7 +843,6 @@ function spawnSpecialWave(w) {
   const tier = w / 10;
   const theme = SPECIAL_WAVES[(tier - 1) % SPECIAL_WAVES.length];
   showBanner(theme.banner);
-  SFX.alarm();
   theme.spawn(tier);
   // a breather while you police up the aftermath
   G.spawnTimer = spawnIntervalForWave(w) + 6;
@@ -883,7 +891,7 @@ function updateAlliedWaves(dt) {
   if (G.spawnTimer > 0) return;
   const wv = waves[G.waveIdx++];
   G.wave++;
-  if (wv.banner) { showBanner(wv.banner); SFX.alarm(); }
+  if (wv.banner) showBanner(wv.banner);
   const cx = rand(100, W - 100);
   for (const type of wv.comp) {
     const x = clamp(cx + rand(-90, 90), 30, W - 30);
@@ -899,7 +907,7 @@ function updateAxisReinforcements() {
   const list = G.level.reinforcements || [];
   while (G.reinforceIdx < list.length && G.time >= list[G.reinforceIdx].at) {
     const r = list[G.reinforceIdx++];
-    if (r.banner) { showBanner(r.banner); SFX.alarm(); }
+    if (r.banner) showBanner(r.banner);
     for (const spec of r.units) G.units.push(makeUnit(spec.type, spec.x, spec.y));
   }
 }
@@ -928,7 +936,7 @@ const PARA_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];
 
 function triggerParadrop() {
   showBanner('FALLSCHIRMJÄGER! PARATROOPERS!');
-  SFX.alarm();
+  spawnTransportFlyby();
   const w = G.wave;
   const pool = PARA_POOL.slice();
   if (w >= 10) pool.push('emg');
@@ -955,12 +963,10 @@ function triggerEvent() {
   if (w >= 8) events.push('airstrike');
   if (w >= 6) events.push('paradrop');
   const ev = pick(events);
-  SFX.event();
 
   if (ev === 'barrage') {
     const b = barrageForWave(w);
     showBanner(w >= 40 ? 'HEAVY BARRAGE!' : w >= 20 ? 'ARTILLERY INBOUND!' : 'INCOMING BARRAGE!');
-    SFX.alarm();
     for (let i = 0; i < b.count; i++) {
       scheduleShell(rand(60, W - 60), rand(DEPLOY_Y - 30, H - 40),
         rand(b.dMin, b.dMax), b.r, b.dmg, b.big);
@@ -976,21 +982,7 @@ function triggerEvent() {
     G.units.push(u);
   } else if (ev === 'airstrike') {
     showBanner('P-47 STRAFING RUN!');
-    const x = rand(120, W - 120);
-    const speed = 380;
-    const startY = H + 70;
-    const plane = {
-      x, y: startY, speed,
-      drift: rand(-10, 10),
-      gunT: 0.4, sfxT: 0, gunSfxT: 0,
-      done: false,
-    };
-    G.planes.push(plane);
-    // a stick of bombs timed to burst right as the plane passes overhead
-    for (let i = 0; i < 3; i++) {
-      const by = 90 + i * 95;
-      scheduleShell(x + rand(-22, 22), by, (startY - by) / speed + 0.12, 42, 90, false);
-    }
+    spawnStrafeRun(rand(120, W - 120));
   }
 }
 
@@ -1001,7 +993,7 @@ function showBanner(text) {
 // ============================================================ ordnance
 
 function scheduleShell(x, y, delay, r, dmg, big, by) {
-  G.shells.push({ x, y, timer: delay, r, dmg, big, by, whistled: false });
+  G.shells.push({ x, y, timer: delay, r, dmg, big, by });
 }
 
 function explode(x, y, r, dmg, big, by) {
@@ -1028,7 +1020,10 @@ function explode(x, y, r, dmg, big, by) {
     if (e.chute > 0) continue;   // blast passes under the descending stick
     let hd = hitArea(e);
     if (hd > 0) {
-      if (e.t.tank) hd *= 2.2;                    // HE vs armor: effective
+      if (e.t.tank) {
+        const am = by && by.t && by.t.rocket && by.t.rocket.armorMult;
+        hd *= am != null ? am : 2.2;              // HE vs armor: bazooka rockets hit harder
+      }
       else if (e.t.blastResist) hd *= (1 - e.t.blastResist);
       damageEnemy(e, hd, by || { x, y });
     }
@@ -1060,7 +1055,56 @@ function explode(x, y, r, dmg, big, by) {
 
 // P-47 pass: roars in from behind the friendly line and hoses the field
 // with eight .50 cals on its way out, walking fire up its flight path
+
+function spawnTransportFlyby() {
+  const dir = Math.random() < 0.5 ? 1 : -1;
+  G.planes.push({
+    role: 'flyby',
+    transport: true,
+    x: dir > 0 ? -90 : W + 90,
+    y: rand(70, H * 0.45),
+    vx: dir * rand(240, 320),
+    vy: rand(-12, 12),
+    sfxT: 0,
+    flybyPlayed: false,
+    done: false,
+  });
+}
+
+function spawnStrafeRun(x) {
+  const speed = 380;
+  const startY = H + 70;
+  SFX.planeFlyby();
+  G.planes.push({
+    role: 'strafe',
+    x, y: startY, speed,
+    drift: rand(-10, 10),
+    gunT: 0.4, sfxT: 0, gunSfxT: 0,
+    flybyPlayed: true,
+    done: false,
+  });
+  // a stick of bombs timed to burst right as the plane passes overhead
+  for (let i = 0; i < 3; i++) {
+    const by = 90 + i * 95;
+    scheduleShell(x + rand(-22, 22), by, (startY - by) / speed + 0.12, 42, 90, false);
+  }
+}
+
 function updatePlane(p, dt) {
+  if (p.role === 'flyby') {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    if (!p.flybyPlayed) {
+      p.flybyPlayed = true;
+      SFX.planeFlyby();
+    }
+    p.sfxT -= dt;
+    if (p.sfxT <= 0) { p.sfxT = 0.14; SFX.plane(); }
+    if (p.vx > 0 && p.x > W + 100) p.done = true;
+    if (p.vx < 0 && p.x < -100) p.done = true;
+    return;
+  }
+
   p.y -= p.speed * dt;
   p.x += p.drift * dt;
 
@@ -1103,23 +1147,34 @@ function updatePlane(p, dt) {
 
 function drawPlane(p) {
   const c = ctx;
+  const flyby = p.role === 'flyby';
+  const facing = flyby ? (p.vx > 0 ? 1 : -1) : 0;
 
-  // shadow racing along the ground, offset to the side
+  // shadow racing along the ground
   c.fillStyle = 'rgba(0,0,0,0.22)';
   c.save();
-  c.translate(p.x + 26, p.y + 34);
-  c.beginPath(); c.ellipse(0, 0, 9, 20, 0, 0, 7); c.fill();
-  c.beginPath(); c.ellipse(0, -2, 22, 5, 0, 0, 7); c.fill();
+  if (flyby) {
+    c.translate(p.x, p.y + 28);
+    c.beginPath(); c.ellipse(0, 0, 26, 8, 0, 0, 7); c.fill();
+  } else {
+    c.translate(p.x + 26, p.y + 34);
+    c.beginPath(); c.ellipse(0, 0, 9, 20, 0, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(0, -2, 22, 5, 0, 0, 7); c.fill();
+  }
   c.restore();
 
   c.save();
   c.translate(p.x, p.y);
+  if (flyby) c.rotate(facing > 0 ? Math.PI / 2 : -Math.PI / 2);
 
-  // fuselage, nose pointed up-field
-  c.fillStyle = '#3f4a3a';
+  const body = p.transport ? '#4a4840' : '#3f4a3a';
+  const wing = p.transport ? '#535048' : '#46523f';
+
+  // fuselage, nose pointed up-field (or along flyby heading after rotate)
+  c.fillStyle = body;
   c.beginPath(); c.ellipse(0, 0, 6, 21, 0, 0, 7); c.fill();
   // wings
-  c.fillStyle = '#46523f';
+  c.fillStyle = wing;
   c.beginPath(); c.ellipse(0, -2, 30, 7, 0, 0, 7); c.fill();
   // tailplane
   c.beginPath(); c.ellipse(0, 16, 12, 4, 0, 0, 7); c.fill();
@@ -1129,13 +1184,15 @@ function drawPlane(p) {
   // spinning prop disc
   c.fillStyle = 'rgba(200,200,180,0.25)';
   c.beginPath(); c.ellipse(0, -21, 11, 2.5, 0, 0, 7); c.fill();
-  // US roundels on the wings
-  c.fillStyle = 'rgba(230,230,220,0.9)';
-  c.beginPath(); c.arc(-20, -2, 3, 0, 7); c.fill();
-  c.beginPath(); c.arc(20, -2, 3, 0, 7); c.fill();
+  // US roundels on fighter strafers only
+  if (!p.transport) {
+    c.fillStyle = 'rgba(230,230,220,0.9)';
+    c.beginPath(); c.arc(-20, -2, 3, 0, 7); c.fill();
+    c.beginPath(); c.arc(20, -2, 3, 0, 7); c.fill();
+  }
 
   // wing gun muzzle flashes while firing
-  if (p.y < DEPLOY_Y + 40 && p.y > 40) {
+  if (!flyby && p.y < DEPLOY_Y + 40 && p.y > 40) {
     c.fillStyle = 'rgba(255,220,120,0.9)';
     for (const gx of [-14, -8, 8, 14]) {
       if (Math.random() < 0.6) {
@@ -1241,7 +1298,7 @@ function damageUnit(u, dmg, from) {
     // when the player fights as the Germans, downed US defenders are his kills
     if (G.mode === 'axis' || G.mode === 'hitsquad') {
       G.kills++;
-      if (G.mode === 'axis') { earnTP(u.t.reward || 2); SFX.cash(); }
+      if (G.mode === 'axis') earnTP(u.t.reward || 2);
     }
     if (u.t.tank) {
       stampWreck(u);
@@ -1255,7 +1312,6 @@ function damageUnit(u, dmg, from) {
     } else {
       spawnCorpse(u);
       bloodSplat(u.x, u.y, 8);
-      SFX.scream();
     }
     const si = G.selected.indexOf(u);
     if (si !== -1) G.selected.splice(si, 1);
@@ -1274,7 +1330,6 @@ function gainXP(u) {
     u.rank++;
     const heal = 15 * (u.t.rankHealMult || 1);
     u.hp = Math.min(u.maxhp, u.hp + heal);   // a promotion is good for morale
-    SFX.promote();
     G.texts.push({ x: u.x, y: u.y - 22, text: 'PROMOTED: ' + next.name, ttl: 2.4 });
   }
 }
@@ -1303,7 +1358,6 @@ function damageEnemy(e, dmg, from) {
     if (G.mode !== 'axis' && G.mode !== 'hitsquad') {
       G.kills++;
       earnTP(e.t.reward);
-      SFX.cash();
     }
     creditKill(from);
     if (e.t.tank) {
@@ -1313,7 +1367,6 @@ function damageEnemy(e, dmg, from) {
       // bike shot out from under the crew: it crashes with both men aboard
       stampBike(e, true);
       bloodSplat(e.x, e.y, 10);
-      SFX.scream();
     } else if (e.t.apc) {
       stampHalftrackWreck(e);
       explode(e.x, e.y, 38, 55, false);
@@ -1323,7 +1376,6 @@ function damageEnemy(e, dmg, from) {
     } else {
       spawnCorpse(e);
       bloodSplat(e.x, e.y, 8);
-      if (Math.random() < 0.4) SFX.scream();
     }
     // hit-squad mode: drop the fallen man from the player's selection
     const si = G.selected.indexOf(e);
@@ -1851,7 +1903,6 @@ function updateUnit(u, dt) {
         // veteran crews drop rounds faster, tighter and heavier
         u.mortCd = rand(mt.cdMin, mt.cdMax) * (1 - u.rank * 0.08);
         u.face = Math.atan2(target.y - u.y, target.x - u.x);
-        SFX.thunk();
         G.flashes.push({ x: u.x, y: u.y - 6, r: 4, ttl: 0.06, max: 0.06 });
         const sc = mt.scatter * (1 - u.rank * 0.08);
         scheduleShell(target.x + rand(-sc, sc), target.y + rand(-sc, sc),
@@ -1880,7 +1931,6 @@ function updateUnit(u, dt) {
         u.healed += amt;
         // 1 XP per 150 HP patched up — a slow road to sergeant
         if (u.healed >= 150) { u.healed -= 150; gainXP(u); }
-        if (Math.random() < 0.12) SFX.heal();
         G.particles.push({ x: worst.x + rand(-6, 6), y: worst.y - 10, vx: 0, vy: -18, ttl: 0.5, grav: 0, size: 1.6, color: '#8fe08f' });
       }
     }
@@ -1942,7 +1992,6 @@ function updateEngineer(u, dt) {
       target.maxhp = Math.round(target.maxhp * 1.5);
       target.hp = target.maxhp;
       gainXP(u); gainXP(u); // a fortification is worth two points of pride
-      SFX.promote();
       G.texts.push({ x: target.x, y: target.y - 16, text: 'FORTIFIED', ttl: 2.2 });
     }
   }
@@ -2254,9 +2303,6 @@ function updateTank(e, dt) {
 const BIKE_CREW_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren', 'emg', 'eflame'];
 
 function updateBike(e, dt) {
-  e.sfxT = (e.sfxT || 0) - dt;
-  if (e.sfxT <= 0) { e.sfxT = 0.5; SFX.motor(); }
-
   // barbed wire ends the ride on the spot
   let hitWire = false;
   for (const wr of G.wires) {
@@ -2280,13 +2326,11 @@ function updateBike(e, dt) {
 
 // Kübelwagen: drives at the line, halts in HMG range and hoses the defenders
 function updateEnemyJeep(e, dt) {
-  e.sfxT = (e.sfxT || 0) - dt;
   const target = nearestUnitInRange(e, unitRange(e, e.t.range) * fogMult());
   if (target) {
     runWeapon(e, target, dt, null);
     return;
   }
-  if (e.sfxT <= 0) { e.sfxT = 0.6; SFX.motor(); }
   let speed = e.t.speed;
   for (const wr of G.wires) {
     if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
@@ -2305,9 +2349,6 @@ function updateEnemyJeep(e, dt) {
 // Afterward it fights on as a slow gun truck with its bow MG.
 
 function updateHalftrack(e, dt) {
-  e.sfxT = (e.sfxT || 0) - dt;
-  if (e.sfxT <= 0) { e.sfxT = 0.55; SFX.motor(); }
-
   if (!e.unloaded) {
     // rifle distance of a defender: halt and unload the whole squad
     if (nearestUnitInRange(e, 230 * fogMult())) {
@@ -2453,7 +2494,6 @@ function update(dt) {
 
   // incoming shells
   for (const s of G.shells) {
-    if (!s.whistled && s.timer < 0.9) { s.whistled = true; SFX.whistle(); }
     s.timer -= dt;
     if (s.timer <= 0) { s.done = true; explode(s.x, s.y, s.r, s.dmg, s.big, s.by); }
   }
@@ -2495,11 +2535,9 @@ function update(dt) {
       e.dead = true; e.breached = true;
       G.breaches++;
       if (G.mode === 'axis') {
-        SFX.cash();
         showBanner('BREAKTHROUGH! (' + G.breaches + '/' + G.level.winBreaches + ')');
         if (G.breaches >= G.level.winBreaches) victory();
       } else {
-        SFX.alarm();
         showBanner('GERMAN BREAKTHROUGH! (' + G.breaches + '/' + G.level.breachLimit + ')');
         if (G.breaches >= G.level.breachLimit) gameOver();
       }
@@ -3636,6 +3674,11 @@ function drawDefenses() {
 }
 
 function draw() {
+  ctx.save();
+  if (mobileViewActive()) {
+    ctx.scale(viewCam.zoom, viewCam.zoom);
+    ctx.translate(-viewCam.x, -viewCam.y);
+  }
   ctx.drawImage(groundCanvas, 0, 0);
   for (const m of G.groundMarks) drawGroundMark(m, ctx);
 
@@ -3755,6 +3798,7 @@ function draw() {
 
   drawPlacementGhost();
   drawDragBox();
+  ctx.restore();
 }
 
 function drawDragBox() {
@@ -3837,6 +3881,96 @@ const el = id => document.getElementById(id);
 const touchUI = () => window.matchMedia('(hover: none)').matches;
 const tapSlop = () => touchUI() ? 14 : 6;
 
+function mobileViewActive() {
+  return touchUI() && window.innerWidth <= 768;
+}
+
+function clampCamera() {
+  const vw = W / viewCam.zoom, vh = H / viewCam.zoom;
+  viewCam.x = clamp(viewCam.x, 0, Math.max(0, W - vw));
+  viewCam.y = clamp(viewCam.y, 0, Math.max(0, H - vh));
+}
+
+function resetViewCam(mode) {
+  viewCam.zoom = mobileViewActive() ? VIEW_ZOOM_DEFAULT : 1;
+  viewCam.x = (W - W / viewCam.zoom) / 2;
+  if (mode === 'axis') viewCam.y = 0;
+  else if (mode === 'hitsquad') viewCam.y = 120;
+  else viewCam.y = DEPLOY_Y - (H / viewCam.zoom) * 0.55;
+  clampCamera();
+  viewDirty = true;
+}
+
+function clientToWorld(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  const nx = (clientX - r.left) / r.width;
+  const ny = (clientY - r.top) / r.height;
+  if (!mobileViewActive()) return { x: nx * W, y: ny * H };
+  const vw = W / viewCam.zoom, vh = H / viewCam.zoom;
+  return { x: viewCam.x + nx * vw, y: viewCam.y + ny * vh };
+}
+
+function pointerMid() {
+  const pts = [...activePointers.values()];
+  if (pts.length < 2) return null;
+  return { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+}
+
+function pointerDist() {
+  const pts = [...activePointers.values()];
+  if (pts.length < 2) return 0;
+  return Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+}
+
+function beginViewGesture() {
+  const mid = pointerMid();
+  const d = pointerDist();
+  if (!mid || d < 1) return;
+  viewGesture = {
+    active: true,
+    d0: d,
+    zoom0: viewCam.zoom,
+    mid0: { x: mid.x, y: mid.y },
+    camX0: viewCam.x,
+    camY0: viewCam.y,
+  };
+  drag = null;
+  placeTouch = null;
+}
+
+function applyViewGesture() {
+  if (!viewGesture?.active) return;
+  const mid = pointerMid();
+  const d = pointerDist();
+  if (!mid || viewGesture.d0 < 1) return;
+
+  const r = canvas.getBoundingClientRect();
+  const vw0 = W / viewGesture.zoom0;
+  const vh0 = H / viewGesture.zoom0;
+  const nx0 = (viewGesture.mid0.x - r.left) / r.width;
+  const ny0 = (viewGesture.mid0.y - r.top) / r.height;
+  const worldX = viewGesture.camX0 + nx0 * vw0;
+  const worldY = viewGesture.camY0 + ny0 * vh0;
+
+  viewCam.zoom = clamp(viewGesture.zoom0 * (d / viewGesture.d0), VIEW_ZOOM_MIN, VIEW_ZOOM_MAX);
+  const vw = W / viewCam.zoom;
+  const vh = H / viewCam.zoom;
+  const nx1 = (mid.x - r.left) / r.width;
+  const ny1 = (mid.y - r.top) / r.height;
+  viewCam.x = worldX - nx1 * vw;
+  viewCam.y = worldY - ny1 * vh;
+  clampCamera();
+  viewDirty = true;
+}
+
+function syncMobileViewUI() {
+  const stage = el('stage');
+  const btn = el('view-reset');
+  const on = mobileViewActive();
+  if (stage) stage.classList.toggle('mobile-view', on);
+  if (btn) btn.classList.toggle('hidden', !on || !running);
+}
+
 function fitLayout() {
   const wrap = el('wrap');
   const stage = el('stage');
@@ -3858,7 +3992,10 @@ function fitLayout() {
   wrap.style.height = h + 'px';
   stage.style.width = '100%';
   stage.style.height = '100%';
+  if (mobileViewActive()) clampCamera();
+  syncMobileViewUI();
   syncToolbarLayout();
+  viewDirty = true;
 }
 
 function syncToolbarLayout() {
@@ -4104,9 +4241,9 @@ function place(p, x, y) {
 }
 
 function updatePointer(e) {
-  const r = canvas.getBoundingClientRect();
-  mouse.x = (e.clientX - r.left) * (W / r.width);
-  mouse.y = (e.clientY - r.top) * (H / r.height);
+  const pt = clientToWorld(e.clientX, e.clientY);
+  mouse.x = pt.x;
+  mouse.y = pt.y;
   mouse.inside = true;
 }
 
@@ -4144,6 +4281,14 @@ function handleCanvasTap() {
 
 canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (mobileViewActive() && activePointers.size >= 2) {
+    beginViewGesture();
+    suppressClick = true;
+    return;
+  }
+
   canvas.setPointerCapture(e.pointerId);
   updatePointer(e);
   suppressClick = false;
@@ -4158,6 +4303,15 @@ canvas.addEventListener('pointerdown', e => {
 });
 
 canvas.addEventListener('pointermove', e => {
+  if (activePointers.has(e.pointerId)) {
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  }
+
+  if (mobileViewActive() && activePointers.size >= 2 && viewGesture?.active) {
+    applyViewGesture();
+    return;
+  }
+
   updatePointer(e);
   if (!canvas.hasPointerCapture(e.pointerId)) return;
   if (placeTouch?.active) {
@@ -4172,6 +4326,15 @@ canvas.addEventListener('pointermove', e => {
 
 canvas.addEventListener('pointerup', e => {
   if (e.button !== 0) return;
+  activePointers.delete(e.pointerId);
+
+  if (viewGesture?.active) {
+    if (activePointers.size < 2) viewGesture = null;
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    suppressClick = true;
+    return;
+  }
+
   if (canvas.hasPointerCapture(e.pointerId)) {
     updatePointer(e);
     canvas.releasePointerCapture(e.pointerId);
@@ -4211,6 +4374,8 @@ canvas.addEventListener('pointerup', e => {
 });
 
 canvas.addEventListener('pointercancel', e => {
+  activePointers.delete(e.pointerId);
+  if (activePointers.size < 2) viewGesture = null;
   if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
   placeTouch = null;
   drag = null;
@@ -4218,7 +4383,11 @@ canvas.addEventListener('pointercancel', e => {
 });
 
 canvas.addEventListener('pointerleave', e => {
-  if (!canvas.hasPointerCapture(e.pointerId)) mouse.inside = false;
+  if (!canvas.hasPointerCapture(e.pointerId)) {
+    activePointers.delete(e.pointerId);
+    if (activePointers.size < 2) viewGesture = null;
+    mouse.inside = false;
+  }
 });
 
 // spread a group order into a tight grid around the target so men don't stack
@@ -4298,17 +4467,159 @@ for (const btn of document.querySelectorAll('[data-wave-skip]')) {
   btn.addEventListener('click', () => jumpSandboxWave(Number(btn.dataset.waveSkip)));
 }
 
-el('mute').addEventListener('click', () => {
-  SFX.toggleMute();
-  syncMuteButtons();
-});
-
 // ============================================================ codex
 
 const CODEX_PW = 72, CODEX_PH = 72;
 let codexTab = 'troops';
 
+const SOUND_INFO = [
+  { key: 'sfx-rifle', name: 'Rifle Shot', category: 'WEAPONS',
+    desc: 'Rifle-class infantry fire — riflemen, grenadiers, flamers, and enemy rifles.',
+    play: () => SFX.rifle() },
+  { key: 'sfx-mg', name: 'Machine Gun', category: 'WEAPONS',
+    desc: 'Automatic weapons — BAR gunners, engineers, tank coax MG, and enemy MGs.',
+    play: () => SFX.mg() },
+  { key: 'sfx-hmg', name: 'Heavy Machine Gun', category: 'WEAPONS',
+    desc: 'Mounted .50 cal fire from jeeps, Kübelwagens, and P-47 strafing runs.',
+    play: () => SFX.hmg() },
+  { key: 'sfx-sniper', name: 'Sniper Shot', category: 'WEAPONS',
+    desc: 'Long-range rifle fire from allied and enemy snipers.',
+    play: () => SFX.sniper() },
+  { key: 'sfx-pistol', name: 'Pistol Shot', category: 'WEAPONS',
+    desc: 'Sidearm fire — medics, officers, bazooka backup, and enemy grenadiers.',
+    play: () => SFX.pistol() },
+  { key: 'sfx-shotgun', name: 'Shotgun Blast', category: 'WEAPONS',
+    desc: 'Buckshot from the allied shotgunner at close range.',
+    play: () => SFX.shotgun() },
+  { key: 'sfx-flame', name: 'Flamethrower', category: 'WEAPONS',
+    desc: 'Roaring flame spray while allied or enemy flamethrowers are active.',
+    play: () => SFX.flame() },
+  { key: 'sfx-grenade', name: 'Grenade Toss', category: 'EXPLOSIONS',
+    desc: 'Grenade pin pull and throw from allied grenadiers and enemy stormtroopers.',
+    play: () => SFX.grenadeToss() },
+  { key: 'sfx-rocket', name: 'Rocket Launch', category: 'EXPLOSIONS',
+    desc: 'Bazooka rocket ignition and launch.',
+    play: () => SFX.rocket() },
+  { key: 'sfx-boom-small', name: 'Small Explosion', category: 'EXPLOSIONS',
+    desc: 'Light blasts — grenades, rockets, mines, AT gun, and tank cannon fire.',
+    play: () => SFX.boom(false) },
+  { key: 'sfx-boom-big', name: 'Big Explosion', category: 'EXPLOSIONS',
+    desc: 'Heavy detonations — artillery barrages, tank wrecks, and large shell impacts.',
+    play: () => SFX.boom(true) },
+  { key: 'sfx-brake', name: 'Brake Screech', category: 'VEHICLES & AIR',
+    desc: 'Hard stop when vehicles dismount troops — halftracks and motorcycles.',
+    play: () => SFX.brake() },
+  { key: 'sfx-plane', name: 'Plane Engine', category: 'VEHICLES & AIR',
+    desc: 'Looping aircraft engine during strafing runs and transport flybys.',
+    play: () => SFX.plane() },
+  { key: 'sfx-planeflyby', name: 'Plane Flyby', category: 'VEHICLES & AIR',
+    desc: 'Doppler pass at the start of airstrikes and paratrooper drops.',
+    play: () => SFX.planeFlyby() },
+  { key: 'sfx-hammer', name: 'Hammer', category: 'GAME EVENTS',
+    desc: 'Engineer fortification and repair work on emplacements.',
+    play: () => SFX.hammer() },
+  { key: 'sfx-click', name: 'Click', category: 'UI',
+    desc: 'Toolbar selection, unit placement, movement orders, and wave skip.',
+    play: () => SFX.click() },
+  { key: 'sfx-error', name: 'Error', category: 'UI',
+    desc: 'Rejected action — insufficient TP, officer cap, or invalid placement.',
+    play: () => SFX.error() },
+  { key: 'sfx-thunk', name: 'Thunk', category: 'UI',
+    desc: 'Dull impact tone — defined but not yet wired to a gameplay trigger.',
+    play: () => SFX.thunk() },
+];
+
+const SOUND_CATEGORY_BY_KEY = Object.fromEntries(SOUND_INFO.map(s => [s.key, s.category]));
+
+function drawCodexSoundIcon(category) {
+  const c = ctx;
+  const cx = CODEX_PW / 2, cy = CODEX_PH / 2;
+  c.fillStyle = '#2a2a1e';
+  c.fillRect(0, 0, CODEX_PW, CODEX_PH);
+
+  if (category === 'WEAPONS') {
+    c.fillStyle = '#ffd94a';
+    c.beginPath();
+    c.moveTo(cx - 4, cy + 6);
+    c.lineTo(cx + 14, cy - 2);
+    c.lineTo(cx + 10, cy + 2);
+    c.lineTo(cx + 18, cy + 8);
+    c.lineTo(cx + 6, cy + 10);
+    c.closePath();
+    c.fill();
+    c.fillStyle = 'rgba(255,180,60,0.45)';
+    c.beginPath(); c.arc(cx + 8, cy, 12, 0, 7); c.fill();
+  } else if (category === 'EXPLOSIONS') {
+    c.fillStyle = 'rgba(255,120,40,0.55)';
+    c.beginPath(); c.arc(cx, cy + 2, 18, 0, 7); c.fill();
+    c.fillStyle = '#ffd94a';
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      c.beginPath();
+      c.moveTo(cx + Math.cos(a) * 10, cy + 2 + Math.sin(a) * 10);
+      c.lineTo(cx + Math.cos(a) * 20, cy + 2 + Math.sin(a) * 20);
+      c.lineWidth = 2;
+      c.strokeStyle = '#ffd94a';
+      c.stroke();
+    }
+  } else if (category === 'VEHICLES & AIR') {
+    c.fillStyle = '#4a5a3f';
+    c.beginPath();
+    c.ellipse(cx, cy + 4, 22, 6, 0, 0, 7);
+    c.fill();
+    c.strokeStyle = '#8a8668';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(cx, cy - 16);
+    c.lineTo(cx, cy + 2);
+    c.stroke();
+    c.fillStyle = '#6a7a5a';
+    c.beginPath();
+    c.moveTo(cx - 16, cy - 8);
+    c.lineTo(cx + 16, cy - 8);
+    c.lineTo(cx + 12, cy - 14);
+    c.lineTo(cx - 12, cy - 14);
+    c.closePath();
+    c.fill();
+  } else if (category === 'GAME EVENTS') {
+    c.fillStyle = '#b8443a';
+    c.beginPath();
+    c.moveTo(cx - 10, cy + 14);
+    c.lineTo(cx - 10, cy - 6);
+    c.quadraticCurveTo(cx - 10, cy - 18, cx, cy - 18);
+    c.quadraticCurveTo(cx + 10, cy - 18, cx + 10, cy - 6);
+    c.lineTo(cx + 10, cy + 14);
+    c.closePath();
+    c.fill();
+    c.fillStyle = '#ffd94a';
+    c.beginPath(); c.arc(cx, cy - 4, 5, 0, 7); c.fill();
+  } else {
+    c.fillStyle = '#4a4836';
+    c.beginPath();
+    c.moveTo(cx - 8, cy - 10);
+    c.lineTo(cx - 8, cy + 10);
+    c.quadraticCurveTo(cx - 8, cy + 18, cx, cy + 18);
+    c.quadraticCurveTo(cx + 8, cy + 18, cx + 8, cy + 10);
+    c.lineTo(cx + 8, cy - 10);
+    c.closePath();
+    c.fill();
+    c.fillStyle = '#8a8668';
+    c.beginPath();
+    c.moveTo(cx + 8, cy - 4);
+    c.lineTo(cx + 20, cy - 10);
+    c.lineTo(cx + 20, cy + 2);
+    c.closePath();
+    c.fill();
+    c.fillStyle = '#ffd94a';
+    c.beginPath(); c.arc(cx, cy + 2, 3, 0, 7); c.fill();
+  }
+}
+
 function drawCodexIcon(key) {
+  if (SOUND_CATEGORY_BY_KEY[key]) {
+    drawCodexSoundIcon(SOUND_CATEGORY_BY_KEY[key]);
+    return;
+  }
   const c = ctx;
   const cx = CODEX_PW / 2, cy = CODEX_PH / 2;
   c.fillStyle = '#2a2a1e';
@@ -4478,7 +4789,8 @@ function renderPortrait(typeKey, side) {
 
   const defenseKeys = ['wire', 'sandbags', 'bunker', 'mine', 'mortar', 'artillery'];
   const eventKeys = EVENT_INFO.map(e => e.key);
-  if (defenseKeys.includes(typeKey) || eventKeys.includes(typeKey)) {
+  const soundKeys = SOUND_INFO.map(s => s.key);
+  if (defenseKeys.includes(typeKey) || eventKeys.includes(typeKey) || soundKeys.includes(typeKey)) {
     drawCodexIcon(typeKey);
   } else {
     ctx.fillStyle = '#2a2a1e';
@@ -4582,6 +4894,16 @@ function codexEntries(tab) {
       };
     });
   }
+  if (tab === 'sounds') {
+    return SOUND_INFO.map(s => ({
+      key: s.key,
+      side: null,
+      name: s.name,
+      stats: s.category,
+      desc: s.desc,
+      play: s.play,
+    }));
+  }
   return EVENT_INFO.map(ev => ({
     key: ev.key,
     side: null,
@@ -4615,6 +4937,17 @@ function buildCodex(tab) {
       `<div class="codex-name">${entry.name}</div>` +
       `<div class="codex-stats">${entry.stats}</div>` +
       `<div class="codex-desc">${entry.desc}</div>`;
+
+    if (entry.play) {
+      const playBtn = document.createElement('button');
+      playBtn.className = 'codex-play-btn';
+      playBtn.textContent = 'PLAY';
+      playBtn.addEventListener('click', () => {
+        SFX.resume();
+        entry.play();
+      });
+      body.appendChild(playBtn);
+    }
 
     card.appendChild(portrait);
     card.appendChild(body);
@@ -4651,6 +4984,94 @@ for (const btn of document.querySelectorAll('.codex-tab')) {
   btn.addEventListener('click', () => buildCodex(btn.dataset.tab));
 }
 
+// ============================================================ settings
+
+const TOOLBAR_SIZE_KEY = 'toolbarSize';
+const TOOLBAR_SIZE_MIN = 80;
+const TOOLBAR_SIZE_MAX = 400;
+const TOOLBAR_SIZE_DEFAULT = 100;
+const SOUND_VOLUME_KEY = 'soundVolume';
+const SOUND_VOLUME_DEFAULT = 100;
+
+function clampToolbarSize(pct) {
+  return Math.max(TOOLBAR_SIZE_MIN, Math.min(TOOLBAR_SIZE_MAX, Math.round(pct)));
+}
+
+function loadToolbarSize() {
+  const saved = parseInt(localStorage.getItem(TOOLBAR_SIZE_KEY), 10);
+  return Number.isFinite(saved) ? clampToolbarSize(saved) : TOOLBAR_SIZE_DEFAULT;
+}
+
+function applyToolbarSize(pct) {
+  const size = clampToolbarSize(pct);
+  const stage = el('stage');
+  if (stage) stage.style.setProperty('--tool-scale', (size / 100).toString());
+  const slider = el('toolbar-size-slider');
+  const label = el('toolbar-size-label');
+  if (slider) slider.value = size;
+  if (label) label.textContent = size + '%';
+  syncToolbarLayout();
+  return size;
+}
+
+function saveToolbarSize(pct) {
+  const size = applyToolbarSize(pct);
+  localStorage.setItem(TOOLBAR_SIZE_KEY, String(size));
+}
+
+function clampSoundVolume(pct) {
+  return Math.max(0, Math.min(100, Math.round(pct)));
+}
+
+function loadSoundVolume() {
+  const saved = parseInt(localStorage.getItem(SOUND_VOLUME_KEY), 10);
+  return Number.isFinite(saved) ? clampSoundVolume(saved) : SOUND_VOLUME_DEFAULT;
+}
+
+function applySoundVolume(pct) {
+  const vol = SFX.setVolume(clampSoundVolume(pct));
+  const slider = el('sound-volume-slider');
+  const label = el('sound-volume-label');
+  if (slider) slider.value = vol;
+  if (label) label.textContent = vol + '%';
+  return vol;
+}
+
+function saveSoundVolume(pct) {
+  const vol = applySoundVolume(pct);
+  localStorage.setItem(SOUND_VOLUME_KEY, String(vol));
+}
+
+function openSettings(from) {
+  settingsReturnTo = from;
+  applyToolbarSize(loadToolbarSize());
+  applySoundVolume(loadSoundVolume());
+  syncMuteButtons();
+  el('settings').classList.remove('hidden');
+  if (from === 'pause') el('pause').classList.add('hidden');
+  else el('intro').classList.add('hidden');
+}
+
+function closeSettings() {
+  el('settings').classList.add('hidden');
+  if (settingsReturnTo === 'pause') el('pause').classList.remove('hidden');
+  else el('intro').classList.remove('hidden');
+}
+
+el('settings-btn').addEventListener('click', () => openSettings('intro'));
+el('pause-settings-btn').addEventListener('click', () => openSettings('pause'));
+el('settings-back-btn').addEventListener('click', closeSettings);
+el('settings-mute-btn').addEventListener('click', () => {
+  SFX.toggleMute();
+  syncMuteButtons();
+});
+el('toolbar-size-slider').addEventListener('input', e => {
+  saveToolbarSize(Number(e.target.value));
+});
+el('sound-volume-slider').addEventListener('input', e => {
+  saveSoundVolume(Number(e.target.value));
+});
+
 // ============================================================ game flow
 
 function pauseGame() {
@@ -4660,7 +5081,6 @@ function pauseGame() {
   drag = null;
   placeTouch = null;
   G.selected = [];
-  syncMuteButtons();
   el('pause').classList.remove('hidden');
   refreshHUD();
 }
@@ -4677,11 +5097,15 @@ function returnToMenu() {
   running = false;
   paused = false;
   placing = null;
+  activePointers.clear();
+  viewGesture = null;
   el('pause').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('codex').classList.add('hidden');
+  el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
   el('intro').classList.remove('hidden');
+  syncMobileViewUI();
 }
 
 function openEndlessSelect() {
@@ -4701,6 +5125,7 @@ function startGame(levelId, difficultyId) {
     : null;
   SFX.resume();
   newGame(level, difficulty);
+  resetViewCam(level.mode);
   placing = null;
   running = true;
   paused = false;
@@ -4708,9 +5133,12 @@ function startGame(levelId, difficultyId) {
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('codex').classList.add('hidden');
+  el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
   el('pause').classList.add('hidden');
-  el('tipbar').textContent = level.mode === 'axis'
+  syncMobileViewUI();
+  const viewHint = mobileViewActive() ? ' Pinch to zoom, drag with two fingers to pan.' : '';
+  el('tipbar').textContent = (level.mode === 'axis'
     ? touchUI()
       ? 'Tap Units or Abilities, pick an option, then tap the top strip to deploy. Tap again to cancel.'
       : 'Open Units or Abilities, pick a troop or strike, then drop it in the top strip. Right-click / Esc cancels placement.'
@@ -4724,7 +5152,7 @@ function startGame(levelId, difficultyId) {
         : 'Sandbox: unlimited TP. ] / Shift+] / Ctrl+] jump ahead 1 / 5 / 10 waves, or use the HUD buttons.'
       : touchUI()
         ? 'Tap a soldier to select him, tap ground to move. Open Units, Abilities, or Emplacements to deploy. Tap again to cancel.'
-        : 'Left-click a soldier to select him, click ground to move. Open Units, Abilities, or Emplacements to deploy. Right-click / Esc cancels placement.';
+        : 'Left-click a soldier to select him, click ground to move. Open Units, Abilities, or Emplacements to deploy. Right-click / Esc cancels placement.') + viewHint;
   if (level.briefing) showBanner(level.name);
   lastT = performance.now();
   refreshHUD();
@@ -4744,9 +5172,9 @@ el('pause-btn').addEventListener('click', pauseGame);
 el('pause-resume-btn').addEventListener('click', resumeGame);
 el('pause-codex-btn').addEventListener('click', openCodexFromPause);
 el('pause-menu-btn').addEventListener('click', returnToMenu);
-el('pause-mute-btn').addEventListener('click', () => {
-  SFX.toggleMute();
-  syncMuteButtons();
+el('view-reset').addEventListener('click', () => {
+  if (!G || !mobileViewActive()) return;
+  resetViewCam(G.mode);
 });
 
 function frame(now) {
@@ -4756,7 +5184,10 @@ function frame(now) {
   lastT = now;
   const playing = running && !G.over && !paused;
   if (playing) update(dt);
-  if (playing) draw();
+  if (G && (playing || viewDirty)) {
+    draw();
+    viewDirty = false;
+  }
   hudAccum += dt;
   if (hudAccum >= HUD_INTERVAL) {
     hudAccum = 0;
@@ -4765,6 +5196,9 @@ function frame(now) {
 }
 
 buildToolbar(PLACEABLES);
+applyToolbarSize(loadToolbarSize());
+applySoundVolume(loadSoundVolume());
+syncMuteButtons();
 fitLayout();
 const hudEl = el('hud');
 if (hudEl && typeof ResizeObserver !== 'undefined') {

@@ -1,9 +1,9 @@
 # Mud & Blood — HTML5 Remake
 
 A tribute to *Mud and Blood 2*, the classic Flash squad-defense game, rebuilt with
-plain HTML5 Canvas and vanilla JavaScript. No Flash, no frameworks, no build step,
-no external assets — even the sound effects are synthesized in the browser with
-WebAudio.
+plain HTML5 Canvas and vanilla JavaScript. No Flash, no frameworks, no build step.
+Sound effects come from curated CC0 / open-licensed samples in `assets/sounds/`
+(see attribution file there); a few cues still use lightweight WebAudio synthesis.
 
 ## How to run
 
@@ -141,5 +141,6 @@ and the occasional fresh replacement wandering in.
 
 - `index.html` — page, HUD, toolbar, overlays
 - `css/style.css` — styling
-- `js/audio.js` — WebAudio-synthesized sound effects
+- `assets/sounds/` — open-licensed OGG sound effects (+ `ATTRIBUTION.md`)
+- `js/audio.js` — sample playback with WebAudio synthesis fallback
 - `js/game.js` — all game logic and rendering

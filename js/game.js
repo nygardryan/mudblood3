@@ -3122,7 +3122,7 @@ function drawSoldier(a) {
 
 // health bar, rank chevrons, selection ring: drawn whether standing or prone
 function drawSoldierOverlays(a) {
-  // health bar when wounded
+  if (a._ghost) return;
   if (a.hp < a.maxhp) {
     const f = clamp(a.hp / a.maxhp, 0, 1);
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -3910,6 +3910,25 @@ function drawMoveCursorPreview() {
   ctx.globalAlpha = 1;
 }
 
+function drawPlacementActor(a) {
+  if (a.t.tank) drawTank(a);
+  else if (a.t.atgun) drawATGun(a);
+  else if (a.t.bike) drawBike(a);
+  else if (a.t.apc) drawHalftrack(a);
+  else if (a.t.vehicle) drawJeep(a);
+  else drawSoldier(a);
+}
+
+function drawPlacementUnitGhost(p, x, y, valid) {
+  const a = p.kind === 'eunit' ? makeEnemy(p.key, x, y) : makeUnit(p.key, x, y);
+  a._ghost = true;
+  ctx.save();
+  ctx.globalAlpha = valid ? 0.55 : 0.38;
+  ctx.filter = 'grayscale(1)';
+  drawPlacementActor(a);
+  ctx.restore();
+}
+
 function drawPlacementGhost() {
   if (!placing || !mouse.inside) return;
   const p = placing;
@@ -3930,8 +3949,7 @@ function drawPlacementGhost() {
     // attackers deploy in the top strip; everything south of it is off limits
     ctx.fillStyle = 'rgba(200,50,40,0.12)';
     ctx.fillRect(0, AXIS_DEPLOY_Y, W, H - AXIS_DEPLOY_Y);
-    ctx.fillStyle = valid ? 'rgba(120,200,90,0.8)' : 'rgba(210,70,50,0.8)';
-    ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fill();
+    drawPlacementUnitGhost(p, x, y, valid);
     const et = ENEMY_TYPES[p.key];
     if (et && et.range > 0) {
       ctx.strokeStyle = 'rgba(255,255,255,0.35)';
@@ -3943,9 +3961,13 @@ function drawPlacementGhost() {
     ctx.fillStyle = 'rgba(200,50,40,0.12)';
     ctx.fillRect(0, 0, W, placementMinY(p));
     const ghostPositions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
-    ctx.fillStyle = valid ? 'rgba(120,200,90,0.8)' : 'rgba(210,70,50,0.8)';
     for (const pos of ghostPositions) {
-      ctx.beginPath(); ctx.arc(pos.x, pos.y, p.key === 'mine' ? 5 : 9, 0, 7); ctx.fill();
+      if (p.kind === 'unit') {
+        drawPlacementUnitGhost(p, pos.x, pos.y, valid);
+      } else {
+        ctx.fillStyle = valid ? 'rgba(120,200,90,0.8)' : 'rgba(210,70,50,0.8)';
+        ctx.beginPath(); ctx.arc(pos.x, pos.y, p.key === 'mine' ? 5 : 9, 0, 7); ctx.fill();
+      }
     }
     const ut = UNIT_TYPES[p.key];
     if (ut && ut.atgun) {

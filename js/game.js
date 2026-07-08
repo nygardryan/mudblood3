@@ -3587,111 +3587,116 @@ function drawBike(e) {
   }
 }
 
-function drawDefenses() {
-  for (const wr of G.wires) {
-    ctx.save();
-    ctx.translate(wr.x, wr.y);
-    ctx.strokeStyle = '#4b4438';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-34, 5); ctx.lineTo(-30, -7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(34, 5); ctx.lineTo(30, -7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(0, -7); ctx.stroke();
-    ctx.strokeStyle = 'rgba(60,58,50,0.9)';
-    ctx.lineWidth = 1;
-    // fortified wire carries an extra strand
-    const strands = wr.up ? [-8, -5, -1, 3] : [-5, -1, 3];
-    for (const yy of strands) {
+function drawWire(wr) {
+  ctx.save();
+  ctx.translate(wr.x, wr.y);
+  ctx.strokeStyle = '#4b4438';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-34, 5); ctx.lineTo(-30, -7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(34, 5); ctx.lineTo(30, -7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(0, -7); ctx.stroke();
+  ctx.strokeStyle = 'rgba(60,58,50,0.9)';
+  ctx.lineWidth = 1;
+  // fortified wire carries an extra strand
+  const strands = wr.up ? [-8, -5, -1, 3] : [-5, -1, 3];
+  for (const yy of strands) {
+    ctx.beginPath();
+    ctx.moveTo(-32, yy);
+    for (let x = -32; x <= 32; x += 4) ctx.lineTo(x, yy + ((x / 4) % 2 ? 1.6 : -1.6));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawSandbag(s) {
+  ctx.save();
+  ctx.translate(s.x, s.y);
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath(); ctx.ellipse(0, 4, 24, 9, 0, 0, 7); ctx.fill();
+  // fortified bags get a third row on top
+  const rows = s.up ? 3 : 2;
+  for (let r = 0; r < rows; r++) {
+    for (let i = -1.5; i <= 1.5; i++) {
+      ctx.fillStyle = r ? '#9a8a5e' : '#8a7a50';
+      ctx.strokeStyle = '#6e6040';
+      ctx.lineWidth = 1;
+      const bx = i * 12 + (r % 2 ? 6 : 0), by = -r * 6;
+      if (Math.abs(bx) > 20 || (r === 2 && Math.abs(bx) > 14)) continue;
       ctx.beginPath();
-      ctx.moveTo(-32, yy);
-      for (let x = -32; x <= 32; x += 4) ctx.lineTo(x, yy + ((x / 4) % 2 ? 1.6 : -1.6));
-      ctx.stroke();
+      ctx.ellipse(bx, by, 7, 4, 0, 0, 7);
+      ctx.fill(); ctx.stroke();
     }
-    ctx.restore();
   }
+  ctx.restore();
+}
 
-  for (const s of G.sandbags) {
-    ctx.save();
-    ctx.translate(s.x, s.y);
-    ctx.fillStyle = 'rgba(0,0,0,0.2)';
-    ctx.beginPath(); ctx.ellipse(0, 4, 24, 9, 0, 0, 7); ctx.fill();
-    // fortified bags get a third row on top
-    const rows = s.up ? 3 : 2;
-    for (let r = 0; r < rows; r++) {
-      for (let i = -1.5; i <= 1.5; i++) {
-        ctx.fillStyle = r ? '#9a8a5e' : '#8a7a50';
-        ctx.strokeStyle = '#6e6040';
-        ctx.lineWidth = 1;
-        const bx = i * 12 + (r % 2 ? 6 : 0), by = -r * 6;
-        if (Math.abs(bx) > 20 || (r === 2 && Math.abs(bx) > 14)) continue;
-        ctx.beginPath();
-        ctx.ellipse(bx, by, 7, 4, 0, 0, 7);
-        ctx.fill(); ctx.stroke();
-      }
-    }
-    ctx.restore();
+function drawBunker(b) {
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  // drop shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath(); ctx.ellipse(0, 5, 30, 11, 0, 0, 7); ctx.fill();
+  // concrete slab body
+  ctx.fillStyle = b.up ? '#8d8b80' : '#7f7d72';
+  ctx.strokeStyle = '#4e4c44';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-28, 8);
+  ctx.lineTo(-28, -6);
+  ctx.quadraticCurveTo(-28, -14, -18, -14);
+  ctx.lineTo(18, -14);
+  ctx.quadraticCurveTo(28, -14, 28, -6);
+  ctx.lineTo(28, 8);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // roof highlight
+  ctx.fillStyle = b.up ? '#a09e92' : '#93917f';
+  ctx.beginPath();
+  ctx.moveTo(-24, -2);
+  ctx.lineTo(-24, -6);
+  ctx.quadraticCurveTo(-24, -11, -17, -11);
+  ctx.lineTo(17, -11);
+  ctx.quadraticCurveTo(24, -11, 24, -6);
+  ctx.lineTo(24, -2);
+  ctx.closePath();
+  ctx.fill();
+  // firing slit facing the German line
+  ctx.fillStyle = '#1e1c16';
+  ctx.fillRect(-16, -9, 32, 4);
+  // fortified bunkers get steel plating over the slit corners
+  if (b.up) {
+    ctx.fillStyle = '#5a5850';
+    ctx.fillRect(-20, -10, 5, 6);
+    ctx.fillRect(15, -10, 5, 6);
   }
+  // battle damage: cracks appear as the concrete wears down
+  const f = b.hp / b.maxhp;
+  if (f < 0.66) {
+    ctx.strokeStyle = 'rgba(30,28,22,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-12, -14); ctx.lineTo(-8, -4); ctx.lineTo(-11, 4); ctx.stroke();
+  }
+  if (f < 0.33) {
+    ctx.strokeStyle = 'rgba(30,28,22,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(14, -14); ctx.lineTo(10, -2); ctx.lineTo(16, 6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(-18, 2); ctx.stroke();
+  }
+  ctx.restore();
+}
 
-  for (const b of G.bunkers) {
-    ctx.save();
-    ctx.translate(b.x, b.y);
-    // drop shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.beginPath(); ctx.ellipse(0, 5, 30, 11, 0, 0, 7); ctx.fill();
-    // concrete slab body
-    ctx.fillStyle = b.up ? '#8d8b80' : '#7f7d72';
-    ctx.strokeStyle = '#4e4c44';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(-28, 8);
-    ctx.lineTo(-28, -6);
-    ctx.quadraticCurveTo(-28, -14, -18, -14);
-    ctx.lineTo(18, -14);
-    ctx.quadraticCurveTo(28, -14, 28, -6);
-    ctx.lineTo(28, 8);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-    // roof highlight
-    ctx.fillStyle = b.up ? '#a09e92' : '#93917f';
-    ctx.beginPath();
-    ctx.moveTo(-24, -2);
-    ctx.lineTo(-24, -6);
-    ctx.quadraticCurveTo(-24, -11, -17, -11);
-    ctx.lineTo(17, -11);
-    ctx.quadraticCurveTo(24, -11, 24, -6);
-    ctx.lineTo(24, -2);
-    ctx.closePath();
-    ctx.fill();
-    // firing slit facing the German line
-    ctx.fillStyle = '#1e1c16';
-    ctx.fillRect(-16, -9, 32, 4);
-    // fortified bunkers get steel plating over the slit corners
-    if (b.up) {
-      ctx.fillStyle = '#5a5850';
-      ctx.fillRect(-20, -10, 5, 6);
-      ctx.fillRect(15, -10, 5, 6);
-    }
-    // battle damage: cracks appear as the concrete wears down
-    const f = b.hp / b.maxhp;
-    if (f < 0.66) {
-      ctx.strokeStyle = 'rgba(30,28,22,0.7)';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(-12, -14); ctx.lineTo(-8, -4); ctx.lineTo(-11, 4); ctx.stroke();
-    }
-    if (f < 0.33) {
-      ctx.strokeStyle = 'rgba(30,28,22,0.7)';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(14, -14); ctx.lineTo(10, -2); ctx.lineTo(16, 6); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(-18, 2); ctx.stroke();
-    }
-    ctx.restore();
-  }
+function drawMine(m) {
+  ctx.fillStyle = '#38352a';
+  ctx.beginPath(); ctx.arc(m.x, m.y, 5, 0, 7); ctx.fill();
+  ctx.fillStyle = '#565040';
+  ctx.beginPath(); ctx.arc(m.x, m.y, 2, 0, 7); ctx.fill();
+}
 
-  for (const m of G.mines) {
-    ctx.fillStyle = '#38352a';
-    ctx.beginPath(); ctx.arc(m.x, m.y, 5, 0, 7); ctx.fill();
-    ctx.fillStyle = '#565040';
-    ctx.beginPath(); ctx.arc(m.x, m.y, 2, 0, 7); ctx.fill();
-  }
+function drawDefenses() {
+  for (const wr of G.wires) drawWire(wr);
+  for (const s of G.sandbags) drawSandbag(s);
+  for (const b of G.bunkers) drawBunker(b);
+  for (const m of G.mines) drawMine(m);
 }
 
 function draw() {
@@ -3910,6 +3915,14 @@ function drawMoveCursorPreview() {
   ctx.globalAlpha = 1;
 }
 
+function withPlacementGhostFilter(valid, drawFn) {
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  ctx.filter = valid ? 'grayscale(1)' : 'grayscale(1) sepia(1) hue-rotate(320deg) saturate(5)';
+  drawFn();
+  ctx.restore();
+}
+
 function drawPlacementActor(a) {
   if (a.t.tank) drawTank(a);
   else if (a.t.atgun) drawATGun(a);
@@ -3922,11 +3935,16 @@ function drawPlacementActor(a) {
 function drawPlacementUnitGhost(p, x, y, valid) {
   const a = p.kind === 'eunit' ? makeEnemy(p.key, x, y) : makeUnit(p.key, x, y);
   a._ghost = true;
-  ctx.save();
-  ctx.globalAlpha = valid ? 0.55 : 0.38;
-  ctx.filter = 'grayscale(1)';
-  drawPlacementActor(a);
-  ctx.restore();
+  withPlacementGhostFilter(valid, () => drawPlacementActor(a));
+}
+
+function drawPlacementDefenseGhost(key, x, y, valid) {
+  withPlacementGhostFilter(valid, () => {
+    if (key === 'wire') drawWire({ x, y, up: false });
+    else if (key === 'sandbags') drawSandbag({ x, y, up: false });
+    else if (key === 'bunker') drawBunker({ x, y, up: false, hp: 2400, maxhp: 2400 });
+    else if (key === 'mine') drawMine({ x, y, dead: false });
+  });
 }
 
 function drawPlacementGhost() {
@@ -3964,9 +3982,8 @@ function drawPlacementGhost() {
     for (const pos of ghostPositions) {
       if (p.kind === 'unit') {
         drawPlacementUnitGhost(p, pos.x, pos.y, valid);
-      } else {
-        ctx.fillStyle = valid ? 'rgba(120,200,90,0.8)' : 'rgba(210,70,50,0.8)';
-        ctx.beginPath(); ctx.arc(pos.x, pos.y, p.key === 'mine' ? 5 : 9, 0, 7); ctx.fill();
+      } else if (p.kind === 'defense') {
+        drawPlacementDefenseGhost(p.key, pos.x, pos.y, valid);
       }
     }
     const ut = UNIT_TYPES[p.key];

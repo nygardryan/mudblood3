@@ -294,30 +294,32 @@ const PLACEABLES = [
 // axis campaign toolbar: you buy German units, drop them in the top strip,
 // and their standard attack AI carries them south. kind 'eunit' routes
 // placement through makeEnemy instead of makeUnit.
+// costs mirror the closest allied PLACEABLES counterpart (rifleman, gunner,
+// grenadier, shotgunner, sniper, flamer, officer, jeep, sherman, artillery).
 const AXIS_PLACEABLES = [
-  { key: 'erifle', label: 'RIFLEMAN', cost: 2, kind: 'eunit', hotkey: '1',
+  { key: 'erifle', label: 'RIFLEMAN', cost: 3, kind: 'eunit', hotkey: '1',
     desc: 'Wehrmacht rifleman. Slow, steady, expendable.' },
-  { key: 'esmg', label: 'STORMTROOP', cost: 3, kind: 'eunit', hotkey: '2',
+  { key: 'esmg', label: 'STORMTROOP', cost: 5, kind: 'eunit', hotkey: '2',
     desc: 'MP40 assault trooper. Fast mover, deadly up close.' },
-  { key: 'egren', label: 'GRENADIER', cost: 4, kind: 'eunit', hotkey: '3',
+  { key: 'egren', label: 'GRENADIER', cost: 8, kind: 'eunit', hotkey: '3',
     desc: 'Carries stick grenades into the fray. Blast ignores friend and foe.' },
-  { key: 'emg', label: 'MG42 TEAM', cost: 5, kind: 'eunit', hotkey: '4',
+  { key: 'emg', label: 'MG42 TEAM', cost: 9, kind: 'eunit', hotkey: '4',
     desc: 'MG42 gunner. Pins the Americans down from long range.' },
-  { key: 'esniper', label: 'SNIPER', cost: 6, kind: 'eunit', hotkey: '5',
+  { key: 'esniper', label: 'SNIPER', cost: 10, kind: 'eunit', hotkey: '5',
     desc: 'Camouflaged marksman. Picks off gunners and medics from afar.' },
   { key: 'eflame', label: 'FLAMMEN', cost: 6, kind: 'eunit', hotkey: 'F',
     desc: 'Flammenwerfer operator in a flak vest. Burns through wire, sandbags and flesh alike.' },
-  { key: 'eoff', label: 'OFFICER', cost: 8, kind: 'eunit', hotkey: '6',
+  { key: 'eoff', label: 'OFFICER', cost: 15, kind: 'eunit', hotkey: '6',
     desc: 'Leutnant. Nearby troops fight harder; earns +1 TP every 30 s while alive.' },
-  { key: 'ebike', label: 'KRAD', cost: 7, kind: 'eunit', hotkey: 'K',
+  { key: 'ebike', label: 'KRAD', cost: 30, kind: 'eunit', hotkey: 'K',
     desc: 'Kradschützen motorcycle team. Blazing speed — races for the breach.' },
-  { key: 'ejeep', label: 'KÜBELWAGEN', cost: 12, kind: 'eunit', hotkey: 'J',
+  { key: 'ejeep', label: 'KÜBELWAGEN', cost: 30, kind: 'eunit', hotkey: 'J',
     desc: 'Gun car with a mounted MG. Mobile fire support, lightly armored.' },
-  { key: 'ehalftrack', label: 'HALFTRACK', cost: 20, kind: 'eunit', hotkey: 'H',
+  { key: 'ehalftrack', label: 'HALFTRACK', cost: 80, kind: 'eunit', hotkey: 'H',
     desc: 'Sd.Kfz. 251. Heavy armor, bow MG, and a squad that dismounts at the line.' },
-  { key: 'panzer', label: 'PANZER IV', cost: 40, kind: 'eunit', hotkey: 'T',
+  { key: 'panzer', label: 'PANZER IV', cost: 80, kind: 'eunit', hotkey: 'T',
     desc: '75mm cannon and thick armor. The American line\'s worst nightmare.' },
-  { key: 'ebarrage', label: 'ARTILLERY', cost: 14, kind: 'support', hotkey: 'A',
+  { key: 'ebarrage', label: 'ARTILLERY', cost: 16, kind: 'support', hotkey: 'A',
     desc: 'German 105mm barrage: 10 heavy shells on target. Indiscriminate.' },
 ];
 
@@ -393,10 +395,6 @@ const LEVELS = {
     events: false,
     placeables: AXIS_PLACEABLES,
     startTP: 30,
-    // bump only the units that break through solo at base prices
-    costOverrides: {
-      erifle: 6, esmg: 8, emg: 12, ebike: 20, egren: 9, eflame: 11, esniper: 10, ehalftrack: 58,
-    },
     briefing: 'Punch through the American line. Get 7 men past the bottom edge before the clock runs out.',
     // one reinforcement wave mid-mission
     reinforcements: [

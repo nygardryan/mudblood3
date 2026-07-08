@@ -1584,6 +1584,39 @@ function drawBuckshotCone(x, y, bearing, arc, range, alpha) {
   ctx.setLineDash([]);
 }
 
+// long-range sight line — bright reticle ring with crosshair ticks
+function drawSniperRangeRing(x, y, range, alpha) {
+  const a = alpha != null ? alpha : 0.45;
+  ctx.fillStyle = `rgba(210, 225, 255, ${a * 0.12})`;
+  ctx.beginPath(); ctx.arc(x, y, range, 0, 7); ctx.fill();
+  ctx.strokeStyle = `rgba(235, 245, 255, ${Math.min(0.92, a * 1.35)})`;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([10, 5]);
+  ctx.beginPath(); ctx.arc(x, y, range, 0, 7); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(0.95, a * 1.5)})`;
+  ctx.lineWidth = 1.15;
+  for (let i = 0; i < 8; i++) {
+    const ang = i * Math.PI / 4;
+    const ox = x + Math.cos(ang) * range;
+    const oy = y + Math.sin(ang) * range;
+    const tx = Math.cos(ang + Math.PI / 2);
+    const ty = Math.sin(ang + Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(ox - tx * 6, oy - ty * 6);
+    ctx.lineTo(ox + tx * 6, oy + ty * 6);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(0.85, a * 1.25)})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x - 7, y); ctx.lineTo(x + 7, y);
+  ctx.moveTo(x, y - 7); ctx.lineTo(x, y + 7);
+  ctx.stroke();
+  ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(0.9, a * 1.4)})`;
+  ctx.beginPath(); ctx.arc(x, y, 2.2, 0, 7); ctx.fill();
+}
+
 // muzzle flash while the trench gun fires
 function drawShotgunBlast(actor) {
   if (!actor.shotgunBlastT || actor.shotgunBlastT <= 0 || !actor.t.shotgun) return;
@@ -1779,6 +1812,10 @@ function drawUnitWeaponRange(a, opts) {
     drawMortarRangeRing(a.x, a.y, unitRange(a, t.mortar.min) * fog, unitRange(a, t.mortar.range) * fog, alpha);
     return;
   }
+  if (t.sfx === 'sniper' && t.range > 200) {
+    drawSniperRangeRing(a.x, a.y, unitRange(a, t.range) * fog, alpha);
+    return;
+  }
 
   let r = t.range;
   if (t.rocket) r = t.rocket.range;
@@ -1789,21 +1826,56 @@ function drawUnitWeaponRange(a, opts) {
   ctx.beginPath(); ctx.arc(a.x, a.y, unitRange(a, r) * fog, 0, 7); ctx.stroke();
 }
 
-function drawSpecialistRangeAt(x, y, type) {
-  let r, color;
-  if (type === 'medic') { r = MEDIC_RANGE; color = 'rgba(120,210,100,0.45)'; }
-  else if (type === 'engineer') { r = ENGINEER_RANGE; color = 'rgba(230,190,70,0.45)'; }
-  else if (type === 'officer') { r = OFFICER_AURA; color = 'rgba(100,160,230,0.45)'; }
-  else return;
-  ctx.strokeStyle = color;
+// command aura — soft fill, dashed ring, inward chevrons
+function drawOfficerAuraRing(x, y, range, alpha, us) {
+  const a = alpha != null ? alpha : 0.45;
+  const rgb = us ? [100, 160, 230] : [190, 130, 95];
+  ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a * 0.14})`;
+  ctx.beginPath(); ctx.arc(x, y, range, 0, 7); ctx.fill();
+  ctx.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a * 0.78})`;
   ctx.lineWidth = 1;
-  ctx.setLineDash([5, 4]);
-  ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
+  ctx.setLineDash([7, 5]);
+  ctx.beginPath(); ctx.arc(x, y, range, 0, 7); ctx.stroke();
   ctx.setLineDash([]);
+  ctx.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a * 0.9})`;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 8; i++) {
+    const ang = i * Math.PI / 4;
+    const ox = x + Math.cos(ang) * range;
+    const oy = y + Math.sin(ang) * range;
+    const ix = x + Math.cos(ang) * (range - 10);
+    const iy = y + Math.sin(ang) * (range - 10);
+    const tx = Math.cos(ang + Math.PI / 2);
+    const ty = Math.sin(ang + Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(ox - tx * 4, oy - ty * 4);
+    ctx.lineTo(ix, iy);
+    ctx.lineTo(ox + tx * 4, oy + ty * 4);
+    ctx.stroke();
+  }
+}
+
+function drawSpecialistRangeAt(x, y, type, side) {
+  if (type === 'medic') {
+    ctx.strokeStyle = 'rgba(120,210,100,0.45)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.arc(x, y, MEDIC_RANGE, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (type === 'engineer') {
+    ctx.strokeStyle = 'rgba(230,190,70,0.45)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.arc(x, y, ENGINEER_RANGE, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (type === 'officer' || type === 'eoff') {
+    const r = type === 'eoff' ? 140 : OFFICER_AURA;
+    drawOfficerAuraRing(x, y, r, 0.45, type === 'officer' || side === 'us');
+  }
 }
 
 function drawSpecialistRange(a) {
-  drawSpecialistRangeAt(a.x, a.y, a.type);
+  drawSpecialistRangeAt(a.x, a.y, a.type, a.side);
 }
 
 // one tick of flame from `actor` toward its facing: burns EVERYTHING in the
@@ -2969,10 +3041,26 @@ function drawProneSoldier(a) {
   const gunX = 3 + a.t.gun * 0.82;
   const isGren = a.type === 'grenadier' || a.type === 'egren';
   const isShot = a.type === 'shotgunner';
+  const isSniper = a.type === 'sniper' || a.type === 'esniper';
+  const isOfficer = a.type === 'officer' || a.type === 'eoff';
+  const isRifle = a.type === 'rifleman' || a.type === 'erifle';
   // weapon laid out beside him, not shouldered
-  c.strokeStyle = '#26261e';
-  c.lineWidth = isEmg ? 2.6 : isBar ? 2.2 : isShot ? 2.8 : isGren ? 2 : 1.8;
-  c.beginPath(); c.moveTo(3, 2.8); c.lineTo(gunX, 2.8); c.stroke();
+  if (isOfficer) {
+    c.save();
+    c.translate(3, 2.8);
+    drawSidearm(c, 1, 0, gunX - 3, 0, us);
+    c.restore();
+  } else if (isRifle) {
+    c.save();
+    c.translate(3, 2.8);
+    if (us) drawM1Garand(c, 1, 0, gunX - 3, 0);
+    else drawKar98k(c, 1, 0, gunX - 3, 0, false);
+    c.restore();
+  } else if (!isSniper) {
+    c.strokeStyle = '#26261e';
+    c.lineWidth = isEmg ? 2.6 : isBar ? 2.2 : isShot ? 2.8 : isGren ? 2 : 1.8;
+    c.beginPath(); c.moveTo(3, 2.8); c.lineTo(gunX, 2.8); c.stroke();
+  }
   if (isBar) {
     c.strokeStyle = '#4a3f2e';
     c.lineWidth = 1.8;
@@ -3025,6 +3113,16 @@ function drawProneSoldier(a) {
     c.lineTo(gunX + 1.8, 1.8);
     c.stroke();
   }
+  if (isSniper) {
+    c.save();
+    c.translate(3, 2.8);
+    drawScopedRifle(c, 1, 0, gunX - 3, 0, us);
+    c.restore();
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 1.1;
+    c.beginPath(); c.moveTo(gunX - 1, 2.8); c.lineTo(gunX + 0.2, 5.5); c.stroke();
+    c.beginPath(); c.moveTo(gunX - 1, 2.8); c.lineTo(gunX + 0.2, 0.2); c.stroke();
+  }
   // legs trailing behind
   c.strokeStyle = a.t.color;
   c.lineWidth = 2.4;
@@ -3032,7 +3130,34 @@ function drawProneSoldier(a) {
   c.beginPath(); c.moveTo(-4, 0); c.lineTo(-10, 1.8); c.stroke();
   // torso stretched along the facing
   c.fillStyle = a.t.color;
-  c.beginPath(); c.ellipse(-1, 0, isMG ? 7.2 : isShot ? 7 : isBar ? 7 : 6.5, isMG ? 3.4 : isShot ? 3.5 : isBar ? 3.3 : 3.2, 0, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(-1, 0, isMG ? 7.2 : isShot ? 7 : isBar ? 7 : isSniper ? 6.8 : isOfficer ? 6.6 : isRifle ? 6.4 : 6.5, isMG ? 3.4 : isShot ? 3.5 : isBar ? 3.3 : isSniper ? 3.1 : isOfficer ? 3.3 : isRifle ? 3.05 : 3.2, 0, 0, 7); c.fill();
+  if (isRifle) {
+    c.fillStyle = us ? '#3a4034' : '#4a4a40';
+    c.fillRect(-5.2, 2.8, 2.4, 2.2);
+    c.fillRect(-1.8, 3.2, 2.4, 2.2);
+    c.fillRect(1.6, 3.2, 2.4, 2.2);
+    c.fillStyle = us ? '#4a5245' : '#5a5a50';
+    c.beginPath(); c.ellipse(-3.8, 1.6, 1.6, 2, 0.35, 0, 7); c.fill();
+  }
+  if (isOfficer) {
+    c.fillStyle = us ? '#5a6048' : '#4a4a42';
+    c.beginPath(); c.ellipse(0, 0, 5.8, 2.9, 0, 0, 7); c.fill();
+    c.strokeStyle = '#6a5a40';
+    c.lineWidth = 1.1;
+    c.beginPath(); c.moveTo(-3, -1.2); c.lineTo(2.5, 2.2); c.stroke();
+    c.fillStyle = '#3a3028';
+    c.beginPath(); c.ellipse(-3.5, 1.8, 1.8, 2.2, 0.35, 0, 7); c.fill();
+    c.fillStyle = '#c8b898';
+    c.fillRect(2.2, -1.5, 2.8, 3.5);
+  }
+  if (isSniper) {
+    c.fillStyle = 'rgba(30,36,22,0.5)';
+    c.beginPath(); c.ellipse(0, 0, 5.5, 2.8, 0, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(45,55,30,0.6)';
+    c.lineWidth = 0.7;
+    c.beginPath(); c.moveTo(-2, 1); c.lineTo(-3.5, 2.5); c.stroke();
+    c.beginPath(); c.moveTo(1.5, -0.5); c.lineTo(3, -2); c.stroke();
+  }
   if (isShot) {
     c.fillStyle = '#4a5245';
     c.beginPath(); c.ellipse(0.5, 0, 5.5, 3.2, 0, 0, 7); c.fill();
@@ -3046,12 +3171,42 @@ function drawProneSoldier(a) {
     c.lineWidth = 1.2;
     c.beginPath(); c.moveTo(-3, -1.5); c.lineTo(2, 2.5); c.stroke();
   }
-  // helmet at the head end
-  c.fillStyle = a.type === 'medic' ? '#ddd8c8' : us ? '#5b6b4a' : '#61615a';
-  c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
-  c.strokeStyle = 'rgba(0,0,0,0.35)';
-  c.lineWidth = 1;
-  c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.stroke();
+  // headgear at the head end
+  if (isOfficer) {
+    c.save();
+    c.translate(5, 0);
+    drawOfficerCap(c, 1, 0, us);
+    c.restore();
+  } else if (isSniper) {
+    c.fillStyle = us ? '#2e3823' : '#3f3f34';
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
+    c.strokeStyle = us ? 'rgba(48,58,32,0.7)' : 'rgba(52,52,44,0.7)';
+    c.lineWidth = 0.65;
+    for (let i = 0; i < 6; i++) {
+      const ang = i * Math.PI / 3;
+      c.beginPath();
+      c.moveTo(5 + Math.cos(ang) * 2.8, Math.sin(ang) * 2.8);
+      c.lineTo(5 + Math.cos(ang) * 4, Math.sin(ang) * 4);
+      c.stroke();
+    }
+  } else if (isRifle) {
+    c.fillStyle = us ? '#5b6b4a' : '#61615a';
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 1;
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.stroke();
+    c.strokeStyle = 'rgba(30,36,22,0.38)';
+    c.lineWidth = 0.6;
+    for (const off of [-1.5, 0, 1.5]) {
+      c.beginPath(); c.arc(5 + off, 0, 2.7, 0.2, 2.9); c.stroke();
+    }
+  } else {
+    c.fillStyle = a.type === 'medic' ? '#ddd8c8' : us ? '#5b6b4a' : '#61615a';
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 1;
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.stroke();
+  }
   if (a.t.flame) {
     c.fillStyle = '#7a4828';
     c.beginPath(); c.ellipse(-5.5, 0, 2.2, 3.8, 0, 0, 7); c.fill();
@@ -3251,6 +3406,390 @@ function drawBARMag(c, x, y, scale, rot) {
   c.restore();
 }
 
+// scoped bolt-action rifle — Springfield (US) or Gewehr 98 (Axis)
+// M1911 (US) or Walther P38 (Axis) — officers and mortar crew sidearms
+function drawSidearm(c, fx, fy, gunLen, face, us) {
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  const px = -fy, py = fx;
+  if (us) {
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 1.85;
+    c.beginPath();
+    c.moveTo(fx * 2, fy * 2);
+    c.lineTo(tipX, tipY);
+    c.stroke();
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 2.3;
+    c.beginPath();
+    c.moveTo(fx * 2.1 + px * 0.7, fy * 2.1 + py * 0.7);
+    c.lineTo(tipX + px * 0.55, tipY + py * 0.55);
+    c.stroke();
+    c.fillStyle = '#4a4038';
+    c.beginPath();
+    c.moveTo(fx * 3.2 + px * 1.5, fy * 3.2 + py * 1.5);
+    c.lineTo(fx * 3.5 + px * 3.4, fy * 3.5 + py * 3.4);
+    c.lineTo(fx * 2.7 + px * 3.1, fy * 2.7 + py * 3.1);
+    c.lineTo(fx * 2.9 + px * 1.3, fy * 2.9 + py * 1.3);
+    c.closePath(); c.fill();
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.arc(fx * 3.4 + px * 2.1, fy * 3.4 + py * 2.1, 1.35, face - 0.75, face + 0.55);
+    c.stroke();
+    c.fillStyle = '#2a2820';
+    c.beginPath(); c.arc(fx * 2.5 + px * 0.5, fy * 2.5 + py * 0.5, 0.55, 0, 7); c.fill();
+    c.fillStyle = '#1c1c16';
+    c.beginPath(); c.arc(tipX, tipY, 0.85, 0, 7); c.fill();
+  } else {
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 1.75;
+    c.beginPath();
+    c.moveTo(fx * 2, fy * 2);
+    c.lineTo(tipX, tipY);
+    c.stroke();
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 2.1;
+    c.beginPath();
+    c.moveTo(fx * 2.2 + px * 0.55, fy * 2.2 + py * 0.55);
+    c.lineTo(tipX + px * 0.45, tipY + py * 0.45);
+    c.stroke();
+    c.fillStyle = '#4a4038';
+    c.beginPath();
+    c.moveTo(fx * 3 + px * 1.4, fy * 3 + py * 1.4);
+    c.lineTo(fx * 3.3 + px * 3.2, fy * 3.3 + py * 3.2);
+    c.lineTo(fx * 2.6 + px * 2.9, fy * 2.6 + py * 2.9);
+    c.lineTo(fx * 2.8 + px * 1.2, fy * 2.8 + py * 1.2);
+    c.closePath(); c.fill();
+    c.fillStyle = '#5a5a52';
+    c.beginPath();
+    c.moveTo(fx * 2.4 - px * 0.5, fy * 2.4 - py * 0.5);
+    c.lineTo(fx * 2.8 - px * 0.3, fy * 2.8 - py * 0.3);
+    c.lineTo(fx * 2.6 - px * 0.8, fy * 2.6 - py * 0.8);
+    c.closePath(); c.fill();
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 0.95;
+    c.beginPath();
+    c.arc(fx * 3.2 + px * 1.9, fy * 3.2 + py * 1.9, 1.2, face - 0.7, face + 0.45);
+    c.stroke();
+    c.fillStyle = '#1c1c16';
+    c.beginPath(); c.arc(tipX, tipY, 0.8, 0, 7); c.fill();
+  }
+}
+
+function drawOfficerCap(c, fx, fy, us) {
+  c.fillStyle = us ? '#3f4a2e' : '#4a4840';
+  c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.35)';
+  c.lineWidth = 0.9;
+  c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.stroke();
+  c.fillStyle = us ? '#2f3824' : '#8a2820';
+  c.fillRect(-4.1, 0.2, 8.2, 2);
+  c.fillStyle = 'rgba(0,0,0,0.48)';
+  c.beginPath();
+  c.ellipse(fx * 3.5, -1 + fy * 3.5, 3.1, 1.55, Math.atan2(fy, fx), 0, 7);
+  c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.28)';
+  c.lineWidth = 0.75;
+  c.beginPath();
+  c.ellipse(fx * 3.5, -1 + fy * 3.5, 3.1, 1.55, Math.atan2(fy, fx), 0, 7);
+  c.stroke();
+  if (us) {
+    c.fillStyle = '#ffd94a';
+    c.beginPath(); c.arc(0, -1.2, 1.7, 0, 7); c.fill();
+    c.fillStyle = '#2a3820';
+    c.fillRect(-0.55, -2.4, 1.1, 2.2);
+    c.fillRect(-1.3, -0.6, 2.6, 0.55);
+  } else {
+    c.strokeStyle = '#c8c8c0';
+    c.lineWidth = 1.15;
+    c.beginPath(); c.arc(0, -1.3, 1.65, 0.35, 6); c.stroke();
+    c.fillStyle = '#e8e0c0';
+    c.beginPath(); c.arc(0, -1.3, 0.75, 0, 7); c.fill();
+    c.fillStyle = '#2a2820';
+    c.beginPath(); c.arc(0, -1.3, 0.35, 0, 7); c.fill();
+  }
+  c.strokeStyle = '#3a3028';
+  c.lineWidth = 0.85;
+  c.beginPath();
+  c.moveTo(-3.4, 0.8);
+  c.lineTo(-fx * 2.8, -1 + fy * 2.8);
+  c.lineTo(3.4, 0.8);
+  c.stroke();
+}
+
+function drawOfficerKit(c, fx, fy, face, us) {
+  c.strokeStyle = '#6a5a40';
+  c.lineWidth = 1.75;
+  c.beginPath();
+  c.moveTo(-fy * 4.8 - fx * 2.8, fx * 4.8 - fy * 2.8);
+  c.lineTo(fy * 4.8 - fx * 2.8, -fx * 4.8 - fy * 2.8);
+  c.stroke();
+  c.strokeStyle = '#5a4a38';
+  c.lineWidth = 2;
+  c.beginPath(); c.moveTo(-5.5, 4.2); c.lineTo(5.5, 4.2); c.stroke();
+  c.fillStyle = us ? '#c8a858' : '#8a8a80';
+  c.fillRect(-1.6, 3.4, 3.2, 2.2);
+  c.strokeStyle = '#4a4030';
+  c.lineWidth = 0.7;
+  c.strokeRect(-1.6, 3.4, 3.2, 2.2);
+  c.fillStyle = '#3a3028';
+  c.beginPath(); c.ellipse(-fy * 5.8, fx * 5.8, 2.3, 2.9, face, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.85;
+  c.stroke();
+  c.fillStyle = '#c8b898';
+  c.fillRect(fy * 4.2 - 2, -fx * 4.2 - 2.2, 3.8, 4.8);
+  c.strokeStyle = '#6a5a40';
+  c.lineWidth = 0.65;
+  c.strokeRect(fy * 4.2 - 2, -fx * 4.2 - 2.2, 3.8, 4.8);
+  c.strokeStyle = '#8a7a58';
+  c.lineWidth = 0.5;
+  c.beginPath();
+  c.moveTo(fy * 4.2 - 1.4, -fx * 4.2 + 0.2);
+  c.lineTo(fy * 4.2 + 1.2, -fx * 4.2 + 1.5);
+  c.stroke();
+  c.fillStyle = '#2a2a22';
+  c.fillRect(-fy * 3.2 - 2.2, fx * 3.2 - 1.3, 4.4, 2.8);
+  c.strokeStyle = '#6a5a40';
+  c.lineWidth = 0.75;
+  c.strokeRect(-fy * 3.2 - 2.2, fx * 3.2 - 1.3, 4.4, 2.8);
+  c.fillStyle = '#1a1a14';
+  c.beginPath(); c.arc(-fy * 3.2 - 1.3, fx * 3.2, 0.9, 0, 7); c.fill();
+  c.beginPath(); c.arc(-fy * 3.2 + 1.3, fx * 3.2, 0.9, 0, 7); c.fill();
+  c.fillStyle = 'rgba(120,150,170,0.42)';
+  c.beginPath(); c.arc(-fy * 3.2 - 1.3, fx * 3.2, 0.42, 0, 7); c.fill();
+  c.beginPath(); c.arc(-fy * 3.2 + 1.3, fx * 3.2, 0.42, 0, 7); c.fill();
+  if (!us) {
+    c.fillStyle = '#2a2820';
+    c.fillRect(-fy * 2.8 - 0.5, fx * 2.8 - 2.8, 1, 2.2);
+    c.fillStyle = '#8a2820';
+    c.fillRect(-fy * 2.8 - 0.35, fx * 2.8 - 2.5, 0.7, 1.6);
+  } else {
+    c.fillStyle = '#ffd94a';
+    c.beginPath(); c.arc(fy * 2.5, -fx * 2.5, 0.85, 0, 7); c.fill();
+    c.strokeStyle = '#3a3028';
+    c.lineWidth = 0.6;
+    c.beginPath(); c.arc(fy * 2.5, -fx * 2.5, 0.85, 0, 7); c.stroke();
+  }
+}
+
+function drawM1Garand(c, fx, fy, gunLen, face) {
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  const px = -fy, py = fx;
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 2.25;
+  c.beginPath();
+  c.moveTo(fx * 2, fy * 2);
+  c.lineTo(tipX, tipY);
+  c.stroke();
+  c.strokeStyle = '#4a3f2e';
+  c.lineWidth = 2.45;
+  c.beginPath();
+  c.moveTo(fx * 1.05 - px * 2.6, fy * 1.05 + py * 2.6);
+  c.lineTo(fx * 1.05 + px * 2.4, fy * 1.05 - py * 2.4);
+  c.stroke();
+  c.strokeStyle = '#5a4a38';
+  c.lineWidth = 1.65;
+  c.beginPath();
+  c.moveTo(fx * 2.4 + px * 1.15, fy * 2.4 + py * 1.15);
+  c.lineTo(fx * (gunLen * 0.8) + px * 1.15, fy * (gunLen * 0.8) + py * 1.15);
+  c.stroke();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 1.05;
+  c.beginPath();
+  c.moveTo(fx * 2.6 - px * 0.85, fy * 2.6 - py * 0.85);
+  c.lineTo(fx * (gunLen * 0.74) - px * 0.85, fy * (gunLen * 0.74) - py * 0.85);
+  c.stroke();
+  c.fillStyle = '#c8a858';
+  c.beginPath();
+  c.moveTo(fx * 3.1 - px * 0.55, fy * 3.1 - py * 0.55);
+  c.lineTo(fx * 3.9 - px * 0.55, fy * 3.9 - py * 0.55);
+  c.lineTo(fx * 3.9 + px * 0.55, fy * 3.9 + py * 0.55);
+  c.lineTo(fx * 3.1 + px * 0.55, fy * 3.1 + py * 0.55);
+  c.closePath(); c.fill();
+  c.strokeStyle = '#8a7a48';
+  c.lineWidth = 0.55;
+  c.stroke();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 0.95;
+  c.beginPath();
+  c.arc(fx * 3.4 + px * 1.75, fy * 3.4 + py * 1.75, 1.15, face - 0.65, face + 0.55);
+  c.stroke();
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 1.15;
+  c.beginPath();
+  c.moveTo(tipX - px * 1.6, tipY - py * 1.6);
+  c.lineTo(tipX + px * 0.45, tipY + py * 0.45);
+  c.stroke();
+  c.fillStyle = '#1c1c16';
+  c.beginPath(); c.arc(tipX, tipY, 0.95, 0, 7); c.fill();
+}
+
+function drawKar98k(c, fx, fy, gunLen, face, stickGrenade) {
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  const px = -fy, py = fx;
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 2.25;
+  c.beginPath();
+  c.moveTo(fx * 2, fy * 2);
+  c.lineTo(tipX, tipY);
+  c.stroke();
+  c.strokeStyle = '#4a3f2e';
+  c.lineWidth = 2.35;
+  c.beginPath();
+  c.moveTo(fx * 1.15 - px * 2.5, fy * 1.15 + py * 2.5);
+  c.lineTo(fx * 1.15 + px * 2, fy * 1.15 - py * 2);
+  c.stroke();
+  c.fillStyle = '#3a3a30';
+  c.beginPath();
+  c.moveTo(fx * (gunLen - 1.4) - px * 0.85, fy * (gunLen - 1.4) + py * 0.85);
+  c.lineTo(fx * (gunLen + 0.55) - px * 0.55, fy * (gunLen + 0.55) + py * 0.55);
+  c.lineTo(fx * (gunLen + 0.55) + px * 0.55, fy * (gunLen + 0.55) - py * 0.55);
+  c.lineTo(fx * (gunLen - 1.4) + px * 0.85, fy * (gunLen - 1.4) - py * 0.85);
+  c.closePath(); c.fill();
+  c.strokeStyle = '#5a4a38';
+  c.lineWidth = 1.55;
+  c.beginPath();
+  c.moveTo(fx * 2.2 + px * 1.05, fy * 2.2 + py * 1.05);
+  c.lineTo(fx * (gunLen * 0.82) + px * 1.05, fy * (gunLen * 0.82) + py * 1.05);
+  c.stroke();
+  c.fillStyle = '#2a2a22';
+  c.beginPath();
+  c.arc(fx * 3.8 + px * 1.4, fy * 3.8 + py * 1.4, 0.85, 0, 7);
+  c.fill();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 0.95;
+  c.beginPath();
+  c.arc(fx * 3.3 + px * 1.65, fy * 3.3 + py * 1.65, 1.05, face - 0.6, face + 0.5);
+  c.stroke();
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 1.25;
+  c.beginPath();
+  c.moveTo(tipX - px * 1.35, tipY - py * 1.35);
+  c.lineTo(tipX + px * 1.35, tipY + py * 1.35);
+  c.stroke();
+  c.fillStyle = '#1c1c16';
+  c.beginPath(); c.arc(tipX, tipY, 0.9, 0, 7); c.fill();
+  if (stickGrenade) {
+    drawStickGrenade(c, fx * 1.8 + py * 3.5, fy * 1.8 - px * 3.5, 0.72, face + 0.55);
+  }
+}
+
+function drawRiflemanKit(c, fx, fy, face, us) {
+  c.strokeStyle = '#8a7a48';
+  c.lineWidth = 1.45;
+  c.beginPath();
+  c.moveTo(-fy * 4.6 - fx * 1.1, fx * 4.6 - fy * 1.1);
+  c.lineTo(fy * 4.6 - fx * 1.1, -fx * 4.6 - fy * 1.1);
+  c.stroke();
+  c.strokeStyle = '#5a4a38';
+  c.lineWidth = 1.85;
+  c.beginPath(); c.moveTo(-5.5, 4.1); c.lineTo(5.5, 4.1); c.stroke();
+  for (const off of [-4.2, -1.4, 1.4, 4.2]) {
+    c.fillStyle = us ? '#3a4034' : '#4a4a40';
+    c.fillRect(off - 1.35, 3.7, 2.7, 2.5);
+    c.strokeStyle = '#2a2e24';
+    c.lineWidth = 0.65;
+    c.strokeRect(off - 1.35, 3.7, 2.7, 2.5);
+    if (us) {
+      c.fillStyle = '#c8a858';
+      c.fillRect(off - 0.9, 4.1, 0.55, 1.2);
+      c.fillRect(off + 0.35, 4.1, 0.55, 1.2);
+    }
+  }
+  c.fillStyle = us ? '#4a5245' : '#5a5a50';
+  c.beginPath(); c.ellipse(-fy * 5.6, fx * 5.6, 1.85, 2.35, face, 0, 7); c.fill();
+  c.strokeStyle = '#3a4034';
+  c.lineWidth = 0.75;
+  c.stroke();
+  c.fillStyle = us ? '#6a5a40' : '#4a4a40';
+  c.beginPath(); c.arc(-fy * 5.6, fx * 5.6, 0.55, 0, 7); c.fill();
+  c.strokeStyle = '#6a5a40';
+  c.lineWidth = 1.25;
+  c.beginPath();
+  c.moveTo(fy * 5.1, -fx * 5.1);
+  c.lineTo(fy * 6.4, -fx * 6.4);
+  c.stroke();
+  c.fillStyle = '#5a4a38';
+  c.beginPath(); c.arc(fy * 6.4, -fx * 6.4, 0.75, 0, 7); c.fill();
+  if (!us) {
+    c.fillStyle = '#5a5a48';
+    c.beginPath(); c.ellipse(fy * 4.9, -fx * 4.9, 2.15, 2.55, face, 0, 7); c.fill();
+    c.strokeStyle = '#3a3a30';
+    c.lineWidth = 0.7;
+    c.stroke();
+    c.fillStyle = '#3a3a30';
+    c.beginPath(); c.ellipse(fy * 4.9, -fx * 4.9, 1.1, 1.35, face, 0, 7); c.fill();
+  } else {
+    c.strokeStyle = '#6a5a40';
+    c.lineWidth = 1.15;
+    c.beginPath();
+    c.moveTo(-fy * 3.2, fx * 3.2);
+    c.quadraticCurveTo(0, 5.8, fy * 3.2, -fx * 3.2);
+    c.stroke();
+  }
+}
+
+function drawScopedRifle(c, fx, fy, gunLen, face, us) {
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  const perpX = -fy, perpY = fx;
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 1.7;
+  c.beginPath();
+  c.moveTo(fx * 2, fy * 2);
+  c.lineTo(tipX, tipY);
+  c.stroke();
+  c.strokeStyle = us ? '#4a3f2e' : '#5a4a38';
+  c.lineWidth = 2.1;
+  c.beginPath();
+  c.moveTo(fx * 1.1 - fy * 2.5, fy * 1.1 + fx * 2.5);
+  c.lineTo(fx * 1.1 + fy * 2.2, fy * 1.1 - fx * 2.2);
+  c.stroke();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 1.3;
+  c.beginPath();
+  c.moveTo(fx * 4.2 + fy * 1.6, fy * 4.2 - fx * 1.6);
+  c.lineTo(fx * 5.4 + fy * 2.6, fy * 5.4 - fx * 2.6);
+  c.stroke();
+  const scBaseX = fx * (gunLen * 0.44) + perpX * 2.1;
+  const scBaseY = fy * (gunLen * 0.44) + perpY * 2.1;
+  c.strokeStyle = '#1a1a14';
+  c.lineWidth = 2.3;
+  c.beginPath();
+  c.moveTo(scBaseX, scBaseY);
+  c.lineTo(scBaseX + fx * 4.2, scBaseY + fy * 4.2);
+  c.stroke();
+  c.fillStyle = '#2a2a22';
+  c.beginPath(); c.arc(scBaseX + fx * 4.4, scBaseY + fy * 4.4, 1.25, 0, 7); c.fill();
+  c.beginPath(); c.arc(scBaseX - fx * 0.6, scBaseY - fy * 0.6, 0.95, 0, 7); c.fill();
+  c.fillStyle = us ? 'rgba(130,170,190,0.5)' : 'rgba(150,150,140,0.42)';
+  c.beginPath(); c.arc(scBaseX + fx * 3.8, scBaseY + fy * 3.8, 0.55, 0, 7); c.fill();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 0.85;
+  for (const t of [0.32, 0.5]) {
+    const mx = fx * (gunLen * t), my = fy * (gunLen * t);
+    c.beginPath();
+    c.moveTo(mx, my);
+    c.lineTo(mx + perpX * 1.9, my + perpY * 1.9);
+    c.stroke();
+  }
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 1.1;
+  c.beginPath();
+  c.moveTo(tipX - fy * 1.1, tipY + fx * 1.1);
+  c.lineTo(tipX + fy * 1.1, tipY - fx * 1.1);
+  c.stroke();
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 1.15;
+  const bipX = fx * (gunLen * 0.7), bipY = fy * (gunLen * 0.7);
+  for (const s of [0.85, -0.85]) {
+    c.beginPath();
+    c.moveTo(bipX, bipY);
+    c.lineTo(bipX + Math.cos(face + s) * 3.8, bipY + Math.sin(face + s) * 3.8);
+    c.stroke();
+  }
+}
+
 function drawSoldier(a) {
   if (a.prone > 0) {
     drawProneSoldier(a);
@@ -3269,6 +3808,7 @@ function drawSoldier(a) {
   const isOfficer = type === 'officer' || type === 'eoff';
   const isGrenadier = type === 'grenadier' || type === 'egren';
   const isMortar = type === 'mortarman';
+  const isRifle = type === 'rifleman' || type === 'erifle';
   const fx = Math.cos(a.face), fy = Math.sin(a.face);
   c.save();
   c.translate(a.x, a.y);
@@ -3502,46 +4042,17 @@ function drawSoldier(a) {
     c.fillStyle = '#1c1c16';
     c.beginPath(); c.arc(fx * (gunLen - 0.5), fy * (gunLen - 0.5), 1, 0, 7); c.fill();
   } else if (type === 'egren') {
-    // Kar98k with a stick grenade tucked under the stock
-    c.strokeStyle = '#26261e';
-    c.lineWidth = 2.2;
-    c.beginPath();
-    c.moveTo(fx * 2, fy * 2);
-    c.lineTo(fx * gunLen, fy * gunLen);
-    c.stroke();
-    c.strokeStyle = '#4a3f2e';
-    c.lineWidth = 1.7;
-    c.beginPath();
-    c.moveTo(fx * 1.3 - fy * 2.4, fy * 1.3 + fx * 2.4);
-    c.lineTo(fx * 1.3 + fy * 1.8, fy * 1.3 - fx * 1.8);
-    c.stroke();
-    c.fillStyle = '#3a3a30';
-    c.beginPath();
-    c.moveTo(fx * (gunLen - 1.5) - fy * 0.8, fy * (gunLen - 1.5) + fx * 0.8);
-    c.lineTo(fx * (gunLen + 0.5) - fy * 0.5, fy * (gunLen + 0.5) + fx * 0.5);
-    c.lineTo(fx * (gunLen + 0.5) + fy * 0.5, fy * (gunLen + 0.5) - fx * 0.5);
-    c.lineTo(fx * (gunLen - 1.5) + fy * 0.8, fy * (gunLen - 1.5) - fx * 0.8);
-    c.closePath(); c.fill();
-    drawStickGrenade(c, fx * 1.8 + fy * 3.5, fy * 1.8 - fx * 3.5, 0.72, a.face + 0.55);
-  } else if (isMortar) {
-    // M1911 sidearm — mortar crew's last resort
-    c.strokeStyle = '#26261e';
-    c.lineWidth = 1.9;
-    c.beginPath();
-    c.moveTo(fx * 2, fy * 2);
-    c.lineTo(fx * gunLen, fy * gunLen);
-    c.stroke();
-    c.fillStyle = '#4a4038';
-    c.beginPath(); c.arc(fx * 3.2 + fy * 2.2, fy * 3.2 - fx * 2.2, 1.6, 0, 7); c.fill();
-    c.strokeStyle = '#3a3830';
-    c.lineWidth = 1.1;
-    c.beginPath();
-    c.moveTo(fx * 3.8 + fy * 1.2, fy * 3.8 - fx * 1.2);
-    c.lineTo(fx * 3.8 + fy * 3.2, fy * 3.8 - fx * 3.2);
-    c.stroke();
+    drawKar98k(c, fx, fy, gunLen, a.face, true);
+  } else if (isRifle) {
+    if (us) drawM1Garand(c, fx, fy, gunLen, a.face);
+    else drawKar98k(c, fx, fy, gunLen, a.face, false);
+  } else if (isSniper) {
+    drawScopedRifle(c, fx, fy, gunLen, a.face, us);
+  } else if (isOfficer || isMortar) {
+    drawSidearm(c, fx, fy, gunLen, a.face, us);
   } else {
     c.strokeStyle = '#26261e';
-    c.lineWidth = isEmg ? 3.4 : isSMG ? 2.6 : isSniper ? 1.6 : 2;
+    c.lineWidth = isEmg ? 3.4 : isSMG ? 2.6 : 2;
     c.beginPath();
     c.moveTo(fx * 2, fy * 2);
     c.lineTo(fx * gunLen, fy * gunLen);
@@ -3587,18 +4098,23 @@ function drawSoldier(a) {
     c.lineTo(fx * (a.t.gun * 0.55) - fy * 3, fy * (a.t.gun * 0.55) + fx * 3);
     c.stroke();
   }
-  if (isSniper) {
-    // scope block midway down the barrel
-    c.fillStyle = '#1c1c16';
-    c.beginPath(); c.arc(fx * (a.t.gun * 0.5), fy * (a.t.gun * 0.5), 1.7, 0, 7); c.fill();
-  }
 
   // ---- body
   const isFlamer = !!a.t.flame;
-  const bodyW = isShotgun ? 7.5 : isEmg ? 7.3 : isBar ? 7 : isFlamer ? 7.2 : isGrenadier ? 6.8 : isMortar ? 6.7 : 6.5;
-  const bodyH = isShotgun ? 5.8 : isEmg ? 4.7 : isBar ? 4.9 : isFlamer ? 5.4 : isGrenadier ? 5.2 : isMortar ? 5.1 : 5;
+  const bodyW = isShotgun ? 7.5 : isEmg ? 7.3 : isBar ? 7 : isFlamer ? 7.2 : isGrenadier ? 6.8 : isMortar ? 6.7 : isOfficer ? 6.6 : isRifle ? 6.4 : isSniper ? 6.2 : 6.5;
+  const bodyH = isShotgun ? 5.8 : isEmg ? 4.7 : isBar ? 4.9 : isFlamer ? 5.4 : isGrenadier ? 5.2 : isMortar ? 5.1 : isOfficer ? 5.2 : isRifle ? 4.9 : isSniper ? 4.8 : 5;
   c.fillStyle = a.t.color;
   c.beginPath(); c.ellipse(0, 0, bodyW, bodyH, a.face, 0, 7); c.fill();
+  if (isOfficer) {
+    c.fillStyle = us ? '#5a6048' : '#4a4a42';
+    c.beginPath(); c.ellipse(fx * 0.8, fy * 0.8, bodyW - 0.8, bodyH - 0.4, a.face, 0, 7); c.fill();
+    c.strokeStyle = us ? '#7a8068' : '#5a5a52';
+    c.lineWidth = 0.9;
+    c.beginPath();
+    c.moveTo(-fy * 2.2, fx * 2.2);
+    c.lineTo(fy * 2.2, -fx * 2.2);
+    c.stroke();
+  }
   if (isShotgun) {
     // steel chest plate, heavy pauldrons, riveted breastplate
     c.fillStyle = '#4a5245';
@@ -3632,11 +4148,34 @@ function drawSoldier(a) {
     c.beginPath(); c.moveTo(-fy * 3, fx * 3); c.lineTo(fy * 3, -fx * 3); c.stroke();
   }
   if (isSniper) {
-    // ghillie mottle
+    // ghillie scrim — burlap patches and grass tufts
     c.fillStyle = 'rgba(30,36,22,0.55)';
-    c.beginPath(); c.ellipse(-2, 1.5, 2.4, 1.5, 0.5, 0, 7); c.fill();
-    c.beginPath(); c.ellipse(2.5, -1, 2, 1.3, -0.7, 0, 7); c.fill();
-    c.beginPath(); c.ellipse(0.5, 3, 1.7, 1.1, 0.2, 0, 7); c.fill();
+    for (const [px, py, rx, ry, rot] of [[-2, 1.5, 2.4, 1.5, 0.5], [2.5, -1, 2, 1.3, -0.7], [0.5, 3, 1.7, 1.1, 0.2],
+      [-3.5, -0.5, 1.8, 1.2, 0.3], [3, 2.5, 1.6, 1, -0.4]]) {
+      c.beginPath(); c.ellipse(px, py, rx, ry, rot, 0, 7); c.fill();
+    }
+    c.strokeStyle = 'rgba(45,55,30,0.65)';
+    c.lineWidth = 0.8;
+    for (const [sx, sy, ex, ey] of [[-4, 2, -5.5, 4], [3, -2, 4.5, -3.5], [-1, 4, 0.5, 5.5], [4, 1, 5, 2.5]]) {
+      c.beginPath(); c.moveTo(sx, sy); c.lineTo(ex, ey); c.stroke();
+    }
+    // spotting binoculars on the chest
+    c.fillStyle = '#2a2a22';
+    c.fillRect(-fy * 3 - 2, fx * 3 - 1.2, 4, 2.6);
+    c.strokeStyle = '#6a5a40';
+    c.lineWidth = 0.8;
+    c.strokeRect(-fy * 3 - 2, fx * 3 - 1.2, 4, 2.6);
+    c.fillStyle = '#1a1a14';
+    c.beginPath(); c.arc(-fy * 3 - 1.2, fx * 3, 0.85, 0, 7); c.fill();
+    c.beginPath(); c.arc(-fy * 3 + 1.2, fx * 3, 0.85, 0, 7); c.fill();
+    c.fillStyle = 'rgba(120,150,170,0.45)';
+    c.beginPath(); c.arc(-fy * 3 - 1.2, fx * 3, 0.4, 0, 7); c.fill();
+    c.beginPath(); c.arc(-fy * 3 + 1.2, fx * 3, 0.4, 0, 7); c.fill();
+    // stripper clips on the belt
+    c.fillStyle = '#c8a858';
+    for (const off of [-3.5, 0, 3.5]) {
+      c.fillRect(off - 0.6, 4.5, 1.2, 2.2);
+    }
   }
   if (isBar) {
     // ammo bandolier, spare BAR mags, and sling across the chest
@@ -3682,6 +4221,9 @@ function drawSoldier(a) {
   }
 
   // ---- class kit
+  if (isRifle) {
+    drawRiflemanKit(c, fx, fy, a.face, us);
+  }
   if (isShotgun) {
     // 12-gauge bandolier and shell loops on the belt
     c.strokeStyle = '#8a7a48';
@@ -3772,6 +4314,9 @@ function drawSoldier(a) {
     c.lineWidth = 0.5;
     c.beginPath(); c.moveTo(-fy * 4.8 - 1.5, fx * 4.8); c.lineTo(-fy * 4.8 + 1, fx * 4.8 + 1.2); c.stroke();
   }
+  if (isOfficer) {
+    drawOfficerKit(c, fx, fy, a.face, us);
+  }
   if (a.t.flame) {
     // twin fuel tanks on the back — metal cylinders, straps, warning stripe
     const tankX = -6.2;
@@ -3797,19 +4342,22 @@ function drawSoldier(a) {
 
   // ---- headgear
   if (isOfficer) {
-    // peaked cap with a brim toward the facing
-    c.fillStyle = us ? '#3f4a2e' : '#3c3c33';
-    c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill();
-    c.fillStyle = 'rgba(0,0,0,0.4)';
-    c.beginPath();
-    c.ellipse(fx * 3.2, -1 + fy * 3.2, 2.6, 1.4, a.face, 0, 7);
-    c.fill();
-    c.fillStyle = '#ffd94a';
-    c.beginPath(); c.arc(0, -1, 1.5, 0, 7); c.fill();
+    drawOfficerCap(c, fx, fy, us);
   } else if (isSniper) {
-    // hood, no shine, no outline — he doesn't want to be seen
+    // ghillie hood — dark scrim with leaf fringe
     c.fillStyle = us ? '#2e3823' : '#3f3f34';
     c.beginPath(); c.arc(0, -1, 4.0, 0, 7); c.fill();
+    c.strokeStyle = us ? 'rgba(48,58,32,0.75)' : 'rgba(52,52,44,0.75)';
+    c.lineWidth = 0.75;
+    for (let i = 0; i < 8; i++) {
+      const ang = i * Math.PI / 4 + 0.2;
+      c.beginPath();
+      c.moveTo(Math.cos(ang) * 3.2, -1 + Math.sin(ang) * 3.2);
+      c.lineTo(Math.cos(ang) * 4.8, -1 + Math.sin(ang) * 4.8);
+      c.stroke();
+    }
+    c.fillStyle = us ? 'rgba(55,65,38,0.5)' : 'rgba(50,50,42,0.5)';
+    c.beginPath(); c.ellipse(-fx * 2.5, -1 + fy * 2.5, 1.4, 1.8, a.face, 0, 7); c.fill();
   } else if (type === 'medic') {
     // white helmet with the red cross
     c.fillStyle = '#ddd8c8';
@@ -3840,6 +4388,16 @@ function drawSoldier(a) {
       // red armband — mortar section identifier
       c.fillStyle = '#b8261c';
       c.beginPath(); c.ellipse(-fy * 4.2, fx * 4.2, 1.8, 2.4, a.face, 0, 7); c.fill();
+    }
+    if (isRifle) {
+      c.strokeStyle = 'rgba(30,36,22,0.38)';
+      c.lineWidth = 0.65;
+      for (const off of [-2, 0, 2]) {
+        c.beginPath(); c.arc(off, -1, 3.55, 0.18, 2.92); c.stroke();
+      }
+      c.strokeStyle = '#4a4a40';
+      c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-2.7, 1.7); c.lineTo(0, 3.5); c.lineTo(2.7, 1.7); c.stroke();
     }
   }
   if (a.type === 'engineer') {
@@ -4781,6 +5339,8 @@ function drawPlacementGhost() {
     const et = ENEMY_TYPES[p.key];
     if (et && et.flame) {
       drawFlameRangeCone(x, y, Math.PI / 2, et.flame.arc, et.flame.range * fogMult(), 0.35);
+    } else if (et && et.sfx === 'sniper') {
+      drawSniperRangeRing(x, y, et.range * fogMult(), 0.5);
     } else if (et && et.range > 0) {
       ctx.strokeStyle = 'rgba(255,255,255,0.35)';
       ctx.lineWidth = 1;
@@ -4809,6 +5369,8 @@ function drawPlacementGhost() {
       drawBuckshotCone(x, y, -Math.PI / 2, ut.shotgun.arc, ut.shotgun.range * fogMult(), 0.35);
     } else if (ut && ut.mortar) {
       drawMortarRangeRing(x, y, ut.mortar.min * fogMult(), ut.mortar.range * fogMult(), 0.35);
+    } else if (ut && ut.sfx === 'sniper' && ut.range > 200) {
+      drawSniperRangeRing(x, y, ut.range * fogMult(), 0.5);
     } else if (ut) {
       // show the reach of his main weapon, not the sidearm
       let r = ut.range;

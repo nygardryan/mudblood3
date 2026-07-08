@@ -1533,6 +1533,70 @@ function drawFireCone(x, y, bearing, arc, range, alpha) {
   ctx.stroke();
 }
 
+// warm wedge for flamethrower reach — selection overlay and placement ghost
+function drawFlameRangeCone(x, y, bearing, arc, range, alpha) {
+  const a = alpha != null ? alpha : 0.35;
+  const tipX = x + Math.cos(bearing) * range * 0.65;
+  const tipY = y + Math.sin(bearing) * range * 0.65;
+  const grad = ctx.createLinearGradient(x, y, tipX, tipY);
+  grad.addColorStop(0, `rgba(255,210,90,${a * 0.55})`);
+  grad.addColorStop(0.45, `rgba(255,120,30,${a * 0.35})`);
+  grad.addColorStop(1, `rgba(180,50,15,${a * 0.08})`);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.arc(x, y, range, bearing - arc, bearing + arc);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = `rgba(255,180,60,${a * 0.85})`;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([5, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// live flame jet while a flamethrower is spraying
+function drawFlameStream(actor) {
+  if (!actor.flameT || actor.flameT <= 0 || !actor.t.flame) return;
+  const fl = actor.t.flame;
+  const range = unitRange(actor, fl.range) * fogMult();
+  const bearing = actor.face;
+  const fx = Math.cos(bearing), fy = Math.sin(bearing);
+  const nx = actor.x + fx * (actor.t.gun + 1.2);
+  const ny = actor.y + fy * (actor.t.gun + 1.2);
+  const pulse = 0.82 + Math.sin(G.time * 22) * 0.18;
+  const alpha = clamp(actor.flameT / 0.15, 0, 1) * pulse;
+  const reach = range * (0.68 + Math.sin(G.time * 14) * 0.06);
+
+  ctx.save();
+  const tipX = nx + fx * reach * 0.75;
+  const tipY = ny + fy * reach * 0.75;
+  const grad = ctx.createLinearGradient(nx, ny, tipX, tipY);
+  grad.addColorStop(0, `rgba(255,248,180,${0.72 * alpha})`);
+  grad.addColorStop(0.25, `rgba(255,170,50,${0.55 * alpha})`);
+  grad.addColorStop(0.55, `rgba(240,80,20,${0.35 * alpha})`);
+  grad.addColorStop(1, 'rgba(60,25,10,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(nx, ny);
+  ctx.arc(nx, ny, reach, bearing - fl.arc * 0.88, bearing + fl.arc * 0.88);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = `rgba(255,110,25,${0.14 * alpha})`;
+  ctx.beginPath();
+  ctx.moveTo(nx, ny);
+  ctx.arc(nx, ny, reach * 1.05, bearing - fl.arc, bearing + fl.arc);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.globalAlpha = alpha * 0.9;
+  ctx.fillStyle = '#fff8c8';
+  ctx.beginPath(); ctx.arc(nx, ny, 2.8, 0, 7); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 // weapon reach overlay for selected units — scales with veterancy like combat range
 function drawUnitWeaponRange(a, opts) {
   const t = a.t;
@@ -1550,7 +1614,7 @@ function drawUnitWeaponRange(a, opts) {
     return;
   }
   if (t.flame) {
-    drawFireCone(a.x, a.y, bearing, t.flame.arc, unitRange(a, t.flame.range) * fog, alpha);
+    drawFlameRangeCone(a.x, a.y, bearing, t.flame.arc, unitRange(a, t.flame.range) * fog, alpha);
     return;
   }
   if (t.shotgun) {
@@ -1595,18 +1659,28 @@ function flameSpray(actor, dt) {
   const fl = actor.t.flame;
   const range = unitRange(actor, fl.range);
 
+  actor.flameT = 0.15;
   actor.flameSfx = (actor.flameSfx || 0) - dt;
   if (actor.flameSfx <= 0) { actor.flameSfx = 0.4; SFX.flame(); }
 
+  const nx = actor.x + Math.cos(actor.face) * (actor.t.gun + 1.5);
+  const ny = actor.y + Math.sin(actor.face) * (actor.t.gun + 1.5);
+  if (Math.random() < 0.35) {
+    G.flashes.push({ x: nx, y: ny, r: rand(5, 9), ttl: 0.06, max: 0.06 });
+  }
+
   // roiling fire particles along the cone
-  for (let i = 0; i < 7; i++) {
-    const a = actor.face + rand(-fl.arc, fl.arc) * 0.8;
-    const d = rand(10, range);
+  for (let i = 0; i < 9; i++) {
+    const a = actor.face + rand(-fl.arc, fl.arc) * 0.85;
+    const d = rand(8, range * 0.95);
+    const ttl = rand(0.12, 0.42);
     G.particles.push({
       x: actor.x + Math.cos(a) * d, y: actor.y + Math.sin(a) * d,
-      vx: Math.cos(a) * rand(20, 60), vy: Math.sin(a) * rand(20, 60) - 15,
-      ttl: rand(0.15, 0.45), grav: -40, size: rand(2, 4.5),
-      color: pick(['#ff9a2a', '#ffce4a', '#e05818', '#b83a10', '#3a352c']),
+      vx: Math.cos(a) * rand(25, 75) + rand(-12, 12),
+      vy: Math.sin(a) * rand(25, 75) - rand(10, 28),
+      ttl, maxTtl: ttl, grav: -55, size: rand(2.5, 6),
+      kind: 'flame', glow: rand(0.65, 1),
+      color: pick(['#ffe070', '#ff9a2a', '#ffce4a', '#e05818', '#b83a10', '#3a3028']),
     });
   }
   // scorch the earth now and then
@@ -2495,6 +2569,8 @@ function update(dt) {
 
   for (const u of G.units) if (!u.dead) updateUnit(u, dt);
   for (const e of G.enemies) if (!e.dead) updateEnemy(e, dt);
+  for (const u of G.units) if (!u.dead && u.flameT > 0) u.flameT -= dt;
+  for (const e of G.enemies) if (!e.dead && e.flameT > 0) e.flameT -= dt;
 
   // mines
   for (const m of G.mines) {
@@ -2764,6 +2840,15 @@ function drawProneSoldier(a) {
   c.strokeStyle = 'rgba(0,0,0,0.35)';
   c.lineWidth = 1;
   c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.stroke();
+  if (a.t.flame) {
+    c.fillStyle = '#7a4828';
+    c.beginPath(); c.ellipse(-5.5, 0, 2.2, 3.8, 0, 0, 7); c.fill();
+    c.fillStyle = '#3a3c30';
+    c.beginPath(); c.ellipse(-5.5, 3.5, 2.2, 3.5, 0, 0, 7); c.fill();
+    c.strokeStyle = '#2a2820';
+    c.lineWidth = 1.4;
+    c.beginPath(); c.moveTo(3, 2.8); c.quadraticCurveTo(-1, 1.5, -4, 0.5); c.stroke();
+  }
   c.restore();
 }
 
@@ -2855,12 +2940,84 @@ function drawSoldier(a) {
 
   // ---- weapon: silhouette varies by class
   const gunLen = a.t.gun;
-  c.strokeStyle = '#26261e';
-  c.lineWidth = isEmg ? 3.4 : isBar ? 2.8 : isSMG ? 2.6 : isSniper ? 1.6 : isShotgun ? 3.2 : 2;
-  c.beginPath();
-  c.moveTo(fx * 2, fy * 2);
-  c.lineTo(fx * gunLen, fy * gunLen);
-  c.stroke();
+  if (a.t.flame) {
+    // M2 flamethrower wand — heat shield, grip, bell nozzle, fuel hose
+    const tipX = fx * gunLen, tipY = fy * gunLen;
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 4;
+    c.beginPath();
+    c.moveTo(fx * 2, fy * 2);
+    c.lineTo(tipX, tipY);
+    c.stroke();
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(fx * 2.4, fy * 2.4);
+    c.lineTo(fx * (gunLen - 0.6), fy * (gunLen - 0.6));
+    c.stroke();
+    // vent slots on the heat shield
+    c.strokeStyle = '#2e2c24';
+    c.lineWidth = 0.8;
+    for (let t = 0.32; t <= 0.78; t += 0.12) {
+      const sx = fx * (gunLen * t), sy = fy * (gunLen * t);
+      c.beginPath();
+      c.moveTo(sx - fy * 1.8, sy + fx * 1.8);
+      c.lineTo(sx + fy * 1.8, sy - fx * 1.8);
+      c.stroke();
+    }
+    // pistol grip
+    c.strokeStyle = '#4a3f32';
+    c.lineWidth = 2.3;
+    c.beginPath();
+    c.moveTo(fx * 3.8 + fy * 1.4, fy * 3.8 - fx * 1.4);
+    c.lineTo(fx * 3.8 + fy * 4.8, fy * 3.8 - fx * 4.8);
+    c.stroke();
+    // nozzle bell
+    c.strokeStyle = '#5a4a38';
+    c.lineWidth = 2.6;
+    c.beginPath();
+    c.moveTo(tipX - fy * 2.4, tipY + fx * 2.4);
+    c.lineTo(tipX + fx * 2, tipY + fy * 2);
+    c.lineTo(tipX + fy * 2.4, tipY - fx * 2.4);
+    c.stroke();
+    // hose from backpack tanks to the wand
+    c.strokeStyle = '#2a2820';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(-6, 0);
+    c.quadraticCurveTo(-fy * 4 + fx * 1, fx * 4 + fy * 1, fx * 3.2, fy * 3.2);
+    c.stroke();
+    c.strokeStyle = '#1e1c18';
+    c.lineWidth = 0.9;
+    c.beginPath();
+    c.moveTo(-6, 0);
+    c.quadraticCurveTo(-fy * 4 + fx * 1, fx * 4 + fy * 1, fx * 3.2, fy * 3.2);
+    c.stroke();
+    // pilot flame at the nozzle
+    const lit = a.flameT > 0;
+    const nozX = tipX + fx * 1.4, nozY = tipY + fy * 1.4;
+    if (lit) {
+      c.shadowColor = '#ff6820';
+      c.shadowBlur = 10;
+      c.fillStyle = '#fff4b0';
+      c.beginPath(); c.arc(nozX, nozY, 3, 0, 7); c.fill();
+      c.shadowBlur = 0;
+      c.fillStyle = '#ff9a28';
+      c.beginPath(); c.arc(nozX, nozY, 1.8, 0, 7); c.fill();
+    } else {
+      c.fillStyle = '#8a4020';
+      c.beginPath(); c.arc(nozX, nozY, 1.5, 0, 7); c.fill();
+      c.fillStyle = '#ff7020';
+      c.beginPath(); c.arc(nozX, nozY, 0.75, 0, 7); c.fill();
+    }
+  } else {
+    c.strokeStyle = '#26261e';
+    c.lineWidth = isEmg ? 3.4 : isBar ? 2.8 : isSMG ? 2.6 : isSniper ? 1.6 : isShotgun ? 3.2 : 2;
+    c.beginPath();
+    c.moveTo(fx * 2, fy * 2);
+    c.lineTo(fx * gunLen, fy * gunLen);
+    c.stroke();
+  }
   if (isBar) {
     // BAR: wooden stock, box mag, carry handle, bipod
     c.strokeStyle = '#4a3f2e';
@@ -2949,15 +3106,11 @@ function drawSoldier(a) {
     c.fillStyle = '#1c1c16';
     c.beginPath(); c.arc(fx * (a.t.gun * 0.5), fy * (a.t.gun * 0.5), 1.7, 0, 7); c.fill();
   }
-  if (a.t.flame) {
-    // orange pilot light at the nozzle
-    c.fillStyle = '#ff9a2a';
-    c.beginPath(); c.arc(fx * (a.t.gun + 1), fy * (a.t.gun + 1), 1.5, 0, 7); c.fill();
-  }
 
   // ---- body
-  const bodyW = isShotgun ? 7.5 : isEmg ? 7.3 : isBar ? 7 : 6.5;
-  const bodyH = isShotgun ? 5.8 : isEmg ? 4.7 : isBar ? 4.9 : 5;
+  const isFlamer = !!a.t.flame;
+  const bodyW = isShotgun ? 7.5 : isEmg ? 7.3 : isBar ? 7 : isFlamer ? 7.2 : 6.5;
+  const bodyH = isShotgun ? 5.8 : isEmg ? 4.7 : isBar ? 4.9 : isFlamer ? 5.4 : 5;
   c.fillStyle = a.t.color;
   c.beginPath(); c.ellipse(0, 0, bodyW, bodyH, a.face, 0, 7); c.fill();
   if (isShotgun) {
@@ -2970,6 +3123,20 @@ function drawSoldier(a) {
     c.fillStyle = '#555f4a';
     c.beginPath(); c.ellipse(-fy * 4.5, fx * 4.5, 2.2, 2.8, a.face, 0, 7); c.fill();
     c.beginPath(); c.ellipse(fy * 4.5, -fx * 4.5, 2.2, 2.8, a.face, 0, 7); c.fill();
+  }
+  if (isFlamer) {
+    // flak vest — steel plate over the torso, heavier than a rifleman's kit
+    c.fillStyle = '#4a4e42';
+    c.beginPath(); c.ellipse(fx * 1.4, fy * 1.4, 6.2, 5.2, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#2a2e24';
+    c.lineWidth = 1.1;
+    c.stroke();
+    c.fillStyle = '#5a5e50';
+    c.beginPath(); c.ellipse(-fy * 4.8, fx * 4.8, 2.4, 3, a.face, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(fy * 4.8, -fx * 4.8, 2.4, 3, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#3a3e34';
+    c.lineWidth = 0.8;
+    c.beginPath(); c.moveTo(-fy * 3, fx * 3); c.lineTo(fy * 3, -fx * 3); c.stroke();
   }
   if (isSniper) {
     // ghillie mottle
@@ -3046,15 +3213,26 @@ function drawSoldier(a) {
     c.beginPath(); c.arc(-4, -6, 1.5, 0, 7); c.fill();
   }
   if (a.t.flame) {
-    // twin fuel tanks on his back
-    c.fillStyle = '#6b3d20';
-    c.beginPath(); c.ellipse(-6, -2, 2.1, 3.8, 0, 0, 7); c.fill();
-    c.fillStyle = '#38392c';
-    c.beginPath(); c.ellipse(-6, 3, 2.1, 3.8, 0, 0, 7); c.fill();
-    c.strokeStyle = 'rgba(0,0,0,0.35)';
-    c.lineWidth = 0.8;
-    c.beginPath(); c.ellipse(-6, -2, 2.1, 3.8, 0, 0, 7); c.stroke();
-    c.beginPath(); c.ellipse(-6, 3, 2.1, 3.8, 0, 0, 7); c.stroke();
+    // twin fuel tanks on the back — metal cylinders, straps, warning stripe
+    const tankX = -6.2;
+    for (const [ty, fill, cap] of [[-2.2, '#7a4828', '#4a4038'], [2.8, '#3a3c30', '#323028']]) {
+      c.fillStyle = fill;
+      c.beginPath(); c.ellipse(tankX, ty, 2.3, 4, 0, 0, 7); c.fill();
+      c.strokeStyle = 'rgba(0,0,0,0.4)';
+      c.lineWidth = 0.9;
+      c.beginPath(); c.ellipse(tankX, ty, 2.3, 4, 0, 0, 7); c.stroke();
+      c.fillStyle = cap;
+      c.beginPath(); c.ellipse(tankX, ty - 3.6, 1.6, 1.1, 0, 0, 7); c.fill();
+    }
+    c.strokeStyle = '#2a2820';
+    c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(tankX - 2.5, -5.5); c.lineTo(tankX + 2.5, 5.5); c.stroke();
+    c.beginPath(); c.moveTo(tankX + 2.5, -5.5); c.lineTo(tankX - 2.5, 5.5); c.stroke();
+    c.fillStyle = '#e8c030';
+    c.fillRect(tankX - 0.8, -1.2, 1.6, 4.8);
+    c.strokeStyle = '#1a1814';
+    c.lineWidth = 0.7;
+    c.beginPath(); c.moveTo(tankX - 2.3, 0); c.lineTo(-2, fy * 2); c.stroke();
   }
 
   // ---- headgear
@@ -3773,6 +3951,13 @@ function draw() {
     else drawSoldier(u);
   }
 
+  for (const e of G.enemies) {
+    if (!e.dead && e.t.flame && e.flameT > 0) drawFlameStream(e);
+  }
+  for (const u of G.units) {
+    if (!u.dead && u.t.flame && u.flameT > 0) drawFlameStream(u);
+  }
+
   // tracers
   ctx.lineWidth = 1.2;
   for (const tr of G.tracers) {
@@ -3782,9 +3967,23 @@ function draw() {
 
   // particles
   for (const p of G.particles) {
-    ctx.fillStyle = p.color;
-    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    if (p.kind === 'flame') {
+      const life = p.maxTtl ? p.ttl / p.maxTtl : clamp(p.ttl / 0.3, 0, 1);
+      const r = p.size * (0.75 + (1 - life) * 0.45);
+      ctx.globalAlpha = life * (p.glow || 0.85);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      g.addColorStop(0, '#fff8c8');
+      g.addColorStop(0.4, p.color);
+      g.addColorStop(1, 'rgba(40,18,8,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
+    } else {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
   }
+  ctx.globalAlpha = 1;
 
   // explosion flashes
   for (const f of G.flashes) {
@@ -3967,7 +4166,9 @@ function drawPlacementGhost() {
     ctx.fillRect(0, AXIS_DEPLOY_Y, W, H - AXIS_DEPLOY_Y);
     drawPlacementUnitGhost(p, x, y, valid);
     const et = ENEMY_TYPES[p.key];
-    if (et && et.range > 0) {
+    if (et && et.flame) {
+      drawFlameRangeCone(x, y, Math.PI / 2, et.flame.arc, et.flame.range * fogMult(), 0.35);
+    } else if (et && et.range > 0) {
       ctx.strokeStyle = 'rgba(255,255,255,0.35)';
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(x, y, et.range * fogMult(), 0, 7); ctx.stroke();
@@ -3989,6 +4190,8 @@ function drawPlacementGhost() {
       drawFireCone(x, y, -Math.PI / 2, ut.atgun.arc, ut.range * fogMult(), 0.35);
     } else if (ut && ut.fireCone) {
       drawFireCone(x, y, -Math.PI / 2, ut.fireCone.arc, ut.range * fogMult(), 0.35);
+    } else if (ut && ut.flame) {
+      drawFlameRangeCone(x, y, -Math.PI / 2, ut.flame.arc, ut.flame.range * fogMult(), 0.35);
     } else if (ut) {
       // show the reach of his main weapon, not the sidearm
       let r = ut.range;

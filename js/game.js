@@ -102,7 +102,7 @@ const UNIT_TYPES = {
     name: 'AT Gun', hp: 200, range: 1080, dmg: 0, acc: 0,
     rof: 8, burst: 1, burstGap: 0, speed: 0,
     color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true,
-    atgun: { arc: 0.6, shellDmg: 403, r: 27 },
+    atgun: { arc: 0.6, shellDmg: 403, r: 27, scatterMult: 1.3 },
     desc: '57mm anti-tank gun. Immobile; direct-fire AP shells ruin any vehicle they find.',
   },
 };
@@ -504,7 +504,32 @@ const randi = (a, b) => Math.floor(rand(a, b + 1));
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-const officerCount = () => G.units.filter(u => !u.dead && u.type === 'officer').length;
+
+const HUD_INTERVAL = 0.1;
+const AURA_CACHE_INTERVAL = 0.4;
+const PARTICLE_CAP = 250;
+
+function compactInPlace(arr, keep) {
+  let w = 0;
+  for (let i = 0; i < arr.length; i++) {
+    if (keep(arr[i])) arr[w++] = arr[i];
+  }
+  arr.length = w;
+}
+
+function compactDefenses(arr, onDestroy) {
+  let w = 0;
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i].hp > 0) arr[w++] = arr[i];
+    else onDestroy(arr[i]);
+  }
+  arr.length = w;
+}
+
+const officerCount = () => {
+  if (G && G.usOfficers) return G.usOfficers.length;
+  return G ? G.units.filter(u => !u.dead && u.type === 'officer').length : 0;
+};
 
 // ============================================================ state
 
@@ -518,6 +543,12 @@ let running = false;
 let paused = false;
 let codexReturnTo = 'intro';
 let lastT = 0;
+let hudAccum = 0;
+
+function refreshHUD() {
+  hudAccum = 0;
+  if (G) updateHUD();
+}
 
 function isPlaying() {
   return running && G && !G.over && !paused;
@@ -577,6 +608,10 @@ function newGame(level, difficulty) {
     fog: 0,
     banner: null,
     selected: [],
+    auraRefresh: 0,
+    buffFrame: 0,
+    usOfficers: [],
+    deOfficers: [],
   };
   paintGround();
   level.setup(G);
@@ -1607,7 +1642,8 @@ function nearestUnitInRange(e, range, pred) {
 // ============================================================ update: friendlies
 
 function officerBuff(u) {
-  for (const o of G.units) {
+  const officers = G.usOfficers || G.units;
+  for (const o of officers) {
     if (!o.dead && o.type === 'officer' && o !== u && dist(o, u) < 130) {
       // a veteran officer drives his men harder
       return { rofMult: 0.75 - o.rank * 0.03, accBonus: 0.18 + o.rank * 0.04 };
@@ -1619,6 +1655,7 @@ function officerBuff(u) {
 // officer aura + veterancy: each rank is 8% faster, 8% straighter and 4%
 // harder-hitting — a MSG puts out roughly 3.5x the fire of a green private
 function unitBuffs(u) {
+  if (u._buffsFrame === G.buffFrame) return u._buffs;
   const b = { rofMult: 1, accBonus: 0, dmgMult: 1 };
   const ob = officerBuff(u);
   if (ob) { b.rofMult *= ob.rofMult; b.accBonus += ob.accBonus; }
@@ -1627,6 +1664,8 @@ function unitBuffs(u) {
     b.accBonus += u.rank * 0.08;
     b.dmgMult *= 1 + u.rank * 0.04;
   }
+  u._buffs = b;
+  u._buffsFrame = G.buffFrame;
   return b;
 }
 
@@ -1953,7 +1992,7 @@ function updateATGun(u, dt) {
   let scatter = (24 + d * 0.11) * (1 - u.rank * 0.08);
   if (target.t.tank) scatter *= 0.80;
   else scatter *= 0.90;
-  scatter = Math.max(11, scatter * 0.8);
+  scatter = Math.max(11, scatter * 0.8 * (spec.scatterMult || 1));
   scheduleShell(
     target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
     0.45, spec.r, spec.shellDmg * (1 + u.rank * 0.06), false, u);
@@ -2055,7 +2094,8 @@ function updateTankCombat(a, dt) {
 // ============================================================ update: enemies
 
 function enemyOfficerNear(e) {
-  for (const o of G.enemies) {
+  const officers = G.deOfficers || G.enemies;
+  for (const o of officers) {
     if (!o.dead && o.t.aura && o !== e && dist(o, e) < 140) return true;
   }
   return false;
@@ -2332,6 +2372,20 @@ function stampBike(e, wrecked) {
 function update(dt) {
   G.time += dt;
 
+  G.auraRefresh -= dt;
+  if (G.auraRefresh <= 0) {
+    G.auraRefresh = AURA_CACHE_INTERVAL;
+    G.buffFrame = (G.buffFrame || 0) + 1;
+    G.usOfficers = [];
+    G.deOfficers = [];
+    for (const u of G.units) {
+      if (!u.dead && u.type === 'officer') G.usOfficers.push(u);
+    }
+    for (const e of G.enemies) {
+      if (!e.dead && e.t.aura) G.deOfficers.push(e);
+    }
+  }
+
   // a hit squad has no supply line: no trickle, no officer income, nothing to buy
   if (G.mode !== 'hitsquad') {
     // TP trickle
@@ -2465,23 +2519,23 @@ function update(dt) {
   if (G.banner) { G.banner.ttl -= dt; if (G.banner.ttl <= 0) G.banner = null; }
 
   // cleanup
-  G.units = G.units.filter(u => !u.dead);
-  G.enemies = G.enemies.filter(e => !e.dead);
-  G.sandbags = G.sandbags.filter(s => { if (s.hp <= 0) stampSandbagRubble(s); return s.hp > 0; });
-  G.bunkers = G.bunkers.filter(b => { if (b.hp <= 0) stampBunkerRubble(b); return b.hp > 0; });
-  G.wires = G.wires.filter(w => w.hp > 0);
-  G.mines = G.mines.filter(m => !m.dead);
-  G.shells = G.shells.filter(s => !s.done);
-  G.grenades = G.grenades.filter(g => !g.done);
-  G.rockets = G.rockets.filter(r => !r.done);
-  G.planes = G.planes.filter(p => !p.done);
-  G.particles = G.particles.filter(p => p.ttl > 0);
-  if (G.particles.length > 400) G.particles.splice(0, G.particles.length - 400);
-  G.tracers = G.tracers.filter(t => t.ttl > 0);
-  G.flashes = G.flashes.filter(f => f.ttl > 0);
-  G.texts = G.texts.filter(t => t.ttl > 0);
-  G.corpses = G.corpses.filter(c => c.ttl > 0);
-  G.groundMarks = G.groundMarks.filter(m => m.ttl > 0);
+  compactInPlace(G.units, u => !u.dead);
+  compactInPlace(G.enemies, e => !e.dead);
+  compactDefenses(G.sandbags, stampSandbagRubble);
+  compactDefenses(G.bunkers, stampBunkerRubble);
+  compactInPlace(G.wires, w => w.hp > 0);
+  compactInPlace(G.mines, m => !m.dead);
+  compactInPlace(G.shells, s => !s.done);
+  compactInPlace(G.grenades, g => !g.done);
+  compactInPlace(G.rockets, r => !r.done);
+  compactInPlace(G.planes, p => !p.done);
+  compactInPlace(G.particles, p => p.ttl > 0);
+  if (G.particles.length > PARTICLE_CAP) G.particles.splice(0, G.particles.length - PARTICLE_CAP);
+  compactInPlace(G.tracers, t => t.ttl > 0);
+  compactInPlace(G.flashes, f => f.ttl > 0);
+  compactInPlace(G.texts, t => t.ttl > 0);
+  compactInPlace(G.corpses, c => c.ttl > 0);
+  compactInPlace(G.groundMarks, m => m.ttl > 0);
 }
 
 function stampSandbagRubble(s) {
@@ -2515,6 +2569,7 @@ function endRun(won, title, stats) {
   document.getElementById('go-stats').textContent = stats;
   document.getElementById('gameover').classList.remove('hidden');
   el('pause').classList.add('hidden');
+  refreshHUD();
 }
 
 function gameOver() {
@@ -3543,13 +3598,17 @@ function draw() {
   // explosion flashes
   for (const f of G.flashes) {
     const a = f.ttl / f.max;
-    const grd = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
-    grd.addColorStop(0, `rgba(255,240,180,${0.9 * a})`);
-    grd.addColorStop(0.5, `rgba(255,140,40,${0.5 * a})`);
-    grd.addColorStop(1, 'rgba(255,80,20,0)');
-    ctx.fillStyle = grd;
+    ctx.globalAlpha = a * 0.9;
+    ctx.fillStyle = '#fff0b4';
+    ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.35, 0, 7); ctx.fill();
+    ctx.globalAlpha = a * 0.55;
+    ctx.fillStyle = '#ff8c28';
+    ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.7, 0, 7); ctx.fill();
+    ctx.globalAlpha = a * 0.25;
+    ctx.fillStyle = '#ff5014';
     ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.fill();
   }
+  ctx.globalAlpha = 1;
 
   // aircraft overhead, above every ground effect
   for (const p of G.planes) drawPlane(p);
@@ -3713,9 +3772,13 @@ function updateHUD() {
     const left = Math.max(0, G.level.timeLimit - G.time);
     const m = Math.floor(left / 60), s = Math.floor(left % 60);
     hud.waveBox.textContent = 'TIME ' + m + ':' + String(s).padStart(2, '0');
-    hud.breachBox.textContent = G.mode === 'hitsquad'
-      ? 'MEN ' + G.enemies.filter(e => !e.dead).length + '/' + G.squadTotal
-      : 'BREAK ' + G.breaches + '/' + G.level.winBreaches;
+    if (G.mode === 'hitsquad') {
+      let alive = 0;
+      for (const e of G.enemies) if (!e.dead) alive++;
+      hud.breachBox.textContent = 'MEN ' + alive + '/' + G.squadTotal;
+    } else {
+      hud.breachBox.textContent = 'BREAK ' + G.breaches + '/' + G.level.winBreaches;
+    }
   } else if (G.mode === 'allied') {
     hud.waveBox.textContent = 'WAVE ' + G.wave + '/' + G.level.waves.length;
     hud.breachBox.textContent = 'BREACH ' + G.breaches + '/' + G.level.breachLimit;
@@ -4408,6 +4471,7 @@ function pauseGame() {
   G.selected = [];
   syncMuteButtons();
   el('pause').classList.remove('hidden');
+  refreshHUD();
 }
 
 function resumeGame() {
@@ -4415,6 +4479,7 @@ function resumeGame() {
   paused = false;
   el('pause').classList.add('hidden');
   lastT = performance.now();
+  refreshHUD();
 }
 
 function returnToMenu() {
@@ -4471,6 +4536,7 @@ function startGame(levelId, difficultyId) {
           : 'Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.';
   if (level.briefing) showBanner(level.name);
   lastT = performance.now();
+  refreshHUD();
 }
 
 el('start-endless').addEventListener('click', openEndlessSelect);
@@ -4497,9 +4563,14 @@ function frame(now) {
   if (!G) return;
   const dt = Math.min((now - lastT) / 1000, 0.05);
   lastT = now;
-  if (running && !G.over && !paused) update(dt);
-  draw();
-  updateHUD();
+  const playing = running && !G.over && !paused;
+  if (playing) update(dt);
+  if (playing) draw();
+  hudAccum += dt;
+  if (hudAccum >= HUD_INTERVAL) {
+    hudAccum = 0;
+    updateHUD();
+  }
 }
 
 buildToolbar(PLACEABLES);

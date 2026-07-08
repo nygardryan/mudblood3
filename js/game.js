@@ -42,7 +42,7 @@ const UNIT_TYPES = {
     name: 'Bazooka', hp: 90, range: 120, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, speed: 40,
     color: '#3f5138', gun: 5, sfx: 'pistol',
-    rocket: { range: 330, cdMin: 6.7, cdMax: 9.2, r: 30, dmg: 120, speed: 380 },
+    rocket: { range: 363, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380 },
     desc: 'M1A1 rocket launcher. The answer to armor.',
   },
   mortarman: {
@@ -99,10 +99,10 @@ const UNIT_TYPES = {
   },
   atgun: {
     // trails are staked into the ground: it traverses inside its cone but never moves
-    name: 'AT Gun', hp: 200, range: 1200, dmg: 0, acc: 0,
+    name: 'AT Gun', hp: 200, range: 1080, dmg: 0, acc: 0,
     rof: 8, burst: 1, burstGap: 0, speed: 0,
     color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true,
-    atgun: { arc: 0.6, shellDmg: 403, r: 36 },
+    atgun: { arc: 0.6, shellDmg: 403, r: 27 },
     desc: '57mm anti-tank gun. Immobile; direct-fire AP shells ruin any vehicle they find.',
   },
 };
@@ -270,7 +270,7 @@ const PLACEABLES = [
     desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — no field repairs.' },
   { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon on a rotating turret; shrugs off small arms. Medics cannot repair it.' },
-  { key: 'atgun', label: 'AT GUN', cost: 30, kind: 'unit', hotkey: 'P',
+  { key: 'atgun', label: 'AT GUN', cost: 36, kind: 'unit', hotkey: 'P',
     desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
@@ -380,7 +380,7 @@ const LEVELS = {
     setup(G) {
       G.units.push(makeUnit('rifleman', W / 2 - 70, 470));
       G.units.push(makeUnit('rifleman', W / 2 + 70, 470));
-      G.sandbags.push({ x: W / 2, y: 455, hp: 300, maxhp: 300, up: false, workProg: 0 });
+      G.sandbags.push({ x: W / 2, y: 455, hp: 330, maxhp: 330, up: false, workProg: 0 });
     },
   },
 
@@ -408,12 +408,12 @@ const LEVELS = {
     ],
     setup(G) {
       // dug-in American defense along the trench line
-      const bag = (x, y) => G.sandbags.push({ x, y, hp: 300, maxhp: 300, up: false, workProg: 0 });
+      const bag = (x, y) => G.sandbags.push({ x, y, hp: 330, maxhp: 330, up: false, workProg: 0 });
       bag(W / 2 - 180, DEPLOY_Y + 40);
       bag(W / 2 - 60, DEPLOY_Y + 40);
       bag(W / 2 + 60, DEPLOY_Y + 40);
       bag(W / 2 + 180, DEPLOY_Y + 40);
-      G.bunkers.push({ x: W / 2, y: DEPLOY_Y + 85, hp: 3000, maxhp: 3000, up: false, workProg: 0 });
+      G.bunkers.push({ x: W / 2, y: DEPLOY_Y + 85, hp: 2400, maxhp: 2400, up: false, workProg: 0 });
       G.wires.push({ x: W / 2 - 130, y: DEPLOY_Y - 55, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
       G.wires.push({ x: W / 2 + 130, y: DEPLOY_Y - 55, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
       for (const pos of [
@@ -474,7 +474,7 @@ const LEVELS = {
       // his security detail holds the center; the flanks are thinner —
       // a small detail on purpose: six commandos cannot win a stand-up fight
       // against a full platoon, so the mission is sized for maneuver
-      const bag = (x, y) => G.sandbags.push({ x, y, hp: 300, maxhp: 300, up: false, workProg: 0 });
+      const bag = (x, y) => G.sandbags.push({ x, y, hp: 330, maxhp: 330, up: false, workProg: 0 });
       bag(W / 2 - 60, DEPLOY_Y + 40);
       bag(W / 2 + 60, DEPLOY_Y + 40);
       G.units.push(makeUnit('gunner', W / 2, DEPLOY_Y + 45));
@@ -681,7 +681,7 @@ function waveComposition(w) {
     ? Math.min(1, 0.9 + late * 0.006)
     : Math.min(0.9, w >= 9 ? 0.2 + (w - 9) * (0.7 / 90) : 0);
   if (w >= 9 && Math.random() < bikeChance) out.push('ebike');
-  const vehChance = 0.10 * (1 + late * 0.04);
+  const vehChance = 0.11 * (1 + late * 0.04);
   // a Kübelwagen gun car rolls in occasionally — not until mid-game
   if (w >= 16 && Math.random() < vehChance) out.push('ejeep');
   // an armored halftrack hauls a full squad to the front
@@ -784,7 +784,7 @@ const SPECIAL_WAVES = [
     banner: 'NEBELSTURM! THEY COME IN THE FOG!',
     // fog blankets the field while marksmen and MGs creep in behind the infantry
     spawn(t) {
-      G.fog = Math.max(G.fog, 24 + t);
+      G.fog = Math.max(G.fog, Math.round((24 + t) * 1.15));
       for (let i = 0; i < 2 + Math.floor(t / 4); i++) {
         spawnEnemyAt('esniper', rand(60, W - 60), rand(-140, -60));
       }
@@ -889,7 +889,7 @@ function barrageForWave(w) {
 // paratroopers drop into the top 2/3 of the field: 4 men minimum,
 // growing steadily with the wave count
 function paradropCount(w) {
-  return Math.min(4 + Math.floor(w / 6), 12 + Math.floor(wavesPast99(w) / 10));
+  return Math.round(Math.min(4 + Math.floor(w / 6), 12 + Math.floor(wavesPast99(w) / 10)) * 1.35);
 }
 
 const PARA_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];
@@ -937,7 +937,7 @@ function triggerEvent() {
     triggerParadrop();
   } else if (ev === 'fog') {
     showBanner('FOG ROLLS IN');
-    G.fog = 22;
+    G.fog = 25.3;
   } else if (ev === 'fng') {
     showBanner('REINFORCEMENTS: FNG REPORTING');
     const u = makeUnit('rifleman', rand(100, W - 100), rand(H - 90, H - 40));
@@ -1700,7 +1700,7 @@ function updateUnit(u, dt) {
       if (gt && !friendlyNearPoint(gt.x, gt.y, 55, u)) {
         // grenades are a rare, heavy punch — the carbine does the daily work.
         // Veterans throw more often, tighter and harder.
-        u.grenCd = rand(11, 16) * (1 - u.rank * 0.08);
+        u.grenCd = rand(9.6, 13.9) * (1 - u.rank * 0.08);
         SFX.grenadeToss();
         const sc = 12 * (1 - u.rank * 0.08);
         G.grenades.push({
@@ -3778,9 +3778,9 @@ function place(p, x, y) {
       scheduleShell(x + rand(-80, 80), y + rand(-65, 65), 1.6 + i * 0.5, 50, 95, true);
     }
   } else if (p.key === 'sandbags') {
-    G.sandbags.push({ x, y, hp: 300, maxhp: 300, up: false, workProg: 0 });
+    G.sandbags.push({ x, y, hp: 330, maxhp: 330, up: false, workProg: 0 });
   } else if (p.key === 'bunker') {
-    G.bunkers.push({ x, y, hp: 3000, maxhp: 3000, up: false, workProg: 0 });
+    G.bunkers.push({ x, y, hp: 2400, maxhp: 2400, up: false, workProg: 0 });
   } else if (p.key === 'wire') {
     G.wires.push({ x, y, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
   } else if (p.key === 'mine') {

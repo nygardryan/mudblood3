@@ -1555,6 +1555,157 @@ function drawFlameRangeCone(x, y, bearing, arc, range, alpha) {
   ctx.setLineDash([]);
 }
 
+// buckshot spread wedge — selection overlay and placement ghost
+function drawBuckshotCone(x, y, bearing, arc, range, alpha) {
+  const a = alpha != null ? alpha : 0.35;
+  const tipX = x + Math.cos(bearing) * range * 0.58;
+  const tipY = y + Math.sin(bearing) * range * 0.58;
+  const grad = ctx.createLinearGradient(x, y, tipX, tipY);
+  grad.addColorStop(0, `rgba(210,200,170,${a * 0.52})`);
+  grad.addColorStop(0.45, `rgba(170,160,130,${a * 0.32})`);
+  grad.addColorStop(1, `rgba(90,85,70,${a * 0.07})`);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.arc(x, y, range, bearing - arc, bearing + arc);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = `rgba(230,220,190,${a * 0.8})`;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 5]);
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.arc(x, y, range, bearing - arc, bearing + arc);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// muzzle flash while the trench gun fires
+function drawShotgunBlast(actor) {
+  if (!actor.shotgunBlastT || actor.shotgunBlastT <= 0 || !actor.t.shotgun) return;
+  const sg = actor.t.shotgun;
+  const range = unitRange(actor, sg.range) * fogMult() * 0.38;
+  const bearing = actor.face;
+  const fx = Math.cos(bearing), fy = Math.sin(bearing);
+  const nx = actor.x + fx * (actor.t.gun + 2);
+  const ny = actor.y + fy * (actor.t.gun + 2);
+  const alpha = clamp(actor.shotgunBlastT / 0.12, 0, 1);
+  const tipX = nx + fx * range;
+  const tipY = ny + fy * range;
+
+  ctx.save();
+  const grad = ctx.createLinearGradient(nx, ny, tipX, tipY);
+  grad.addColorStop(0, `rgba(255,245,200,${0.7 * alpha})`);
+  grad.addColorStop(0.35, `rgba(230,200,130,${0.45 * alpha})`);
+  grad.addColorStop(1, 'rgba(140,120,90,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(nx, ny);
+  ctx.arc(nx, ny, range, bearing - sg.arc * 0.72, bearing + sg.arc * 0.72);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = `rgba(255,230,160,${0.9 * alpha})`;
+  ctx.beginPath(); ctx.arc(nx, ny, 3.2, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+// indirect-fire annulus — max range ring plus inner dead zone
+function drawMortarRangeRing(x, y, minR, maxR, alpha) {
+  const a = alpha != null ? alpha : 0.35;
+  ctx.fillStyle = `rgba(130,140,110,${a * 0.14})`;
+  ctx.beginPath(); ctx.arc(x, y, maxR, 0, 7); ctx.fill();
+  ctx.strokeStyle = `rgba(190,200,160,${a * 0.78})`;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6, 5]);
+  ctx.beginPath(); ctx.arc(x, y, maxR, 0, 7); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = `rgba(200,75,55,${a * 0.1})`;
+  ctx.beginPath(); ctx.arc(x, y, minR, 0, 7); ctx.fill();
+  ctx.strokeStyle = `rgba(210,90,65,${a * 0.7})`;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.arc(x, y, minR, 0, 7); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// 60mm mortar round — body, fuze, tail fins
+function drawMortarRound(c, x, y, scale, rot) {
+  scale = scale || 1;
+  rot = rot != null ? rot : 0;
+  c.save();
+  c.translate(x, y);
+  c.rotate(rot);
+  c.fillStyle = '#3a4034';
+  c.beginPath();
+  c.ellipse(0, 0, 1.1 * scale, 2.4 * scale, 0, 0, 7);
+  c.fill();
+  c.strokeStyle = '#2a2e24';
+  c.lineWidth = 0.55 * scale;
+  c.stroke();
+  c.fillStyle = '#c8a858';
+  c.beginPath(); c.arc(0, -2.1 * scale, 0.75 * scale, 0, 7); c.fill();
+  c.strokeStyle = '#5a5c48';
+  c.lineWidth = 0.65 * scale;
+  for (const off of [-0.55, 0, 0.55]) {
+    c.beginPath();
+    c.moveTo(off * scale, 1.8 * scale);
+    c.lineTo(off * scale * 1.6, 3.4 * scale);
+    c.stroke();
+  }
+  c.restore();
+}
+
+// M2 60mm mortar tube, baseplate, and bipod beside the crewman
+function drawMortarTube(c, face, fx, fy, blastT) {
+  const kick = blastT > 0 ? clamp(blastT / 0.18, 0, 1) : 0;
+  const bx = -fx * 7.2 - fy * 2.8;
+  const by = -fy * 7.2 + fx * 2.8;
+  const tubeAng = face - 0.58 - kick * 0.12;
+  const tubeLen = 10.5;
+  const tx = bx + Math.cos(tubeAng) * tubeLen;
+  const ty = by + Math.sin(tubeAng) * tubeLen;
+
+  c.fillStyle = '#2f3328';
+  c.beginPath(); c.ellipse(bx, by, 4.8, 3.1, face + 0.25, 0, 7); c.fill();
+  c.strokeStyle = '#1e2018';
+  c.lineWidth = 1;
+  c.stroke();
+  c.fillStyle = '#3a3c30';
+  c.beginPath(); c.ellipse(bx, by, 2.8, 1.6, face + 0.25, 0, 7); c.fill();
+
+  c.strokeStyle = '#5a5c42';
+  c.lineWidth = 3.6;
+  c.beginPath(); c.moveTo(bx, by); c.lineTo(tx, ty); c.stroke();
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 1.3;
+  c.beginPath();
+  c.moveTo(bx + Math.cos(tubeAng) * 2, by + Math.sin(tubeAng) * 2);
+  c.lineTo(tx, ty);
+  c.stroke();
+
+  const midX = bx + Math.cos(tubeAng) * 4.2;
+  const midY = by + Math.sin(tubeAng) * 4.2;
+  c.strokeStyle = '#4a4a3e';
+  c.lineWidth = 1.4;
+  c.beginPath(); c.moveTo(midX, midY); c.lineTo(midX - fy * 4.5, midY + fx * 4.5); c.stroke();
+  c.beginPath(); c.moveTo(midX, midY); c.lineTo(midX + fy * 3.5, midY - fx * 3.5); c.stroke();
+
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 2;
+  c.beginPath(); c.arc(tx, ty, 1.9, 0, 7); c.stroke();
+  c.fillStyle = '#1c1c16';
+  c.beginPath(); c.arc(tx, ty, 0.9, 0, 7); c.fill();
+
+  if (blastT > 0) {
+    const alpha = clamp(blastT / 0.18, 0, 1);
+    c.fillStyle = `rgba(255,225,150,${0.8 * alpha})`;
+    c.beginPath(); c.arc(tx, ty, 2.2 + alpha * 2.5, 0, 7); c.fill();
+    c.fillStyle = `rgba(255,160,60,${0.45 * alpha})`;
+    c.beginPath(); c.arc(tx, ty, 4 + alpha * 3, 0, 7); c.fill();
+  }
+  return { tx, ty, bx, by };
+}
+
 // live flame jet while a flamethrower is spraying
 function drawFlameStream(actor) {
   if (!actor.flameT || actor.flameT <= 0 || !actor.t.flame) return;
@@ -1618,22 +1769,21 @@ function drawUnitWeaponRange(a, opts) {
     return;
   }
   if (t.shotgun) {
-    drawFireCone(a.x, a.y, bearing, t.shotgun.arc, unitRange(a, t.shotgun.range) * fog, alpha);
+    drawBuckshotCone(a.x, a.y, bearing, t.shotgun.arc, unitRange(a, t.shotgun.range) * fog, alpha);
+    return;
+  }
+  if (t.mortar) {
+    drawMortarRangeRing(a.x, a.y, unitRange(a, t.mortar.min) * fog, unitRange(a, t.mortar.range) * fog, alpha);
     return;
   }
 
   let r = t.range;
   if (t.rocket) r = t.rocket.range;
-  else if (t.mortar) r = t.mortar.range;
   if (r <= 0) return;
 
   ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
   ctx.lineWidth = 1;
   ctx.beginPath(); ctx.arc(a.x, a.y, unitRange(a, r) * fog, 0, 7); ctx.stroke();
-  if (t.mortar) {
-    ctx.strokeStyle = 'rgba(210,80,50,0.5)';
-    ctx.beginPath(); ctx.arc(a.x, a.y, t.mortar.min, 0, 7); ctx.stroke();
-  }
 }
 
 function drawSpecialistRangeAt(x, y, type) {
@@ -1723,14 +1873,25 @@ function fireShotgun(actor, buffs) {
   const my = actor.y + Math.sin(actor.face) * (actor.t.gun + 2);
 
   SFX.shotgun();
-  G.flashes.push({ x: mx, y: my, r: 8, ttl: 0.07, max: 0.07 });
+  actor.shotgunBlastT = 0.12;
+  G.flashes.push({ x: mx, y: my, r: 10, ttl: 0.08, max: 0.08 });
   for (let i = 0; i < sg.pellets; i++) {
     const a = actor.face + rand(-sg.spread, sg.spread);
     const d = rand(25, range);
     G.tracers.push({
       x1: mx, y1: my,
       x2: actor.x + Math.cos(a) * d, y2: actor.y + Math.sin(a) * d,
-      ttl: 0.05,
+      ttl: 0.05, kind: 'buckshot',
+    });
+  }
+  for (let i = 0; i < 5; i++) {
+    const a = actor.face + rand(-sg.spread * 0.6, sg.spread * 0.6);
+    const ttl = rand(0.08, 0.2);
+    G.particles.push({
+      x: mx + Math.cos(a) * rand(4, 14), y: my + Math.sin(a) * rand(4, 14),
+      vx: Math.cos(a) * rand(35, 70), vy: Math.sin(a) * rand(35, 70) - rand(5, 20),
+      ttl, maxTtl: ttl, grav: 120, size: rand(1.2, 2.2),
+      kind: 'smoke', color: pick(['#d8ccb0', '#c8b898', '#a89878', '#8a7a60']),
     });
   }
   G.particles.push({
@@ -1997,7 +2158,8 @@ function updateUnit(u, dt) {
         // veteran crews drop rounds faster, tighter and heavier
         u.mortCd = rand(mt.cdMin, mt.cdMax) * (1 - u.rank * 0.08);
         u.face = Math.atan2(target.y - u.y, target.x - u.x);
-        G.flashes.push({ x: u.x, y: u.y - 6, r: 4, ttl: 0.06, max: 0.06 });
+        u.mortarFireT = 0.18;
+        G.flashes.push({ x: u.x, y: u.y - 6, r: 5, ttl: 0.07, max: 0.07 });
         const sc = mt.scatter * (1 - u.rank * 0.08);
         scheduleShell(target.x + rand(-sc, sc), target.y + rand(-sc, sc),
           mt.flight, mt.r, mt.dmg * (1 + u.rank * 0.05), false, u);
@@ -2577,6 +2739,8 @@ function update(dt) {
   for (const e of G.enemies) if (!e.dead && e.flameT > 0) e.flameT -= dt;
   for (const u of G.units) if (!u.dead && u.grenThrowT > 0) u.grenThrowT -= dt;
   for (const e of G.enemies) if (!e.dead && e.grenThrowT > 0) e.grenThrowT -= dt;
+  for (const u of G.units) if (!u.dead && u.shotgunBlastT > 0) u.shotgunBlastT -= dt;
+  for (const u of G.units) if (!u.dead && u.mortarFireT > 0) u.mortarFireT -= dt;
 
   // mines
   for (const m of G.mines) {
@@ -2801,9 +2965,10 @@ function drawProneSoldier(a) {
   c.beginPath(); c.ellipse(-1, 1.5, isMG ? 11.5 : 10.5, 4, 0, 0, 7); c.fill();
   const gunX = 3 + a.t.gun * 0.82;
   const isGren = a.type === 'grenadier' || a.type === 'egren';
+  const isShot = a.type === 'shotgunner';
   // weapon laid out beside him, not shouldered
   c.strokeStyle = '#26261e';
-  c.lineWidth = isEmg ? 2.6 : isBar ? 2.2 : isGren ? 2 : 1.8;
+  c.lineWidth = isEmg ? 2.6 : isBar ? 2.2 : isShot ? 2.8 : isGren ? 2 : 1.8;
   c.beginPath(); c.moveTo(3, 2.8); c.lineTo(gunX, 2.8); c.stroke();
   if (isBar) {
     c.fillStyle = '#2a2a1e';
@@ -2839,6 +3004,19 @@ function drawProneSoldier(a) {
     c.lineTo(gunX + 0.5, 3.2); c.lineTo(gunX - 0.9, 3.2);
     c.closePath(); c.fill();
   }
+  if (isShot) {
+    c.strokeStyle = '#4a3f2e';
+    c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(3.5, 4.2); c.lineTo(gunX - 1, 4.2); c.stroke();
+    c.fillStyle = '#5a4a38';
+    c.fillRect(3 + a.t.gun * 0.28, 3.2, 3.5, 2);
+    c.strokeStyle = '#4a4038';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(gunX - 0.5, 1.8); c.lineTo(gunX + 0.5, 4.2);
+    c.lineTo(gunX + 1.8, 1.8);
+    c.stroke();
+  }
   // legs trailing behind
   c.strokeStyle = a.t.color;
   c.lineWidth = 2.4;
@@ -2846,7 +3024,13 @@ function drawProneSoldier(a) {
   c.beginPath(); c.moveTo(-4, 0); c.lineTo(-10, 1.8); c.stroke();
   // torso stretched along the facing
   c.fillStyle = a.t.color;
-  c.beginPath(); c.ellipse(-1, 0, isMG ? 7.2 : 6.5, isMG ? 3.4 : 3.2, 0, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(-1, 0, isMG ? 7.2 : isShot ? 7 : 6.5, isMG ? 3.4 : isShot ? 3.5 : 3.2, 0, 0, 7); c.fill();
+  if (isShot) {
+    c.fillStyle = '#4a5245';
+    c.beginPath(); c.ellipse(0.5, 0, 5.5, 3.2, 0, 0, 7); c.fill();
+    drawShotgunShell(c, -3, 1.5, 0.7, 0.3);
+    drawShotgunShell(c, -1, 2.5, 0.65, -0.2);
+  }
   if (isBar) {
     c.strokeStyle = '#8a7a48';
     c.lineWidth = 1.2;
@@ -2874,6 +3058,17 @@ function drawProneSoldier(a) {
   if (a.type === 'egren') {
     drawStickGrenade(c, -4.5, 0.5, 0.75, 0.4);
     drawStickGrenade(c, -2, 2.5, 0.68, 0.9);
+  }
+  if (a.type === 'mortarman') {
+    c.fillStyle = '#2f3328';
+    c.beginPath(); c.ellipse(-5, 1.5, 4, 2.5, 0.3, 0, 7); c.fill();
+    c.strokeStyle = '#5a5c42';
+    c.lineWidth = 2.8;
+    c.beginPath(); c.moveTo(-5, 1.5); c.lineTo(2, -4); c.stroke();
+    c.fillStyle = '#5a4a38';
+    c.fillRect(-7.5, 2.5, 4.5, 3);
+    drawMortarRound(c, -6.5, 3.5, 0.65, 0.25);
+    drawMortarRound(c, -5, 3.8, 0.62, -0.1);
   }
   c.restore();
 }
@@ -3012,6 +3207,23 @@ function drawGrenadeProjectile(g, x, y) {
   }
 }
 
+// 12-gauge shell on a bandolier loop
+function drawShotgunShell(c, x, y, scale, rot) {
+  scale = scale || 1;
+  rot = rot != null ? rot : 0;
+  c.save();
+  c.translate(x, y);
+  c.rotate(rot);
+  c.fillStyle = '#8a3828';
+  c.fillRect(-0.75 * scale, -2.1 * scale, 1.5 * scale, 2.6 * scale);
+  c.fillStyle = '#c8a858';
+  c.fillRect(-0.6 * scale, -2.4 * scale, 1.2 * scale, 0.95 * scale);
+  c.strokeStyle = '#5a3020';
+  c.lineWidth = 0.45 * scale;
+  c.strokeRect(-0.75 * scale, -2.1 * scale, 1.5 * scale, 2.6 * scale);
+  c.restore();
+}
+
 function drawSoldier(a) {
   if (a.prone > 0) {
     drawProneSoldier(a);
@@ -3029,6 +3241,7 @@ function drawSoldier(a) {
   const isShotgun = type === 'shotgunner';
   const isOfficer = type === 'officer' || type === 'eoff';
   const isGrenadier = type === 'grenadier' || type === 'egren';
+  const isMortar = type === 'mortarman';
   const fx = Math.cos(a.face), fy = Math.sin(a.face);
   c.save();
   c.translate(a.x, a.y);
@@ -3109,6 +3322,62 @@ function drawSoldier(a) {
       c.fillStyle = '#ff7020';
       c.beginPath(); c.arc(nozX, nozY, 0.75, 0, 7); c.fill();
     }
+  } else if (isShotgun) {
+    // M97 trench gun — long barrel, pump forend, wide choke, wooden stock
+    const tipX = fx * gunLen, tipY = fy * gunLen;
+    const pumpT = a.shotgunBlastT > 0 ? clamp(a.shotgunBlastT / 0.12, 0, 1) : 0;
+    const pumpOff = pumpT * 1.4;
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 3.4;
+    c.beginPath();
+    c.moveTo(fx * 2, fy * 2);
+    c.lineTo(tipX, tipY);
+    c.stroke();
+    c.strokeStyle = '#4a3f2e';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(fx * 1.5 - fy * 2.6, fy * 1.5 + fx * 2.6);
+    c.lineTo(fx * 1.5 + fy * 2.2, fy * 1.5 - fx * 2.2);
+    c.stroke();
+    // magazine tube under the barrel
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 1.8;
+    c.beginPath();
+    c.moveTo(fx * 2.5 + fy * 1.5, fy * 2.5 - fx * 1.5);
+    c.lineTo(fx * (gunLen - 1.2) + fy * 1.5, fy * (gunLen - 1.2) - fx * 1.5);
+    c.stroke();
+    // pump forend — slides back on recoil
+    const px = fx * (gunLen * 0.38 - pumpOff), py = fy * (gunLen * 0.38 - pumpOff);
+    c.fillStyle = '#5a4a38';
+    c.beginPath();
+    c.moveTo(px - fy * 2.2, py + fx * 2.2);
+    c.lineTo(px + fx * 3.8, py + fy * 3.8);
+    c.lineTo(px + fy * 2.2, py - fx * 2.2);
+    c.lineTo(px - fx * 3.8, py - fy * 3.8);
+    c.closePath(); c.fill();
+    c.strokeStyle = '#3a3028';
+    c.lineWidth = 0.9;
+    c.stroke();
+    // vent rib along the barrel
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 0.7;
+    for (let t = 0.55; t <= 0.92; t += 0.1) {
+      const sx = fx * (gunLen * t), sy = fy * (gunLen * t);
+      c.beginPath();
+      c.moveTo(sx - fy * 1.4, sy + fx * 1.4);
+      c.lineTo(sx + fy * 1.4, sy - fx * 1.4);
+      c.stroke();
+    }
+    // wide muzzle choke
+    c.strokeStyle = '#4a4038';
+    c.lineWidth = 2.8;
+    c.beginPath();
+    c.moveTo(tipX - fy * 2.8, tipY + fx * 2.8);
+    c.lineTo(tipX + fx * 1.5, tipY + fy * 1.5);
+    c.lineTo(tipX + fy * 2.8, tipY - fx * 2.8);
+    c.stroke();
+    c.fillStyle = '#1c1c16';
+    c.beginPath(); c.arc(tipX, tipY, 1.2, 0, 7); c.fill();
   } else if (isGrenadier && us) {
     // M1 carbine — short barrel, side mag, curved stock
     c.strokeStyle = '#26261e';
@@ -3156,9 +3425,25 @@ function drawSoldier(a) {
     c.lineTo(fx * (gunLen - 1.5) + fy * 0.8, fy * (gunLen - 1.5) - fx * 0.8);
     c.closePath(); c.fill();
     drawStickGrenade(c, fx * 1.8 + fy * 3.5, fy * 1.8 - fx * 3.5, 0.72, a.face + 0.55);
+  } else if (isMortar) {
+    // M1911 sidearm — mortar crew's last resort
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 1.9;
+    c.beginPath();
+    c.moveTo(fx * 2, fy * 2);
+    c.lineTo(fx * gunLen, fy * gunLen);
+    c.stroke();
+    c.fillStyle = '#4a4038';
+    c.beginPath(); c.arc(fx * 3.2 + fy * 2.2, fy * 3.2 - fx * 2.2, 1.6, 0, 7); c.fill();
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 1.1;
+    c.beginPath();
+    c.moveTo(fx * 3.8 + fy * 1.2, fy * 3.8 - fx * 1.2);
+    c.lineTo(fx * 3.8 + fy * 3.2, fy * 3.8 - fx * 3.2);
+    c.stroke();
   } else {
     c.strokeStyle = '#26261e';
-    c.lineWidth = isEmg ? 3.4 : isBar ? 2.8 : isSMG ? 2.6 : isSniper ? 1.6 : isShotgun ? 3.2 : 2;
+    c.lineWidth = isEmg ? 3.4 : isBar ? 2.8 : isSMG ? 2.6 : isSniper ? 1.6 : 2;
     c.beginPath();
     c.moveTo(fx * 2, fy * 2);
     c.lineTo(fx * gunLen, fy * gunLen);
@@ -3225,20 +3510,6 @@ function drawSoldier(a) {
       c.stroke();
     }
   }
-  if (isShotgun) {
-    // wide muzzle on the trench gun
-    c.lineWidth = 2.2;
-    c.beginPath();
-    c.moveTo(fx * (a.t.gun - 1.5) - fy * 1.2, fy * (a.t.gun - 1.5) + fx * 1.2);
-    c.lineTo(fx * (a.t.gun - 1.5) + fy * 1.2, fy * (a.t.gun - 1.5) - fx * 1.2);
-    c.stroke();
-    // pump grip under the barrel
-    c.lineWidth = 1.8;
-    c.beginPath();
-    c.moveTo(fx * (a.t.gun * 0.45), fy * (a.t.gun * 0.45));
-    c.lineTo(fx * (a.t.gun * 0.45) - fy * 3.5, fy * (a.t.gun * 0.45) + fx * 3.5);
-    c.stroke();
-  }
   if (isSMG) {
     // box magazine hanging under the gun
     c.lineWidth = 2.4;
@@ -3255,20 +3526,27 @@ function drawSoldier(a) {
 
   // ---- body
   const isFlamer = !!a.t.flame;
-  const bodyW = isShotgun ? 7.5 : isEmg ? 7.3 : isBar ? 7 : isFlamer ? 7.2 : isGrenadier ? 6.8 : 6.5;
-  const bodyH = isShotgun ? 5.8 : isEmg ? 4.7 : isBar ? 4.9 : isFlamer ? 5.4 : isGrenadier ? 5.2 : 5;
+  const bodyW = isShotgun ? 7.5 : isEmg ? 7.3 : isBar ? 7 : isFlamer ? 7.2 : isGrenadier ? 6.8 : isMortar ? 6.7 : 6.5;
+  const bodyH = isShotgun ? 5.8 : isEmg ? 4.7 : isBar ? 4.9 : isFlamer ? 5.4 : isGrenadier ? 5.2 : isMortar ? 5.1 : 5;
   c.fillStyle = a.t.color;
   c.beginPath(); c.ellipse(0, 0, bodyW, bodyH, a.face, 0, 7); c.fill();
   if (isShotgun) {
-    // steel chest plate and pauldrons
+    // steel chest plate, heavy pauldrons, riveted breastplate
     c.fillStyle = '#4a5245';
-    c.beginPath(); c.ellipse(fx * 1.2, fy * 1.2, 5.8, 4.8, a.face, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(fx * 1.3, fy * 1.3, 6.2, 5.2, a.face, 0, 7); c.fill();
     c.strokeStyle = '#2e3328';
-    c.lineWidth = 1;
+    c.lineWidth = 1.2;
     c.stroke();
-    c.fillStyle = '#555f4a';
-    c.beginPath(); c.ellipse(-fy * 4.5, fx * 4.5, 2.2, 2.8, a.face, 0, 7); c.fill();
-    c.beginPath(); c.ellipse(fy * 4.5, -fx * 4.5, 2.2, 2.8, a.face, 0, 7); c.fill();
+    c.fillStyle = '#5a6450';
+    c.beginPath(); c.ellipse(-fy * 5, fx * 5, 2.6, 3.2, a.face, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(fy * 5, -fx * 5, 2.6, 3.2, a.face, 0, 7); c.fill();
+    c.fillStyle = '#3a4034';
+    for (const [rx, ry] of [[fx * 0.5, fy * 0.5], [-fx * 1.2, -fy * 1.2], [fx * 2, fy * 2]]) {
+      c.beginPath(); c.arc(rx, ry, 0.7, 0, 7); c.fill();
+    }
+    c.strokeStyle = '#6a6a58';
+    c.lineWidth = 0.9;
+    c.beginPath(); c.moveTo(-fy * 2.5, fx * 2.5); c.lineTo(fy * 2.5, -fx * 2.5); c.stroke();
   }
   if (isFlamer) {
     // flak vest — steel plate over the torso, heavier than a rifleman's kit
@@ -3323,6 +3601,26 @@ function drawSoldier(a) {
   }
 
   // ---- class kit
+  if (isShotgun) {
+    // 12-gauge bandolier and shell loops on the belt
+    c.strokeStyle = '#8a7a48';
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(-fy * 5 - fx * 1.2, fx * 5 - fy * 1.2);
+    c.lineTo(fy * 5 - fx * 1.2, -fx * 5 - fy * 1.2);
+    c.stroke();
+    drawShotgunShell(c, -5.2, 2.8, 0.9, 0.25);
+    drawShotgunShell(c, -2.8, 4.5, 0.85, -0.15);
+    drawShotgunShell(c, 0.2, 5.2, 0.82, 0.4);
+    drawShotgunShell(c, 3.2, 4.2, 0.8, 0.65);
+    c.fillStyle = '#3a4034';
+    c.fillRect(-6.2, 4.5, 4.5, 2.8);
+    c.strokeStyle = '#4a4a3e';
+    c.lineWidth = 0.8;
+    c.strokeRect(-6.2, 4.5, 4.5, 2.8);
+    c.fillStyle = '#2f3328';
+    c.fillRect(4.8, 3.8, 2.6, 2.2);
+  }
   if (type === 'grenadier') {
     // M1 carbine bandolier and frags clipped to the harness
     c.strokeStyle = '#8a7a48';
@@ -3363,14 +3661,35 @@ function drawSoldier(a) {
     c.beginPath(); c.arc(8, -6.5, 1.6, 0, 7); c.fill();
   }
   if (a.t.mortar) {
-    // baseplate and angled tube beside him
-    c.fillStyle = '#2f3328';
-    c.beginPath(); c.ellipse(-7.5, 4.5, 4, 2.3, 0, 0, 7); c.fill();
-    c.strokeStyle = '#5a5c42';
-    c.lineWidth = 3;
-    c.beginPath(); c.moveTo(-7.5, 4.5); c.lineTo(-4, -6); c.stroke();
-    c.fillStyle = '#1c1c16';
-    c.beginPath(); c.arc(-4, -6, 1.5, 0, 7); c.fill();
+    const tube = drawMortarTube(c, a.face, fx, fy, a.mortarFireT || 0);
+    // wooden ammo crate beside the baseplate
+    c.fillStyle = '#5a4a38';
+    c.fillRect(tube.bx - 4.5, tube.by + 2.5, 5.5, 3.8);
+    c.strokeStyle = '#3a3028';
+    c.lineWidth = 0.8;
+    c.strokeRect(tube.bx - 4.5, tube.by + 2.5, 5.5, 3.8);
+    c.strokeStyle = '#4a4030';
+    c.lineWidth = 0.7;
+    c.beginPath(); c.moveTo(tube.bx - 4.5, tube.by + 4.4); c.lineTo(tube.bx + 1, tube.by + 4.4); c.stroke();
+    drawMortarRound(c, tube.bx - 3.2, tube.by + 3.2, 0.75, 0.2);
+    drawMortarRound(c, tube.bx - 1.5, tube.by + 3.5, 0.72, -0.15);
+    drawMortarRound(c, tube.bx - 0.2, tube.by + 3.1, 0.7, 0.35);
+    // shell carry bag on the chest
+    c.fillStyle = '#3a4034';
+    c.beginPath(); c.ellipse(fy * 3.5, -fx * 3.5, 2.8, 3.4, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#2a2e24';
+    c.lineWidth = 0.9;
+    c.stroke();
+    drawMortarRound(c, fy * 3.2, -fx * 3.2, 0.65, a.face + 0.5);
+    // range table / map board tucked under arm
+    c.fillStyle = '#c8b898';
+    c.fillRect(-fy * 4.8 - 2, fx * 4.8 - 1.5, 4, 3);
+    c.strokeStyle = '#6a5a40';
+    c.lineWidth = 0.6;
+    c.strokeRect(-fy * 4.8 - 2, fx * 4.8 - 1.5, 4, 3);
+    c.strokeStyle = '#8a7a58';
+    c.lineWidth = 0.5;
+    c.beginPath(); c.moveTo(-fy * 4.8 - 1.5, fx * 4.8); c.lineTo(-fy * 4.8 + 1, fx * 4.8 + 1.2); c.stroke();
   }
   if (a.t.flame) {
     // twin fuel tanks on the back — metal cylinders, straps, warning stripe
@@ -3430,6 +3749,17 @@ function drawSoldier(a) {
       c.fillStyle = 'rgba(230,228,210,0.85)';
       c.beginPath(); c.arc(-fx * 2.8, -1 + fy * 2.8, 1.6, 0, 7); c.fill();
     }
+    if (isShotgun) {
+      // steel chin strap — keeps the helmet on under recoil
+      c.strokeStyle = '#4a4a40';
+      c.lineWidth = 1.1;
+      c.beginPath(); c.moveTo(-2.8, 1.5); c.lineTo(0, 3.8); c.lineTo(2.8, 1.5); c.stroke();
+    }
+    if (isMortar) {
+      // red armband — mortar section identifier
+      c.fillStyle = '#b8261c';
+      c.beginPath(); c.ellipse(-fy * 4.2, fx * 4.2, 1.8, 2.4, a.face, 0, 7); c.fill();
+    }
   }
   if (a.type === 'engineer') {
     // crossed-tools mark on the helmet
@@ -3469,6 +3799,16 @@ function drawSoldier(a) {
     } else {
       drawFragGrenade(c, ax + Math.cos(arm) * 2.2, ay + Math.sin(arm) * 2.2, 0.95, { rot: arm - 0.4 });
     }
+  }
+  // drop a round into the tube while firing
+  if (a.mortarFireT > 0 && a.t.mortar) {
+    const t = clamp(a.mortarFireT / 0.18, 0, 1);
+    const arm = a.face - 0.35 - t * 0.5;
+    const ax = Math.cos(arm) * 6, ay = Math.sin(arm) * 6;
+    c.strokeStyle = a.t.color;
+    c.lineWidth = 2.4;
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(ax, ay); c.stroke();
+    drawMortarRound(c, ax + Math.cos(arm) * 1.8, ay + Math.sin(arm) * 1.8, 0.85, arm + Math.PI / 2);
   }
 
   c.restore();
@@ -4129,11 +4469,20 @@ function draw() {
   for (const u of G.units) {
     if (!u.dead && u.t.flame && u.flameT > 0) drawFlameStream(u);
   }
+  for (const u of G.units) {
+    if (!u.dead && u.t.shotgun && u.shotgunBlastT > 0) drawShotgunBlast(u);
+  }
 
   // tracers
   ctx.lineWidth = 1.2;
   for (const tr of G.tracers) {
-    ctx.strokeStyle = 'rgba(255,235,170,0.8)';
+    if (tr.kind === 'buckshot') {
+      ctx.strokeStyle = 'rgba(220,200,150,0.75)';
+      ctx.lineWidth = 2.2;
+    } else {
+      ctx.strokeStyle = 'rgba(255,235,170,0.8)';
+      ctx.lineWidth = 1.2;
+    }
     ctx.beginPath(); ctx.moveTo(tr.x1, tr.y1); ctx.lineTo(tr.x2, tr.y2); ctx.stroke();
   }
 
@@ -4149,6 +4498,11 @@ function draw() {
       g.addColorStop(1, 'rgba(40,18,8,0)');
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
+    } else if (p.kind === 'smoke') {
+      const life = p.maxTtl ? p.ttl / p.maxTtl : clamp(p.ttl / 0.15, 0, 1);
+      ctx.globalAlpha = life * 0.65;
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.1 - life * 0.3), 0, 7); ctx.fill();
     } else {
       ctx.globalAlpha = 1;
       ctx.fillStyle = p.color;
@@ -4364,20 +4718,18 @@ function drawPlacementGhost() {
       drawFireCone(x, y, -Math.PI / 2, ut.fireCone.arc, ut.range * fogMult(), 0.35);
     } else if (ut && ut.flame) {
       drawFlameRangeCone(x, y, -Math.PI / 2, ut.flame.arc, ut.flame.range * fogMult(), 0.35);
+    } else if (ut && ut.shotgun) {
+      drawBuckshotCone(x, y, -Math.PI / 2, ut.shotgun.arc, ut.shotgun.range * fogMult(), 0.35);
+    } else if (ut && ut.mortar) {
+      drawMortarRangeRing(x, y, ut.mortar.min * fogMult(), ut.mortar.range * fogMult(), 0.35);
     } else if (ut) {
       // show the reach of his main weapon, not the sidearm
       let r = ut.range;
       if (ut.rocket) r = ut.rocket.range;
-      if (ut.mortar) r = ut.mortar.range;
       if (ut.shotgun) r = ut.shotgun.range;
       ctx.strokeStyle = 'rgba(255,255,255,0.35)';
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(x, y, r * fogMult(), 0, 7); ctx.stroke();
-      if (ut.mortar) {
-        // dead zone he cannot drop shells into
-        ctx.strokeStyle = 'rgba(210,80,50,0.5)';
-        ctx.beginPath(); ctx.arc(x, y, ut.mortar.min, 0, 7); ctx.stroke();
-      }
     }
     if (p.kind === 'unit') drawSpecialistRangeAt(x, y, p.key);
   }

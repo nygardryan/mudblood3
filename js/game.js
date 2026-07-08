@@ -1339,7 +1339,7 @@ function fireShot(shooter, target, opts) {
 
   let acc = t.acc * (opts && opts.accBonus ? 1 + opts.accBonus : 1);
   const d = dist(shooter, target);
-  acc *= clamp(1.15 - d / (t.range * 1.6), 0.35, 1);
+  acc *= clamp(1.15 - d / (unitRange(shooter, t.range) * 1.6), 0.35, 1);
 
   let hx = target.x, hy = target.y;
   const hit = Math.random() < acc;
@@ -1443,10 +1443,50 @@ function drawFireCone(x, y, bearing, arc, range, alpha) {
   ctx.stroke();
 }
 
+// weapon reach overlay for selected units — scales with veterancy like combat range
+function drawUnitWeaponRange(a, opts) {
+  const t = a.t;
+  const fog = fogMult();
+  const alpha = opts && opts.alpha != null ? opts.alpha : 0.35;
+  const bearing = opts && opts.bearing != null ? opts.bearing
+    : a.turret != null ? a.turret : a.face;
+
+  if (t.atgun) {
+    drawFireCone(a.x, a.y, -Math.PI / 2, t.atgun.arc, unitRange(a, t.range) * fog, alpha);
+    return;
+  }
+  if (t.fireCone) {
+    drawFireCone(a.x, a.y, bearing, t.fireCone.arc, unitRange(a, t.range) * fog, alpha);
+    return;
+  }
+  if (t.flame) {
+    drawFireCone(a.x, a.y, bearing, t.flame.arc, unitRange(a, t.flame.range) * fog, alpha);
+    return;
+  }
+  if (t.shotgun) {
+    drawFireCone(a.x, a.y, bearing, t.shotgun.arc, unitRange(a, t.shotgun.range) * fog, alpha);
+    return;
+  }
+
+  let r = t.range;
+  if (t.rocket) r = t.rocket.range;
+  else if (t.mortar) r = t.mortar.range;
+  if (r <= 0) return;
+
+  ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(a.x, a.y, unitRange(a, r) * fog, 0, 7); ctx.stroke();
+  if (t.mortar) {
+    ctx.strokeStyle = 'rgba(210,80,50,0.5)';
+    ctx.beginPath(); ctx.arc(a.x, a.y, t.mortar.min, 0, 7); ctx.stroke();
+  }
+}
+
 // one tick of flame from `actor` toward its facing: burns EVERYTHING in the
 // cone regardless of side — that's the deal you make with a flamethrower
 function flameSpray(actor, dt) {
   const fl = actor.t.flame;
+  const range = unitRange(actor, fl.range);
 
   actor.flameSfx = (actor.flameSfx || 0) - dt;
   if (actor.flameSfx <= 0) { actor.flameSfx = 0.4; SFX.flame(); }
@@ -1454,7 +1494,7 @@ function flameSpray(actor, dt) {
   // roiling fire particles along the cone
   for (let i = 0; i < 7; i++) {
     const a = actor.face + rand(-fl.arc, fl.arc) * 0.8;
-    const d = rand(10, fl.range);
+    const d = rand(10, range);
     G.particles.push({
       x: actor.x + Math.cos(a) * d, y: actor.y + Math.sin(a) * d,
       vx: Math.cos(a) * rand(20, 60), vy: Math.sin(a) * rand(20, 60) - 15,
@@ -1465,7 +1505,7 @@ function flameSpray(actor, dt) {
   // scorch the earth now and then
   if (Math.random() < 0.05) {
     const a = actor.face + rand(-fl.arc, fl.arc) * 0.6;
-    const d = rand(fl.range * 0.4, fl.range);
+    const d = rand(range * 0.4, range);
     gctx.fillStyle = 'rgba(30,26,18,0.28)';
     gctx.beginPath();
     gctx.ellipse(actor.x + Math.cos(a) * d, actor.y + Math.sin(a) * d,
@@ -1478,7 +1518,7 @@ function flameSpray(actor, dt) {
   const burn = (a2) => {
     if (a2 === actor || a2.dead) return;
     const d = dist(actor, a2);
-    if (d > fl.range + 8) return;
+    if (d > range + 8) return;
     if (Math.abs(angleDiff(Math.atan2(a2.y - actor.y, a2.x - actor.x), actor.face)) > fl.arc) return;
     let dmg = dps * dt * rand(0.8, 1.2);
     if (a2.t.tank) dmg *= 0.6;
@@ -1496,7 +1536,7 @@ function flameSpray(actor, dt) {
 // pellet damage scaled by distance and how centered they are in the spread
 function fireShotgun(actor, buffs) {
   const sg = actor.t.shotgun;
-  const range = sg.range * fogMult();
+  const range = unitRange(actor, sg.range) * fogMult();
   const arc = sg.arc * (1 + (buffs && buffs.accBonus ? buffs.accBonus * 0.25 : 0));
   const mx = actor.x + Math.cos(actor.face) * (actor.t.gun + 2);
   const my = actor.y + Math.sin(actor.face) * (actor.t.gun + 2);
@@ -1595,6 +1635,22 @@ function unitSpeed(u) {
   return u.t.speed * (1 + (u.rank || 0) * 0.04);
 }
 
+// close-range specialists stretch their reach hardest as they rank up
+function unitRangeRankRate(type) {
+  return (type === 'shotgunner' || type === 'engineer' || type === 'officer' || type === 'flamer')
+    ? 0.05 : 0.01;
+}
+
+function unitRangeMult(u) {
+  const rank = u.rank || 0;
+  if (rank <= 0) return 1;
+  return 1 + rank * unitRangeRankRate(u.type);
+}
+
+function unitRange(u, base) {
+  return base * unitRangeMult(u);
+}
+
 function updateUnit(u, dt) {
   if (u.proneCd > 0) u.proneCd -= dt;
   if (u.prone > 0) {
@@ -1645,7 +1701,7 @@ function updateUnit(u, dt) {
         u.y += Math.sin(ang) * sp * dt;
       }
     }
-    const vt = nearestEnemyInRange(u, u.t.range * fogMult());
+    const vt = nearestEnemyInRange(u, unitRange(u, u.t.range) * fogMult());
     runWeapon(u, vt, dt, unitBuffs(u));
     return;
   }
@@ -1664,7 +1720,7 @@ function updateUnit(u, dt) {
   }
 
   if (u.t.flame) {
-    const ft = nearestEnemyInRange(u, u.t.flame.range * fogMult());
+    const ft = nearestEnemyInRange(u, unitRange(u, u.t.flame.range) * fogMult());
     if (ft) {
       u.face = Math.atan2(ft.y - u.y, ft.x - u.x);
       flameSpray(u, dt);
@@ -1674,7 +1730,7 @@ function updateUnit(u, dt) {
 
   if (u.t.shotgun) {
     const sg = u.t.shotgun;
-    const st = nearestEnemyInRange(u, sg.range * fogMult());
+    const st = nearestEnemyInRange(u, unitRange(u, sg.range) * fogMult());
     const buffs = unitBuffs(u);
     if (st) u.face = Math.atan2(st.y - u.y, st.x - u.x);
     u.cd -= dt;
@@ -1686,7 +1742,7 @@ function updateUnit(u, dt) {
   }
 
   const buffs = unitBuffs(u);
-  const range = u.t.range * fogMult();
+  const range = unitRange(u, u.t.range) * fogMult();
   let target;
   if (u.type === 'sniper') target = sniperTarget(u, range);
   else target = nearestEnemyInRange(u, range);
@@ -1717,7 +1773,7 @@ function updateUnit(u, dt) {
     u.rocketCd -= dt;
     if (u.rocketCd <= 0) {
       const rk = u.t.rocket;
-      const rr = rk.range * fogMult();
+      const rr = unitRange(u, rk.range) * fogMult();
       // tanks first, then soft vehicles, infantry only when there is nothing
       // on wheels; never inside his own blast
       const safe = e => dist(u, e) > rk.r + 20;
@@ -1748,7 +1804,7 @@ function updateUnit(u, dt) {
     u.mortCd -= dt;
     if (u.mortCd <= 0) {
       const mt = u.t.mortar;
-      const mr = mt.range * fogMult();
+      const mr = unitRange(u, mt.range) * fogMult();
       const target = nearestEnemyInRange(u, mr, e => dist(u, e) > mt.min);
       if (target && !friendlyNearPoint(target.x, target.y, 55, u)) {
         // veteran crews drop rounds faster, tighter and heavier
@@ -1855,7 +1911,7 @@ function updateEngineer(u, dt) {
 // vehicles, and only inside the traverse cone its trails allow.
 function updateATGun(u, dt) {
   const spec = u.t.atgun;
-  const range = u.t.range * fogMult();
+  const range = unitRange(u, u.t.range) * fogMult();
   const HOME = -Math.PI / 2;   // staked facing the German end of the field
   const inCone = e => inFireCone(u, e, HOME, spec.arc);
 
@@ -1909,8 +1965,8 @@ function updateATGun(u, dt) {
 
 function tankTargets(a) {
   const fog = fogMult();
-  const cannonRange = a.t.range * fog;
-  const mgRange = a.t.mg.range * fog;
+  const cannonRange = unitRange(a, a.t.range) * fog;
+  const mgRange = unitRange(a, a.t.mg.range) * fog;
   const cone = a.t.fireCone;
   const inCone = e => !cone || inFireCone(a, e, a.turret, cone.arc);
   if (a.side === 'us') {
@@ -2039,7 +2095,7 @@ function updateEnemy(e, dt) {
   }
 
   const buffed = enemyOfficerNear(e);
-  const range = e.t.range * fogMult();
+  const range = unitRange(e, e.t.range) * fogMult();
   // hit-squad mode: the player commands the squad, so nobody advances on
   // his own — men move only on orders and fight from where they stand
   const command = G.mode === 'hitsquad';
@@ -2080,7 +2136,7 @@ function updateEnemy(e, dt) {
   }
 
   if (e.t.flame) {
-    const ft = nearestUnitInRange(e, e.t.flame.range);
+    const ft = nearestUnitInRange(e, unitRange(e, e.t.flame.range));
     if (ft) {
       e.face = Math.atan2(ft.y - e.y, ft.x - e.x);
       flameSpray(e, dt);
@@ -2183,7 +2239,7 @@ function updateBike(e, dt) {
 // Kübelwagen: drives at the line, halts in HMG range and hoses the defenders
 function updateEnemyJeep(e, dt) {
   e.sfxT = (e.sfxT || 0) - dt;
-  const target = nearestUnitInRange(e, e.t.range * fogMult());
+  const target = nearestUnitInRange(e, unitRange(e, e.t.range) * fogMult());
   if (target) {
     runWeapon(e, target, dt, null);
     return;
@@ -2224,7 +2280,7 @@ function updateHalftrack(e, dt) {
       return;
     }
   } else {
-    const target = nearestUnitInRange(e, e.t.range * fogMult());
+    const target = nearestUnitInRange(e, unitRange(e, e.t.range) * fogMult());
     if (target) { runWeapon(e, target, dt, null); return; }
   }
 
@@ -2876,6 +2932,7 @@ function drawSoldierOverlays(a) {
 
   // selection ring
   if (G.selected.includes(a)) {
+    drawUnitWeaponRange(a, { bearing: a.face });
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 3]);
@@ -2962,9 +3019,7 @@ function drawTank(a) {
   }
 
   if (us && G.selected.includes(a)) {
-    if (a.t.fireCone) {
-      drawFireCone(a.x, a.y, a.turret, a.t.fireCone.arc, a.t.range * fogMult(), 0.3);
-    }
+    drawUnitWeaponRange(a, { alpha: 0.3, bearing: a.turret });
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 3]);
@@ -3068,6 +3123,7 @@ function drawJeep(a) {
     }
   }
   if (us && G.selected.includes(a)) {
+    drawUnitWeaponRange(a);
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 3]);
@@ -3182,13 +3238,12 @@ function drawATGun(a) {
   }
 
   if (G.selected.includes(a)) {
+    drawUnitWeaponRange(a, { alpha: 0.3 });
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.arc(a.x, a.y, 22, 0, 7); ctx.stroke();
     ctx.setLineDash([]);
-    // show the traverse cone so the player knows what the gun can answer
-    drawFireCone(a.x, a.y, -Math.PI / 2, a.t.atgun.arc, a.t.range * fogMult(), 0.3);
     if (G.selected.length === 1) {
       ctx.font = 'bold 10px "Courier New", monospace';
       ctx.textAlign = 'center';

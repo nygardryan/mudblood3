@@ -4105,11 +4105,19 @@ function syncMobileViewUI() {
   if (btn) btn.classList.toggle('hidden', !on || !running);
 }
 
+function framePadY() {
+  const wrap = el('wrap');
+  if (!wrap) return 0;
+  const cs = getComputedStyle(wrap);
+  return (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+}
+
 function fitLayout() {
   const wrap = el('wrap');
   const stage = el('stage');
+  const padY = framePadY();
   const maxW = window.innerWidth;
-  const maxH = window.innerHeight;
+  const maxH = window.innerHeight - padY;
   const ratio = W / H;
 
   let w = maxW;
@@ -4123,7 +4131,7 @@ function fitLayout() {
   h = Math.floor(h);
 
   wrap.style.width = w + 'px';
-  wrap.style.height = h + 'px';
+  wrap.style.height = (h + padY) + 'px';
   stage.style.width = '100%';
   stage.style.height = '100%';
   if (mobileViewActive()) clampCamera();

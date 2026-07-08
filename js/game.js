@@ -10,6 +10,9 @@ const FORWARD_Y = H / 3;       // units may advance and mines/wire may be laid t
 const AXIS_DEPLOY_Y = 90;      // axis campaign: attackers step off from this top strip
 const MAX_BREACH = 7;
 const MAX_OFFICERS = 5;
+const MEDIC_RANGE = 95;
+const ENGINEER_RANGE = 95;
+const OFFICER_AURA = 130;
 
 const UNIT_TYPES = {
   rifleman: {
@@ -1571,6 +1574,19 @@ function drawUnitWeaponRange(a, opts) {
   }
 }
 
+function drawSpecialistRange(a) {
+  let r, color;
+  if (a.type === 'medic') { r = MEDIC_RANGE; color = 'rgba(120,210,100,0.45)'; }
+  else if (a.type === 'engineer') { r = ENGINEER_RANGE; color = 'rgba(230,190,70,0.45)'; }
+  else if (a.type === 'officer') { r = OFFICER_AURA; color = 'rgba(100,160,230,0.45)'; }
+  else return;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.arc(a.x, a.y, r, 0, 7); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
 // one tick of flame from `actor` toward its facing: burns EVERYTHING in the
 // cone regardless of side — that's the deal you make with a flamethrower
 function flameSpray(actor, dt) {
@@ -1698,7 +1714,7 @@ function nearestUnitInRange(e, range, pred) {
 function officerBuff(u) {
   const officers = G.usOfficers || G.units;
   for (const o of officers) {
-    if (!o.dead && o.type === 'officer' && o !== u && dist(o, u) < 130) {
+    if (!o.dead && o.type === 'officer' && o !== u && dist(o, u) < OFFICER_AURA) {
       // a veteran officer drives his men harder
       return { rofMult: 0.75 - o.rank * 0.03, accBonus: 0.18 + o.rank * 0.04 };
     }
@@ -1919,7 +1935,7 @@ function updateUnit(u, dt) {
       for (const a of G.units) {
         // no field-dressing machines: medics treat men, not metal
         if (a.dead || a === u || a.t.tank || a.t.vehicle || a.hp >= a.maxhp) continue;
-        if (dist(u, a) < 95) {
+        if (dist(u, a) < MEDIC_RANGE) {
           const f = a.hp / a.maxhp;
           if (f < frac) { frac = f; worst = a; }
         }
@@ -1945,7 +1961,7 @@ function updateEngineer(u, dt) {
   u.healTick -= dt;
   if (u.healTick > 0) return;
   u.healTick = 0.4;
-  const R = 95;
+  const R = ENGINEER_RANGE;
 
   const sparks = (x, y) => {
     if (Math.random() < 0.5) SFX.hammer();
@@ -3148,6 +3164,7 @@ function drawSoldierOverlays(a) {
   // selection ring
   if (G.selected.includes(a)) {
     drawUnitWeaponRange(a, { bearing: a.face });
+    drawSpecialistRange(a);
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 3]);
@@ -3682,6 +3699,8 @@ function draw() {
   ctx.drawImage(groundCanvas, 0, 0);
   for (const m of G.groundMarks) drawGroundMark(m, ctx);
 
+  drawForwardLine();
+
   for (const cp of G.corpses) drawCorpse(cp);
 
   drawDefenses();
@@ -3796,6 +3815,9 @@ function draw() {
     ctx.fillRect(0, 0, W, H);
   }
 
+  drawMoveDestinations();
+  drawMoveRestrictedZone();
+  drawMoveCursorPreview();
   drawPlacementGhost();
   drawDragBox();
   ctx.restore();
@@ -3812,6 +3834,76 @@ function drawDragBox() {
   ctx.setLineDash([5, 3]);
   ctx.strokeRect(x, y, w, h);
   ctx.setLineDash([]);
+}
+
+function drawForwardLine() {
+  if (!showForwardLine()) return;
+  const y = FORWARD_Y;
+  ctx.strokeStyle = 'rgba(110,100,75,0.55)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6, 8]);
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(W, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  for (let x = 18; x < W; x += 36) {
+    const off = ((x / 36) | 0) % 2 ? -2 : 2;
+    const sy = y + off;
+    ctx.fillStyle = 'rgba(90,72,48,0.85)';
+    ctx.fillRect(x - 1, sy - 5, 2, 6);
+    ctx.fillStyle = 'rgba(74,58,38,0.9)';
+    ctx.fillRect(x - 3, sy - 6, 6, 2);
+  }
+  ctx.font = '9px "Courier New", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillText('FORWARD LINE', 10, y - 6);
+  ctx.fillStyle = 'rgba(200,190,150,0.55)';
+  ctx.fillText('FORWARD LINE', 9, y - 7);
+}
+
+// red tint for zones where move orders cannot be issued (matches placement ghost style)
+function drawMoveRestrictedZone() {
+  if (!G || !G.selected.length || placing || G.mode === 'axis') return;
+  if (!G.selected.some(u => !u.t.fixed)) return;
+
+  const minY = moveOrderMinY();
+  const maxY = H - 14;
+  ctx.fillStyle = 'rgba(200,50,40,0.12)';
+  if (minY > 0) ctx.fillRect(0, 0, W, minY);
+  ctx.fillRect(0, maxY, W, H - maxY);
+  ctx.fillRect(0, minY, 16, maxY - minY);
+  ctx.fillRect(W - 16, minY, 16, maxY - minY);
+}
+
+function drawMoveDestinations() {
+  if (!G || G.mode === 'axis') return;
+  for (const u of commandRoster()) {
+    if (u.dead || !u.moveTo) continue;
+    const dest = u.moveTo;
+    const pulse = 0.35 + Math.sin(G.time * 3) * 0.12;
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = 'rgba(180,220,255,0.7)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath(); ctx.arc(dest.x, dest.y, 10, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(180,220,255,0.08)';
+    ctx.beginPath(); ctx.arc(dest.x, dest.y, 10, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawMoveCursorPreview() {
+  if (!G || !G.selected.length || placing || !mouse.inside || G.mode === 'axis') return;
+  if (!canReceiveMoveOrders()) return;
+  const x = mouse.x, y = mouse.y;
+  const valid = moveOrderValid(x, y);
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = valid ? 'rgba(120,200,90,0.8)' : 'rgba(210,70,50,0.8)';
+  ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fill();
+  ctx.globalAlpha = 1;
 }
 
 function drawPlacementGhost() {
@@ -4166,6 +4258,23 @@ function minefieldPositions(cx, cy) {
   ];
 }
 
+function moveOrderMinY() {
+  return G.mode === 'hitsquad' ? 20 : FORWARD_Y;
+}
+
+function moveOrderValid(x, y) {
+  const minY = moveOrderMinY();
+  return x >= 16 && x <= W - 16 && y > minY && y < H - 14;
+}
+
+function canReceiveMoveOrders() {
+  return G && G.selected.some(u => !u.t.fixed);
+}
+
+function showForwardLine() {
+  return G && G.mode !== 'hitsquad' && G.mode !== 'axis';
+}
+
 function placementMinY(p) {
   return (p.key === 'mine' || p.key === 'wire') ? FORWARD_Y : DEPLOY_Y + 12;
 }
@@ -4252,7 +4361,7 @@ function commandRoster() {
   return G.mode === 'hitsquad' ? G.enemies : G.units;
 }
 
-function handleCanvasTap() {
+function handleCanvasTap(shiftKey = false) {
   if (!isPlaying()) return;
   const x = mouse.x, y = mouse.y;
 
@@ -4265,13 +4374,18 @@ function handleCanvasTap() {
     if (dist(u, { x, y }) < (u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14)) { picked = u; break; }
   }
   if (picked) {
-    G.selected = [picked];
+    if (shiftKey) {
+      const si = G.selected.indexOf(picked);
+      if (si !== -1) G.selected.splice(si, 1);
+      else G.selected.push(picked);
+    } else {
+      G.selected = [picked];
+    }
     SFX.click();
     return;
   }
   // move selected soldiers (the hit squad ranges the whole field)
-  const minOrderY = G.mode === 'hitsquad' ? 20 : FORWARD_Y;
-  if (G.selected.length && y > minOrderY && y < H - 14) {
+  if (G.selected.length && moveOrderValid(x, y)) {
     issueMoveOrder(G.selected, x, y);
     SFX.click();
     return;
@@ -4357,7 +4471,13 @@ canvas.addEventListener('pointerup', e => {
       if (x1 - x0 >= minDrag || y1 - y0 >= minDrag) {
         const picked = commandRoster().filter(u => u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1);
         if (picked.length) {
-          G.selected = picked;
+          if (e.shiftKey) {
+            for (const u of picked) {
+              if (!G.selected.includes(u)) G.selected.push(u);
+            }
+          } else {
+            G.selected = picked;
+          }
           SFX.click();
           suppressClick = true;
         }
@@ -4368,7 +4488,7 @@ canvas.addEventListener('pointerup', e => {
   }
 
   if (!suppressClick && isPlaying() && !placing) {
-    handleCanvasTap();
+    handleCanvasTap(e.shiftKey);
     suppressClick = true;
   }
 });
@@ -4395,7 +4515,7 @@ function issueMoveOrder(units, x, y) {
   units = units.filter(u => !u.t.fixed);   // staked guns don't take march orders
   if (!units.length) return;
   // a hit squad ranges the whole field; US soldiers hold behind the forward line
-  const minY = G.mode === 'hitsquad' ? 20 : FORWARD_Y + 2;
+  const minY = moveOrderMinY() + (G.mode === 'hitsquad' ? 0 : 2);
   const clampDest = (dx, dy) => ({
     x: clamp(dx, 16, W - 16),
     y: clamp(dy, minY, H - 14),
@@ -4436,7 +4556,7 @@ canvas.addEventListener('click', e => {
 
   if (placing) { place(placing, mouse.x, mouse.y); return; }
 
-  handleCanvasTap();
+  handleCanvasTap(e.shiftKey);
 });
 
 canvas.addEventListener('contextmenu', e => {
@@ -4450,7 +4570,9 @@ canvas.addEventListener('contextmenu', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (paused) { resumeGame(); return; }
-    if (placing || drag) { placing = null; drag = null; if (G) G.selected = []; return; }
+    if (placing) { placing = null; return; }
+    if (G && G.selected.length) { G.selected = []; return; }
+    if (drag) { drag = null; return; }
     if (running && G && !G.over) { pauseGame(); return; }
     placing = null; drag = null; if (G) G.selected = [];
     return;

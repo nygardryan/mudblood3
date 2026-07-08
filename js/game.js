@@ -276,7 +276,7 @@ const PLACEABLES = [
   { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon on a rotating turret; shrugs off small arms. Medics cannot repair it.' },
   { key: 'atgun', label: 'AT GUN', cost: 36, kind: 'unit', hotkey: 'P',
-    desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor.' },
+    desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor. No field repairs.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
   { key: 'sandbags', label: 'SANDBAGS', cost: 5, kind: 'defense', hotkey: '8',
@@ -2301,7 +2301,7 @@ function updateUnit(u, dt) {
       let worst = null, frac = 1;
       for (const a of G.units) {
         // no field-dressing machines: medics treat men, not metal
-        if (a.dead || a === u || a.t.tank || a.t.vehicle || a.hp >= a.maxhp) continue;
+        if (a.dead || a === u || a.t.tank || a.t.vehicle || a.t.atgun || a.hp >= a.maxhp) continue;
         if (dist(u, a) < MEDIC_RANGE) {
           const f = a.hp / a.maxhp;
           if (f < frac) { frac = f; worst = a; }

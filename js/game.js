@@ -1574,17 +1574,21 @@ function drawUnitWeaponRange(a, opts) {
   }
 }
 
-function drawSpecialistRange(a) {
+function drawSpecialistRangeAt(x, y, type) {
   let r, color;
-  if (a.type === 'medic') { r = MEDIC_RANGE; color = 'rgba(120,210,100,0.45)'; }
-  else if (a.type === 'engineer') { r = ENGINEER_RANGE; color = 'rgba(230,190,70,0.45)'; }
-  else if (a.type === 'officer') { r = OFFICER_AURA; color = 'rgba(100,160,230,0.45)'; }
+  if (type === 'medic') { r = MEDIC_RANGE; color = 'rgba(120,210,100,0.45)'; }
+  else if (type === 'engineer') { r = ENGINEER_RANGE; color = 'rgba(230,190,70,0.45)'; }
+  else if (type === 'officer') { r = OFFICER_AURA; color = 'rgba(100,160,230,0.45)'; }
   else return;
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
   ctx.setLineDash([5, 4]);
-  ctx.beginPath(); ctx.arc(a.x, a.y, r, 0, 7); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
   ctx.setLineDash([]);
+}
+
+function drawSpecialistRange(a) {
+  drawSpecialistRangeAt(a.x, a.y, a.type);
 }
 
 // one tick of flame from `actor` toward its facing: burns EVERYTHING in the
@@ -3963,6 +3967,7 @@ function drawPlacementGhost() {
         ctx.beginPath(); ctx.arc(x, y, ut.mortar.min, 0, 7); ctx.stroke();
       }
     }
+    if (p.kind === 'unit') drawSpecialistRangeAt(x, y, p.key);
   }
   ctx.globalAlpha = 1;
 }

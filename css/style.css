@@ -144,6 +144,15 @@ body {
   pointer-events: none;
   z-index: 4;
 }
+#tipbar.hidden { display: none; }
+
+.tool-btn,
+.hud-box,
+.overlay button,
+.codex-tab,
+.wave-skip-btn {
+  -webkit-tap-highlight-color: transparent;
+}
 
 /* ---- Toolbar (left edge, vertical) ---- */
 #toolbar {
@@ -538,6 +547,50 @@ body {
 
   #toolbar.toolbar-placing {
     width: calc(56px * var(--tool-scale));
+  }
+
+  #stage.mobile-portrait #toolbar {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: calc(58px * var(--tool-scale));
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0));
+    gap: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #stage.mobile-portrait #toolbar .tool-btn {
+    min-width: calc(62px * var(--tool-scale));
+    width: auto;
+    flex: 0 0 auto;
+    min-height: calc(44px * var(--tool-scale));
+    padding: calc(5px * var(--tool-scale)) calc(6px * var(--tool-scale));
+  }
+
+  #stage.mobile-portrait #toolbar .tool-cat-btn {
+    min-width: calc(88px * var(--tool-scale));
+  }
+
+  #stage.mobile-portrait #toolbar.toolbar-placing {
+    width: auto;
+    max-height: calc(52px * var(--tool-scale));
+    justify-content: flex-start;
+  }
+
+  #stage.mobile-portrait #toolbar.toolbar-placing .tool-btn {
+    min-width: calc(72px * var(--tool-scale));
+  }
+
+  #stage.mobile-portrait #tipbar {
+    bottom: calc(54px * var(--tool-scale) + env(safe-area-inset-bottom, 0));
+    left: 4px;
+    right: 4px;
   }
 
   #tipbar {

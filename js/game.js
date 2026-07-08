@@ -537,6 +537,8 @@ let mouse = { x: W / 2, y: H / 2, inside: false };
 let drag = null;      // marquee selection in progress: { x0, y0, x1, y1, active }
 let suppressClick = false; // eat the click that follows a completed drag-select or pointerup action
 let placeTouch = null;  // touch placement drag: { active, moved, startX, startY }
+let viewPan = null;     // one-finger camera pan on mobile
+let placeHoldTimer = null;
 let viewCam = { x: 0, y: 0, zoom: 1 };
 let viewDirty = false;
 let viewGesture = null;   // two-finger pinch/pan snapshot
@@ -5678,6 +5680,62 @@ function mobileViewActive() {
   return touchUI() && window.innerWidth <= 768;
 }
 
+function portraitMobile() {
+  return mobileViewActive() && window.innerHeight > window.innerWidth;
+}
+
+function unitAtWorld(x, y) {
+  if (!G || G.mode === 'axis') return null;
+  for (const u of commandRoster()) {
+    const r = u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14;
+    if (dist(u, { x, y }) < r) return u;
+  }
+  return null;
+}
+
+function beginViewPan(clientX, clientY, worldX, worldY) {
+  viewPan = {
+    clientX0: clientX,
+    clientY0: clientY,
+    worldX0: worldX,
+    worldY0: worldY,
+    camX0: viewCam.x,
+    camY0: viewCam.y,
+    active: false,
+  };
+}
+
+function applyViewPan(clientX, clientY) {
+  if (!viewPan) return;
+  const moved = Math.hypot(clientX - viewPan.clientX0, clientY - viewPan.clientY0);
+  if (!viewPan.active && moved <= tapSlop()) return;
+  viewPan.active = true;
+  const r = canvas.getBoundingClientRect();
+  const { viewW, viewH } = viewSize();
+  viewCam.x = viewPan.camX0 - (clientX - viewPan.clientX0) / r.width * viewW;
+  viewCam.y = viewPan.camY0 - (clientY - viewPan.clientY0) / r.height * viewH;
+  clampCamera();
+  viewDirty = true;
+}
+
+function clearViewPan() {
+  viewPan = null;
+}
+
+function clearPlaceHold() {
+  if (placeHoldTimer) {
+    clearTimeout(placeHoldTimer);
+    placeHoldTimer = null;
+  }
+}
+
+function syncMobileChrome() {
+  const stage = el('stage');
+  const tip = el('tipbar');
+  if (stage) stage.classList.toggle('mobile-portrait', portraitMobile());
+  if (tip) tip.classList.toggle('hidden', touchUI() && !!placing);
+}
+
 function canvasAspect() {
   if (canvas.width > 0 && canvas.height > 0) return canvas.height / canvas.width;
   return H / W;
@@ -5856,6 +5914,7 @@ function fitLayout() {
   lastCoverZoom = newCover;
 
   syncMobileViewUI();
+  syncMobileChrome();
   syncToolbarLayout();
   viewDirty = true;
 }
@@ -5864,6 +5923,17 @@ function syncToolbarLayout() {
   const hudEl = el('hud');
   const bar = el('toolbar');
   if (!hudEl || !bar) return;
+  syncMobileChrome();
+  if (portraitMobile()) {
+    bar.style.top = 'auto';
+    bar.style.bottom = '0';
+    bar.style.left = '0';
+    bar.style.right = '0';
+    return;
+  }
+  bar.style.bottom = touchUI() ? '22px' : '28px';
+  bar.style.left = touchUI() ? '3px' : '4px';
+  bar.style.right = 'auto';
   // #hud is offset 6px from the stage top; keep a small gap below the wrapped HUD rows
   bar.style.top = (6 + hudEl.offsetHeight + 6) + 'px';
 }
@@ -5940,7 +6010,9 @@ function categoryForPlaceable(p) {
 function clearPlacing() {
   if (!placing) return;
   placing = null;
+  clearPlaceHold();
   renderToolbar();
+  syncMobileChrome();
 }
 
 function visibleToolbarCategories() {
@@ -6064,6 +6136,7 @@ function selectPlaceable(p) {
   }
   G.selected = [];
   renderToolbar();
+  syncMobileChrome();
 }
 
 // ============================================================ placement & input
@@ -6215,9 +6288,11 @@ function handleCanvasTap(shiftKey = false) {
 canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  clearPlaceHold();
 
   if (mobileViewActive() && activePointers.size >= 2) {
     beginViewGesture();
+    clearViewPan();
     suppressClick = true;
     return;
   }
@@ -6229,8 +6304,22 @@ canvas.addEventListener('pointerdown', e => {
   if (placing) {
     if (!isPlaying()) return;
     placeTouch = { active: true, moved: false, startX: mouse.x, startY: mouse.y };
+    if (touchUI()) {
+      placeHoldTimer = setTimeout(() => {
+        if (placeTouch?.active && placing) {
+          clearPlacing();
+          placeTouch = null;
+          SFX.click();
+        }
+      }, 500);
+    }
     return;
   }
+
+  if (mobileViewActive() && isPlaying()) {
+    beginViewPan(e.clientX, e.clientY, mouse.x, mouse.y);
+  }
+
   if (!isPlaying() || G.mode === 'axis') return;
   drag = { x0: mouse.x, y0: mouse.y, x1: mouse.x, y1: mouse.y, active: false };
 });
@@ -6247,6 +6336,35 @@ canvas.addEventListener('pointermove', e => {
 
   updatePointer(e);
   if (!canvas.hasPointerCapture(e.pointerId)) return;
+
+  if (placeTouch?.active && placing && mobileViewActive()) {
+    if (Math.hypot(mouse.x - placeTouch.startX, mouse.y - placeTouch.startY) > tapSlop()) {
+      placeTouch.moved = true;
+      clearPlaceHold();
+      if (!viewPan) beginViewPan(e.clientX, e.clientY, placeTouch.startX, placeTouch.startY);
+      applyViewPan(e.clientX, e.clientY);
+    }
+    return;
+  }
+
+  if (viewPan && mobileViewActive() && activePointers.size === 1) {
+    if (!viewPan.active) {
+      const moved = Math.hypot(e.clientX - viewPan.clientX0, e.clientY - viewPan.clientY0);
+      if (moved > tapSlop()) {
+        if (!unitAtWorld(viewPan.worldX0, viewPan.worldY0)) {
+          viewPan.active = true;
+          drag = null;
+        } else {
+          clearViewPan();
+        }
+      }
+    }
+    if (viewPan?.active) {
+      applyViewPan(e.clientX, e.clientY);
+      return;
+    }
+  }
+
   if (placeTouch?.active) {
     if (Math.hypot(mouse.x - placeTouch.startX, mouse.y - placeTouch.startY) > 6) placeTouch.moved = true;
   }
@@ -6260,6 +6378,7 @@ canvas.addEventListener('pointermove', e => {
 canvas.addEventListener('pointerup', e => {
   if (e.button !== 0) return;
   activePointers.delete(e.pointerId);
+  clearPlaceHold();
 
   if (viewGesture?.active) {
     if (activePointers.size < 2) viewGesture = null;
@@ -6275,12 +6394,26 @@ canvas.addEventListener('pointerup', e => {
 
   if (placeTouch?.active && placing) {
     if (!isPlaying()) { placeTouch = null; return; }
+    if (placeTouch.moved) {
+      placeTouch = null;
+      clearViewPan();
+      suppressClick = true;
+      return;
+    }
     place(placing, mouse.x, mouse.y);
     placeTouch = null;
     suppressClick = true;
     return;
   }
   placeTouch = null;
+
+  if (viewPan?.active) {
+    clearViewPan();
+    suppressClick = true;
+    drag = null;
+    return;
+  }
+  clearViewPan();
 
   if (drag) {
     if (drag.active && isPlaying()) {
@@ -6316,6 +6449,8 @@ canvas.addEventListener('pointercancel', e => {
   activePointers.delete(e.pointerId);
   if (activePointers.size < 2) viewGesture = null;
   if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+  clearPlaceHold();
+  clearViewPan();
   placeTouch = null;
   drag = null;
   mouse.inside = false;
@@ -6940,7 +7075,8 @@ function clampToolbarSize(pct) {
 
 function loadToolbarSize() {
   const saved = parseInt(localStorage.getItem(TOOLBAR_SIZE_KEY), 10);
-  return Number.isFinite(saved) ? clampToolbarSize(saved) : TOOLBAR_SIZE_DEFAULT;
+  if (Number.isFinite(saved)) return clampToolbarSize(saved);
+  return touchUI() ? 85 : TOOLBAR_SIZE_DEFAULT;
 }
 
 function applyToolbarSize(pct) {
@@ -7020,6 +7156,7 @@ function pauseGame() {
   paused = true;
   clearPlacing();
   drag = null;
+  clearViewPan();
   placeTouch = null;
   G.selected = [];
   el('pause').classList.remove('hidden');
@@ -7078,7 +7215,9 @@ function startGame(levelId, difficultyId) {
   el('endless-select').classList.add('hidden');
   el('pause').classList.add('hidden');
   syncMobileViewUI();
-  const viewHint = mobileViewActive() ? ' Pinch to zoom, drag with two fingers to pan.' : '';
+  const viewHint = mobileViewActive()
+    ? ' Drag empty field to pan; pinch to zoom. Hold to cancel placement.'
+    : '';
   el('tipbar').textContent = (level.mode === 'axis'
     ? touchUI()
       ? 'Tap Units or Abilities, pick an option, then tap the field to deploy. Back returns to the list; tap the item again to cancel.'

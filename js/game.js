@@ -81,7 +81,7 @@ const UNIT_TYPES = {
     rof: 1, burst: 1, burstGap: 0, speed: 38,
     color: '#4f5c3a', gun: 8, sfx: 'rifle',
     flame: { range: 130, arc: 0.45, dps: 38 },
-    blastResist: 0.5,
+    blastResist: 0.5, rankHealMult: 3,
     desc: 'M2 flamethrower and flak vest. Burns everything in the cone — friend or foe.',
   },
   jeep: {
@@ -1272,7 +1272,8 @@ function gainXP(u) {
   const need = next && next.kills * rankMult;
   if (next && u.xp >= need) {
     u.rank++;
-    u.hp = Math.min(u.maxhp, u.hp + 15);   // a promotion is good for morale
+    const heal = 15 * (u.t.rankHealMult || 1);
+    u.hp = Math.min(u.maxhp, u.hp + heal);   // a promotion is good for morale
     SFX.promote();
     G.texts.push({ x: u.x, y: u.y - 22, text: 'PROMOTED: ' + next.name, ttl: 2.4 });
   }

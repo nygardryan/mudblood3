@@ -1435,7 +1435,10 @@ function fireShot(shooter, target, opts) {
   const hit = Math.random() < acc;
   if (!hit) { hx += rand(-22, 22); hy += rand(-16, 22); }
 
-  G.tracers.push({ x1: mx, y1: my, x2: hx, y2: hy, ttl: 0.06 });
+  G.tracers.push({
+    x1: mx, y1: my, x2: hx, y2: hy, ttl: 0.06,
+    fromBar: shooter.type === 'gunner',
+  });
 
   if (hit) {
     // a prone man is a small target: 60% of rounds kick dirt over him.
@@ -2971,13 +2974,18 @@ function drawProneSoldier(a) {
   c.lineWidth = isEmg ? 2.6 : isBar ? 2.2 : isShot ? 2.8 : isGren ? 2 : 1.8;
   c.beginPath(); c.moveTo(3, 2.8); c.lineTo(gunX, 2.8); c.stroke();
   if (isBar) {
+    c.strokeStyle = '#4a3f2e';
+    c.lineWidth = 1.8;
+    c.beginPath(); c.moveTo(2.5, 3.5); c.lineTo(2.5, 5.5); c.lineTo(3.8, 5.5); c.stroke();
     c.fillStyle = '#2a2a1e';
-    c.fillRect(3 + a.t.gun * 0.34, 3.8, 3.2, 2.4);
+    c.fillRect(3 + a.t.gun * 0.32, 3.5, 3.4, 2.6);
     c.strokeStyle = '#26261e';
-    c.lineWidth = 1.1;
-    for (const dy of [4.8, 6.2]) {
-      c.beginPath(); c.moveTo(gunX - 1.5, 2.8); c.lineTo(gunX - 0.5, dy); c.stroke();
+    c.lineWidth = 1.2;
+    for (const dy of [5, 6.5]) {
+      c.beginPath(); c.moveTo(gunX - 1.2, 2.8); c.lineTo(gunX - 0.3, dy); c.stroke();
     }
+    drawBARMag(c, -2.5, 1.8, 0.7, 0.25);
+    drawBARMag(c, -0.8, 2.8, 0.65, -0.2);
   }
   if (isEmg) {
     c.strokeStyle = '#3a3a30';
@@ -3024,7 +3032,7 @@ function drawProneSoldier(a) {
   c.beginPath(); c.moveTo(-4, 0); c.lineTo(-10, 1.8); c.stroke();
   // torso stretched along the facing
   c.fillStyle = a.t.color;
-  c.beginPath(); c.ellipse(-1, 0, isMG ? 7.2 : isShot ? 7 : 6.5, isMG ? 3.4 : isShot ? 3.5 : 3.2, 0, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(-1, 0, isMG ? 7.2 : isShot ? 7 : isBar ? 7 : 6.5, isMG ? 3.4 : isShot ? 3.5 : isBar ? 3.3 : 3.2, 0, 0, 7); c.fill();
   if (isShot) {
     c.fillStyle = '#4a5245';
     c.beginPath(); c.ellipse(0.5, 0, 5.5, 3.2, 0, 0, 7); c.fill();
@@ -3032,6 +3040,8 @@ function drawProneSoldier(a) {
     drawShotgunShell(c, -1, 2.5, 0.65, -0.2);
   }
   if (isBar) {
+    c.fillStyle = '#4a5245';
+    c.beginPath(); c.ellipse(0, 0, 5.8, 3, 0, 0, 7); c.fill();
     c.strokeStyle = '#8a7a48';
     c.lineWidth = 1.2;
     c.beginPath(); c.moveTo(-3, -1.5); c.lineTo(2, 2.5); c.stroke();
@@ -3224,6 +3234,23 @@ function drawShotgunShell(c, x, y, scale, rot) {
   c.restore();
 }
 
+// BAR box magazine for bandolier loops
+function drawBARMag(c, x, y, scale, rot) {
+  scale = scale || 1;
+  rot = rot != null ? rot : 0;
+  c.save();
+  c.translate(x, y);
+  c.rotate(rot);
+  c.fillStyle = '#2a2a1e';
+  c.fillRect(-1.1 * scale, -1.8 * scale, 2.2 * scale, 3.6 * scale);
+  c.strokeStyle = '#1a1a14';
+  c.lineWidth = 0.5 * scale;
+  c.strokeRect(-1.1 * scale, -1.8 * scale, 2.2 * scale, 3.6 * scale);
+  c.fillStyle = '#c8a858';
+  c.fillRect(-0.7 * scale, -2 * scale, 1.4 * scale, 0.7 * scale);
+  c.restore();
+}
+
 function drawSoldier(a) {
   if (a.prone > 0) {
     drawProneSoldier(a);
@@ -3322,6 +3349,77 @@ function drawSoldier(a) {
       c.fillStyle = '#ff7020';
       c.beginPath(); c.arc(nozX, nozY, 0.75, 0, 7); c.fill();
     }
+  } else if (isBar) {
+    // M1918 BAR — long barrel, wooden stock, box mag, bipod, carry handle
+    const tipX = fx * gunLen, tipY = fy * gunLen;
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 2.8;
+    c.beginPath();
+    c.moveTo(fx * 2, fy * 2);
+    c.lineTo(tipX, tipY);
+    c.stroke();
+    // wooden stock and pistol grip
+    c.strokeStyle = '#4a3f2e';
+    c.lineWidth = 2.4;
+    c.beginPath();
+    c.moveTo(fx * 1.1 - fy * 2.6, fy * 1.1 + fx * 2.6);
+    c.lineTo(fx * 1.1 + fy * 2.4, fy * 1.1 - fx * 2.4);
+    c.stroke();
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(fx * 3.2 + fy * 1.5, fy * 3.2 - fx * 1.5);
+    c.lineTo(fx * 3.2 + fy * 4.2, fy * 3.2 - fx * 4.2);
+    c.stroke();
+    // gas tube along the top
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 1.2;
+    c.beginPath();
+    c.moveTo(fx * 2.5 - fy * 0.9, fy * 2.5 + fx * 0.9);
+    c.lineTo(fx * (gunLen - 1) - fy * 0.9, fy * (gunLen - 1) + fx * 0.9);
+    c.stroke();
+    // box magazine
+    const magX = fx * (gunLen * 0.42), magY = fy * (gunLen * 0.42);
+    c.fillStyle = '#2a2a1e';
+    c.fillRect(magX - fy * 2.2 - 1.2, magY + fx * 2.2 - 1.5, fy * 4.4 + 2.4, -fx * 4.4 + 3);
+    c.strokeStyle = '#1a1a14';
+    c.lineWidth = 0.7;
+    c.strokeRect(magX - fy * 2.2 - 1.2, magY + fx * 2.2 - 1.5, fy * 4.4 + 2.4, -fx * 4.4 + 3);
+    c.fillStyle = '#c8a858';
+    c.fillRect(magX - fy * 1.2 - 0.6, magY + fx * 1.2 - 2, fy * 2.4 + 1.2, -fx * 2.4 + 1.2);
+    // carry handle
+    c.strokeStyle = '#3a3a30';
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.arc(fx * (gunLen * 0.34) + fy * 1.3, fy * (gunLen * 0.34) - fx * 1.3, 1.6, 0, 7);
+    c.stroke();
+    // bipod legs
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 1.4;
+    for (const s of [-0.72, 0.72]) {
+      c.beginPath();
+      c.moveTo(fx * (gunLen - 0.5), fy * (gunLen - 0.5));
+      c.lineTo(
+        fx * (gunLen + 1.5) + Math.cos(a.face + s + 0.45) * 4,
+        fy * (gunLen + 1.5) + Math.sin(a.face + s + 0.45) * 4,
+      );
+      c.stroke();
+    }
+    // flash hider
+    c.strokeStyle = '#4a4038';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(tipX - fy * 1.6, tipY + fx * 1.6);
+    c.lineTo(tipX + fy * 1.6, tipY - fx * 1.6);
+    c.stroke();
+    c.fillStyle = '#1c1c16';
+    c.beginPath(); c.arc(tipX, tipY, 1.1, 0, 7); c.fill();
+    // sling loop on the stock
+    c.strokeStyle = '#6a5a40';
+    c.lineWidth = 1.1;
+    c.beginPath();
+    c.moveTo(fx * 1.5 - fy * 3, fy * 1.5 + fx * 3);
+    c.quadraticCurveTo(-fy * 2, fx * 2, fx * 2.5 + fy * 2, fy * 2.5 - fx * 2);
+    c.stroke();
   } else if (isShotgun) {
     // M97 trench gun — long barrel, pump forend, wide choke, wooden stock
     const tipX = fx * gunLen, tipY = fy * gunLen;
@@ -3443,40 +3541,11 @@ function drawSoldier(a) {
     c.stroke();
   } else {
     c.strokeStyle = '#26261e';
-    c.lineWidth = isEmg ? 3.4 : isBar ? 2.8 : isSMG ? 2.6 : isSniper ? 1.6 : 2;
+    c.lineWidth = isEmg ? 3.4 : isSMG ? 2.6 : isSniper ? 1.6 : 2;
     c.beginPath();
     c.moveTo(fx * 2, fy * 2);
     c.lineTo(fx * gunLen, fy * gunLen);
     c.stroke();
-  }
-  if (isBar) {
-    // BAR: wooden stock, box mag, carry handle, bipod
-    c.strokeStyle = '#4a3f2e';
-    c.lineWidth = 2.2;
-    c.beginPath();
-    c.moveTo(fx * 1.2 - fy * 2.2, fy * 1.2 + fx * 2.2);
-    c.lineTo(fx * 1.2 + fy * 2.2, fy * 1.2 - fx * 2.2);
-    c.stroke();
-    c.fillStyle = '#2a2a1e';
-    const magX = fx * (gunLen * 0.44), magY = fy * (gunLen * 0.44);
-    c.fillRect(magX - fy * 2 - 1.1, magY + fx * 2 - 1.4, fy * 4 + 2.2, -fx * 4 + 2.8);
-    c.fillStyle = '#3a3a2e';
-    c.beginPath();
-    c.arc(fx * (gunLen * 0.36) + fy * 1.1, fy * (gunLen * 0.36) - fx * 1.1, 1.5, 0, 7);
-    c.fill();
-    c.strokeStyle = '#26261e';
-    c.lineWidth = 1.3;
-    for (const s of [-0.72, 0.72]) {
-      c.beginPath();
-      c.moveTo(fx * gunLen, fy * gunLen);
-      c.lineTo(
-        fx * (gunLen + 1.8) + Math.cos(a.face + s + 0.45) * 3.2,
-        fy * (gunLen + 1.8) + Math.sin(a.face + s + 0.45) * 3.2,
-      );
-      c.stroke();
-    }
-    c.fillStyle = '#1c1c16';
-    c.beginPath(); c.arc(fx * (gunLen - 0.8), fy * (gunLen - 0.8), 1.1, 0, 7); c.fill();
   }
   if (isEmg) {
     // MG42: vented shroud, belt feed, tripod
@@ -3570,17 +3639,29 @@ function drawSoldier(a) {
     c.beginPath(); c.ellipse(0.5, 3, 1.7, 1.1, 0.2, 0, 7); c.fill();
   }
   if (isBar) {
-    // ammo bandolier and spare mag pouches on the belt
+    // ammo bandolier, spare BAR mags, and sling across the chest
     c.strokeStyle = '#8a7a48';
     c.lineWidth = 1.6;
     c.beginPath();
-    c.moveTo(-fy * 5 - fx * 2, fx * 5 - fy * 2);
-    c.lineTo(fy * 5 - fx * 2, -fx * 5 - fy * 2);
+    c.moveTo(-fy * 5.2 - fx * 2, fx * 5.2 - fy * 2);
+    c.lineTo(fy * 5.2 - fx * 2, -fx * 5.2 - fy * 2);
     c.stroke();
+    drawBARMag(c, -5, 3.5, 0.88, 0.3);
+    drawBARMag(c, -2.2, 5.2, 0.85, -0.15);
+    drawBARMag(c, 1.5, 4.8, 0.82, 0.5);
     c.fillStyle = '#2f3328';
-    for (const off of [-4.5, -1.5, 1.5]) {
-      c.fillRect(off - 1.4, 3.8, 2.8, 2.2);
+    for (const off of [-4.5, -1.5, 1.5, 4.5]) {
+      c.fillRect(off - 1.5, 4, 3, 2.4);
+      c.strokeStyle = '#4a4a3e';
+      c.lineWidth = 0.7;
+      c.strokeRect(off - 1.5, 4, 3, 2.4);
     }
+    c.strokeStyle = '#6a5a40';
+    c.lineWidth = 1.3;
+    c.beginPath();
+    c.moveTo(-fy * 3.5, fx * 3.5);
+    c.quadraticCurveTo(0, 5.5, fy * 3.5, -fx * 3.5);
+    c.stroke();
   }
   if (isEmg) {
     // belt box and spare links across the chest
@@ -3769,14 +3850,17 @@ function drawSoldier(a) {
     c.beginPath(); c.moveTo(2.4, -3.4); c.lineTo(-2.4, 1.4); c.stroke();
   }
   if (isBar) {
-    // helmet net and a single brass loop for the bandolier
+    // helmet net, brass buckle, and cheek rest mark
     c.strokeStyle = 'rgba(30,36,22,0.45)';
     c.lineWidth = 0.7;
     for (const off of [-2.5, 0, 2.5]) {
       c.beginPath(); c.arc(off, -1, 3.6, 0.2, 2.9); c.stroke();
     }
     c.fillStyle = '#8a7a48';
-    c.beginPath(); c.arc(fy * 3.2, -fx * 3.2, 1.1, 0, 7); c.fill();
+    c.beginPath(); c.arc(fy * 3.2, -fx * 3.2, 1.2, 0, 7); c.fill();
+    c.strokeStyle = '#5a4a38';
+    c.lineWidth = 1;
+    c.beginPath(); c.moveTo(-2.5, 0.5); c.lineTo(-3.5, 2.5); c.stroke();
   }
   if (isEmg) {
     // MG team y-straps and chin strap
@@ -4479,6 +4563,9 @@ function draw() {
     if (tr.kind === 'buckshot') {
       ctx.strokeStyle = 'rgba(220,200,150,0.75)';
       ctx.lineWidth = 2.2;
+    } else if (tr.fromBar) {
+      ctx.strokeStyle = 'rgba(255,230,160,0.85)';
+      ctx.lineWidth = 1.6;
     } else {
       ctx.strokeStyle = 'rgba(255,235,170,0.8)';
       ctx.lineWidth = 1.2;

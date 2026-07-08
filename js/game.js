@@ -1536,6 +1536,44 @@ function drawFireCone(x, y, bearing, arc, range, alpha) {
   ctx.stroke();
 }
 
+// anti-tank traverse wedge — steel fill, bright arc edges
+function drawATGunRangeCone(x, y, bearing, arc, range, alpha) {
+  const a = alpha != null ? alpha : 0.35;
+  const tipX = x + Math.cos(bearing) * range * 0.7;
+  const tipY = y + Math.sin(bearing) * range * 0.7;
+  const grad = ctx.createLinearGradient(x, y, tipX, tipY);
+  grad.addColorStop(0, `rgba(200,210,230,${a * 0.48})`);
+  grad.addColorStop(0.45, `rgba(160,175,200,${a * 0.3})`);
+  grad.addColorStop(1, `rgba(80,90,110,${a * 0.07})`);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.arc(x, y, range, bearing - arc, bearing + arc);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = `rgba(230,238,255,${Math.min(0.92, a * 1.25)})`;
+  ctx.lineWidth = 1.35;
+  ctx.setLineDash([7, 5]);
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.arc(x, y, range, bearing - arc, bearing + arc);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = `rgba(255,255,255,${Math.min(0.88, a * 1.15)})`;
+  ctx.lineWidth = 1;
+  for (const ang of [bearing - arc, bearing + arc]) {
+    const ox = x + Math.cos(ang) * range;
+    const oy = y + Math.sin(ang) * range;
+    const tx = Math.cos(ang + Math.PI / 2);
+    const ty = Math.sin(ang + Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(ox - tx * 5, oy - ty * 5);
+    ctx.lineTo(ox + tx * 5, oy + ty * 5);
+    ctx.stroke();
+  }
+}
+
 // warm wedge for flamethrower reach — selection overlay and placement ghost
 function drawFlameRangeCone(x, y, bearing, arc, range, alpha) {
   const a = alpha != null ? alpha : 0.35;
@@ -1793,7 +1831,7 @@ function drawUnitWeaponRange(a, opts) {
     : a.turret != null ? a.turret : a.face;
 
   if (t.atgun) {
-    drawFireCone(a.x, a.y, -Math.PI / 2, t.atgun.arc, unitRange(a, t.range) * fog, alpha);
+    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, t.atgun.arc, unitRange(a, t.range) * fog, alpha);
     return;
   }
   if (t.fireCone) {
@@ -2357,6 +2395,7 @@ function updateATGun(u, dt) {
   if (u.cd > 0 || Math.abs(diff) > 0.17) return;
 
   SFX.boom(false);
+  u.atgunFireT = 0.16;
   G.flashes.push({
     x: u.x + Math.cos(u.turret) * 24, y: u.y + Math.sin(u.turret) * 24,
     r: 8, ttl: 0.07, max: 0.07,
@@ -2815,6 +2854,7 @@ function update(dt) {
   for (const u of G.units) if (!u.dead && u.grenThrowT > 0) u.grenThrowT -= dt;
   for (const e of G.enemies) if (!e.dead && e.grenThrowT > 0) e.grenThrowT -= dt;
   for (const u of G.units) if (!u.dead && u.shotgunBlastT > 0) u.shotgunBlastT -= dt;
+  for (const u of G.units) if (!u.dead && u.atgunFireT > 0) u.atgunFireT -= dt;
   for (const u of G.units) if (!u.dead && u.mortarFireT > 0) u.mortarFireT -= dt;
 
   // mines
@@ -4615,16 +4655,163 @@ function stampATGunWreck(a) {
   gctx.save();
   gctx.translate(a.x, a.y);
   gctx.rotate(rand(-0.6, 0.6));
-  // overturned carriage and a bent tube
-  gctx.fillStyle = '#33322a';
-  gctx.fillRect(-12, -5, 24, 10);
-  gctx.strokeStyle = '#2a2822';
-  gctx.lineWidth = 3;
-  gctx.beginPath(); gctx.moveTo(0, 0); gctx.lineTo(16, -12); gctx.stroke();
+  gctx.fillStyle = '#3a4034';
+  gctx.beginPath();
+  gctx.moveTo(-10, -4); gctx.lineTo(8, -8); gctx.lineTo(10, 2); gctx.lineTo(-8, 4);
+  gctx.closePath(); gctx.fill();
+  gctx.strokeStyle = '#2a2820';
+  gctx.lineWidth = 4;
+  gctx.beginPath(); gctx.moveTo(2, 0); gctx.quadraticCurveTo(12, -6, 18, -14); gctx.stroke();
   gctx.fillStyle = '#211f1a';
-  gctx.beginPath(); gctx.arc(-8, 6, 4, 0, 7); gctx.fill();
-  gctx.beginPath(); gctx.arc(9, 5, 4, 0, 7); gctx.fill();
+  gctx.beginPath(); gctx.ellipse(-9, 5, 3.5, 5, 0.3, 0, 7); gctx.fill();
+  gctx.beginPath(); gctx.ellipse(9, 4, 3.5, 5, -0.2, 0, 7); gctx.fill();
+  gctx.strokeStyle = '#2f3a29';
+  gctx.lineWidth = 2.5;
+  gctx.beginPath(); gctx.moveTo(-2, 4); gctx.lineTo(-12, 14); gctx.stroke();
+  gctx.beginPath(); gctx.moveTo(2, 4); gctx.lineTo(11, 13); gctx.stroke();
   gctx.restore();
+}
+
+function drawJeepWheel(c, x, y) {
+  c.fillStyle = '#26261e';
+  c.beginPath(); c.ellipse(x, y, 3.2, 5.8, 0, 0, 7); c.fill();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 1;
+  c.stroke();
+  c.fillStyle = '#4a4038';
+  c.beginPath(); c.arc(x, y, 1.8, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.65;
+  for (let i = 0; i < 4; i++) {
+    const ang = i * Math.PI / 2;
+    c.beginPath();
+    c.moveTo(x, y);
+    c.lineTo(x + Math.cos(ang) * 1.5, y + Math.sin(ang) * 1.5);
+    c.stroke();
+  }
+}
+
+function drawVehicleHMG(c, gunLen, us) {
+  c.fillStyle = '#3a3830';
+  c.beginPath(); c.arc(0, 0, 2.8, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 1;
+  c.stroke();
+  c.strokeStyle = '#26261e';
+  c.lineWidth = us ? 2.8 : 2.5;
+  c.beginPath(); c.moveTo(2.5, 0); c.lineTo(gunLen + 2, 0); c.stroke();
+  if (us) {
+    c.fillStyle = '#2a2a1e';
+    c.fillRect(2.5 + gunLen * 0.22, -3, 8, 4.5);
+    c.fillStyle = '#4a4038';
+    c.fillRect(gunLen - 0.5, -2.5, 4.5, 5);
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 0.8;
+    for (let t = 0.28; t <= 0.62; t += 0.12) {
+      const sx = 2.5 + gunLen * t;
+      c.beginPath(); c.moveTo(sx, -2); c.lineTo(sx, 2); c.stroke();
+    }
+  } else {
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 0.85;
+    for (let t = 0.2; t <= 0.72; t += 0.14) {
+      const sx = 2.5 + gunLen * t;
+      c.beginPath(); c.moveTo(sx, -2.2); c.lineTo(sx, 2.2); c.stroke();
+    }
+    c.fillStyle = '#3a3828';
+    c.beginPath(); c.arc(-2, 1.5, 2.2, 0, 7); c.fill();
+  }
+  c.fillStyle = '#3a4034';
+  c.fillRect(-3.5, 2.8, 5, 3.2);
+  c.strokeStyle = '#4a4a3e';
+  c.lineWidth = 0.7;
+  c.strokeRect(-3.5, 2.8, 5, 3.2);
+}
+
+function drawJeepBody(c, color, us) {
+  const front = us ? -1 : 1;
+  for (const sx of [-1, 1]) {
+    c.fillStyle = color;
+    c.beginPath(); c.ellipse(sx * 9, front * 9, 3.5, 5.5, 0, 0, 7); c.fill();
+    c.strokeStyle = us ? '#39462f' : '#3c3c32';
+    c.lineWidth = 0.9;
+    c.stroke();
+  }
+  if (us) {
+    c.fillStyle = color;
+    c.beginPath();
+    c.moveTo(-6, front * 12); c.lineTo(6, front * 12);
+    c.lineTo(7, front * 4); c.lineTo(-7, front * 4);
+    c.closePath(); c.fill();
+    c.fillRect(-7, front * 2, 14, 12);
+    c.strokeStyle = '#39462f';
+    c.lineWidth = 1.2;
+    c.stroke();
+    c.strokeStyle = '#2e3828';
+    c.lineWidth = 0.7;
+    for (let i = -2; i <= 2; i++) {
+      c.beginPath(); c.moveTo(i * 1.5, front * 11.5); c.lineTo(i * 1.5, front * 9); c.stroke();
+    }
+    c.fillStyle = 'rgba(20,22,18,0.52)';
+    c.fillRect(-5, front * 3 - 1, 10, 2.2);
+    c.strokeStyle = '#4a4038';
+    c.lineWidth = 0.8;
+    c.strokeRect(-5, front * 3 - 1, 10, 2.2);
+    c.fillStyle = '#26261e';
+    c.beginPath(); c.arc(0, -front * 10, 3.5, 0, 7); c.fill();
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 1;
+    c.stroke();
+    c.fillStyle = '#4a4038';
+    c.beginPath(); c.arc(0, -front * 10, 1.5, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(230,230,220,0.85)';
+    c.lineWidth = 0.9;
+    c.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const ang = -Math.PI / 2 + i * (Math.PI * 4 / 5);
+      const px = Math.cos(ang) * 3.5, py = front * 7 + Math.sin(ang) * 3.5;
+      if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+    }
+    c.closePath(); c.stroke();
+    c.strokeStyle = '#4a4038';
+    c.lineWidth = 2;
+    c.beginPath(); c.moveTo(-8, front * 12.5); c.lineTo(8, front * 12.5); c.stroke();
+    c.fillStyle = us ? '#5b6b4a' : '#61615a';
+    c.beginPath(); c.arc(-3.5, front * 6, 2.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 0.8;
+    c.stroke();
+  } else {
+    c.fillStyle = color;
+    c.beginPath();
+    c.moveTo(-8, front * 13);
+    c.quadraticCurveTo(-9, front * 8, -8, front * 2);
+    c.lineTo(-8, -front * 10);
+    c.lineTo(8, -front * 10);
+    c.lineTo(8, front * 2);
+    c.quadraticCurveTo(9, front * 8, 8, front * 13);
+    c.closePath(); c.fill();
+    c.strokeStyle = '#3c3c32';
+    c.lineWidth = 1.2;
+    c.stroke();
+    c.strokeStyle = 'rgba(0,0,0,0.3)';
+    c.lineWidth = 1;
+    c.beginPath(); c.moveTo(-8, front * 2); c.lineTo(-8, -front * 6); c.stroke();
+    c.beginPath(); c.moveTo(8, front * 2); c.lineTo(8, -front * 6); c.stroke();
+    c.strokeStyle = '#4a4a40';
+    c.lineWidth = 1.1;
+    for (const bx of [-5, 0, 5]) {
+      c.beginPath();
+      c.moveTo(bx, front * 3);
+      c.quadraticCurveTo(bx, front * 0.5, bx + (bx > 0 ? 2 : bx < 0 ? -2 : 0), front * 1);
+      c.stroke();
+    }
+    c.fillStyle = '#3a3a32';
+    c.beginPath(); c.arc(0, front * 12, 2.5, 0, 7); c.fill();
+    c.fillStyle = '#61615a';
+    c.beginPath(); c.arc(-3.5, front * 5, 2.2, 0, 7); c.fill();
+    c.beginPath(); c.arc(3.5, front * 5, 2.2, 0, 7); c.fill();
+  }
 }
 
 function stampJeepWreck(a) {
@@ -4632,9 +4819,17 @@ function stampJeepWreck(a) {
   gctx.translate(a.x, a.y);
   gctx.rotate(rand(-0.5, 0.5));
   gctx.fillStyle = '#33322a';
-  gctx.fillRect(-7, -12, 14, 24);
+  gctx.beginPath();
+  gctx.moveTo(-8, -10); gctx.lineTo(8, -12); gctx.lineTo(9, 8); gctx.lineTo(-9, 10);
+  gctx.closePath(); gctx.fill();
+  gctx.strokeStyle = '#26261e';
+  gctx.lineWidth = 3;
+  gctx.beginPath(); gctx.moveTo(2, 0); gctx.lineTo(14, rand(-4, 4)); gctx.stroke();
   gctx.fillStyle = '#211f1a';
-  gctx.beginPath(); gctx.arc(0, -2, 5, 0, 7); gctx.fill();
+  gctx.beginPath(); gctx.ellipse(-8, -6, 3, 5, 0.2, 0, 7); gctx.fill();
+  gctx.beginPath(); gctx.ellipse(8, 6, 3, 5, -0.15, 0, 7); gctx.fill();
+  gctx.fillStyle = 'rgba(40,30,20,0.35)';
+  gctx.beginPath(); gctx.arc(0, 0, 5, 0, 7); gctx.fill();
   gctx.restore();
 }
 
@@ -4643,36 +4838,26 @@ function drawJeep(a) {
   const c = ctx;
   c.save();
   c.translate(a.x, a.y);
-  // shadow
+
   c.fillStyle = 'rgba(0,0,0,0.28)';
-  c.beginPath(); c.ellipse(0, 3, 11, 14, 0, 0, 7); c.fill();
-  // wheels
-  c.fillStyle = '#26251f';
-  for (const [wx, wy] of [[-8, -8], [8, -8], [-8, 8], [8, 8]]) c.fillRect(wx - 1.5, wy - 3, 3, 6);
-  // hull
-  c.fillStyle = a.t.color;
-  c.fillRect(-7, -12, 14, 24);
-  c.strokeStyle = us ? '#39462f' : '#3c3c32';
-  c.lineWidth = 1.2;
-  c.strokeRect(-7, -12, 14, 24);
-  // hood seam + windshield (front faces the enemy for us, downfield for them)
-  const front = us ? -1 : 1;
-  c.strokeStyle = 'rgba(0,0,0,0.35)';
-  c.beginPath(); c.moveTo(-7, front * 5); c.lineTo(7, front * 5); c.stroke();
-  c.fillStyle = 'rgba(20,22,18,0.5)';
-  c.fillRect(-5.5, front * 3 - 1, 11, 2);
-  if (us) {
-    c.fillStyle = 'rgba(230,230,220,0.85)';
-    c.beginPath(); c.arc(0, 7, 2, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(0, 4, 12, 15, 0, 0, 7); c.fill();
+
+  for (const [wx, wy] of [[-8, -8], [8, -8], [-8, 8], [8, 8]]) {
+    drawJeepWheel(c, wx, wy);
   }
-  // pintle .50 cal and gunner
+
+  drawJeepBody(c, a.t.color, us);
+
   c.rotate(a.face);
-  c.strokeStyle = '#1c1c16';
-  c.lineWidth = 2.6;
-  c.beginPath(); c.moveTo(2, 0); c.lineTo(a.t.gun + 2, 0); c.stroke();
-  c.rotate(-a.face);
+  drawVehicleHMG(c, a.t.gun, us);
   c.fillStyle = us ? '#5b6b4a' : '#61615a';
-  c.beginPath(); c.arc(0, 0, 3.2, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(-5.5, 0, 3.6, 4.8, 0, 0, 7); c.fill();
+  c.fillStyle = us ? '#4a5a3f' : '#525244';
+  c.beginPath(); c.ellipse(-5.5, 0, 3, 4, 0, 0, 7); c.fill();
+  c.beginPath(); c.arc(-5.5, -2.8, 2.9, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.35)';
+  c.lineWidth = 0.85;
+  c.beginPath(); c.arc(-5.5, -2.8, 2.9, 0, 7); c.stroke();
   c.restore();
 
   if (a.hp < a.maxhp) {
@@ -4730,62 +4915,138 @@ function stampHalftrackWreck(a) {
 
 function drawATGun(a) {
   const c = ctx;
+  const recoil = a.atgunFireT > 0 ? clamp(a.atgunFireT / 0.16, 0, 1) : 0;
+  const kick = recoil * 5;
   c.save();
   c.translate(a.x, a.y);
 
-  // shadow
-  c.fillStyle = 'rgba(0,0,0,0.25)';
-  c.beginPath(); c.ellipse(0, 4, 16, 10, 0, 0, 7); c.fill();
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  c.beginPath(); c.ellipse(0, 5, 18, 11, 0, 0, 7); c.fill();
 
-  // everything but the crew pivots with the tube
-  c.rotate(a.turret + Math.PI / 2);   // sprite is authored pointing "up"
+  c.rotate(a.turret + Math.PI / 2);
 
-  // split trails staked out behind the breech
   c.strokeStyle = '#3d4a34';
-  c.lineWidth = 3;
-  c.beginPath(); c.moveTo(-2, 4); c.lineTo(-11, 16); c.stroke();
-  c.beginPath(); c.moveTo(2, 4); c.lineTo(11, 16); c.stroke();
-  // trail spades
+  c.lineWidth = 3.2;
+  c.beginPath(); c.moveTo(-2.5, 5); c.lineTo(-13, 18); c.stroke();
+  c.beginPath(); c.moveTo(2.5, 5); c.lineTo(13, 18); c.stroke();
+  c.strokeStyle = '#2e3828';
+  c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(-2, 7); c.lineTo(-11, 17); c.stroke();
+  c.beginPath(); c.moveTo(2, 7); c.lineTo(11, 17); c.stroke();
   c.fillStyle = '#2f3a29';
-  c.fillRect(-13, 14, 5, 4);
-  c.fillRect(8, 14, 5, 4);
+  c.fillRect(-14, 16, 6, 4);
+  c.fillRect(8, 16, 6, 4);
+  c.strokeStyle = '#243020';
+  c.lineWidth = 0.8;
+  c.strokeRect(-14, 16, 6, 4);
+  c.strokeRect(8, 16, 6, 4);
+  c.fillStyle = '#4a4038';
+  c.fillRect(-12, 19, 1.2, 3);
+  c.fillRect(10, 19, 1.2, 3);
 
-  // wheels
-  c.fillStyle = '#2f2f28';
-  c.beginPath(); c.ellipse(-9, 1, 3, 5, 0, 0, 7); c.fill();
-  c.beginPath(); c.ellipse(9, 1, 3, 5, 0, 0, 7); c.fill();
+  for (const wx of [-10, 10]) {
+    c.fillStyle = '#26261e';
+    c.beginPath(); c.ellipse(wx, 2, 3.5, 5.5, 0, 0, 7); c.fill();
+    c.strokeStyle = '#3a3830';
+    c.lineWidth = 1.1;
+    c.stroke();
+    c.fillStyle = '#4a4038';
+    c.beginPath(); c.arc(wx, 2, 2, 0, 7); c.fill();
+    c.strokeStyle = '#2a2820';
+    c.lineWidth = 0.7;
+    for (let i = 0; i < 6; i++) {
+      const ang = i * Math.PI / 3;
+      c.beginPath();
+      c.moveTo(wx, 2);
+      c.lineTo(wx + Math.cos(ang) * 2, 2 + Math.sin(ang) * 2);
+      c.stroke();
+    }
+  }
 
-  // carriage
+  c.fillStyle = '#5a4a38';
+  c.fillRect(8, 6, 6, 4.5);
+  c.strokeStyle = '#3a3028';
+  c.lineWidth = 0.7;
+  c.strokeRect(8, 6, 6, 4.5);
+  c.fillStyle = '#c8a858';
+  c.fillRect(9.2, 7.2, 1.4, 2.2);
+  c.fillRect(11.2, 7.2, 1.4, 2.2);
+  c.fillStyle = '#ffd94a';
+  c.fillRect(9.5, 8.5, 3.2, 0.9);
+
   c.fillStyle = a.t.color;
-  c.fillRect(-4, -2, 8, 8);
-
-  // gun shield, slightly angled plates
-  c.fillStyle = '#54634a';
+  c.fillRect(-5, 0, 10, 9);
   c.strokeStyle = '#39462f';
   c.lineWidth = 1;
+  c.strokeRect(-5, 0, 10, 9);
+  c.fillStyle = '#3a4832';
+  c.beginPath(); c.arc(0, 4, 2.8, 0, 7); c.fill();
+
+  c.fillStyle = '#54634a';
+  c.strokeStyle = '#39462f';
+  c.lineWidth = 1.2;
   c.beginPath();
-  c.moveTo(-11, -3);
-  c.lineTo(-3, -6);
-  c.lineTo(3, -6);
-  c.lineTo(11, -3);
-  c.lineTo(11, 1);
-  c.lineTo(-11, 1);
+  c.moveTo(-12, 0);
+  c.lineTo(-4, -7 + kick * 0.3);
+  c.lineTo(4, -7 + kick * 0.3);
+  c.lineTo(12, 0);
+  c.lineTo(12, 3);
+  c.lineTo(-12, 3);
   c.closePath();
   c.fill(); c.stroke();
+  c.fillStyle = '#ffd94a';
+  c.fillRect(-2, -4 + kick * 0.3, 4, 1.2);
+  c.fillStyle = 'rgba(30,36,22,0.35)';
+  for (const [rx, ry] of [[-8, 0.5], [0, -2], [8, 0.5], [-4, 1.5], [4, 1.5]]) {
+    c.beginPath(); c.arc(rx, ry + kick * 0.3, 0.55, 0, 7); c.fill();
+  }
 
-  // barrel with muzzle brake
+  const bTop = -24 + kick;
+  c.fillStyle = '#3a3830';
+  c.fillRect(-2, bTop, 4, 20);
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 0.8;
+  c.strokeRect(-2, bTop, 4, 20);
   c.fillStyle = '#4c5a42';
-  c.fillRect(-1.5, -22, 3, 17);
-  c.fillRect(-2.5, -23, 5, 3);
+  c.fillRect(-3, bTop - 1, 6, 4);
+  c.fillStyle = '#2a2820';
+  c.beginPath(); c.arc(0, bTop + 3, 2.2, 0, 7); c.fill();
+  c.fillStyle = '#4a4038';
+  c.fillRect(-2.5, bTop - 4, 5, 3.5);
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.moveTo(-2.8, bTop - 2); c.lineTo(-2.8, bTop - 5);
+  c.moveTo(2.8, bTop - 2); c.lineTo(2.8, bTop - 5);
+  c.stroke();
+  if (recoil > 0.2) {
+    c.shadowColor = '#ff9040';
+    c.shadowBlur = 8;
+    c.fillStyle = `rgba(255,200,120,${recoil * 0.85})`;
+    c.beginPath(); c.arc(0, bTop - 3, 3.5 * recoil, 0, 7); c.fill();
+    c.shadowBlur = 0;
+  }
 
   c.restore();
 
-  // crewman crouched at the breech, on the field (not rotated with the gun)
-  const bx = a.x - Math.cos(a.turret) * 10, by = a.y - Math.sin(a.turret) * 10;
+  const bx = a.x - Math.cos(a.turret) * 12;
+  const by = a.y - Math.sin(a.turret) * 12;
+  const fx = Math.cos(a.turret), fy = Math.sin(a.turret);
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath(); ctx.ellipse(bx + 1, by + 3, 5, 2.5, a.turret, 0, 7); ctx.fill();
   ctx.fillStyle = a.t.color;
-  ctx.beginPath(); ctx.arc(bx, by, 3.4, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(bx, by, 4.2, 5.2, a.turret, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#4a4a3e';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(bx, by);
+  ctx.lineTo(bx + fx * 7, by + fy * 7);
+  ctx.stroke();
   ctx.fillStyle = '#5b6b4a';
-  ctx.beginPath(); ctx.arc(bx, by - 1, 2, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(bx - fy * 2.5, by + fx * 2.5 - 1, 3.4, 0, 7); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.arc(bx - fy * 2.5, by + fx * 2.5 - 1, 3.4, 0, 7); ctx.stroke();
 
   if (a.hp < a.maxhp) {
     const f = clamp(a.hp / a.maxhp, 0, 1);
@@ -5360,7 +5621,7 @@ function drawPlacementGhost() {
     }
     const ut = UNIT_TYPES[p.key];
     if (ut && ut.atgun) {
-      drawFireCone(x, y, -Math.PI / 2, ut.atgun.arc, ut.range * fogMult(), 0.35);
+      drawATGunRangeCone(x, y, -Math.PI / 2, ut.atgun.arc, ut.range * fogMult(), 0.45);
     } else if (ut && ut.fireCone) {
       drawFireCone(x, y, -Math.PI / 2, ut.fireCone.arc, ut.range * fogMult(), 0.35);
     } else if (ut && ut.flame) {

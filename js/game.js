@@ -29,7 +29,7 @@ const UNIT_TYPES = {
   },
   grenadier: {
     // 50% more gun range than the rifleman (230): the better all-rounder
-    name: 'Grenadier', hp: 100, range: 345, dmg: 10, acc: 0.5,
+    name: 'Grenadier', hp: 100, range: 345, dmg: 10, acc: 0.55,
     rof: 1.2, burst: 1, burstGap: 0, speed: 42,
     color: '#44583c', gun: 6, sfx: 'rifle', grenade: true,
     desc: 'Carbine most of the time; a heavy frag now and then.',
@@ -133,7 +133,7 @@ const ENEMY_TYPES = {
     color: '#5f5f52', gun: 6, sfx: 'mg', priority: 1,
   },
   egren: {
-    name: 'Grenadier', hp: 70, speed: 27, range: 150, dmg: 8, acc: 0.35,
+    name: 'Grenadier', hp: 70, speed: 27, range: 150, dmg: 8, acc: 0.385,
     rof: 1.6, burst: 1, burstGap: 0, reward: 3,
     color: '#65655a', gun: 5, sfx: 'pistol', priority: 2, grenade: true,
   },
@@ -1942,12 +1942,14 @@ function updateUnit(u, dt) {
         // grenades are a rare, heavy punch — the carbine does the daily work.
         // Veterans throw more often, tighter and harder.
         u.grenCd = rand(9.6, 13.9) * (1 - u.rank * 0.08);
+        u.grenThrowT = 0.35;
         SFX.grenadeToss();
         const sc = 12 * (1 - u.rank * 0.08);
         G.grenades.push({
           x: u.x, y: u.y,
           tx: gt.x + rand(-sc, sc), ty: gt.y + rand(-sc, sc),
           t: 0, dur: 1.0, sx: u.x, sy: u.y, by: u,
+          kind: 'frag',
           r: 46, dmg: 115 * (1 + u.rank * 0.05),
         });
       }
@@ -2337,11 +2339,13 @@ function updateEnemy(e, dt) {
     const gt = nearestUnitInRange(e, 190);
     if (gt && e.grenCd <= 0) {
       e.grenCd = rand(4.5, 6.5);
+      e.grenThrowT = 0.35;
       SFX.grenadeToss();
       G.grenades.push({
         x: e.x, y: e.y,
         tx: gt.x + rand(-14, 14), ty: gt.y + rand(-14, 14),
         t: 0, dur: 1.0, sx: e.x, sy: e.y,
+        kind: 'stick',
       });
     }
   }
@@ -2571,6 +2575,8 @@ function update(dt) {
   for (const e of G.enemies) if (!e.dead) updateEnemy(e, dt);
   for (const u of G.units) if (!u.dead && u.flameT > 0) u.flameT -= dt;
   for (const e of G.enemies) if (!e.dead && e.flameT > 0) e.flameT -= dt;
+  for (const u of G.units) if (!u.dead && u.grenThrowT > 0) u.grenThrowT -= dt;
+  for (const e of G.enemies) if (!e.dead && e.grenThrowT > 0) e.grenThrowT -= dt;
 
   // mines
   for (const m of G.mines) {
@@ -2794,9 +2800,10 @@ function drawProneSoldier(a) {
   c.fillStyle = 'rgba(0,0,0,0.2)';
   c.beginPath(); c.ellipse(-1, 1.5, isMG ? 11.5 : 10.5, 4, 0, 0, 7); c.fill();
   const gunX = 3 + a.t.gun * 0.82;
+  const isGren = a.type === 'grenadier' || a.type === 'egren';
   // weapon laid out beside him, not shouldered
   c.strokeStyle = '#26261e';
-  c.lineWidth = isEmg ? 2.6 : isBar ? 2.2 : 1.8;
+  c.lineWidth = isEmg ? 2.6 : isBar ? 2.2 : isGren ? 2 : 1.8;
   c.beginPath(); c.moveTo(3, 2.8); c.lineTo(gunX, 2.8); c.stroke();
   if (isBar) {
     c.fillStyle = '#2a2a1e';
@@ -2820,6 +2827,17 @@ function drawProneSoldier(a) {
     }
     c.fillStyle = '#3a3828';
     c.beginPath(); c.arc(1, 4.5, 2.4, 0, 7); c.fill();
+  }
+  if (a.type === 'grenadier') {
+    c.fillStyle = '#2a2a1e';
+    c.fillRect(3 + a.t.gun * 0.28, 3.5, 2.5, 2.1);
+  }
+  if (a.type === 'egren') {
+    c.fillStyle = '#3a3a30';
+    c.beginPath();
+    c.moveTo(gunX - 1.2, 2.2); c.lineTo(gunX + 0.8, 2.2);
+    c.lineTo(gunX + 0.5, 3.2); c.lineTo(gunX - 0.9, 3.2);
+    c.closePath(); c.fill();
   }
   // legs trailing behind
   c.strokeStyle = a.t.color;
@@ -2848,6 +2866,14 @@ function drawProneSoldier(a) {
     c.strokeStyle = '#2a2820';
     c.lineWidth = 1.4;
     c.beginPath(); c.moveTo(3, 2.8); c.quadraticCurveTo(-1, 1.5, -4, 0.5); c.stroke();
+  }
+  if (a.type === 'grenadier') {
+    drawFragGrenade(c, -3.5, 1.2, 0.75, { rot: 0.2 });
+    drawFragGrenade(c, -1, 2.8, 0.7, { rot: -0.3 });
+  }
+  if (a.type === 'egren') {
+    drawStickGrenade(c, -4.5, 0.5, 0.75, 0.4);
+    drawStickGrenade(c, -2, 2.5, 0.68, 0.9);
   }
   c.restore();
 }
@@ -2914,6 +2940,78 @@ function drawParatrooper(e) {
   c.restore();
 }
 
+// M2 fragmentation grenade — segmented body, spoon lever, pin ring
+function drawFragGrenade(c, x, y, scale, opts) {
+  scale = scale || 1;
+  const ground = opts && opts.ground;
+  const rot = opts && opts.rot != null ? opts.rot : 0;
+  c.save();
+  c.translate(x, y);
+  c.rotate(rot);
+  c.fillStyle = '#2a3228';
+  c.beginPath(); c.arc(0, 0, 2.2 * scale, 0, 7); c.fill();
+  c.strokeStyle = '#1a1e16';
+  c.lineWidth = 0.65 * scale;
+  for (let i = 0; i < 6; i++) {
+    const ang = i * Math.PI / 3;
+    c.beginPath();
+    c.moveTo(Math.cos(ang) * 1.1 * scale, Math.sin(ang) * 1.1 * scale);
+    c.lineTo(Math.cos(ang) * 2.1 * scale, Math.sin(ang) * 2.1 * scale);
+    c.stroke();
+  }
+  if (!ground) {
+    c.fillStyle = '#4a4a3e';
+    c.fillRect(-0.55 * scale, -3.3 * scale, 1.1 * scale, 1.5 * scale);
+    c.strokeStyle = '#8a7a48';
+    c.lineWidth = 0.95 * scale;
+    c.beginPath();
+    c.arc(0, -3.9 * scale, 1.15 * scale, Math.PI * 0.12, Math.PI * 0.88);
+    c.stroke();
+    c.strokeStyle = '#c8b868';
+    c.lineWidth = 0.55 * scale;
+    c.beginPath(); c.arc(1.35 * scale, -3.6 * scale, 0.55 * scale, 0, 7); c.stroke();
+  }
+  c.restore();
+}
+
+// Stielhandgranate — steel can on a wooden handle
+function drawStickGrenade(c, x, y, scale, rot) {
+  scale = scale || 1;
+  rot = rot != null ? rot : 0;
+  c.save();
+  c.translate(x, y);
+  c.rotate(rot);
+  c.strokeStyle = '#6b5330';
+  c.lineWidth = 1.55 * scale;
+  c.beginPath(); c.moveTo(0, 0.5 * scale); c.lineTo(0, 6 * scale); c.stroke();
+  c.fillStyle = '#33332a';
+  c.beginPath(); c.arc(0, -0.6 * scale, 2.05 * scale, 0, 7); c.fill();
+  c.strokeStyle = '#1e1e18';
+  c.lineWidth = 0.75 * scale;
+  c.beginPath(); c.arc(0, -0.6 * scale, 2.05 * scale, 0, 7); c.stroke();
+  c.fillStyle = '#4a4a40';
+  c.fillRect(-0.85 * scale, -2.7 * scale, 1.7 * scale, 1.15 * scale);
+  c.restore();
+}
+
+function drawGrenadeProjectile(g, x, y) {
+  const spin = g.landed ? 0 : g.t * 9;
+  if (g.kind === 'stick') {
+    drawStickGrenade(ctx, x, y, 1.05, -Math.PI / 2 + spin * 0.3);
+  } else {
+    drawFragGrenade(ctx, x, y, 1.05, { rot: spin });
+  }
+  if (g.landed) {
+    const blink = Math.sin(g.fuse * (14 - g.fuse * 2)) > 0;
+    if (blink) {
+      ctx.fillStyle = '#ff5a2a';
+      ctx.beginPath(); ctx.arc(x, y - 4, 1.3, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255,140,40,0.35)';
+      ctx.beginPath(); ctx.arc(x, y - 4, 2.8, 0, 7); ctx.fill();
+    }
+  }
+}
+
 function drawSoldier(a) {
   if (a.prone > 0) {
     drawProneSoldier(a);
@@ -2930,6 +3028,7 @@ function drawSoldier(a) {
   const isSMG = type === 'engineer' || type === 'esmg';
   const isShotgun = type === 'shotgunner';
   const isOfficer = type === 'officer' || type === 'eoff';
+  const isGrenadier = type === 'grenadier' || type === 'egren';
   const fx = Math.cos(a.face), fy = Math.sin(a.face);
   c.save();
   c.translate(a.x, a.y);
@@ -3010,6 +3109,53 @@ function drawSoldier(a) {
       c.fillStyle = '#ff7020';
       c.beginPath(); c.arc(nozX, nozY, 0.75, 0, 7); c.fill();
     }
+  } else if (isGrenadier && us) {
+    // M1 carbine — short barrel, side mag, curved stock
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 2.1;
+    c.beginPath();
+    c.moveTo(fx * 2, fy * 2);
+    c.lineTo(fx * gunLen, fy * gunLen);
+    c.stroke();
+    c.strokeStyle = '#4a3f2e';
+    c.lineWidth = 1.8;
+    c.beginPath();
+    c.moveTo(fx * 1.4 - fy * 2, fy * 1.4 + fx * 2);
+    c.lineTo(fx * 1.4 + fy * 2, fy * 1.4 - fx * 2);
+    c.stroke();
+    c.fillStyle = '#2a2a1e';
+    const magX = fx * (gunLen * 0.42), magY = fy * (gunLen * 0.42);
+    c.fillRect(magX - fy * 1.6 - 0.9, magY + fx * 1.6 - 1.1, fy * 3.2 + 1.8, -fx * 3.2 + 2.2);
+    c.strokeStyle = '#3a3a30';
+    c.lineWidth = 1.1;
+    c.beginPath();
+    c.moveTo(fx * (gunLen * 0.55) + fy * 1.5, fy * (gunLen * 0.55) - fx * 1.5);
+    c.lineTo(fx * (gunLen * 0.55) + fy * 3.2, fy * (gunLen * 0.55) - fx * 3.2);
+    c.stroke();
+    c.fillStyle = '#1c1c16';
+    c.beginPath(); c.arc(fx * (gunLen - 0.5), fy * (gunLen - 0.5), 1, 0, 7); c.fill();
+  } else if (type === 'egren') {
+    // Kar98k with a stick grenade tucked under the stock
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 2.2;
+    c.beginPath();
+    c.moveTo(fx * 2, fy * 2);
+    c.lineTo(fx * gunLen, fy * gunLen);
+    c.stroke();
+    c.strokeStyle = '#4a3f2e';
+    c.lineWidth = 1.7;
+    c.beginPath();
+    c.moveTo(fx * 1.3 - fy * 2.4, fy * 1.3 + fx * 2.4);
+    c.lineTo(fx * 1.3 + fy * 1.8, fy * 1.3 - fx * 1.8);
+    c.stroke();
+    c.fillStyle = '#3a3a30';
+    c.beginPath();
+    c.moveTo(fx * (gunLen - 1.5) - fy * 0.8, fy * (gunLen - 1.5) + fx * 0.8);
+    c.lineTo(fx * (gunLen + 0.5) - fy * 0.5, fy * (gunLen + 0.5) + fx * 0.5);
+    c.lineTo(fx * (gunLen + 0.5) + fy * 0.5, fy * (gunLen + 0.5) - fx * 0.5);
+    c.lineTo(fx * (gunLen - 1.5) + fy * 0.8, fy * (gunLen - 1.5) - fx * 0.8);
+    c.closePath(); c.fill();
+    drawStickGrenade(c, fx * 1.8 + fy * 3.5, fy * 1.8 - fx * 3.5, 0.72, a.face + 0.55);
   } else {
     c.strokeStyle = '#26261e';
     c.lineWidth = isEmg ? 3.4 : isBar ? 2.8 : isSMG ? 2.6 : isSniper ? 1.6 : isShotgun ? 3.2 : 2;
@@ -3109,8 +3255,8 @@ function drawSoldier(a) {
 
   // ---- body
   const isFlamer = !!a.t.flame;
-  const bodyW = isShotgun ? 7.5 : isEmg ? 7.3 : isBar ? 7 : isFlamer ? 7.2 : 6.5;
-  const bodyH = isShotgun ? 5.8 : isEmg ? 4.7 : isBar ? 4.9 : isFlamer ? 5.4 : 5;
+  const bodyW = isShotgun ? 7.5 : isEmg ? 7.3 : isBar ? 7 : isFlamer ? 7.2 : isGrenadier ? 6.8 : 6.5;
+  const bodyH = isShotgun ? 5.8 : isEmg ? 4.7 : isBar ? 4.9 : isFlamer ? 5.4 : isGrenadier ? 5.2 : 5;
   c.fillStyle = a.t.color;
   c.beginPath(); c.ellipse(0, 0, bodyW, bodyH, a.face, 0, 7); c.fill();
   if (isShotgun) {
@@ -3177,22 +3323,36 @@ function drawSoldier(a) {
   }
 
   // ---- class kit
-  if (us && a.t.grenade) {
-    // frags clipped to his webbing
-    c.fillStyle = '#232920';
-    c.beginPath(); c.arc(-4.5, 3, 1.9, 0, 7); c.fill();
-    c.beginPath(); c.arc(-1.2, 4.7, 1.9, 0, 7); c.fill();
-    c.strokeStyle = '#111';
-    c.lineWidth = 0.7;
-    c.beginPath(); c.arc(-4.5, 3, 1.9, 0, 7); c.stroke();
+  if (type === 'grenadier') {
+    // M1 carbine bandolier and frags clipped to the harness
+    c.strokeStyle = '#8a7a48';
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(-fy * 4.5 - fx * 1.5, fx * 4.5 - fy * 1.5);
+    c.lineTo(fy * 4.5 - fx * 1.5, -fx * 4.5 - fy * 1.5);
+    c.stroke();
+    c.fillStyle = '#3a4034';
+    c.beginPath(); c.ellipse(-fy * 5.2, fx * 5.2, 2.4, 2.8, a.face, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(fy * 4.8, -fx * 4.8, 2.2, 2.5, a.face, 0, 7); c.fill();
+    drawFragGrenade(c, -4.8, 3.2, 0.88, { rot: 0.35 });
+    drawFragGrenade(c, -1.5, 5.2, 0.82, { rot: -0.2 });
+    drawFragGrenade(c, 2.2, 4.6, 0.78, { rot: 0.55 });
+    c.fillStyle = '#2f3328';
+    c.fillRect(-5.8, 4.8, 3.2, 2.4);
+    c.strokeStyle = '#4a4a3e';
+    c.lineWidth = 0.8;
+    c.strokeRect(-5.8, 4.8, 3.2, 2.4);
   }
   if (type === 'egren') {
-    // stick grenade at the belt
-    c.strokeStyle = '#6b5330';
-    c.lineWidth = 1.6;
-    c.beginPath(); c.moveTo(-6, 2); c.lineTo(-2, 5.5); c.stroke();
-    c.fillStyle = '#33332a';
-    c.beginPath(); c.arc(-6.5, 1.5, 1.8, 0, 7); c.fill();
+    // stick grenades on the belt and tucked into the boot
+    drawStickGrenade(c, -6.2, 1.8, 0.85, a.face - 0.35);
+    drawStickGrenade(c, -3.8, 4.8, 0.78, a.face + 0.15);
+    drawStickGrenade(c, 4.5, 3.2, 0.72, a.face + 0.85);
+    c.strokeStyle = '#3c3c33';
+    c.lineWidth = 1.3;
+    c.beginPath(); c.moveTo(-5, 3.5); c.lineTo(5, 3.5); c.stroke();
+    c.fillStyle = '#4a4a40';
+    c.beginPath(); c.ellipse(-fy * 4.2, fx * 4.2, 2, 2.4, a.face, 0, 7); c.fill();
   }
   if (a.t.rocket) {
     // launcher tube across the shoulders, open ends visible
@@ -3265,6 +3425,11 @@ function drawSoldier(a) {
     c.strokeStyle = 'rgba(0,0,0,0.35)';
     c.lineWidth = 1;
     c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.stroke();
+    if (type === 'grenadier') {
+      // white assault stripe on the helmet back
+      c.fillStyle = 'rgba(230,228,210,0.85)';
+      c.beginPath(); c.arc(-fx * 2.8, -1 + fy * 2.8, 1.6, 0, 7); c.fill();
+    }
   }
   if (a.type === 'engineer') {
     // crossed-tools mark on the helmet
@@ -3289,6 +3454,21 @@ function drawSoldier(a) {
     c.lineWidth = 1.1;
     c.beginPath(); c.moveTo(-2.8, -3.2); c.lineTo(0, 1.8); c.lineTo(2.8, -3.2); c.stroke();
     c.beginPath(); c.moveTo(-2.2, 2.2); c.lineTo(2.2, 2.2); c.stroke();
+  }
+
+  // wind-up pose while lobbing a grenade
+  if (a.grenThrowT > 0) {
+    const t = clamp(a.grenThrowT / 0.35, 0, 1);
+    const arm = a.face - 0.55 + (1 - t) * 0.35;
+    const ax = Math.cos(arm) * 5.5, ay = Math.sin(arm) * 5.5;
+    c.strokeStyle = a.t.color;
+    c.lineWidth = 2.6;
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(ax, ay); c.stroke();
+    if (type === 'egren') {
+      drawStickGrenade(c, ax + Math.cos(arm) * 2.5, ay + Math.sin(arm) * 2.5, 0.9, arm + Math.PI / 2);
+    } else {
+      drawFragGrenade(c, ax + Math.cos(arm) * 2.2, ay + Math.sin(arm) * 2.2, 0.95, { rot: arm - 0.4 });
+    }
   }
 
   c.restore();
@@ -3919,20 +4099,12 @@ function draw() {
   // grenades in flight (arc via fake height), then resting on the ground
   for (const g of G.grenades) {
     if (g.landed) {
-      // sitting on the ground, blinking faster as the fuse burns down
-      const blink = Math.sin(g.fuse * (14 - g.fuse * 2)) > 0;
-      ctx.fillStyle = '#2e3226';
-      ctx.beginPath(); ctx.arc(g.tx, g.ty, 2.5, 0, 7); ctx.fill();
-      if (blink) {
-        ctx.fillStyle = '#ff5a2a';
-        ctx.beginPath(); ctx.arc(g.tx, g.ty - 3, 1.2, 0, 7); ctx.fill();
-      }
+      drawGrenadeProjectile(g, g.tx, g.ty);
     } else {
       const f = g.t / g.dur;
       const x = g.sx + (g.tx - g.sx) * f;
       const y = g.sy + (g.ty - g.sy) * f - Math.sin(f * Math.PI) * 34;
-      ctx.fillStyle = '#2e3226';
-      ctx.beginPath(); ctx.arc(x, y, 2.5, 0, 7); ctx.fill();
+      drawGrenadeProjectile(g, x, y);
     }
   }
 

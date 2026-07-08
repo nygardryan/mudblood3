@@ -81,7 +81,8 @@ const UNIT_TYPES = {
     rof: 1, burst: 1, burstGap: 0, speed: 38,
     color: '#4f5c3a', gun: 8, sfx: 'rifle',
     flame: { range: 130, arc: 0.45, dps: 38 },
-    desc: 'M2 flamethrower. Burns everything in the cone — friend or foe.',
+    blastResist: 0.5,
+    desc: 'M2 flamethrower and flak vest. Burns everything in the cone — friend or foe.',
   },
   jeep: {
     name: 'Jeep', hp: 250, range: 300, dmg: 13, acc: 0.42,
@@ -153,6 +154,7 @@ const ENEMY_TYPES = {
     rof: 1, burst: 1, burstGap: 0, reward: 4,
     color: '#5a5a48', gun: 8, sfx: 'rifle', priority: 3,
     flame: { range: 120, arc: 0.45, dps: 34 },
+    blastResist: 0.5,
   },
   ebike: {
     name: 'Kradschützen', hp: 80, speed: 85, range: 0, dmg: 0, acc: 0,
@@ -185,7 +187,7 @@ const ENEMY_INFO = {
   emg: 'MG42 team. Pins your men down from long range with sustained fire.',
   eoff: 'Leutnant rallying nearby troops. Kill him first — his aura stiffens German morale.',
   esniper: 'Camouflaged sharpshooter. Picks off officers, medics, and gunners from afar.',
-  eflame: 'Flammenwerfer operator. Burns through wire, sandbags, and flesh alike.',
+  eflame: 'Flammenwerfer operator in a flak vest. Burns through wire, sandbags, and flesh alike.',
   ebike: 'Kradschützen on motorcycles. Blazing speed — they breach before you can react.',
   ejeep: 'Kübelwagen with a mounted MG. Mobile fire support, lightly armored.',
   ehalftrack: 'Sd.Kfz. 251 halftrack. Heavy armor, bow MG, and a squad ready to dismount.',
@@ -265,7 +267,7 @@ const PLACEABLES = [
   { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
     desc: 'Buffs nearby men. Generates +1 TP every 30 s.' },
   { key: 'flamer', label: 'FLAMER', cost: 6, kind: 'unit', hotkey: 'F',
-    desc: 'M2 flamethrower. Devastating cone of fire that burns friend and foe alike.' },
+    desc: 'M2 flamethrower and flak vest. Devastating cone of fire that burns friend and foe alike.' },
   { key: 'jeep', label: 'JEEP', cost: 30, kind: 'unit', hotkey: 'J',
     desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — no field repairs.' },
   { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
@@ -301,7 +303,7 @@ const AXIS_PLACEABLES = [
   { key: 'esniper', label: 'SNIPER', cost: 6, kind: 'eunit', hotkey: '5',
     desc: 'Camouflaged marksman. Picks off gunners and medics from afar.' },
   { key: 'eflame', label: 'FLAMMEN', cost: 6, kind: 'eunit', hotkey: 'F',
-    desc: 'Flammenwerfer operator. Burns through wire, sandbags and flesh alike.' },
+    desc: 'Flammenwerfer operator in a flak vest. Burns through wire, sandbags and flesh alike.' },
   { key: 'eoff', label: 'OFFICER', cost: 8, kind: 'eunit', hotkey: '6',
     desc: 'Leutnant. Nearby troops fight harder; earns +1 TP every 30 s while alive.' },
   { key: 'ebike', label: 'KRAD', cost: 7, kind: 'eunit', hotkey: 'K',
@@ -355,11 +357,6 @@ const LEVELS = {
     events: false,
     placeables: PLACEABLES,
     startTP: 20,
-    // bump only the units that clear the mission solo at base prices
-    costOverrides: {
-      rifleman: 9, gunner: 15, grenadier: 14, shotgunner: 11,
-      sniper: 14, bazooka: 18, jeep: 38,
-    },
     briefing: 'Hold your sector against 12 German assault waves. Survive the final push and the line is yours.',
     // scripted assault: delay is seconds after the previous wave steps off
     waves: [
@@ -1032,12 +1029,16 @@ function explode(x, y, r, dmg, big, by) {
     let hd = hitArea(e);
     if (hd > 0) {
       if (e.t.tank) hd *= 2.2;                    // HE vs armor: effective
+      else if (e.t.blastResist) hd *= (1 - e.t.blastResist);
       damageEnemy(e, hd, by || { x, y });
     }
   }
   for (const u of G.units) {
-    const hd = hitArea(u);
-    if (hd > 0) damageUnit(u, hd, { x, y });
+    let hd = hitArea(u);
+    if (hd > 0) {
+      if (u.t.blastResist) hd *= (1 - u.t.blastResist);
+      damageUnit(u, hd, { x, y });
+    }
   }
   for (const s of G.sandbags) {
     if (dist(s, { x, y }) < r) s.hp -= dmg * 0.8;
@@ -3833,53 +3834,28 @@ function drawPlacementGhost() {
 
 const el = id => document.getElementById(id);
 const touchUI = () => window.matchMedia('(hover: none)').matches;
-const sideToolbarLayout = () =>
-  window.matchMedia('(orientation: landscape) and (max-height: 520px) and (hover: none)').matches;
 
 function fitLayout() {
   const wrap = el('wrap');
-  const toolbar = el('toolbar');
   const stage = el('stage');
-  const pad = 16;
-  const maxW = window.innerWidth - pad;
-  const maxH = window.innerHeight - pad;
-  const side = sideToolbarLayout();
+  const maxW = window.innerWidth;
+  const maxH = window.innerHeight;
+  const ratio = W / H;
 
-  wrap.classList.toggle('side-toolbar', side);
-
-  if (side) {
-    const tbW = 68;
-    let stageH = maxH;
-    let stageW = stageH * (W / H);
-    if (stageW + tbW + 6 > maxW) {
-      stageW = Math.max(200, maxW - tbW - 6);
-      stageH = stageW * (H / W);
-    }
-    stageW = Math.min(stageW, W);
-    stage.style.width = stageW + 'px';
-    stage.style.height = stageH + 'px';
-    toolbar.style.maxHeight = stageH + 'px';
-    wrap.style.width = (tbW + stageW + 6) + 'px';
-    wrap.style.height = '';
-    return;
+  let w = maxW;
+  let h = w / ratio;
+  if (h > maxH) {
+    h = maxH;
+    w = h * ratio;
   }
 
-  stage.style.width = '';
-  stage.style.height = '';
-  toolbar.style.maxHeight = '';
-  wrap.style.height = '';
+  w = Math.floor(w);
+  h = Math.floor(h);
 
-  const widthCap = Math.min(W, maxW);
-  let w = widthCap;
-  for (let i = 0; i < 4; i++) {
-    wrap.style.width = w + 'px';
-    const stageH = w * (H / W);
-    const total = stageH + toolbar.offsetHeight + 12;
-    if (total <= maxH) break;
-    w = (maxH - toolbar.offsetHeight - 12) / (H / W);
-    w = Math.max(260, Math.min(w, widthCap));
-  }
   wrap.style.width = w + 'px';
+  wrap.style.height = h + 'px';
+  stage.style.width = '100%';
+  stage.style.height = '100%';
 }
 
 const hud = { tp: el('tp'), waveBox: el('wavebox'), kills: el('kills'), breachBox: el('breachbox') };
@@ -3922,23 +3898,97 @@ function updateHUD() {
     btn.el.disabled = !canAffordTP(placeableCost(btn.p)) || capped;
     btn.el.classList.toggle('active', placing === btn.p);
   }
+
+  syncToolbarVisibility();
 }
 
+const TOOLBAR_CATEGORIES = [
+  { id: 'units', label: 'UNITS', filter: p => p.kind === 'unit' || p.kind === 'eunit' },
+  { id: 'abilities', label: 'ABILITIES', filter: p => p.kind === 'support' },
+  { id: 'emplacements', label: 'EMPLACEMENTS', filter: p => p.kind === 'defense' },
+];
+
 let toolButtons = [];
-function buildToolbar(placeables) {
+let toolbarPlaceables = [];
+let toolbarView = 'categories';
+
+function placeablesForCategory(categoryId) {
+  const cat = TOOLBAR_CATEGORIES.find(c => c.id === categoryId);
+  if (!cat) return [];
+  return toolbarPlaceables
+    .filter(cat.filter)
+    .slice()
+    .sort((a, b) => placeableCost(b) - placeableCost(a));
+}
+
+function visibleToolbarCategories() {
+  return TOOLBAR_CATEGORIES.filter(c => placeablesForCategory(c.id).length > 0);
+}
+
+function syncToolbarVisibility() {
+  const bar = el('toolbar');
+  if (!bar) return;
+  const show = toolbarPlaceables.length > 0 && isPlaying();
+  bar.classList.toggle('hidden', !show);
+}
+
+function renderToolbar() {
   const bar = el('toolbar');
   bar.innerHTML = '';
   toolButtons = [];
-  placeables.forEach((p) => {
-    const cost = placeableCost(p);
-    const b = document.createElement('button');
-    b.className = 'tool-btn';
-    b.title = p.desc;
-    b.innerHTML = `<span class="key">[${p.hotkey}]</span>${p.label}<span class="cost">${cost} TP</span>`;
-    b.addEventListener('click', () => selectPlaceable(p));
-    bar.appendChild(b);
-    toolButtons.push({ p, el: b });
-  });
+
+  if (!toolbarPlaceables.length) {
+    bar.classList.add('hidden');
+    return;
+  }
+
+  if (toolbarView === 'categories') {
+    for (const cat of visibleToolbarCategories()) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tool-btn tool-cat-btn';
+      b.textContent = cat.label;
+      b.addEventListener('click', () => {
+        toolbarView = cat.id;
+        SFX.click();
+        renderToolbar();
+        syncToolbarVisibility();
+      });
+      bar.appendChild(b);
+    }
+  } else {
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'tool-btn tool-back-btn';
+    back.textContent = '← BACK';
+    back.addEventListener('click', () => {
+      toolbarView = 'categories';
+      SFX.click();
+      renderToolbar();
+      syncToolbarVisibility();
+    });
+    bar.appendChild(back);
+
+    for (const p of placeablesForCategory(toolbarView)) {
+      const cost = placeableCost(p);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tool-btn';
+      b.title = p.desc;
+      b.innerHTML = `<span class="key">[${p.hotkey}]</span>${p.label}<span class="cost">${cost} TP</span>`;
+      b.addEventListener('click', () => selectPlaceable(p));
+      bar.appendChild(b);
+      toolButtons.push({ p, el: b });
+    }
+  }
+
+  syncToolbarVisibility();
+}
+
+function buildToolbar(placeables) {
+  toolbarPlaceables = placeables;
+  toolbarView = 'categories';
+  renderToolbar();
   fitLayout();
 }
 
@@ -4641,19 +4691,19 @@ function startGame(levelId, difficultyId) {
   el('pause').classList.add('hidden');
   el('tipbar').textContent = level.mode === 'axis'
     ? touchUI()
-      ? 'Tap a unit, then tap the top strip to deploy. Tap the button again to cancel.'
-      : 'Pick a unit and drop it in the top strip — your troops advance on their own. Right-click / Esc cancels placement.'
+      ? 'Tap Units or Abilities, pick an option, then tap the top strip to deploy. Tap again to cancel.'
+      : 'Open Units or Abilities, pick a troop or strike, then drop it in the top strip. Right-click / Esc cancels placement.'
     : level.mode === 'hitsquad'
       ? touchUI()
-        ? 'Tap or drag to select your men, tap ground to move. Kill the marked officer. Tap the button again to cancel placement.'
+        ? 'Tap or drag to select your men, tap ground to move. Kill the marked officer.'
         : 'Click or drag-select your men, click ground to move them. Kill the marked officer. Right-click / Esc deselects.'
-      : difficulty && difficulty.sandbox
-        ? touchUI()
-          ? 'Sandbox: unlimited TP. Use +1 / +5 / +10 in the HUD to jump ahead in waves.'
-          : 'Sandbox: unlimited TP. ] / Shift+] / Ctrl+] jump ahead 1 / 5 / 10 waves, or use the HUD buttons.'
-        : touchUI()
-          ? 'Tap a soldier to select him, tap ground to move. Tap a unit button, then tap the field to deploy. Tap the button again to cancel.'
-          : 'Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.';
+    : difficulty && difficulty.sandbox
+      ? touchUI()
+        ? 'Sandbox: unlimited TP. Use +1 / +5 / +10 in the HUD to jump ahead in waves.'
+        : 'Sandbox: unlimited TP. ] / Shift+] / Ctrl+] jump ahead 1 / 5 / 10 waves, or use the HUD buttons.'
+      : touchUI()
+        ? 'Tap a soldier to select him, tap ground to move. Open Units, Abilities, or Emplacements to deploy. Tap again to cancel.'
+        : 'Left-click a soldier to select him, click ground to move. Open Units, Abilities, or Emplacements to deploy. Right-click / Esc cancels placement.';
   if (level.briefing) showBanner(level.name);
   lastT = performance.now();
   refreshHUD();

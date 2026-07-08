@@ -27,9 +27,7 @@ python3 -m http.server 8000
 - **Allied Campaign — Level 1: Hold the Line** — survive **12 scripted waves**,
   ramping from rifle squads to a halftrack-led final assault. Wipe out the last
   wave and the sector is yours. 7 breaches still lose it. No income attrition and
-  no random events — the assault plan is fixed. A handful of units (rifleman,
-  gunner, grenadier, etc.) cost more here than in Endless so you cannot win by
-  spamming one type.
+  no random events — the assault plan is fixed.
 - **Axis Campaign — Level 1: Break the Line** — the tables turn. You start with
   **30 TP** against a dug-in American line. Most units cost the same as Endless,
   but the ones that could break through alone (riflemen, stormtroopers, bikes,
@@ -83,7 +81,7 @@ France, 1944. Pick a mode from the main menu.
 | Medic | 12 | Heals nearby wounded over time. |
 | Engineer | 14 | Repairs emplacements; fortifies nearby sandbags/bunkers/wire (more HP, better effect). SMG, close range only. |
 | Officer | 15 | Nearby men fire faster and straighter; generates TP. |
-| Flamer | 13 | M2 flamethrower. Devastating cone of fire — burns friend and foe alike. |
+| Flamer | 13 | M2 flamethrower and flak vest. Devastating cone of fire — burns friend and foe alike. |
 | Jeep | 30 | Willys jeep with a .50 cal HMG. Fast, fires on the move, unarmored — no field repairs. |
 | Sherman | 50 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
 | AT Gun | 40 | 57mm anti-tank gun. Immobile once placed; only fires on vehicles inside its forward cone. Direct-fire AP shells wreck armor. |

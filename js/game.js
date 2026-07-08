@@ -3834,6 +3834,7 @@ function drawPlacementGhost() {
 
 const el = id => document.getElementById(id);
 const touchUI = () => window.matchMedia('(hover: none)').matches;
+const tapSlop = () => touchUI() ? 14 : 6;
 
 function fitLayout() {
   const wrap = el('wrap');
@@ -3856,6 +3857,15 @@ function fitLayout() {
   wrap.style.height = h + 'px';
   stage.style.width = '100%';
   stage.style.height = '100%';
+  syncToolbarLayout();
+}
+
+function syncToolbarLayout() {
+  const hudEl = el('hud');
+  const bar = el('toolbar');
+  if (!hudEl || !bar) return;
+  // #hud is offset 6px from the stage top; keep a small gap below the wrapped HUD rows
+  bar.style.top = (6 + hudEl.offsetHeight + 6) + 'px';
 }
 
 const hud = { tp: el('tp'), waveBox: el('wavebox'), kills: el('kills'), breachBox: el('breachbox') };
@@ -3900,6 +3910,7 @@ function updateHUD() {
   }
 
   syncToolbarVisibility();
+  syncToolbarLayout();
 }
 
 const TOOLBAR_CATEGORIES = [
@@ -3983,6 +3994,7 @@ function renderToolbar() {
   }
 
   syncToolbarVisibility();
+  syncToolbarLayout();
 }
 
 function buildToolbar(placeables) {
@@ -4153,7 +4165,7 @@ canvas.addEventListener('pointermove', e => {
   if (drag) {
     drag.x1 = mouse.x;
     drag.y1 = mouse.y;
-    if (!drag.active && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > 6) drag.active = true;
+    if (!drag.active && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > tapSlop()) drag.active = true;
   }
 });
 
@@ -4177,14 +4189,21 @@ canvas.addEventListener('pointerup', e => {
     if (drag.active && isPlaying()) {
       const x0 = Math.min(drag.x0, drag.x1), x1 = Math.max(drag.x0, drag.x1);
       const y0 = Math.min(drag.y0, drag.y1), y1 = Math.max(drag.y0, drag.y1);
-      G.selected = commandRoster().filter(u => u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1);
-      if (G.selected.length) SFX.click();
-      suppressClick = true;
+      const minDrag = tapSlop();
+      if (x1 - x0 >= minDrag || y1 - y0 >= minDrag) {
+        const picked = commandRoster().filter(u => u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1);
+        if (picked.length) {
+          G.selected = picked;
+          SFX.click();
+          suppressClick = true;
+        }
+        // empty marquee: keep current selection and treat release as a tap
+      }
     }
     drag = null;
   }
 
-  if (e.pointerType === 'touch' && !suppressClick && isPlaying() && !placing) {
+  if (!suppressClick && isPlaying() && !placing) {
     handleCanvasTap();
     suppressClick = true;
   }
@@ -4243,6 +4262,7 @@ function issueMoveOrder(units, x, y) {
 canvas.addEventListener('click', e => {
   if (suppressClick) { suppressClick = false; return; }
   if (!isPlaying()) return;
+  updatePointer(e);
 
   if (placing) { place(placing, mouse.x, mouse.y); return; }
 
@@ -4745,6 +4765,10 @@ function frame(now) {
 
 buildToolbar(PLACEABLES);
 fitLayout();
+const hudEl = el('hud');
+if (hudEl && typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(() => syncToolbarLayout()).observe(hudEl);
+}
 window.addEventListener('resize', fitLayout);
 window.addEventListener('orientationchange', () => setTimeout(fitLayout, 100));
 requestAnimationFrame(frame);

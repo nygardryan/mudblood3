@@ -130,7 +130,7 @@ body {
 /* ---- Toolbar (left edge, vertical) ---- */
 #toolbar {
   position: absolute;
-  top: 52px;
+  top: 52px; /* overridden by syncToolbarLayout() once HUD height is known */
   left: 4px;
   bottom: 28px;
   width: 72px;
@@ -192,7 +192,6 @@ body {
 
 @media (max-width: 700px) {
   #toolbar {
-    top: 64px;
     width: 68px;
   }
   .tool-btn {
@@ -204,7 +203,6 @@ body {
 
 @media (orientation: landscape) and (max-height: 520px) and (hover: none) {
   #toolbar {
-    top: 46px;
     bottom: 22px;
     width: 64px;
     gap: 3px;
@@ -420,39 +418,6 @@ body {
   flex-shrink: 0;
   font-size: 14px;
   padding: 10px 28px;
-}
-
-/* ---- Portrait rotate hint (phones only) ---- */
-#rotate-hint {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  background: #14140f;
-  color: #d8d2b8;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 32px;
-  font-size: clamp(14px, 4vw, 18px);
-  letter-spacing: 1px;
-}
-#rotate-hint p {
-  max-width: 280px;
-  line-height: 1.6;
-}
-#rotate-hint::before {
-  content: "↻";
-  display: block;
-  font-size: 48px;
-  margin-bottom: 20px;
-  color: #ffd94a;
-}
-
-@media (orientation: portrait) and (max-width: 700px) {
-  #rotate-hint { display: flex; }
-  #wrap { visibility: hidden; }
 }
 
 @media (max-width: 500px) {

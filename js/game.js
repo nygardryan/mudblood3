@@ -338,6 +338,22 @@ const ENDLESS_DIFFICULTIES = {
     desc: '33% income. Every TP counts.' },
 };
 
+// axis campaign: each build phase hands you a fresh, growing pile of TP.
+// wave 1 pays `wavePayout`; every wave after that adds `wavePayoutStep` more,
+// so a level's final assault always has the biggest budget. Unused TP never
+// carries over — spend it or lose it.
+function axisWavePayout(level, wave) {
+  return level.wavePayout + (level.wavePayoutStep || 0) * (wave - 1);
+}
+
+// US defender placement helpers for the Axis campaign setups (hoisted).
+function usBag(G, x, y, hp = 330)    { G.sandbags.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
+function usBunker(G, x, y, hp = 2400){ G.bunkers.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
+function usWire(G, x, y, hp = 3750)  { G.wires.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
+function usMine(G, x, y)             { G.mines.push({ x, y, dead: false }); }
+function usMan(G, type, x, y)        { G.units.push(makeUnit(type, x, y)); }
+function usRow(G, type, y, xs)       { for (const x of xs) G.units.push(makeUnit(type, x, y)); }
+
 const LEVELS = {
   endless: {
     id: 'endless',
@@ -386,45 +402,344 @@ const LEVELS = {
     },
   },
 
+  // ---- Axis campaign: 13 escalating assaults on the American line.
+  // Level 1 opens with two waves; wave counts, defenders, and per-wave TP all
+  // climb from there. Every third level is a themed set-piece for flavor.
   axis1: {
     id: 'axis1',
     name: 'AXIS 1: BREAK THE LINE',
+    menuName: 'LEVEL 1 — BREAK THE LINE',
+    menuDesc: 'Your first push. Two waves, a thin American picket. 25 TP the first wave, 35 the second.',
     mode: 'axis',
-    winBreaches: 7,
-    axisWaves: 5,
-    wavePayout: 40,
+    winBreaches: 5,
+    axisWaves: 2,
+    wavePayout: 25,
+    wavePayoutStep: 10,
     events: false,
     placeables: AXIS_PLACEABLES,
-    briefing: 'Five assault waves. Each wave you get fresh TP to deploy in the top strip — use it or lose it. Hit START WAVE when ready. Get 7 men past the bottom edge, or wipe out every defender, to win.',
+    briefing: 'Two assault waves against a thin American picket. Fresh TP each wave — spend it or lose it. Get 5 men past the bottom, or wipe the defenders.',
     setup(G) {
-      // dug-in American defense along the trench line
-      const bag = (x, y) => G.sandbags.push({ x, y, hp: 330, maxhp: 330, up: false, workProg: 0 });
-      bag(W / 2 - 180, DEPLOY_Y + 40);
-      bag(W / 2 - 60, DEPLOY_Y + 40);
-      bag(W / 2 + 60, DEPLOY_Y + 40);
-      bag(W / 2 + 180, DEPLOY_Y + 40);
-      G.bunkers.push({ x: W / 2, y: DEPLOY_Y + 85, hp: 2400, maxhp: 2400, up: false, workProg: 0 });
-      G.wires.push({ x: W / 2 - 130, y: DEPLOY_Y - 55, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
-      G.wires.push({ x: W / 2 + 130, y: DEPLOY_Y - 55, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
-      for (const pos of [
-        { x: W / 2 - 240, y: H / 2 + 20 }, { x: W / 2, y: H / 2 - 10 }, { x: W / 2 + 240, y: H / 2 + 20 },
-      ]) {
-        G.mines.push({ x: pos.x, y: pos.y, dead: false });
-      }
-      G.units.push(makeUnit('gunner', W / 2, DEPLOY_Y + 85));
-      G.units.push(makeUnit('rifleman', W / 2 - 180, DEPLOY_Y + 36));
-      G.units.push(makeUnit('rifleman', W / 2 - 60, DEPLOY_Y + 36));
-      G.units.push(makeUnit('rifleman', W / 2 + 60, DEPLOY_Y + 36));
-      G.units.push(makeUnit('rifleman', W / 2 + 180, DEPLOY_Y + 36));
-      G.units.push(makeUnit('sniper', W / 2 - 130, H - 90));
-      G.units.push(makeUnit('medic', W / 2 + 130, H - 90));
-      G.units.push(makeUnit('mortarman', W / 2, H - 60));
+      usBag(G, W / 2 - 70, 435); usBag(G, W / 2 + 70, 435);
+      usWire(G, W / 2, DEPLOY_Y - 30);
+      usRow(G, 'rifleman', 428, [W / 2 - 70, W / 2 + 70]);
+      usMan(G, 'gunner', W / 2, 485);
     },
   },
 
   axis2: {
     id: 'axis2',
-    name: 'AXIS 2: HIT SQUAD',
+    name: 'AXIS 2: PROBING ATTACK',
+    menuName: 'LEVEL 2 — PROBING ATTACK',
+    menuDesc: 'Three waves. The line has a sniper now and a little wire. Budgets start at 30 TP and grow.',
+    mode: 'axis',
+    winBreaches: 5,
+    axisWaves: 3,
+    wavePayout: 30,
+    wavePayoutStep: 10,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'Three waves against a reinforced picket with a marksman watching the field.',
+    setup(G) {
+      usBag(G, W / 2 - 120, 435); usBag(G, W / 2, 435); usBag(G, W / 2 + 120, 435);
+      usWire(G, W / 2 - 90, DEPLOY_Y - 40); usWire(G, W / 2 + 90, DEPLOY_Y - 40);
+      usMine(G, W / 2, H / 2 + 20);
+      usRow(G, 'rifleman', 428, [W / 2 - 120, W / 2, W / 2 + 120]);
+      usMan(G, 'gunner', W / 2 - 60, 490);
+      usMan(G, 'sniper', W / 2 + 90, H - 80);
+    },
+  },
+
+  axis3: {
+    id: 'axis3',
+    name: 'AXIS 3: COFFEE BREAK',
+    menuName: 'LEVEL 3 — COFFEE BREAK ☕',
+    menuDesc: 'Themed: the whole detail is huddled around the coffee urn dead center. The flanks are wide open — just walk around the party.',
+    mode: 'axis',
+    winBreaches: 5,
+    axisWaves: 3,
+    wavePayout: 32,
+    wavePayoutStep: 12,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'The Americans are on a coffee break, bunched in the middle with mugs in hand. Nobody is watching the flanks. Go wide.',
+    setup(G) {
+      const cx = W / 2;
+      // everybody crowded around the urn, dead center — flanks unguarded
+      usBag(G, cx - 40, 450); usBag(G, cx + 40, 450); usBag(G, cx, 505);
+      usRow(G, 'rifleman', 470, [cx - 45, cx, cx + 45]);
+      usMan(G, 'gunner', cx, 512);
+      usMan(G, 'shotgunner', cx - 30, 522);
+      usMan(G, 'medic', cx + 30, 522);
+      // one lone, bewildered sentry on a single flank
+      usMan(G, 'rifleman', 120, 440);
+    },
+  },
+
+  axis4: {
+    id: 'axis4',
+    name: 'AXIS 4: THE CROSSROADS',
+    menuName: 'LEVEL 4 — THE CROSSROADS',
+    menuDesc: 'Four waves. A bunkered strongpoint with mines on the shoulders. Bigger budgets every wave.',
+    mode: 'axis',
+    winBreaches: 6,
+    axisWaves: 4,
+    wavePayout: 36,
+    wavePayoutStep: 12,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'A bunkered crossroads held in strength. Four waves to crack it.',
+    setup(G) {
+      usBag(G, W / 2 - 150, 435); usBag(G, W / 2 - 50, 435); usBag(G, W / 2 + 50, 435); usBag(G, W / 2 + 150, 435);
+      usBunker(G, W / 2, DEPLOY_Y + 80);
+      usWire(G, W / 2 - 110, DEPLOY_Y - 45); usWire(G, W / 2 + 110, DEPLOY_Y - 45);
+      usMine(G, W / 2 - 180, H / 2 + 15); usMine(G, W / 2 + 180, H / 2 + 15);
+      usRow(G, 'rifleman', 428, [W / 2 - 150, W / 2 - 50, W / 2 + 50, W / 2 + 150]);
+      usMan(G, 'gunner', W / 2, DEPLOY_Y + 80);
+      usMan(G, 'sniper', W / 2 - 120, H - 80);
+      usMan(G, 'medic', W / 2 + 120, H - 80);
+    },
+  },
+
+  axis5: {
+    id: 'axis5',
+    name: 'AXIS 5: GRIND',
+    menuName: 'LEVEL 5 — GRIND',
+    menuDesc: 'Four waves into a wall of riflemen, gunners and a medic keeping them up. Grind them down.',
+    mode: 'axis',
+    winBreaches: 6,
+    axisWaves: 4,
+    wavePayout: 40,
+    wavePayoutStep: 13,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'A deep line of infantry with medics in support. No cleverness — just outweigh them.',
+    setup(G) {
+      for (const x of [W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200]) usBag(G, x, 435);
+      usWire(G, W / 2 - 130, DEPLOY_Y - 45); usWire(G, W / 2, DEPLOY_Y - 55); usWire(G, W / 2 + 130, DEPLOY_Y - 45);
+      usMine(G, W / 2 - 90, H / 2 + 20); usMine(G, W / 2 + 90, H / 2 + 20);
+      usRow(G, 'rifleman', 428, [W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200]);
+      usRow(G, 'gunner', 495, [W / 2 - 80, W / 2 + 80]);
+      usMan(G, 'medic', W / 2, H - 70);
+      usMan(G, 'sniper', W / 2 - 160, H - 80);
+    },
+  },
+
+  axis6: {
+    id: 'axis6',
+    name: 'AXIS 6: TANK GRAVEYARD',
+    menuName: 'LEVEL 6 — TANK GRAVEYARD 🪦',
+    menuDesc: 'Themed: one Sherman that refuses to die, an AT gun for company, and a field of mines. Bring armor at your peril — bring mines instead.',
+    mode: 'axis',
+    winBreaches: 6,
+    axisWaves: 4,
+    wavePayout: 44,
+    wavePayoutStep: 14,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'A lone stubborn Sherman and an AT gun guard a minefield of old wrecks. Panzers will feed the graveyard — try mines and infantry.',
+    setup(G) {
+      usBunker(G, W / 2, DEPLOY_Y + 70);
+      usMan(G, 'sherman', W / 2, 470);
+      usMan(G, 'atgun', W / 2 - 200, 440);
+      usBag(G, W / 2 - 120, 435); usBag(G, W / 2 + 120, 435);
+      for (const mx of [W / 2 - 220, W / 2 - 60, W / 2 + 60, W / 2 + 220]) usMine(G, mx, H / 2 + 10);
+      usWire(G, W / 2 - 90, DEPLOY_Y - 45); usWire(G, W / 2 + 90, DEPLOY_Y - 45);
+      usRow(G, 'rifleman', 428, [W / 2 - 120, W / 2 + 120]);
+      usMan(G, 'gunner', W / 2 + 200, 445);
+    },
+  },
+
+  axis7: {
+    id: 'axis7',
+    name: 'AXIS 7: THE RIDGE',
+    menuName: 'LEVEL 7 — THE RIDGE',
+    menuDesc: 'Five waves. Twin bunkers with MG teams and a marksman command the slope. Budgets keep climbing.',
+    mode: 'axis',
+    winBreaches: 6,
+    axisWaves: 5,
+    wavePayout: 48,
+    wavePayoutStep: 14,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'Two bunkers with MG42-killers dug into the ridge. Five waves to storm it.',
+    setup(G) {
+      usBunker(G, W / 2 - 140, DEPLOY_Y + 70); usBunker(G, W / 2 + 140, DEPLOY_Y + 70);
+      for (const x of [W / 2 - 210, W / 2 - 70, W / 2 + 70, W / 2 + 210]) usBag(G, x, 435);
+      usWire(G, W / 2 - 130, DEPLOY_Y - 50); usWire(G, W / 2, DEPLOY_Y - 55); usWire(G, W / 2 + 130, DEPLOY_Y - 50);
+      usMine(G, W / 2 - 100, H / 2 + 20); usMine(G, W / 2 + 100, H / 2 + 20);
+      usRow(G, 'rifleman', 428, [W / 2 - 210, W / 2 - 70, W / 2 + 70, W / 2 + 210]);
+      usRow(G, 'gunner', DEPLOY_Y + 70, [W / 2 - 140, W / 2 + 140]);
+      usMan(G, 'sniper', W / 2, H - 80);
+      usMan(G, 'medic', W / 2 - 60, H - 70);
+    },
+  },
+
+  axis8: {
+    id: 'axis8',
+    name: 'AXIS 8: ATTRITION',
+    menuName: 'LEVEL 8 — ATTRITION',
+    menuDesc: 'Five waves into a deep, medic-backed line around a central bunker. A war of numbers.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 5,
+    wavePayout: 52,
+    wavePayoutStep: 15,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'A deep line with two medics keeping everyone on their feet. Bleed them white.',
+    setup(G) {
+      for (const x of [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]) usBag(G, x, 435);
+      usBunker(G, W / 2, DEPLOY_Y + 80);
+      usWire(G, W / 2 - 130, DEPLOY_Y - 50); usWire(G, W / 2 + 130, DEPLOY_Y - 50);
+      for (const mx of [W / 2 - 160, W / 2, W / 2 + 160]) usMine(G, mx, H / 2 + 15);
+      usRow(G, 'rifleman', 428, [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]);
+      usRow(G, 'gunner', 495, [W / 2 - 90, W / 2 + 90]);
+      usRow(G, 'medic', H - 70, [W / 2 - 120, W / 2 + 120]);
+      usMan(G, 'sniper', W / 2, H - 90);
+    },
+  },
+
+  axis9: {
+    id: 'axis9',
+    name: 'AXIS 9: SNIPER ALLEY',
+    menuName: 'LEVEL 9 — SNIPER ALLEY 🎯',
+    menuDesc: 'Themed: every hedgerow hides a marksman, and they hunt officers and MG teams first. Keep the assault moving and never bunch up.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 5,
+    wavePayout: 56,
+    wavePayoutStep: 16,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'Five American snipers watch the field and pick off your leaders and gunners first. Rush cheap men through the gaps.',
+    setup(G) {
+      usWire(G, W / 2 - 160, DEPLOY_Y - 50); usWire(G, W / 2, DEPLOY_Y - 40); usWire(G, W / 2 + 160, DEPLOY_Y - 50);
+      for (const x of [W / 2 - 150, W / 2 + 150]) usBag(G, x, 435);
+      usRow(G, 'sniper', 470, [W / 2 - 250, W / 2 - 90, W / 2 + 90, W / 2 + 250]);
+      usMan(G, 'sniper', W / 2, H - 90);
+      usRow(G, 'rifleman', 428, [W / 2 - 150, W / 2 + 150]);
+      usMan(G, 'medic', W / 2, 520);
+    },
+  },
+
+  axis10: {
+    id: 'axis10',
+    name: 'AXIS 10: THE WALL',
+    menuName: 'LEVEL 10 — THE WALL',
+    menuDesc: 'Six waves against three bunkers, layered wire and mines, and an engineer patching it all. Bring firepower.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 6,
+    wavePayout: 60,
+    wavePayoutStep: 16,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'Three bunkers, four belts of wire, and an engineer keeping the wall standing. Six waves to breach it.',
+    setup(G) {
+      usBunker(G, W / 2 - 180, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 80); usBunker(G, W / 2 + 180, DEPLOY_Y + 70);
+      for (const x of [W / 2 - 240, W / 2 - 120, W / 2 + 120, W / 2 + 240]) usBag(G, x, 435);
+      for (const wx of [W / 2 - 180, W / 2 - 60, W / 2 + 60, W / 2 + 180]) usWire(G, wx, DEPLOY_Y - 50);
+      for (const mx of [W / 2 - 200, W / 2 - 70, W / 2 + 70, W / 2 + 200]) usMine(G, mx, H / 2 + 15);
+      usRow(G, 'gunner', DEPLOY_Y + 72, [W / 2 - 180, W / 2, W / 2 + 180]);
+      usRow(G, 'rifleman', 428, [W / 2 - 240, W / 2 - 120, W / 2 + 120, W / 2 + 240]);
+      usMan(G, 'engineer', W / 2, 520);
+      usMan(G, 'medic', W / 2 - 100, H - 70); usMan(G, 'sniper', W / 2 + 100, H - 80);
+    },
+  },
+
+  axis11: {
+    id: 'axis11',
+    name: 'AXIS 11: STEEL RAIN',
+    menuName: 'LEVEL 11 — STEEL RAIN',
+    menuDesc: 'Six waves. Three mortar teams have zeroed the open ground — the sky rains shells. Move fast and spread out.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 6,
+    wavePayout: 66,
+    wavePayoutStep: 17,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'Three American mortar crews have the killing ground zeroed. Rush across before the shells find you.',
+    setup(G) {
+      for (const x of [W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200]) usBag(G, x, 435);
+      usBunker(G, W / 2, DEPLOY_Y + 80);
+      usWire(G, W / 2 - 130, DEPLOY_Y - 50); usWire(G, W / 2 + 130, DEPLOY_Y - 50);
+      usRow(G, 'mortarman', H - 60, [W / 2 - 150, W / 2, W / 2 + 150]);
+      usRow(G, 'rifleman', 428, [W / 2 - 150, W / 2, W / 2 + 150]);
+      usRow(G, 'gunner', 495, [W / 2 - 90, W / 2 + 90]);
+      usMan(G, 'medic', W / 2 + 200, H - 70);
+    },
+  },
+
+  axis12: {
+    id: 'axis12',
+    name: 'AXIS 12: THE KITCHEN SINK',
+    menuName: 'LEVEL 12 — THE KITCHEN SINK 🚿',
+    menuDesc: 'Themed: somebody handed a rifle to the cook, the clerk and the chaplain. One of literally everything is down there — a glorious, disorganized mess.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 6,
+    wavePayout: 72,
+    wavePayoutStep: 18,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'The Americans have thrown one of every unit into the line — riflemen to flamethrowers to a jeep and an AT gun. It is a mess, but a dangerous one.',
+    setup(G) {
+      usBunker(G, W / 2, DEPLOY_Y + 80);
+      usBag(G, W / 2 - 160, 435); usBag(G, W / 2 + 160, 435);
+      usWire(G, W / 2 - 110, DEPLOY_Y - 50); usWire(G, W / 2 + 110, DEPLOY_Y - 50);
+      usMine(G, W / 2, H / 2 + 15);
+      usMan(G, 'rifleman', W / 2 - 260, 440);
+      usMan(G, 'gunner', W / 2 - 190, 460);
+      usMan(G, 'grenadier', W / 2 - 120, 480);
+      usMan(G, 'shotgunner', W / 2 - 50, 500);
+      usMan(G, 'bazooka', W / 2 + 30, 500);
+      usMan(G, 'flamer', W / 2 + 110, 480);
+      usMan(G, 'sniper', W / 2 + 190, 460);
+      usMan(G, 'mortarman', W / 2 + 260, 440);
+      usMan(G, 'medic', W / 2 - 40, H - 70);
+      usMan(G, 'engineer', W / 2 + 40, H - 70);
+      usMan(G, 'officer', W / 2, H - 55);
+      usMan(G, 'jeep', W / 2 - 220, 525);
+      usMan(G, 'atgun', W / 2 + 220, 525);
+    },
+  },
+
+  axis13: {
+    id: 'axis13',
+    name: 'AXIS 13: FORTRESS AMERICA',
+    menuName: 'LEVEL 13 — FORTRESS AMERICA',
+    menuDesc: 'Finale. Seven waves against everything the Americans have: twin Shermans, AT guns, three bunkers, snipers, mortars and an officer. The biggest budgets in the war.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 7,
+    wavePayout: 80,
+    wavePayoutStep: 22,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'The final line: two Shermans, two AT guns, three bunkers, snipers and mortars under an officer. Seven waves, and the fattest budgets of the campaign. Break it and the sector is yours.',
+    setup(G) {
+      usBunker(G, W / 2 - 200, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 85); usBunker(G, W / 2 + 200, DEPLOY_Y + 70);
+      for (const x of [W / 2 - 260, W / 2 - 130, W / 2 + 130, W / 2 + 260]) usBag(G, x, 435);
+      for (const wx of [W / 2 - 200, W / 2 - 70, W / 2 + 70, W / 2 + 200]) usWire(G, wx, DEPLOY_Y - 50);
+      for (const mx of [W / 2 - 230, W / 2 - 100, W / 2 + 100, W / 2 + 230]) usMine(G, mx, H / 2 + 12);
+      usMan(G, 'sherman', W / 2 - 120, 500); usMan(G, 'sherman', W / 2 + 120, 500);
+      usMan(G, 'atgun', W / 2 - 300, 460); usMan(G, 'atgun', W / 2 + 300, 460);
+      usRow(G, 'gunner', DEPLOY_Y + 72, [W / 2 - 200, W / 2, W / 2 + 200]);
+      usRow(G, 'rifleman', 428, [W / 2 - 260, W / 2 - 130, W / 2 + 130, W / 2 + 260]);
+      usRow(G, 'sniper', H - 90, [W / 2 - 150, W / 2 + 150]);
+      usRow(G, 'mortarman', H - 55, [W / 2 - 60, W / 2 + 60]);
+      usRow(G, 'medic', H - 78, [W / 2 - 250, W / 2 + 250]);
+      usMan(G, 'engineer', W / 2, H - 62);
+      usMan(G, 'officer', W / 2, H - 40);
+    },
+  },
+
+  hitsquad: {
+    id: 'hitsquad',
+    name: 'AXIS: HIT SQUAD',
+    menuName: 'BONUS — HIT SQUAD',
+    menuDesc: 'A commando mission. Command six veterans directly — click to select, click to move. Kill the marked US officer in 5 minutes.',
     mode: 'hitsquad',
     timeLimit: 300,
     events: false,
@@ -583,7 +898,7 @@ function newGame(level, difficulty) {
       ? (difficulty || ENDLESS_DIFFICULTIES.easy)
       : null,
     tp: level.mode === 'axis'
-      ? level.wavePayout
+      ? axisWavePayout(level, 1)
       : (level.startTP != null ? level.startTP : 15),
     wave: level.mode === 'axis' ? 1 : 0,
     phase: level.mode === 'axis' ? 'build' : 'combat',
@@ -931,7 +1246,7 @@ function updateAxisCombat() {
   if (G.breaches >= G.level.winBreaches) { victory(); return; }
   if (G.wave >= G.level.axisWaves) { gameOver(); return; }
   G.wave++;
-  G.tp = G.level.wavePayout;
+  G.tp = axisWavePayout(G.level, G.wave);
   G.phase = 'build';
   clearAxisWaveEffects();
   showBanner('WAVE ' + G.wave + ' - DEPLOY');
@@ -7367,6 +7682,7 @@ function returnToMenu() {
   el('codex').classList.add('hidden');
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
+  el('axis-select').classList.add('hidden');
   el('intro').classList.remove('hidden');
   syncMobileViewUI();
   syncMobileChrome();
@@ -7379,6 +7695,41 @@ function openEndlessSelect() {
 
 function closeEndlessSelect() {
   el('endless-select').classList.add('hidden');
+  el('intro').classList.remove('hidden');
+}
+
+// the Axis campaign, in order, with the Hit Squad commando run as a bonus
+const AXIS_CAMPAIGN = [
+  'axis1', 'axis2', 'axis3', 'axis4', 'axis5', 'axis6', 'axis7',
+  'axis8', 'axis9', 'axis10', 'axis11', 'axis12', 'axis13', 'hitsquad',
+];
+
+function buildAxisSelect() {
+  const list = el('axis-list');
+  if (!list || list.childElementCount) return;
+  for (const id of AXIS_CAMPAIGN) {
+    const lv = LEVELS[id];
+    if (!lv) continue;
+    const btn = document.createElement('button');
+    const title = document.createTextNode(lv.menuName || lv.name);
+    const desc = document.createElement('span');
+    desc.className = 'mode-desc';
+    desc.textContent = lv.menuDesc || lv.briefing || '';
+    btn.appendChild(title);
+    btn.appendChild(desc);
+    btn.addEventListener('click', () => startGame(id));
+    list.appendChild(btn);
+  }
+}
+
+function openAxisSelect() {
+  buildAxisSelect();
+  el('intro').classList.add('hidden');
+  el('axis-select').classList.remove('hidden');
+}
+
+function closeAxisSelect() {
+  el('axis-select').classList.add('hidden');
   el('intro').classList.remove('hidden');
 }
 
@@ -7402,6 +7753,7 @@ function startGame(levelId, difficultyId) {
   el('codex').classList.add('hidden');
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
+  el('axis-select').classList.add('hidden');
   el('pause').classList.add('hidden');
   syncMobileViewUI();
   syncMobileChrome();
@@ -7435,8 +7787,8 @@ for (const btn of document.querySelectorAll('[data-endless-diff]')) {
   btn.addEventListener('click', () => startGame('endless', btn.dataset.endlessDiff));
 }
 el('start-allied').addEventListener('click', () => startGame('allied1'));
-el('start-axis').addEventListener('click', () => startGame('axis1'));
-el('start-axis2').addEventListener('click', () => startGame('axis2'));
+el('start-axis').addEventListener('click', openAxisSelect);
+el('axis-back-btn').addEventListener('click', closeAxisSelect);
 el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless', G?.difficulty?.id));
 el('menu-btn').addEventListener('click', returnToMenu);
 el('speed-btn').addEventListener('click', cycleSpeed);

@@ -360,6 +360,8 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 .overlay.hidden { display: none; }
+/* many campaign buttons — anchor to the top so they all scroll into reach */
+#axis-select { justify-content: flex-start; }
 .overlay h1 {
   font-size: clamp(24px, 8vw, 52px);
   letter-spacing: clamp(2px, 2vw, 10px);

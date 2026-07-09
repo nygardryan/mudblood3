@@ -28,13 +28,26 @@ python3 -m http.server 8000
   ramping from rifle squads to a halftrack-led final assault. Wipe out the last
   wave and the sector is yours. 7 breaches still lose it. No income attrition and
   no random events — the assault plan is fixed.
-- **Axis Campaign — Level 1: Break the Line** — the tables turn. You get **5 assault
-  waves** against a dug-in American line. Each wave grants **40 TP** to spend in a
-  frozen build phase — deploy in the top strip, then hit **START WAVE**. Nothing moves
-  or fights until you do. Unused TP does not carry over. US defenders persist across
-  waves with no reinforcements. Win by getting **7 men past the bottom edge** or by
-  wiping out every defender. Lose if all five waves fail to break the line.
-- **Axis Campaign — Level 2: Hit Squad** — a commando mission with direct
+- **Axis Campaign — 13 levels** — the tables turn: now you're the one attacking a
+  dug-in American line. Pick a level from the campaign list. Each wave freezes into a
+  **build phase** — deploy German units in the top strip, then hit **START WAVE** and
+  the assault steps off on its own. Nothing moves or fights until you do, and unused
+  TP does **not** carry over. US defenders persist across waves with no
+  reinforcements. Win any level by getting enough men **past the bottom edge** (5–7,
+  depending on the level) or by wiping out every defender; lose if you run out of
+  waves without breaking through.
+  - **Level 1** opens with just **2 waves** against a thin picket, and both the
+    number of waves and the strength of the defense climb as you go — up to a
+    **7-wave finale** against a fortress bristling with Shermans, AT guns and bunkers.
+  - **Each wave hands you a bigger pile of TP than the last** (e.g. Level 1 pays 25
+    then 35), and later levels start richer and grow faster, so the final push of any
+    level is always your best-funded.
+  - **Every third level is a themed set-piece** for flavor: **Coffee Break** (the
+    whole detail huddled around the coffee urn dead center, flanks wide open),
+    **Tank Graveyard** (one stubborn Sherman and a minefield of wrecks),
+    **Sniper Alley** (a marksman behind every hedgerow, hunting your officers first),
+    and **The Kitchen Sink** (one of literally every American unit thrown into the line).
+- **Axis Campaign — Bonus: Hit Squad** — a commando mission with direct
   control. You command a fixed six-man squad (officer, sniper, MG gunner, two
   stormtroopers, a grenadier) exactly like US soldiers: click or drag-select,
   then click ground to move. Nobody advances without orders. Your men are

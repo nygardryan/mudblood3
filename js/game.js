@@ -6072,15 +6072,25 @@ function drawPlacementGhost() {
     ctx.fillRect(0, AXIS_DEPLOY_Y, W, H - AXIS_DEPLOY_Y);
     drawPlacementUnitGhost(p, x, y, valid);
     const et = ENEMY_TYPES[p.key];
-    if (et && et.flame) {
+    if (et && et.fireCone) {
+      drawFireCone(x, y, Math.PI / 2, et.fireCone.arc, et.range * fogMult(), 0.35);
+    } else if (et && et.flame) {
       drawFlameRangeCone(x, y, Math.PI / 2, et.flame.arc, et.flame.range * fogMult(), 0.35);
-    } else if (et && et.sfx === 'sniper') {
+    } else if (et && et.mortar) {
+      drawMortarRangeRing(x, y, et.mortar.min * fogMult(), et.mortar.range * fogMult(), 0.35);
+    } else if (et && et.sfx === 'sniper' && et.range > 200) {
       drawSniperRangeRing(x, y, et.range * fogMult(), 0.5);
-    } else if (et && et.range > 0) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(x, y, et.range * fogMult(), 0, 7); ctx.stroke();
+    } else if (et) {
+      // show the reach of his main weapon, not the sidearm
+      let r = et.range;
+      if (et.rocket) r = et.rocket.range;
+      if (r > 0) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(x, y, r * fogMult(), 0, 7); ctx.stroke();
+      }
     }
+    drawSpecialistRangeAt(x, y, p.key, 'de');
   } else {
     // shade the invalid zone
     ctx.fillStyle = 'rgba(200,50,40,0.12)';

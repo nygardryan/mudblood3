@@ -28,12 +28,12 @@ python3 -m http.server 8000
   ramping from rifle squads to a halftrack-led final assault. Wipe out the last
   wave and the sector is yours. 7 breaches still lose it. No income attrition and
   no random events — the assault plan is fixed.
-- **Axis Campaign — Level 1: Break the Line** — the tables turn. You start with
-  **30 TP** against a dug-in American line. Most units cost the same as Endless,
-  but the ones that could break through alone (riflemen, stormtroopers, bikes,
-  etc.) are priced up. Combined arms — softening fire, infantry, and breach
-  units together — is the way through. Get **7 men past the bottom edge** within
-  **6 minutes** to win. US reinforcements arrive at the 3-minute mark.
+- **Axis Campaign — Level 1: Break the Line** — the tables turn. You get **5 assault
+  waves** against a dug-in American line. Each wave grants **40 TP** to spend in a
+  frozen build phase — deploy in the top strip, then hit **START WAVE**. Nothing moves
+  or fights until you do. Unused TP does not carry over. US defenders persist across
+  waves with no reinforcements. Win by getting **7 men past the bottom edge** or by
+  wiping out every defender. Lose if all five waves fail to break the line.
 - **Axis Campaign — Level 2: Hit Squad** — a commando mission with direct
   control. You command a fixed six-man squad (officer, sniper, MG gunner, two
   stormtroopers, a grenadier) exactly like US soldiers: click or drag-select,
@@ -64,8 +64,9 @@ France, 1944. Pick a mode from the main menu.
   He can't shoot while running.
 - Drag a box over several soldiers to select the whole group; a move order spreads
   them into a tight formation around the target instead of piling everyone on one spot.
-- In the **Axis campaign** there is no selecting or ordering: place a unit in the top
-  strip and its attack instincts take over. The toolbar is your whole command.
+- In the **Axis campaign** there is no selecting or ordering: during each build
+  phase, place units in the top strip, then hit **START WAVE** to launch the assault.
+  The toolbar is your whole command.
 
 ### Your arsenal
 

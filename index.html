@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
 <title>Mud &amp; Blood — HTML5 Remake</title>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -25,12 +29,21 @@
       <div class="hud-box">KILLS <span id="kills">0</span></div>
       <div class="hud-box breach" id="breachbox" title="Breakthroughs past the bottom edge">BREACH 0/7</div>
       <button id="view-reset" class="hud-box hidden" title="Reset map zoom and position">MAP</button>
+      <button id="start-wave-btn" class="hud-box hidden" title="Begin the assault">START WAVE</button>
       <button id="pause-btn" class="hud-box hidden" title="Pause game">PAUSE</button>
     </div>
 
     <div id="banner"></div>
 
     <div id="tipbar">Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.</div>
+
+    <div id="view-strip" class="hidden" aria-hidden="true"><div id="view-strip-window"></div></div>
+
+    <div id="mobile-actions" class="hidden">
+      <button type="button" id="mobile-deselect">DESELECT</button>
+      <button type="button" id="mobile-shop">SHOP</button>
+    </div>
+    <button type="button" id="place-cancel" class="hidden" title="Cancel placement">✕</button>
 
     <div id="toolbar" class="hidden"></div>
 
@@ -44,7 +57,7 @@
         <button id="start-allied">ALLIED CAMPAIGN
           <span class="mode-desc">Level 1: Hold the Line. Survive 12 scripted German waves. 7 breaches and the sector falls.</span></button>
         <button id="start-axis">AXIS CAMPAIGN
-          <span class="mode-desc">Level 1: Break the Line. 30 TP, 6 minutes. Soften the line, then push infantry and breach units through together.</span></button>
+          <span class="mode-desc">Level 1: Break the Line. 5 waves, 40 TP each. Deploy, then hit START WAVE. Break through or wipe the defenders.</span></button>
         <button id="start-axis2">AXIS CAMPAIGN 2
           <span class="mode-desc">Hit Squad. Command six commandos directly — click to select, click to move. Kill the marked US officer in 5 minutes.</span></button>
       </div>

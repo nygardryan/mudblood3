@@ -131,7 +131,7 @@ const ENEMY_TYPES = {
     color: '#5e5e52', gun: 7, sfx: 'rifle', priority: 1,
   },
   esmg: {
-    name: 'Stormtrooper', hp: 70, speed: 36, range: 130, dmg: 7, acc: 0.38,
+    name: 'Stormtrooper', hp: 70, speed: 36, range: 130, dmg: 7, acc: 0.42,
     rof: 1.0, burst: 3, burstGap: 0.08, reward: 2,
     color: '#46443a', gun: 6, sfx: 'mg', priority: 1,
   },
@@ -172,7 +172,7 @@ const ENEMY_TYPES = {
     name: 'Panzerfaust', hp: 75, speed: 20, range: 120, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, reward: 5,
     color: '#545648', gun: 5, sfx: 'pistol', priority: 4,
-    rocket: { range: 363, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
+    rocket: { range: 308, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
   },
   ebike: {
     name: 'Kradschützen', hp: 80, speed: 85, range: 0, dmg: 0, acc: 0,
@@ -332,7 +332,7 @@ const PLACEABLES = [
 const AXIS_PLACEABLES = [
   { key: 'erifle', label: 'RIFLEMAN', cost: 3, kind: 'eunit', hotkey: '1',
     desc: 'Wehrmacht rifleman. Slow, steady, expendable.' },
-  { key: 'esmg', label: 'STORMTROOP', cost: 5, kind: 'eunit', hotkey: '2',
+  { key: 'esmg', label: 'STORMTROOP', cost: 3, kind: 'eunit', hotkey: '2',
     desc: 'MP40 assault trooper. Fast mover, deadly up close.' },
   { key: 'egren', label: 'GRENADIER', cost: 8, kind: 'eunit', hotkey: '3',
     desc: 'Carries stick grenades into the fray. Blast ignores friend and foe.' },
@@ -346,9 +346,9 @@ const AXIS_PLACEABLES = [
     desc: 'Leutnant. Nearby troops fight harder; earns +1 TP every 30 s while alive.' },
   { key: 'emortar', label: 'GRANATWERFER', cost: 14, kind: 'eunit', hotkey: 'M',
     desc: '81mm mortar team. Long-range indirect fire; blind inside 220 px.' },
-  { key: 'ebazooka', label: 'PANZERFAUST', cost: 16, kind: 'eunit', hotkey: 'B',
+  { key: 'ebazooka', label: 'PANZERFAUST', cost: 18, kind: 'eunit', hotkey: 'B',
     desc: 'Panzerfaust operator. Prioritizes armor; scatter is brutal at range.' },
-  { key: 'ebike', label: 'KRAD', cost: 30, kind: 'eunit', hotkey: 'K',
+  { key: 'ebike', label: 'KRAD', cost: 15, kind: 'eunit', hotkey: 'K',
     desc: 'Kradschützen motorcycle team. Blazing speed — races for the breach.' },
   { key: 'ejeep', label: 'KÜBELWAGEN', cost: 30, kind: 'eunit', hotkey: 'J',
     desc: 'Gun car with a mounted MG. Mobile fire support, lightly armored.' },

@@ -338,6 +338,22 @@ const ENDLESS_DIFFICULTIES = {
     desc: '33% income. Every TP counts.' },
 };
 
+// axis campaign: each build phase hands you a fresh, growing pile of TP.
+// wave 1 pays `wavePayout`; every wave after that adds `wavePayoutStep` more,
+// so a level's final assault always has the biggest budget. Unused TP never
+// carries over — spend it or lose it.
+function axisWavePayout(level, wave) {
+  return level.wavePayout + (level.wavePayoutStep || 0) * (wave - 1);
+}
+
+// US defender placement helpers for the Axis campaign setups (hoisted).
+function usBag(G, x, y, hp = 330)    { G.sandbags.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
+function usBunker(G, x, y, hp = 2400){ G.bunkers.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
+function usWire(G, x, y, hp = 3750)  { G.wires.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
+function usMine(G, x, y)             { G.mines.push({ x, y, dead: false }); }
+function usMan(G, type, x, y)        { G.units.push(makeUnit(type, x, y)); }
+function usRow(G, type, y, xs)       { for (const x of xs) G.units.push(makeUnit(type, x, y)); }
+
 const LEVELS = {
   endless: {
     id: 'endless',
@@ -386,53 +402,344 @@ const LEVELS = {
     },
   },
 
+  // ---- Axis campaign: 13 escalating assaults on the American line.
+  // Level 1 opens with two waves; wave counts, defenders, and per-wave TP all
+  // climb from there. Every third level is a themed set-piece for flavor.
   axis1: {
     id: 'axis1',
     name: 'AXIS 1: BREAK THE LINE',
+    menuName: 'LEVEL 1 — BREAK THE LINE',
+    menuDesc: 'Your first push. Two waves, a thin American picket. 25 TP the first wave, 35 the second.',
     mode: 'axis',
-    winBreaches: 7,
-    timeLimit: 360,
+    winBreaches: 5,
+    axisWaves: 2,
+    wavePayout: 25,
+    wavePayoutStep: 10,
     events: false,
     placeables: AXIS_PLACEABLES,
-    startTP: 30,
-    briefing: 'Punch through the American line. Get 7 men past the bottom edge before the clock runs out.',
-    // one reinforcement wave mid-mission
-    reinforcements: [
-      { at: 180, banner: 'US REINFORCEMENTS ARRIVE', units: [
-        { type: 'rifleman', x: W / 2 - 50, y: H - 30 },
-        { type: 'rifleman', x: W / 2 + 50, y: H - 30 },
-        { type: 'gunner', x: W / 2, y: H - 26 },
-      ] },
-    ],
+    briefing: 'Two assault waves against a thin American picket. Fresh TP each wave — spend it or lose it. Get 5 men past the bottom, or wipe the defenders.',
     setup(G) {
-      // dug-in American defense along the trench line
-      const bag = (x, y) => G.sandbags.push({ x, y, hp: 330, maxhp: 330, up: false, workProg: 0 });
-      bag(W / 2 - 180, DEPLOY_Y + 40);
-      bag(W / 2 - 60, DEPLOY_Y + 40);
-      bag(W / 2 + 60, DEPLOY_Y + 40);
-      bag(W / 2 + 180, DEPLOY_Y + 40);
-      G.bunkers.push({ x: W / 2, y: DEPLOY_Y + 85, hp: 2400, maxhp: 2400, up: false, workProg: 0 });
-      G.wires.push({ x: W / 2 - 130, y: DEPLOY_Y - 55, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
-      G.wires.push({ x: W / 2 + 130, y: DEPLOY_Y - 55, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
-      for (const pos of [
-        { x: W / 2 - 240, y: H / 2 + 20 }, { x: W / 2, y: H / 2 - 10 }, { x: W / 2 + 240, y: H / 2 + 20 },
-      ]) {
-        G.mines.push({ x: pos.x, y: pos.y, dead: false });
-      }
-      G.units.push(makeUnit('gunner', W / 2, DEPLOY_Y + 85));
-      G.units.push(makeUnit('rifleman', W / 2 - 180, DEPLOY_Y + 36));
-      G.units.push(makeUnit('rifleman', W / 2 - 60, DEPLOY_Y + 36));
-      G.units.push(makeUnit('rifleman', W / 2 + 60, DEPLOY_Y + 36));
-      G.units.push(makeUnit('rifleman', W / 2 + 180, DEPLOY_Y + 36));
-      G.units.push(makeUnit('sniper', W / 2 - 130, H - 90));
-      G.units.push(makeUnit('medic', W / 2 + 130, H - 90));
-      G.units.push(makeUnit('mortarman', W / 2, H - 60));
+      usBag(G, W / 2 - 70, 435); usBag(G, W / 2 + 70, 435);
+      usWire(G, W / 2, DEPLOY_Y - 30);
+      usRow(G, 'rifleman', 428, [W / 2 - 70, W / 2 + 70]);
+      usMan(G, 'gunner', W / 2, 485);
     },
   },
 
   axis2: {
     id: 'axis2',
-    name: 'AXIS 2: HIT SQUAD',
+    name: 'AXIS 2: PROBING ATTACK',
+    menuName: 'LEVEL 2 — PROBING ATTACK',
+    menuDesc: 'Three waves. The line has a sniper now and a little wire. Budgets start at 30 TP and grow.',
+    mode: 'axis',
+    winBreaches: 5,
+    axisWaves: 3,
+    wavePayout: 30,
+    wavePayoutStep: 10,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'Three waves against a reinforced picket with a marksman watching the field.',
+    setup(G) {
+      usBag(G, W / 2 - 120, 435); usBag(G, W / 2, 435); usBag(G, W / 2 + 120, 435);
+      usWire(G, W / 2 - 90, DEPLOY_Y - 40); usWire(G, W / 2 + 90, DEPLOY_Y - 40);
+      usMine(G, W / 2, H / 2 + 20);
+      usRow(G, 'rifleman', 428, [W / 2 - 120, W / 2, W / 2 + 120]);
+      usMan(G, 'gunner', W / 2 - 60, 490);
+      usMan(G, 'sniper', W / 2 + 90, H - 80);
+    },
+  },
+
+  axis3: {
+    id: 'axis3',
+    name: 'AXIS 3: COFFEE BREAK',
+    menuName: 'LEVEL 3 — COFFEE BREAK ☕',
+    menuDesc: 'Themed: the whole detail is huddled around the coffee urn dead center. The flanks are wide open — just walk around the party.',
+    mode: 'axis',
+    winBreaches: 5,
+    axisWaves: 3,
+    wavePayout: 32,
+    wavePayoutStep: 12,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'The Americans are on a coffee break, bunched in the middle with mugs in hand. Nobody is watching the flanks. Go wide.',
+    setup(G) {
+      const cx = W / 2;
+      // everybody crowded around the urn, dead center — flanks unguarded
+      usBag(G, cx - 40, 450); usBag(G, cx + 40, 450); usBag(G, cx, 505);
+      usRow(G, 'rifleman', 470, [cx - 45, cx, cx + 45]);
+      usMan(G, 'gunner', cx, 512);
+      usMan(G, 'shotgunner', cx - 30, 522);
+      usMan(G, 'medic', cx + 30, 522);
+      // one lone, bewildered sentry on a single flank
+      usMan(G, 'rifleman', 120, 440);
+    },
+  },
+
+  axis4: {
+    id: 'axis4',
+    name: 'AXIS 4: THE CROSSROADS',
+    menuName: 'LEVEL 4 — THE CROSSROADS',
+    menuDesc: 'Four waves. A bunkered strongpoint with mines on the shoulders. Bigger budgets every wave.',
+    mode: 'axis',
+    winBreaches: 6,
+    axisWaves: 4,
+    wavePayout: 36,
+    wavePayoutStep: 12,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'A bunkered crossroads held in strength. Four waves to crack it.',
+    setup(G) {
+      usBag(G, W / 2 - 150, 435); usBag(G, W / 2 - 50, 435); usBag(G, W / 2 + 50, 435); usBag(G, W / 2 + 150, 435);
+      usBunker(G, W / 2, DEPLOY_Y + 80);
+      usWire(G, W / 2 - 110, DEPLOY_Y - 45); usWire(G, W / 2 + 110, DEPLOY_Y - 45);
+      usMine(G, W / 2 - 180, H / 2 + 15); usMine(G, W / 2 + 180, H / 2 + 15);
+      usRow(G, 'rifleman', 428, [W / 2 - 150, W / 2 - 50, W / 2 + 50, W / 2 + 150]);
+      usMan(G, 'gunner', W / 2, DEPLOY_Y + 80);
+      usMan(G, 'sniper', W / 2 - 120, H - 80);
+      usMan(G, 'medic', W / 2 + 120, H - 80);
+    },
+  },
+
+  axis5: {
+    id: 'axis5',
+    name: 'AXIS 5: GRIND',
+    menuName: 'LEVEL 5 — GRIND',
+    menuDesc: 'Four waves into a wall of riflemen, gunners and a medic keeping them up. Grind them down.',
+    mode: 'axis',
+    winBreaches: 6,
+    axisWaves: 4,
+    wavePayout: 40,
+    wavePayoutStep: 13,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'A deep line of infantry with medics in support. No cleverness — just outweigh them.',
+    setup(G) {
+      for (const x of [W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200]) usBag(G, x, 435);
+      usWire(G, W / 2 - 130, DEPLOY_Y - 45); usWire(G, W / 2, DEPLOY_Y - 55); usWire(G, W / 2 + 130, DEPLOY_Y - 45);
+      usMine(G, W / 2 - 90, H / 2 + 20); usMine(G, W / 2 + 90, H / 2 + 20);
+      usRow(G, 'rifleman', 428, [W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200]);
+      usRow(G, 'gunner', 495, [W / 2 - 80, W / 2 + 80]);
+      usMan(G, 'medic', W / 2, H - 70);
+      usMan(G, 'sniper', W / 2 - 160, H - 80);
+    },
+  },
+
+  axis6: {
+    id: 'axis6',
+    name: 'AXIS 6: TANK GRAVEYARD',
+    menuName: 'LEVEL 6 — TANK GRAVEYARD 🪦',
+    menuDesc: 'Themed: one Sherman that refuses to die, an AT gun for company, and a field of mines. Bring armor at your peril — bring mines instead.',
+    mode: 'axis',
+    winBreaches: 6,
+    axisWaves: 4,
+    wavePayout: 44,
+    wavePayoutStep: 14,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'A lone stubborn Sherman and an AT gun guard a minefield of old wrecks. Panzers will feed the graveyard — try mines and infantry.',
+    setup(G) {
+      usBunker(G, W / 2, DEPLOY_Y + 70);
+      usMan(G, 'sherman', W / 2, 470);
+      usMan(G, 'atgun', W / 2 - 200, 440);
+      usBag(G, W / 2 - 120, 435); usBag(G, W / 2 + 120, 435);
+      for (const mx of [W / 2 - 220, W / 2 - 60, W / 2 + 60, W / 2 + 220]) usMine(G, mx, H / 2 + 10);
+      usWire(G, W / 2 - 90, DEPLOY_Y - 45); usWire(G, W / 2 + 90, DEPLOY_Y - 45);
+      usRow(G, 'rifleman', 428, [W / 2 - 120, W / 2 + 120]);
+      usMan(G, 'gunner', W / 2 + 200, 445);
+    },
+  },
+
+  axis7: {
+    id: 'axis7',
+    name: 'AXIS 7: THE RIDGE',
+    menuName: 'LEVEL 7 — THE RIDGE',
+    menuDesc: 'Five waves. Twin bunkers with MG teams and a marksman command the slope. Budgets keep climbing.',
+    mode: 'axis',
+    winBreaches: 6,
+    axisWaves: 5,
+    wavePayout: 48,
+    wavePayoutStep: 14,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'Two bunkers with MG42-killers dug into the ridge. Five waves to storm it.',
+    setup(G) {
+      usBunker(G, W / 2 - 140, DEPLOY_Y + 70); usBunker(G, W / 2 + 140, DEPLOY_Y + 70);
+      for (const x of [W / 2 - 210, W / 2 - 70, W / 2 + 70, W / 2 + 210]) usBag(G, x, 435);
+      usWire(G, W / 2 - 130, DEPLOY_Y - 50); usWire(G, W / 2, DEPLOY_Y - 55); usWire(G, W / 2 + 130, DEPLOY_Y - 50);
+      usMine(G, W / 2 - 100, H / 2 + 20); usMine(G, W / 2 + 100, H / 2 + 20);
+      usRow(G, 'rifleman', 428, [W / 2 - 210, W / 2 - 70, W / 2 + 70, W / 2 + 210]);
+      usRow(G, 'gunner', DEPLOY_Y + 70, [W / 2 - 140, W / 2 + 140]);
+      usMan(G, 'sniper', W / 2, H - 80);
+      usMan(G, 'medic', W / 2 - 60, H - 70);
+    },
+  },
+
+  axis8: {
+    id: 'axis8',
+    name: 'AXIS 8: ATTRITION',
+    menuName: 'LEVEL 8 — ATTRITION',
+    menuDesc: 'Five waves into a deep, medic-backed line around a central bunker. A war of numbers.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 5,
+    wavePayout: 52,
+    wavePayoutStep: 15,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'A deep line with two medics keeping everyone on their feet. Bleed them white.',
+    setup(G) {
+      for (const x of [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]) usBag(G, x, 435);
+      usBunker(G, W / 2, DEPLOY_Y + 80);
+      usWire(G, W / 2 - 130, DEPLOY_Y - 50); usWire(G, W / 2 + 130, DEPLOY_Y - 50);
+      for (const mx of [W / 2 - 160, W / 2, W / 2 + 160]) usMine(G, mx, H / 2 + 15);
+      usRow(G, 'rifleman', 428, [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]);
+      usRow(G, 'gunner', 495, [W / 2 - 90, W / 2 + 90]);
+      usRow(G, 'medic', H - 70, [W / 2 - 120, W / 2 + 120]);
+      usMan(G, 'sniper', W / 2, H - 90);
+    },
+  },
+
+  axis9: {
+    id: 'axis9',
+    name: 'AXIS 9: SNIPER ALLEY',
+    menuName: 'LEVEL 9 — SNIPER ALLEY 🎯',
+    menuDesc: 'Themed: every hedgerow hides a marksman, and they hunt officers and MG teams first. Keep the assault moving and never bunch up.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 5,
+    wavePayout: 56,
+    wavePayoutStep: 16,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'Five American snipers watch the field and pick off your leaders and gunners first. Rush cheap men through the gaps.',
+    setup(G) {
+      usWire(G, W / 2 - 160, DEPLOY_Y - 50); usWire(G, W / 2, DEPLOY_Y - 40); usWire(G, W / 2 + 160, DEPLOY_Y - 50);
+      for (const x of [W / 2 - 150, W / 2 + 150]) usBag(G, x, 435);
+      usRow(G, 'sniper', 470, [W / 2 - 250, W / 2 - 90, W / 2 + 90, W / 2 + 250]);
+      usMan(G, 'sniper', W / 2, H - 90);
+      usRow(G, 'rifleman', 428, [W / 2 - 150, W / 2 + 150]);
+      usMan(G, 'medic', W / 2, 520);
+    },
+  },
+
+  axis10: {
+    id: 'axis10',
+    name: 'AXIS 10: THE WALL',
+    menuName: 'LEVEL 10 — THE WALL',
+    menuDesc: 'Six waves against three bunkers, layered wire and mines, and an engineer patching it all. Bring firepower.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 6,
+    wavePayout: 60,
+    wavePayoutStep: 16,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'Three bunkers, four belts of wire, and an engineer keeping the wall standing. Six waves to breach it.',
+    setup(G) {
+      usBunker(G, W / 2 - 180, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 80); usBunker(G, W / 2 + 180, DEPLOY_Y + 70);
+      for (const x of [W / 2 - 240, W / 2 - 120, W / 2 + 120, W / 2 + 240]) usBag(G, x, 435);
+      for (const wx of [W / 2 - 180, W / 2 - 60, W / 2 + 60, W / 2 + 180]) usWire(G, wx, DEPLOY_Y - 50);
+      for (const mx of [W / 2 - 200, W / 2 - 70, W / 2 + 70, W / 2 + 200]) usMine(G, mx, H / 2 + 15);
+      usRow(G, 'gunner', DEPLOY_Y + 72, [W / 2 - 180, W / 2, W / 2 + 180]);
+      usRow(G, 'rifleman', 428, [W / 2 - 240, W / 2 - 120, W / 2 + 120, W / 2 + 240]);
+      usMan(G, 'engineer', W / 2, 520);
+      usMan(G, 'medic', W / 2 - 100, H - 70); usMan(G, 'sniper', W / 2 + 100, H - 80);
+    },
+  },
+
+  axis11: {
+    id: 'axis11',
+    name: 'AXIS 11: STEEL RAIN',
+    menuName: 'LEVEL 11 — STEEL RAIN',
+    menuDesc: 'Six waves. Three mortar teams have zeroed the open ground — the sky rains shells. Move fast and spread out.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 6,
+    wavePayout: 66,
+    wavePayoutStep: 17,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'Three American mortar crews have the killing ground zeroed. Rush across before the shells find you.',
+    setup(G) {
+      for (const x of [W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200]) usBag(G, x, 435);
+      usBunker(G, W / 2, DEPLOY_Y + 80);
+      usWire(G, W / 2 - 130, DEPLOY_Y - 50); usWire(G, W / 2 + 130, DEPLOY_Y - 50);
+      usRow(G, 'mortarman', H - 60, [W / 2 - 150, W / 2, W / 2 + 150]);
+      usRow(G, 'rifleman', 428, [W / 2 - 150, W / 2, W / 2 + 150]);
+      usRow(G, 'gunner', 495, [W / 2 - 90, W / 2 + 90]);
+      usMan(G, 'medic', W / 2 + 200, H - 70);
+    },
+  },
+
+  axis12: {
+    id: 'axis12',
+    name: 'AXIS 12: THE KITCHEN SINK',
+    menuName: 'LEVEL 12 — THE KITCHEN SINK 🚿',
+    menuDesc: 'Themed: somebody handed a rifle to the cook, the clerk and the chaplain. One of literally everything is down there — a glorious, disorganized mess.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 6,
+    wavePayout: 72,
+    wavePayoutStep: 18,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'The Americans have thrown one of every unit into the line — riflemen to flamethrowers to a jeep and an AT gun. It is a mess, but a dangerous one.',
+    setup(G) {
+      usBunker(G, W / 2, DEPLOY_Y + 80);
+      usBag(G, W / 2 - 160, 435); usBag(G, W / 2 + 160, 435);
+      usWire(G, W / 2 - 110, DEPLOY_Y - 50); usWire(G, W / 2 + 110, DEPLOY_Y - 50);
+      usMine(G, W / 2, H / 2 + 15);
+      usMan(G, 'rifleman', W / 2 - 260, 440);
+      usMan(G, 'gunner', W / 2 - 190, 460);
+      usMan(G, 'grenadier', W / 2 - 120, 480);
+      usMan(G, 'shotgunner', W / 2 - 50, 500);
+      usMan(G, 'bazooka', W / 2 + 30, 500);
+      usMan(G, 'flamer', W / 2 + 110, 480);
+      usMan(G, 'sniper', W / 2 + 190, 460);
+      usMan(G, 'mortarman', W / 2 + 260, 440);
+      usMan(G, 'medic', W / 2 - 40, H - 70);
+      usMan(G, 'engineer', W / 2 + 40, H - 70);
+      usMan(G, 'officer', W / 2, H - 55);
+      usMan(G, 'jeep', W / 2 - 220, 525);
+      usMan(G, 'atgun', W / 2 + 220, 525);
+    },
+  },
+
+  axis13: {
+    id: 'axis13',
+    name: 'AXIS 13: FORTRESS AMERICA',
+    menuName: 'LEVEL 13 — FORTRESS AMERICA',
+    menuDesc: 'Finale. Seven waves against everything the Americans have: twin Shermans, AT guns, three bunkers, snipers, mortars and an officer. The biggest budgets in the war.',
+    mode: 'axis',
+    winBreaches: 7,
+    axisWaves: 7,
+    wavePayout: 80,
+    wavePayoutStep: 22,
+    events: false,
+    placeables: AXIS_PLACEABLES,
+    briefing: 'The final line: two Shermans, two AT guns, three bunkers, snipers and mortars under an officer. Seven waves, and the fattest budgets of the campaign. Break it and the sector is yours.',
+    setup(G) {
+      usBunker(G, W / 2 - 200, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 85); usBunker(G, W / 2 + 200, DEPLOY_Y + 70);
+      for (const x of [W / 2 - 260, W / 2 - 130, W / 2 + 130, W / 2 + 260]) usBag(G, x, 435);
+      for (const wx of [W / 2 - 200, W / 2 - 70, W / 2 + 70, W / 2 + 200]) usWire(G, wx, DEPLOY_Y - 50);
+      for (const mx of [W / 2 - 230, W / 2 - 100, W / 2 + 100, W / 2 + 230]) usMine(G, mx, H / 2 + 12);
+      usMan(G, 'sherman', W / 2 - 120, 500); usMan(G, 'sherman', W / 2 + 120, 500);
+      usMan(G, 'atgun', W / 2 - 300, 460); usMan(G, 'atgun', W / 2 + 300, 460);
+      usRow(G, 'gunner', DEPLOY_Y + 72, [W / 2 - 200, W / 2, W / 2 + 200]);
+      usRow(G, 'rifleman', 428, [W / 2 - 260, W / 2 - 130, W / 2 + 130, W / 2 + 260]);
+      usRow(G, 'sniper', H - 90, [W / 2 - 150, W / 2 + 150]);
+      usRow(G, 'mortarman', H - 55, [W / 2 - 60, W / 2 + 60]);
+      usRow(G, 'medic', H - 78, [W / 2 - 250, W / 2 + 250]);
+      usMan(G, 'engineer', W / 2, H - 62);
+      usMan(G, 'officer', W / 2, H - 40);
+    },
+  },
+
+  hitsquad: {
+    id: 'hitsquad',
+    name: 'AXIS: HIT SQUAD',
+    menuName: 'BONUS — HIT SQUAD',
+    menuDesc: 'A commando mission. Command six veterans directly — click to select, click to move. Kill the marked US officer in 5 minutes.',
     mode: 'hitsquad',
     timeLimit: 300,
     events: false,
@@ -539,6 +846,8 @@ let suppressClick = false; // eat the click that follows a completed drag-select
 let placeTouch = null;  // touch placement drag: { active, moved, startX, startY }
 let viewPan = null;     // one-finger camera pan on mobile
 let placeHoldTimer = null;
+let mobileToolbarMinimized = false;
+let lastTap = { t: 0, x: 0, y: 0 };
 let viewCam = { x: 0, y: 0, zoom: 1 };
 let viewDirty = false;
 let viewGesture = null;   // two-finger pinch/pan snapshot
@@ -547,6 +856,8 @@ const VIEW_ZOOM_MAX_MUL = 2.5;
 let lastCoverZoom = null;
 let running = false;
 let paused = false;
+let gameSpeed = 1;
+const SPEED_STEPS = [0.5, 1, 2, 3];
 let codexReturnTo = 'intro';
 let settingsReturnTo = 'intro';
 let lastT = 0;
@@ -559,6 +870,10 @@ function refreshHUD() {
 
 function isPlaying() {
   return running && G && !G.over && !paused;
+}
+
+function inBuildPhase() {
+  return G && G.mode === 'axis' && G.phase === 'build';
 }
 
 function syncMuteButtons() {
@@ -582,10 +897,12 @@ function newGame(level, difficulty) {
     difficulty: level.mode === 'endless'
       ? (difficulty || ENDLESS_DIFFICULTIES.easy)
       : null,
-    tp: level.startTP != null ? level.startTP : 15,
-    wave: 0,
+    tp: level.mode === 'axis'
+      ? axisWavePayout(level, 1)
+      : (level.startTP != null ? level.startTP : 15),
+    wave: level.mode === 'axis' ? 1 : 0,
+    phase: level.mode === 'axis' ? 'build' : 'combat',
     waveIdx: 0,        // allied campaign: next scripted wave
-    reinforceIdx: 0,   // axis campaign: next scripted US reinforcement
     kills: 0,
     breaches: 0,
     time: 0,
@@ -903,15 +1220,36 @@ function updateAlliedWaves(dt) {
   if (next) G.spawnTimer = next.delay;
 }
 
-// axis campaign: the player is the wave source; scripted US reinforcements
-// arrive on a timetable to stiffen the defense.
-function updateAxisReinforcements() {
-  const list = G.level.reinforcements || [];
-  while (G.reinforceIdx < list.length && G.time >= list[G.reinforceIdx].at) {
-    const r = list[G.reinforceIdx++];
-    if (r.banner) showBanner(r.banner);
-    for (const spec of r.units) G.units.push(makeUnit(spec.type, spec.x, spec.y));
-  }
+function clearAxisWaveEffects() {
+  G.shells = [];
+  G.grenades = [];
+  G.rockets = [];
+  G.planes = [];
+  G.tracers = [];
+  G.particles = [];
+  G.flashes = [];
+  clearPlacing();
+}
+
+function startAxisCombat() {
+  if (!inBuildPhase()) return;
+  if (!G.enemies.some(e => !e.dead)) return;
+  G.phase = 'combat';
+  clearPlacing();
+  showBanner('WAVE ' + G.wave);
+  SFX.click();
+}
+
+function updateAxisCombat() {
+  if (!G.units.some(u => !u.dead)) { victory(); return; }
+  if (G.enemies.some(e => !e.dead)) return;
+  if (G.breaches >= G.level.winBreaches) { victory(); return; }
+  if (G.wave >= G.level.axisWaves) { gameOver(); return; }
+  G.wave++;
+  G.tp = axisWavePayout(G.level, G.wave);
+  G.phase = 'build';
+  clearAxisWaveEffects();
+  showBanner('WAVE ' + G.wave + ' - DEPLOY');
 }
 
 // ============================================================ random events
@@ -1300,7 +1638,6 @@ function damageUnit(u, dmg, from) {
     // when the player fights as the Germans, downed US defenders are his kills
     if (G.mode === 'axis' || G.mode === 'hitsquad') {
       G.kills++;
-      if (G.mode === 'axis') earnTP(u.t.reward || 2);
     }
     if (u.t.tank) {
       stampWreck(u);
@@ -2815,31 +3152,33 @@ function update(dt) {
     }
   }
 
-  // a hit squad has no supply line: no trickle, no officer income, nothing to buy
-  if (G.mode !== 'hitsquad') {
+  // a hit squad has no supply line: no trickle, no officer income, nothing to buy.
+  // axis gets a fixed per-wave allocation only — no trickle or officer income.
+  if (G.mode !== 'hitsquad' && G.mode !== 'axis') {
     // TP trickle
     G.tpTrickle -= dt;
     if (G.tpTrickle <= 0) { G.tpTrickle = 8; earnTP(1); }
 
-    // officer TP bonus: whichever side the player commands, its officers pay
+    // officer TP bonus
     G.officerTick -= dt;
     if (G.officerTick <= 0) {
       G.officerTick = 30;
-      if (G.mode === 'axis') {
-        for (const e of G.enemies) if (!e.dead && e.type === 'eoff') earnTP(1);
-      } else {
-        // rank pays: a MSG officer brings in 3 TP where a green one brings 1
-        for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3);
-      }
+      // rank pays: a MSG officer brings in 3 TP where a green one brings 1
+      for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3);
     }
+  }
+
+  if (inBuildPhase()) {
+    if (G.fog > 0) G.fog -= dt;
+    if (G.banner) { G.banner.ttl -= dt; if (G.banner.ttl <= 0) G.banner = null; }
+    return;
   }
 
   // spawning: each mode has its own wave source
   if (G.mode === 'allied') {
     updateAlliedWaves(dt);
   } else if (G.mode === 'axis') {
-    updateAxisReinforcements();
-    if (G.time >= G.level.timeLimit) { gameOver(); return; }
+    updateAxisCombat();
   } else if (G.mode === 'hitsquad') {
     // no waves: win when the target falls, lose on the clock or a wiped squad
     if (!G.units.some(u => !u.dead && u.vip)) { victory(); return; }
@@ -3009,8 +3348,8 @@ function gameOver() {
   const t = Math.floor(G.time);
   if (G.mode === 'axis') {
     endRun(false, 'ATTACK REPULSED',
-      `The assault stalls after ${t} seconds. ${G.breaches}/${G.level.winBreaches} breakthroughs — ` +
-      `the American line holds, and ${G.kills} defenders was not enough.`);
+      `All ${G.level.axisWaves} waves spent. ${G.breaches}/${G.level.winBreaches} breakthroughs — ` +
+      `the American line holds, and ${G.kills} defenders down was not enough.`);
   } else if (G.mode === 'hitsquad') {
     const wiped = !G.enemies.some(e => !e.dead);
     endRun(false, wiped ? 'SQUAD LOST' : 'MISSION FAILED',
@@ -3028,9 +3367,12 @@ function gameOver() {
 function victory() {
   const t = Math.floor(G.time);
   if (G.mode === 'axis') {
+    const wiped = !G.units.some(u => !u.dead);
     endRun(true, 'LINE BROKEN',
-      `The American line collapses after ${t} seconds. ` +
-      `${G.breaches} men through the breach, ${G.kills} defenders down.`);
+      wiped
+        ? `Every defender is down after ${G.wave} waves. ${G.breaches} men through the breach, ${G.kills} Americans eliminated.`
+        : `The American line collapses after ${G.wave} waves. ` +
+          `${G.breaches} men through the breach, ${G.kills} defenders down.`);
   } else if (G.mode === 'hitsquad') {
     const alive = G.enemies.filter(e => !e.dead).length;
     endRun(true, 'TARGET ELIMINATED',
@@ -5562,9 +5904,10 @@ function drawMoveCursorPreview() {
   if (!canReceiveMoveOrders()) return;
   const x = mouse.x, y = mouse.y;
   const valid = moveOrderValid(x, y);
+  const r = touchUI() ? 13 : 9;
   ctx.globalAlpha = 0.55;
   ctx.fillStyle = valid ? 'rgba(120,200,90,0.8)' : 'rgba(210,70,50,0.8)';
-  ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
   ctx.globalAlpha = 1;
 }
 
@@ -5676,6 +6019,18 @@ const el = id => document.getElementById(id);
 const touchUI = () => window.matchMedia('(hover: none)').matches;
 const tapSlop = () => touchUI() ? 14 : 6;
 
+function touchHitRadius(base) {
+  return touchUI() ? base * 1.35 : base;
+}
+
+function mobileVibrate(ms) {
+  if (touchUI() && navigator.vibrate) navigator.vibrate(ms);
+}
+
+function unlockAudio() {
+  if (typeof SFX !== 'undefined' && SFX.resume) SFX.resume();
+}
+
 function mobileViewActive() {
   return touchUI() && window.innerWidth <= 768;
 }
@@ -5687,8 +6042,8 @@ function portraitMobile() {
 function unitAtWorld(x, y) {
   if (!G || G.mode === 'axis') return null;
   for (const u of commandRoster()) {
-    const r = u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14;
-    if (dist(u, { x, y }) < r) return u;
+    const base = u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14;
+    if (dist(u, { x, y }) < touchHitRadius(base)) return u;
   }
   return null;
 }
@@ -5716,6 +6071,7 @@ function applyViewPan(clientX, clientY) {
   viewCam.y = viewPan.camY0 - (clientY - viewPan.clientY0) / r.height * viewH;
   clampCamera();
   viewDirty = true;
+  syncViewStrip();
 }
 
 function clearViewPan() {
@@ -5729,11 +6085,48 @@ function clearPlaceHold() {
   }
 }
 
+function syncViewStrip() {
+  const strip = el('view-strip');
+  const win = el('view-strip-window');
+  if (!strip || !win) return;
+  const on = mobileViewActive() && isPlaying() && !paused;
+  strip.classList.toggle('hidden', !on);
+  if (!on) return;
+  const { viewW } = viewSize();
+  win.style.width = (viewW / W * 100) + '%';
+  win.style.left = (viewCam.x / W * 100) + '%';
+}
+
+function syncSelectionMobile() {
+  if (!touchUI() || !isPlaying()) {
+    mobileToolbarMinimized = false;
+  } else if (G?.selected.length && !placing) {
+    mobileToolbarMinimized = true;
+  } else if (!G?.selected.length && !placing) {
+    mobileToolbarMinimized = false;
+  }
+  syncMobileChrome();
+  syncToolbarVisibility();
+}
+
 function syncMobileChrome() {
   const stage = el('stage');
   const tip = el('tipbar');
-  if (stage) stage.classList.toggle('mobile-portrait', portraitMobile());
+  const actions = el('mobile-actions');
+  const placeCancel = el('place-cancel');
+  if (stage) {
+    stage.classList.toggle('mobile-portrait', portraitMobile());
+    stage.classList.toggle('placing-active', touchUI() && !!placing);
+    stage.classList.toggle('units-selected', touchUI() && !!G?.selected.length && !placing);
+  }
   if (tip) tip.classList.toggle('hidden', touchUI() && !!placing);
+  if (actions) {
+    actions.classList.toggle('hidden', !(touchUI() && isPlaying() && G?.selected.length && !placing));
+  }
+  if (placeCancel) {
+    placeCancel.classList.toggle('hidden', !(touchUI() && placing && isPlaying()));
+  }
+  syncViewStrip();
 }
 
 function canvasAspect() {
@@ -5782,10 +6175,58 @@ function resetViewCam(mode) {
     const { viewH } = viewSize();
     if (mode === 'axis') viewCam.y = 0;
     else if (mode === 'hitsquad') viewCam.y = 120;
+    else if (canvasAspect() < W / H) viewCam.y = clamp((H - viewH) * 0.38, 0, Math.max(0, H - viewH));
     else viewCam.y = DEPLOY_Y - viewH * 0.55;
   }
   clampCamera();
   viewDirty = true;
+  syncViewStrip();
+}
+
+function zoomToward(wx, wy, targetZoom) {
+  const oldZoom = viewCam.zoom;
+  viewCam.zoom = clamp(targetZoom, viewZoomMin(), viewZoomMax());
+  const { viewW: ow, viewH: oh } = viewSize(oldZoom);
+  const nx = ow > 0 ? (wx - viewCam.x) / ow : 0.5;
+  const ny = oh > 0 ? (wy - viewCam.y) / oh : 0.5;
+  const { viewW: nw, viewH: nh } = viewSize();
+  viewCam.x = wx - nx * nw;
+  viewCam.y = wy - ny * nh;
+  clampCamera();
+  viewDirty = true;
+  syncViewStrip();
+}
+
+function toggleZoomAt(wx, wy) {
+  if (!mobileViewActive()) return;
+  const mid = coverZoom() * 1.85;
+  const target = viewCam.zoom <= coverZoom() * 1.08 ? mid : coverZoom();
+  zoomToward(wx, wy, target);
+  mobileVibrate(6);
+}
+
+function edgeAutoPan(clientX, clientY) {
+  if (!mobileViewActive() || !isPlaying()) return;
+  const r = canvas.getBoundingClientRect();
+  const margin = 44;
+  const speed = 10 / viewScale();
+  let moved = false;
+  const { viewW, viewH } = viewSize();
+  if (viewW < W - 1) {
+    if (clientX - r.left < margin) { viewCam.x -= speed; moved = true; }
+    if (r.right - clientX < margin) { viewCam.x += speed; moved = true; }
+  }
+  if (viewH < H - 1) {
+    const topMargin = margin + (portraitMobile() ? 36 : 0);
+    const bottomMargin = margin + (portraitMobile() ? 56 : 0);
+    if (clientY - r.top < topMargin) { viewCam.y -= speed; moved = true; }
+    if (r.bottom - clientY < bottomMargin) { viewCam.y += speed; moved = true; }
+  }
+  if (moved) {
+    clampCamera();
+    viewDirty = true;
+    syncViewStrip();
+  }
 }
 
 function clientToWorld(clientX, clientY) {
@@ -5846,6 +6287,7 @@ function applyViewGesture() {
   viewCam.y = worldY - ny1 * vh;
   clampCamera();
   viewDirty = true;
+  syncViewStrip();
 }
 
 function syncMobileViewUI() {
@@ -5944,17 +6386,17 @@ const bannerEl = el('banner');
 function updateHUD() {
   hud.tp.textContent = isSandbox() ? '∞' : Math.floor(G.tp);
   hud.kills.textContent = G.kills;
-  if (G.mode === 'axis' || G.mode === 'hitsquad') {
+  if (G.mode === 'axis') {
+    const phase = G.phase === 'build' ? 'BUILD' : 'FIGHT';
+    hud.waveBox.textContent = 'WAVE ' + G.wave + '/' + G.level.axisWaves + ' ' + phase;
+    hud.breachBox.textContent = 'BREAK ' + G.breaches + '/' + G.level.winBreaches;
+  } else if (G.mode === 'hitsquad') {
     const left = Math.max(0, G.level.timeLimit - G.time);
     const m = Math.floor(left / 60), s = Math.floor(left % 60);
     hud.waveBox.textContent = 'TIME ' + m + ':' + String(s).padStart(2, '0');
-    if (G.mode === 'hitsquad') {
-      let alive = 0;
-      for (const e of G.enemies) if (!e.dead) alive++;
-      hud.breachBox.textContent = 'MEN ' + alive + '/' + G.squadTotal;
-    } else {
-      hud.breachBox.textContent = 'BREAK ' + G.breaches + '/' + G.level.winBreaches;
-    }
+    let alive = 0;
+    for (const e of G.enemies) if (!e.dead) alive++;
+    hud.breachBox.textContent = 'MEN ' + alive + '/' + G.squadTotal;
   } else if (G.mode === 'allied') {
     hud.waveBox.textContent = 'WAVE ' + G.wave + '/' + G.level.waves.length;
     hud.breachBox.textContent = 'BREACH ' + G.breaches + '/' + G.level.breachLimit;
@@ -5964,7 +6406,14 @@ function updateHUD() {
   }
 
   el('sandbox-wave-skip').classList.toggle('hidden', !(isSandbox() && isPlaying()));
+  el('speed-btn').classList.toggle('hidden', !(running && G && !G.over));
   el('pause-btn').classList.toggle('hidden', !(running && G && !G.over));
+  const startBtn = el('start-wave-btn');
+  if (startBtn) {
+    const showStart = inBuildPhase();
+    startBtn.classList.toggle('hidden', !showStart);
+    startBtn.disabled = !showStart || !G.enemies.some(e => !e.dead);
+  }
 
   if (G.banner) {
     bannerEl.textContent = G.banner.text;
@@ -5981,6 +6430,7 @@ function updateHUD() {
 
   syncToolbarVisibility();
   syncToolbarLayout();
+  syncViewStrip();
 }
 
 const TOOLBAR_CATEGORIES = [
@@ -6022,7 +6472,9 @@ function visibleToolbarCategories() {
 function syncToolbarVisibility() {
   const bar = el('toolbar');
   if (!bar) return;
-  const show = toolbarPlaceables.length > 0 && isPlaying();
+  const hideForSelection = touchUI() && mobileToolbarMinimized && G?.selected.length && !placing;
+  const show = toolbarPlaceables.length > 0 && isPlaying() && !hideForSelection
+    && !(G?.mode === 'axis' && G.phase !== 'build');
   bar.classList.toggle('hidden', !show);
 }
 
@@ -6127,10 +6579,12 @@ function activePlaceables() {
 
 function selectPlaceable(p) {
   if (!isPlaying()) return;
-  if (!canAffordTP(placeableCost(p))) { SFX.error(); return; }
-  if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); return; }
+  if (G.mode === 'axis' && G.phase !== 'build') { SFX.error(); mobileVibrate(12); return; }
+  if (!canAffordTP(placeableCost(p))) { SFX.error(); mobileVibrate(12); return; }
+  if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); mobileVibrate(12); return; }
   SFX.click();
   placing = (placing === p) ? null : p;
+  if (placing) mobileToolbarMinimized = false;
   if (placing && touchUI() && toolbarView === 'categories') {
     toolbarView = categoryForPlaceable(p);
   }
@@ -6200,12 +6654,14 @@ function placementValid(p, x, y) {
 }
 
 function place(p, x, y) {
-  if (!placementValid(p, x, y)) { SFX.error(); return; }
+  if (G.mode === 'axis' && G.phase !== 'build') { SFX.error(); mobileVibrate(14); return; }
+  if (!placementValid(p, x, y)) { SFX.error(); mobileVibrate(14); return; }
   const cost = placeableCost(p);
   if (!canAffordTP(cost)) { SFX.error(); clearPlacing(); return; }
   if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); clearPlacing(); return; }
   spendTP(cost);
   SFX.click();
+  mobileVibrate(8);
 
   if (p.kind === 'unit') {
     G.units.push(makeUnit(p.key, x, y));
@@ -6263,7 +6719,8 @@ function handleCanvasTap(shiftKey = false) {
   // select own soldier (vehicles are a bigger click target)
   let picked = null;
   for (const u of commandRoster()) {
-    if (dist(u, { x, y }) < (u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14)) { picked = u; break; }
+    const base = u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14;
+    if (dist(u, { x, y }) < touchHitRadius(base)) { picked = u; break; }
   }
   if (picked) {
     if (shiftKey) {
@@ -6274,19 +6731,24 @@ function handleCanvasTap(shiftKey = false) {
       G.selected = [picked];
     }
     SFX.click();
+    mobileVibrate(5);
+    syncSelectionMobile();
     return;
   }
   // move selected soldiers (the hit squad ranges the whole field)
   if (G.selected.length && moveOrderValid(x, y)) {
     issueMoveOrder(G.selected, x, y);
     SFX.click();
+    mobileVibrate(5);
     return;
   }
   G.selected = [];
+  syncSelectionMobile();
 }
 
 canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
+  unlockAudio();
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   clearPlaceHold();
 
@@ -6344,7 +6806,12 @@ canvas.addEventListener('pointermove', e => {
       if (!viewPan) beginViewPan(e.clientX, e.clientY, placeTouch.startX, placeTouch.startY);
       applyViewPan(e.clientX, e.clientY);
     }
+    edgeAutoPan(e.clientX, e.clientY);
     return;
+  }
+
+  if (placing && mobileViewActive()) {
+    edgeAutoPan(e.clientX, e.clientY);
   }
 
   if (viewPan && mobileViewActive() && activePointers.size === 1) {
@@ -6431,6 +6898,8 @@ canvas.addEventListener('pointerup', e => {
             G.selected = picked;
           }
           SFX.click();
+          mobileVibrate(5);
+          syncSelectionMobile();
           suppressClick = true;
         }
         // empty marquee: keep current selection and treat release as a tap
@@ -6440,6 +6909,18 @@ canvas.addEventListener('pointerup', e => {
   }
 
   if (!suppressClick && isPlaying() && !placing) {
+    if (mobileViewActive() && !viewPan?.active && !(drag && drag.active)) {
+      const now = performance.now();
+      const dt = now - lastTap.t;
+      const dd = Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y);
+      if (dt < 320 && dd < 28) {
+        toggleZoomAt(mouse.x, mouse.y);
+        suppressClick = true;
+        lastTap.t = 0;
+        return;
+      }
+      lastTap = { t: now, x: e.clientX, y: e.clientY };
+    }
     handleCanvasTap(e.shiftKey);
     suppressClick = true;
   }
@@ -6518,14 +6999,15 @@ canvas.addEventListener('contextmenu', e => {
   clearPlacing();
   placeTouch = null;
   drag = null;
-  G && (G.selected = []);
+  if (G) G.selected = [];
+  syncSelectionMobile();
 });
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (paused) { resumeGame(); return; }
     if (placing) { clearPlacing(); return; }
-    if (G && G.selected.length) { G.selected = []; return; }
+    if (G && G.selected.length) { G.selected = []; syncSelectionMobile(); return; }
     if (drag) { drag = null; return; }
     if (running && G && !G.over) { pauseGame(); return; }
     clearPlacing(); drag = null; if (G) G.selected = [];
@@ -6533,6 +7015,11 @@ document.addEventListener('keydown', e => {
   }
   if (isSandbox() && isPlaying()) {
     if (e.key === ']') { jumpSandboxWave(e.shiftKey ? 5 : e.ctrlKey ? 10 : 1); return; }
+  }
+  if (inBuildPhase() && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault();
+    startAxisCombat();
+    return;
   }
   const k = e.key.toUpperCase();
   const p = activePlaceables().find(pl => pl.hotkey === k);
@@ -7149,7 +7636,18 @@ el('sound-volume-slider').addEventListener('input', e => {
   saveSoundVolume(Number(e.target.value));
 });
 
-// ============================================================ game flow
+function syncSpeedButton() {
+  const btn = el('speed-btn');
+  if (!btn) return;
+  btn.textContent = gameSpeed + 'x';
+}
+
+function cycleSpeed() {
+  const idx = SPEED_STEPS.indexOf(gameSpeed);
+  gameSpeed = SPEED_STEPS[(idx + 1) % SPEED_STEPS.length];
+  syncSpeedButton();
+  SFX.click();
+}
 
 function pauseGame() {
   if (!running || !G || G.over || paused) return;
@@ -7158,6 +7656,7 @@ function pauseGame() {
   drag = null;
   clearViewPan();
   placeTouch = null;
+  mobileToolbarMinimized = false;
   G.selected = [];
   el('pause').classList.remove('hidden');
   refreshHUD();
@@ -7175,6 +7674,7 @@ function returnToMenu() {
   running = false;
   paused = false;
   placing = null;
+  mobileToolbarMinimized = false;
   activePointers.clear();
   viewGesture = null;
   el('pause').classList.add('hidden');
@@ -7182,8 +7682,10 @@ function returnToMenu() {
   el('codex').classList.add('hidden');
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
+  el('axis-select').classList.add('hidden');
   el('intro').classList.remove('hidden');
   syncMobileViewUI();
+  syncMobileChrome();
 }
 
 function openEndlessSelect() {
@@ -7196,6 +7698,41 @@ function closeEndlessSelect() {
   el('intro').classList.remove('hidden');
 }
 
+// the Axis campaign, in order, with the Hit Squad commando run as a bonus
+const AXIS_CAMPAIGN = [
+  'axis1', 'axis2', 'axis3', 'axis4', 'axis5', 'axis6', 'axis7',
+  'axis8', 'axis9', 'axis10', 'axis11', 'axis12', 'axis13', 'hitsquad',
+];
+
+function buildAxisSelect() {
+  const list = el('axis-list');
+  if (!list || list.childElementCount) return;
+  for (const id of AXIS_CAMPAIGN) {
+    const lv = LEVELS[id];
+    if (!lv) continue;
+    const btn = document.createElement('button');
+    const title = document.createTextNode(lv.menuName || lv.name);
+    const desc = document.createElement('span');
+    desc.className = 'mode-desc';
+    desc.textContent = lv.menuDesc || lv.briefing || '';
+    btn.appendChild(title);
+    btn.appendChild(desc);
+    btn.addEventListener('click', () => startGame(id));
+    list.appendChild(btn);
+  }
+}
+
+function openAxisSelect() {
+  buildAxisSelect();
+  el('intro').classList.add('hidden');
+  el('axis-select').classList.remove('hidden');
+}
+
+function closeAxisSelect() {
+  el('axis-select').classList.add('hidden');
+  el('intro').classList.remove('hidden');
+}
+
 function startGame(levelId, difficultyId) {
   const level = LEVELS[levelId] || LEVELS.endless;
   const difficulty = level.mode === 'endless'
@@ -7205,23 +7742,28 @@ function startGame(levelId, difficultyId) {
   newGame(level, difficulty);
   resetViewCam(level.mode);
   placing = null;
+  mobileToolbarMinimized = false;
   running = true;
   paused = false;
+  gameSpeed = 1;
+  syncSpeedButton();
   buildToolbar(level.placeables);
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('codex').classList.add('hidden');
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
+  el('axis-select').classList.add('hidden');
   el('pause').classList.add('hidden');
   syncMobileViewUI();
+  syncMobileChrome();
   const viewHint = mobileViewActive()
-    ? ' Drag empty field to pan; pinch to zoom. Hold to cancel placement.'
+    ? ' Drag to pan; double-tap to zoom; pinch to zoom. Hold to cancel placement.'
     : '';
   el('tipbar').textContent = (level.mode === 'axis'
     ? touchUI()
-      ? 'Tap Units or Abilities, pick an option, then tap the field to deploy. Back returns to the list; tap the item again to cancel.'
-      : 'Open Units or Abilities, pick a troop or strike, then drop it in the top strip. Right-click / Esc cancels placement.'
+      ? 'Deploy troops in the top strip, then tap START WAVE. Tap Units or Abilities to buy; tap the field to place.'
+      : 'Deploy troops in the top strip, then hit START WAVE. Open Units or Abilities to buy; right-click / Esc cancels placement.'
     : level.mode === 'hitsquad'
       ? touchUI()
         ? 'Tap or drag to select your men, tap ground to move. Kill the marked officer.'
@@ -7233,7 +7775,8 @@ function startGame(levelId, difficultyId) {
       : touchUI()
         ? 'Tap a soldier to select him, tap ground to move. Open Units, Abilities, or Emplacements to deploy. Back returns to the list; tap the item again to cancel.'
         : 'Left-click a soldier to select him, click ground to move. Open Units, Abilities, or Emplacements to deploy. Right-click / Esc cancels placement.') + viewHint;
-  if (level.briefing) showBanner(level.name);
+  if (level.mode === 'axis') showBanner('WAVE 1 - DEPLOY');
+  else if (level.briefing) showBanner(level.name);
   lastT = performance.now();
   refreshHUD();
 }
@@ -7244,11 +7787,13 @@ for (const btn of document.querySelectorAll('[data-endless-diff]')) {
   btn.addEventListener('click', () => startGame('endless', btn.dataset.endlessDiff));
 }
 el('start-allied').addEventListener('click', () => startGame('allied1'));
-el('start-axis').addEventListener('click', () => startGame('axis1'));
-el('start-axis2').addEventListener('click', () => startGame('axis2'));
+el('start-axis').addEventListener('click', openAxisSelect);
+el('axis-back-btn').addEventListener('click', closeAxisSelect);
 el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless', G?.difficulty?.id));
 el('menu-btn').addEventListener('click', returnToMenu);
+el('speed-btn').addEventListener('click', cycleSpeed);
 el('pause-btn').addEventListener('click', pauseGame);
+el('start-wave-btn').addEventListener('click', startAxisCombat);
 el('pause-resume-btn').addEventListener('click', resumeGame);
 el('pause-codex-btn').addEventListener('click', openCodexFromPause);
 el('pause-menu-btn').addEventListener('click', returnToMenu);
@@ -7257,13 +7802,41 @@ el('view-reset').addEventListener('click', () => {
   resetViewCam(G.mode);
 });
 
+el('mobile-deselect').addEventListener('click', () => {
+  if (!G) return;
+  G.selected = [];
+  SFX.click();
+  syncSelectionMobile();
+});
+
+el('mobile-shop').addEventListener('click', () => {
+  mobileToolbarMinimized = false;
+  SFX.click();
+  syncMobileChrome();
+  syncToolbarLayout();
+});
+
+el('place-cancel').addEventListener('click', () => {
+  if (!placing) return;
+  clearPlacing();
+  SFX.click();
+  mobileVibrate(8);
+});
+
 function frame(now) {
   requestAnimationFrame(frame);
   if (!G) return;
   const dt = Math.min((now - lastT) / 1000, 0.05);
   lastT = now;
   const playing = running && !G.over && !paused;
-  if (playing) update(dt);
+  if (playing) {
+    let remaining = dt * gameSpeed;
+    while (remaining > 0) {
+      const step = Math.min(remaining, 0.05);
+      update(step);
+      remaining -= step;
+    }
+  }
   if (G && (playing || viewDirty)) {
     draw();
     viewDirty = false;

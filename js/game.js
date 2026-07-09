@@ -128,44 +128,44 @@ const ENEMY_TYPES = {
   erifle: {
     name: 'Rifleman', hp: 60, speed: 22, range: 210, dmg: 10, acc: 0.42,
     rof: 1.5, burst: 1, burstGap: 0, reward: 2,
-    color: '#6e6e5e', gun: 7, sfx: 'rifle', priority: 1,
+    color: '#5e5e52', gun: 7, sfx: 'rifle', priority: 1,
   },
   esmg: {
     name: 'Stormtrooper', hp: 70, speed: 36, range: 130, dmg: 7, acc: 0.38,
     rof: 1.0, burst: 3, burstGap: 0.08, reward: 2,
-    color: '#5f5f52', gun: 6, sfx: 'mg', priority: 1,
+    color: '#46443a', gun: 6, sfx: 'mg', priority: 1,
   },
   egren: {
     name: 'Grenadier', hp: 70, speed: 27, range: 150, dmg: 8, acc: 0.385,
     rof: 1.6, burst: 1, burstGap: 0, reward: 3,
-    color: '#65655a', gun: 5, sfx: 'pistol', priority: 2, grenade: true,
+    color: '#524e3e', gun: 5, sfx: 'pistol', priority: 2, grenade: true,
   },
   emg: {
     name: 'MG Gunner', hp: 90, speed: 16, range: 275, dmg: 8, acc: 0.33,
     rof: 1.9, burst: 5, burstGap: 0.08, reward: 3,
-    color: '#59594c', gun: 10, sfx: 'mg', priority: 3,
+    color: '#484640', gun: 10, sfx: 'mg', priority: 3,
   },
   eoff: {
     name: 'Officer', hp: 80, speed: 24, range: 140, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, reward: 4,
-    color: '#4f4f45', gun: 5, sfx: 'pistol', priority: 5, aura: true,
+    color: '#4a4840', gun: 5, sfx: 'pistol', priority: 5, aura: true,
   },
   esniper: {
     name: 'Sniper', hp: 55, speed: 14, range: 312, dmg: 39, acc: 0.66,
     rof: 6.8, burst: 1, burstGap: 0, reward: 4,
-    color: '#525244', gun: 12, sfx: 'sniper', priority: 4,
+    color: '#464438', gun: 12, sfx: 'sniper', priority: 4,
   },
   eflame: {
     name: 'Flamethrower', hp: 85, speed: 34, range: 120, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 4,
-    color: '#5a5a48', gun: 8, sfx: 'rifle', priority: 3,
+    color: '#4a4438', gun: 8, sfx: 'rifle', priority: 3,
     flame: { range: 120, arc: 0.45, dps: 34 },
     blastResist: 0.5,
   },
   emortar: {
     name: 'Granatwerfer', hp: 75, speed: 18, range: 120, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, reward: 5,
-    color: '#565648', gun: 5, sfx: 'pistol', priority: 3,
+    color: '#504e44', gun: 5, sfx: 'pistol', priority: 3,
     mortar: { range: 520, min: 220, cdMin: 11, cdMax: 15, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
   },
   ebazooka: {
@@ -414,8 +414,10 @@ function axisWavePayout(level, wave) {
 }
 
 // US defender placement helpers for the Axis campaign setups (hoisted).
-function usBag(G, x, y, hp = 330)    { G.sandbags.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
-function usBunker(G, x, y, hp = 2400){ G.bunkers.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
+const SANDBAG_HP = 660;
+const BUNKER_HP = 2040;
+function usBag(G, x, y, hp = SANDBAG_HP)    { G.sandbags.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
+function usBunker(G, x, y, hp = BUNKER_HP){ G.bunkers.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 function usWire(G, x, y, hp = 3750)  { G.wires.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 function usMine(G, x, y)             { G.mines.push({ x, y, dead: false }); }
 function usMan(G, type, x, y)        { G.units.push(makeUnit(type, x, y)); }
@@ -487,7 +489,7 @@ const LEVELS = {
     setup(G) {
       G.units.push(makeUnit('rifleman', W / 2 - 70, 470));
       G.units.push(makeUnit('rifleman', W / 2 + 70, 470));
-      G.sandbags.push({ x: W / 2, y: 455, hp: 330, maxhp: 330, up: false, workProg: 0 });
+      G.sandbags.push({ x: W / 2, y: 455, hp: SANDBAG_HP, maxhp: SANDBAG_HP, up: false, workProg: 0 });
     },
   },
 
@@ -884,7 +886,7 @@ const LEVELS = {
       // his security detail holds the center; the flanks are thinner —
       // a small detail on purpose: six commandos cannot win a stand-up fight
       // against a full platoon, so the mission is sized for maneuver
-      const bag = (x, y) => G.sandbags.push({ x, y, hp: 330, maxhp: 330, up: false, workProg: 0 });
+      const bag = (x, y) => G.sandbags.push({ x, y, hp: SANDBAG_HP, maxhp: SANDBAG_HP, up: false, workProg: 0 });
       bag(W / 2 - 60, DEPLOY_Y + 40);
       bag(W / 2 + 60, DEPLOY_Y + 40);
       G.units.push(makeUnit('gunner', W / 2, DEPLOY_Y + 45));
@@ -2301,6 +2303,147 @@ function drawMortarTube(c, face, fx, fy, blastT) {
   return { tx, ty, bx, by };
 }
 
+// 8.1 cm Granatwerfer 34 — saddle yoke, wide baseplate, heavy bipod
+function drawGranatwerferTube(c, face, fx, fy, blastT) {
+  const kick = blastT > 0 ? clamp(blastT / 0.18, 0, 1) : 0;
+  const bx = -fx * 7.5 - fy * 2.5;
+  const by = -fy * 7.5 + fx * 2.5;
+  const tubeAng = face - 0.55 - kick * 0.1;
+  const tubeLen = 12.2;
+  const tx = bx + Math.cos(tubeAng) * tubeLen;
+  const ty = by + Math.sin(tubeAng) * tubeLen;
+
+  c.fillStyle = '#2a2c24';
+  c.beginPath(); c.ellipse(bx, by, 5.5, 3.4, face + 0.2, 0, 7); c.fill();
+  c.strokeStyle = '#1a1c16';
+  c.lineWidth = 1.1;
+  c.stroke();
+  c.fillStyle = '#3a3c32';
+  c.beginPath(); c.ellipse(bx, by, 3.4, 1.9, face + 0.2, 0, 7); c.fill();
+  c.strokeStyle = '#4a4c40';
+  c.lineWidth = 0.75;
+  c.beginPath();
+  c.moveTo(bx - fy * 3.2, by + fx * 3.2);
+  c.lineTo(bx + fy * 3.2, by - fx * 3.2);
+  c.stroke();
+
+  c.strokeStyle = '#4a4c42';
+  c.lineWidth = 4.2;
+  c.beginPath(); c.moveTo(bx, by); c.lineTo(tx, ty); c.stroke();
+  c.strokeStyle = '#2e3028';
+  c.lineWidth = 1.4;
+  c.beginPath();
+  c.moveTo(bx + Math.cos(tubeAng) * 2.2, by + Math.sin(tubeAng) * 2.2);
+  c.lineTo(tx, ty);
+  c.stroke();
+
+  const midX = bx + Math.cos(tubeAng) * 4.5;
+  const midY = by + Math.sin(tubeAng) * 4.5;
+  c.strokeStyle = '#3a3c34';
+  c.lineWidth = 2.2;
+  c.beginPath(); c.arc(midX, midY, 2.4, 0, 7); c.stroke();
+
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 1.6;
+  c.beginPath(); c.moveTo(midX, midY); c.lineTo(midX - fy * 5.2, midY + fx * 5.2); c.stroke();
+  c.beginPath(); c.moveTo(midX, midY); c.lineTo(midX + fy * 4.2, midY - fx * 4.2); c.stroke();
+  c.fillStyle = '#2a2820';
+  c.beginPath(); c.arc(midX - fy * 5.2, midY + fx * 5.2, 1.1, 0, 7); c.fill();
+  c.beginPath(); c.arc(midX + fy * 4.2, midY - fx * 4.2, 1.1, 0, 7); c.fill();
+
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 2.4;
+  c.beginPath(); c.arc(tx, ty, 2.2, 0, 7); c.stroke();
+  c.fillStyle = '#1c1c16';
+  c.beginPath(); c.arc(tx, ty, 1.05, 0, 7); c.fill();
+
+  c.strokeStyle = '#4a4840';
+  c.lineWidth = 1.3;
+  c.beginPath(); c.arc(bx - fx * 0.8, by - fy * 0.8, 1.4, 0, 7); c.stroke();
+
+  if (blastT > 0) {
+    const alpha = clamp(blastT / 0.18, 0, 1);
+    c.fillStyle = `rgba(255,225,150,${0.85 * alpha})`;
+    c.beginPath(); c.arc(tx, ty, 2.8 + alpha * 3, 0, 7); c.fill();
+    c.fillStyle = `rgba(255,140,50,${0.5 * alpha})`;
+    c.beginPath(); c.arc(tx, ty, 5 + alpha * 3.5, 0, 7); c.fill();
+  }
+  return { tx, ty, bx, by, midX, midY };
+}
+
+// 8.1 cm Wgr round — olive body, four tail fins, booster band
+function drawGrw81Round(c, x, y, scale, rot) {
+  scale = scale || 1;
+  rot = rot != null ? rot : 0;
+  c.save();
+  c.translate(x, y);
+  c.rotate(rot);
+  c.fillStyle = '#4a4e3e';
+  c.beginPath();
+  c.ellipse(0, 0, 1.35 * scale, 2.8 * scale, 0, 0, 7);
+  c.fill();
+  c.strokeStyle = '#2a2e22';
+  c.lineWidth = 0.6 * scale;
+  c.stroke();
+  c.fillStyle = '#6a6a58';
+  c.fillRect(-0.9 * scale, -2.6 * scale, 1.8 * scale, 0.9 * scale);
+  c.fillStyle = '#8a8878';
+  c.beginPath(); c.arc(0, -2.9 * scale, 0.7 * scale, 0, 7); c.fill();
+  c.strokeStyle = '#4a4a40';
+  c.lineWidth = 0.7 * scale;
+  for (let i = 0; i < 4; i++) {
+    const ang = i * Math.PI / 2 + 0.2;
+    c.beginPath();
+    c.moveTo(Math.cos(ang) * 0.5 * scale, 2 * scale + Math.sin(ang) * 0.3 * scale);
+    c.lineTo(Math.cos(ang) * 1.2 * scale, 3.6 * scale + Math.sin(ang) * 0.5 * scale);
+    c.stroke();
+  }
+  c.restore();
+}
+
+function drawEmortarKit(c, fx, fy, face, tube) {
+  c.fillStyle = '#4a4438';
+  c.fillRect(tube.bx - 5, tube.by + 2.2, 6.2, 4.2);
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.85;
+  c.strokeRect(tube.bx - 5, tube.by + 2.2, 6.2, 4.2);
+  c.strokeStyle = '#6a6858';
+  c.lineWidth = 0.55;
+  c.beginPath(); c.moveTo(tube.bx - 4.5, tube.by + 3.8); c.lineTo(tube.bx + 0.5, tube.by + 3.8); c.stroke();
+  c.strokeStyle = 'rgba(200,198,180,0.75)';
+  c.lineWidth = 0.5;
+  c.strokeRect(tube.bx - 4.5, tube.by + 2.7, 2.4, 1.5);
+  drawGrw81Round(c, tube.bx - 3.5, tube.by + 3.4, 0.8, 0.15);
+  drawGrw81Round(c, tube.bx - 1.2, tube.by + 3.6, 0.76, -0.1);
+  drawGrw81Round(c, tube.bx + 0.5, tube.by + 3.2, 0.72, 0.35);
+  c.strokeStyle = '#4a4840';
+  c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(-6.5, -1.5); c.lineTo(-6.5, 3.5); c.lineTo(-4, 3.5); c.stroke();
+  for (const off of [-5.8, -5.1, -4.4]) {
+    drawGrw81Round(c, off, 1.2, 0.55, -0.3);
+  }
+  c.fillStyle = '#3a3c34';
+  c.beginPath(); c.ellipse(fy * 3.2, -fx * 3.2, 2.2, 2.8, face, 0, 7); c.fill();
+  c.strokeStyle = '#2a2c24';
+  c.lineWidth = 0.8;
+  c.stroke();
+  c.fillStyle = '#c8b898';
+  c.beginPath(); c.ellipse(fy * 3.2, -fx * 3.2, 1.2, 1.5, face, 0, 7); c.fill();
+  c.strokeStyle = '#6a5a40';
+  c.lineWidth = 0.45;
+  for (let i = -2; i <= 2; i++) {
+    c.beginPath();
+    c.moveTo(fy * 3.2 + i * 0.4, -fx * 3.2 - 1);
+    c.lineTo(fy * 3.2 + i * 0.4, -fx * 3.2 + 1);
+    c.stroke();
+  }
+  c.strokeStyle = '#5a5a50';
+  c.lineWidth = 1.3;
+  c.beginPath(); c.moveTo(-fy * 4.5, fx * 4.5); c.lineTo(-fy * 5.8, fx * 5.8 + 1.5); c.stroke();
+  c.fillStyle = '#6a5a42';
+  c.fillRect(-0.8, 3.5, 1.5, 1.3);
+}
+
 // live flame jet while a flamethrower is spraying
 function drawFlameStream(actor) {
   if (!actor.flameT || actor.flameT <= 0 || !actor.t.flame) return;
@@ -2779,6 +2922,7 @@ function updateUnit(u, dt) {
           sx: u.x, sy: u.y, x: u.x, y: u.y, tx, ty,
           t: 0, dur: Math.max(dist(u, { x: tx, y: ty }) / rk.speed, 0.15),
           r: rk.r, dmg: rk.dmg * (1 + u.rank * 0.04), by: u,
+          kind: 'rocket',
         });
       }
     }
@@ -3158,6 +3302,7 @@ function updateEnemy(e, dt) {
         sx: e.x, sy: e.y, x: e.x, y: e.y, tx, ty,
         t: 0, dur: Math.max(dist(e, { x: tx, y: ty }) / rk.speed, 0.15),
         r: rk.r, dmg: rk.dmg, by: e,
+        kind: 'rocket',
       });
     }
   }
@@ -3687,16 +3832,45 @@ function drawProneSoldier(a) {
   const isOfficer = a.type === 'officer' || a.type === 'eoff';
   const isRifle = a.type === 'rifleman' || a.type === 'erifle';
   // weapon laid out beside him, not shouldered
-  if (isOfficer) {
+  if (a.type === 'eoff') {
     c.save();
     c.translate(3, 2.8);
-    drawSidearm(c, 1, 0, gunX - 3, 0, us);
+    drawSidearm(c, 1, 0, gunX - 3, 0, false);
+    c.restore();
+  } else if (a.type === 'officer') {
+    c.save();
+    c.translate(3, 2.8);
+    drawSidearm(c, 1, 0, gunX - 3, 0, true);
+    c.restore();
+  } else if (a.type === 'erifle') {
+    c.save();
+    c.translate(3, 2.8);
+    drawKar98kRifleman(c, 1, 0, gunX - 3, 0);
     c.restore();
   } else if (isRifle) {
     c.save();
     c.translate(3, 2.8);
-    if (us) drawM1Garand(c, 1, 0, gunX - 3, 0);
-    else drawKar98k(c, 1, 0, gunX - 3, 0, false);
+    drawM1Garand(c, 1, 0, gunX - 3, 0);
+    c.restore();
+  } else if (isGren && a.type === 'egren') {
+    c.save();
+    c.translate(3, 2.8);
+    drawKar98kGrenadier(c, 1, 0, gunX - 3, 0);
+    c.restore();
+  } else if (a.type === 'esmg') {
+    c.save();
+    c.translate(3, 2.8);
+    drawMP40(c, 1, 0, gunX - 3, 0);
+    c.restore();
+  } else if (a.type === 'eflame') {
+    c.save();
+    c.translate(3, 2.8);
+    drawFlammenwerfer(c, 1, 0, gunX - 3, 0, false);
+    c.restore();
+  } else if (a.type === 'emg') {
+    c.save();
+    c.translate(3, 2.8);
+    drawMG42(c, 1, 0, gunX - 3, 0);
     c.restore();
   } else if (!isSniper) {
     c.strokeStyle = '#26261e';
@@ -3717,30 +3891,33 @@ function drawProneSoldier(a) {
     drawBARMag(c, -2.5, 1.8, 0.7, 0.25);
     drawBARMag(c, -0.8, 2.8, 0.65, -0.2);
   }
-  if (isEmg) {
-    c.strokeStyle = '#3a3a30';
-    c.lineWidth = 0.8;
-    for (let gx = 3 + a.t.gun * 0.25; gx < gunX - 2; gx += 2.2) {
-      c.beginPath(); c.moveTo(gx, 1.8); c.lineTo(gx, 3.8); c.stroke();
-    }
-    c.strokeStyle = '#26261e';
-    c.lineWidth = 1.1;
-    for (const dx of [-1.8, 0, 1.8]) {
-      c.beginPath(); c.moveTo(gunX, 2.8); c.lineTo(gunX + dx * 0.4, 7.5); c.stroke();
-    }
-    c.fillStyle = '#3a3828';
-    c.beginPath(); c.arc(1, 4.5, 2.4, 0, 7); c.fill();
+  if (a.type === 'emg') {
+    c.fillStyle = '#424038';
+    c.beginPath(); c.ellipse(0, 0, 5.9, 3.2, 0, 0, 7); c.fill();
+    c.fillStyle = '#4a4a3c';
+    c.beginPath(); c.ellipse(-5.2, 2.8, 2.6, 3.2, 0.3, 0, 7); c.fill();
+    drawMG42BeltLink(c, -3.5, 3.5, 0.52, 0.2);
+    drawMG42BeltLink(c, 1.5, 4.2, 0.48, -0.15);
+    c.strokeStyle = '#4a4840';
+    c.lineWidth = 1.8;
+    c.beginPath(); c.moveTo(-4.5, 1.5); c.lineTo(2.5, 4.5); c.stroke();
+    c.fillStyle = '#3a3428';
+    c.beginPath(); c.ellipse(4.2, 2.5, 1.4, 2, 0.35, 0, 7); c.fill();
+    c.fillStyle = '#3a3830';
+    c.fillRect(-6.2, 3.5, 2.6, 2.2);
   }
   if (a.type === 'grenadier') {
     c.fillStyle = '#2a2a1e';
     c.fillRect(3 + a.t.gun * 0.28, 3.5, 2.5, 2.1);
   }
   if (a.type === 'egren') {
-    c.fillStyle = '#3a3a30';
+    c.fillStyle = '#3a3830';
     c.beginPath();
-    c.moveTo(gunX - 1.2, 2.2); c.lineTo(gunX + 0.8, 2.2);
-    c.lineTo(gunX + 0.5, 3.2); c.lineTo(gunX - 0.9, 3.2);
+    c.moveTo(gunX + 0.2, 2); c.lineTo(gunX + 2.8, 1.6);
+    c.lineTo(gunX + 2.5, 2.6); c.lineTo(gunX + 0.4, 2.8);
     c.closePath(); c.fill();
+    c.fillStyle = '#2a2a22';
+    c.beginPath(); c.arc(gunX + 1.8, 1.9, 0.85, 0, 7); c.fill();
   }
   if (isShot) {
     c.strokeStyle = '#4a3f2e';
@@ -3755,10 +3932,19 @@ function drawProneSoldier(a) {
     c.lineTo(gunX + 1.8, 1.8);
     c.stroke();
   }
-  if (isSniper) {
+  if (a.type === 'esniper') {
     c.save();
     c.translate(3, 2.8);
-    drawScopedRifle(c, 1, 0, gunX - 3, 0, us);
+    drawKar98kSniper(c, 1, 0, gunX - 3, 0);
+    c.restore();
+    c.strokeStyle = '#26261e';
+    c.lineWidth = 1.1;
+    c.beginPath(); c.moveTo(gunX - 1, 2.8); c.lineTo(gunX + 0.2, 5.5); c.stroke();
+    c.beginPath(); c.moveTo(gunX - 1, 2.8); c.lineTo(gunX + 0.2, 0.2); c.stroke();
+  } else if (a.type === 'sniper') {
+    c.save();
+    c.translate(3, 2.8);
+    drawScopedRifle(c, 1, 0, gunX - 3, 0, true);
     c.restore();
     c.strokeStyle = '#26261e';
     c.lineWidth = 1.1;
@@ -3774,15 +3960,40 @@ function drawProneSoldier(a) {
   c.fillStyle = a.t.color;
   c.beginPath(); c.ellipse(-1, 0, isMG ? 7.2 : isShot ? 7 : isBar ? 7 : isSniper ? 6.8 : isOfficer ? 6.6 : isRifle ? 6.4 : 6.5, isMG ? 3.4 : isShot ? 3.5 : isBar ? 3.3 : isSniper ? 3.1 : isOfficer ? 3.3 : isRifle ? 3.05 : 3.2, 0, 0, 7); c.fill();
   if (isRifle) {
-    c.fillStyle = us ? '#3a4034' : '#4a4a40';
-    c.fillRect(-5.2, 2.8, 2.4, 2.2);
-    c.fillRect(-1.8, 3.2, 2.4, 2.2);
-    c.fillRect(1.6, 3.2, 2.4, 2.2);
-    c.fillStyle = us ? '#4a5245' : '#5a5a50';
-    c.beginPath(); c.ellipse(-3.8, 1.6, 1.6, 2, 0.35, 0, 7); c.fill();
+    if (us) {
+      c.fillStyle = '#3a4034';
+      c.fillRect(-5.2, 2.8, 2.4, 2.2);
+      c.fillRect(-1.8, 3.2, 2.4, 2.2);
+      c.fillRect(1.6, 3.2, 2.4, 2.2);
+      c.fillStyle = '#4a5245';
+      c.beginPath(); c.ellipse(-3.8, 1.6, 1.6, 2, 0.35, 0, 7); c.fill();
+    } else {
+      c.fillStyle = '#3a3428';
+      c.fillRect(-5, 3, 2.6, 2.4);
+      c.fillRect(2.4, 3, 2.6, 2.4);
+      c.fillStyle = '#3a3a32';
+      c.beginPath(); c.ellipse(-4.2, 1.2, 1.8, 2.4, 0.35, 0, 7); c.fill();
+      c.fillStyle = '#5a5a48';
+      c.beginPath(); c.ellipse(4.5, 1.8, 1.6, 2.2, 0.35, 0, 7); c.fill();
+    }
   }
-  if (isOfficer) {
-    c.fillStyle = us ? '#5a6048' : '#4a4a42';
+  if (a.type === 'eoff') {
+    c.fillStyle = '#4a4840';
+    c.beginPath(); c.ellipse(0, 0, 5.8, 2.9, 0, 0, 7); c.fill();
+    c.fillStyle = '#8a8880';
+    c.beginPath(); c.ellipse(2.8, -0.8, 1.4, 0.8, 0.3, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(2.8, 0.8, 1.4, 0.8, 0.3, 0, 7); c.fill();
+    c.fillStyle = '#3a3428';
+    c.beginPath(); c.ellipse(-3.5, 1.8, 1.8, 2.2, 0.35, 0, 7); c.fill();
+    c.fillStyle = '#c8b898';
+    c.fillRect(2.2, -1.5, 2.8, 3.5);
+    c.strokeStyle = '#8a8880';
+    c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(3.5, 1.5); c.lineTo(4.8, 3.2); c.stroke();
+    c.fillStyle = '#6a5a42';
+    c.fillRect(4.5, 2.8, 0.7, 1.5);
+  } else if (a.type === 'officer') {
+    c.fillStyle = '#5a6048';
     c.beginPath(); c.ellipse(0, 0, 5.8, 2.9, 0, 0, 7); c.fill();
     c.strokeStyle = '#6a5a40';
     c.lineWidth = 1.1;
@@ -3792,7 +4003,17 @@ function drawProneSoldier(a) {
     c.fillStyle = '#c8b898';
     c.fillRect(2.2, -1.5, 2.8, 3.5);
   }
-  if (isSniper) {
+  if (a.type === 'esniper') {
+    c.fillStyle = 'rgba(42,38,28,0.5)';
+    c.beginPath(); c.ellipse(0, 0, 5.8, 2.9, 0, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(72,64,48,0.55)';
+    c.lineWidth = 0.7;
+    c.beginPath(); c.moveTo(-2.5, 0.8); c.lineTo(-4, 2.5); c.stroke();
+    c.beginPath(); c.moveTo(2, -0.8); c.lineTo(3.5, -2.2); c.stroke();
+    c.fillStyle = '#3a3428';
+    c.fillRect(-6, -0.5, 2.5, 3.5);
+    drawStripperClip(c, -4.5, 2.5, 0.48, 0.2);
+  } else if (a.type === 'sniper') {
     c.fillStyle = 'rgba(30,36,22,0.5)';
     c.beginPath(); c.ellipse(0, 0, 5.5, 2.8, 0, 0, 7); c.fill();
     c.strokeStyle = 'rgba(45,55,30,0.6)';
@@ -3814,15 +4035,34 @@ function drawProneSoldier(a) {
     c.beginPath(); c.moveTo(-3, -1.5); c.lineTo(2, 2.5); c.stroke();
   }
   // headgear at the head end
-  if (isOfficer) {
+  if (a.type === 'eoff') {
     c.save();
     c.translate(5, 0);
-    drawOfficerCap(c, 1, 0, us);
+    drawEoffCap(c, 1, 0);
     c.restore();
-  } else if (isSniper) {
-    c.fillStyle = us ? '#2e3823' : '#3f3f34';
+  } else if (a.type === 'officer') {
+    c.save();
+    c.translate(5, 0);
+    drawOfficerCap(c, 1, 0, true);
+    c.restore();
+  } else if (a.type === 'esniper') {
+    c.fillStyle = '#3f3f34';
     c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
-    c.strokeStyle = us ? 'rgba(48,58,32,0.7)' : 'rgba(52,52,44,0.7)';
+    c.fillStyle = 'rgba(58,52,40,0.55)';
+    for (let i = 0; i < 5; i++) {
+      const ang = i * Math.PI / 2.5 + 0.2;
+      c.beginPath();
+      c.ellipse(5 + Math.cos(ang) * 2.5, Math.sin(ang) * 2.5, 0.9, 1.3, ang, 0, 7);
+      c.fill();
+    }
+    c.strokeStyle = 'rgba(200,198,180,0.65)';
+    c.lineWidth = 0.5;
+    c.beginPath(); c.moveTo(4.2, -0.5); c.lineTo(5.8, -0.5); c.stroke();
+    c.beginPath(); c.moveTo(5, -1.2); c.lineTo(5, 0.2); c.stroke();
+  } else if (a.type === 'sniper') {
+    c.fillStyle = '#2e3823';
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(48,58,32,0.7)';
     c.lineWidth = 0.65;
     for (let i = 0; i < 6; i++) {
       const ang = i * Math.PI / 3;
@@ -3831,8 +4071,69 @@ function drawProneSoldier(a) {
       c.lineTo(5 + Math.cos(ang) * 4, Math.sin(ang) * 4);
       c.stroke();
     }
+  } else if (a.type === 'erifle') {
+    c.fillStyle = '#61615a';
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 1;
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.stroke();
+    c.strokeStyle = 'rgba(30,36,22,0.38)';
+    c.lineWidth = 0.6;
+    for (const off of [-1.5, 0, 1.5]) {
+      c.beginPath(); c.arc(5 + off, 0, 2.7, 0.2, 2.9); c.stroke();
+    }
+    c.fillStyle = 'rgba(200,198,180,0.78)';
+    c.beginPath(); c.ellipse(3.5, -1.2, 0.85, 1.1, 0.3, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(50,48,40,0.72)';
+    c.lineWidth = 0.55;
+    c.beginPath();
+    c.moveTo(3.1, -1.6); c.quadraticCurveTo(3.6, -2.2, 4.2, -1.5); c.stroke();
+  } else if (a.type === 'esmg') {
+    c.fillStyle = '#61615a';
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 1;
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.stroke();
+    c.strokeStyle = 'rgba(230,228,210,0.9)';
+    c.lineWidth = 0.85;
+    c.beginPath();
+    c.moveTo(4.4, -1.6); c.lineTo(5.2, -0.2); c.lineTo(4.7, -0.2); c.lineTo(5.4, 1.6); c.stroke();
+    c.fillStyle = 'rgba(230,228,210,0.85)';
+    c.beginPath(); c.arc(3.2, -1.2, 1.1, 0, 7); c.fill();
+  } else if (a.type === 'eflame') {
+    c.fillStyle = '#61615a';
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 1;
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.stroke();
+    c.fillStyle = 'rgba(255,120,40,0.88)';
+    c.beginPath();
+    c.moveTo(4.2, 1.2);
+    c.quadraticCurveTo(4.8, -0.8, 5.4, -1.8);
+    c.quadraticCurveTo(5.8, -0.4, 5.5, 1.4);
+    c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(230,180,80,0.75)';
+    c.lineWidth = 0.55;
+    c.stroke();
+  } else if (a.type === 'emg') {
+    c.fillStyle = '#61615a';
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 1;
+    c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.stroke();
+    c.strokeStyle = 'rgba(230,228,210,0.88)';
+    c.lineWidth = 0.75;
+    c.beginPath();
+    c.moveTo(3.8, -0.5); c.lineTo(5.8, -0.5);
+    c.moveTo(3.8, 0.5); c.lineTo(5.8, 0.5);
+    c.moveTo(4.2, -1.2); c.lineTo(4.2, 1.2);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(4.5, -1.5); c.lineTo(5.5, 1.5);
+    c.moveTo(5.5, -1.5); c.lineTo(4.5, 1.5);
+    c.stroke();
   } else if (isRifle) {
-    c.fillStyle = us ? '#5b6b4a' : '#61615a';
+    c.fillStyle = '#5b6b4a';
     c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
     c.strokeStyle = 'rgba(0,0,0,0.35)';
     c.lineWidth = 1;
@@ -3849,7 +4150,24 @@ function drawProneSoldier(a) {
     c.lineWidth = 1;
     c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.stroke();
   }
-  if (a.t.flame) {
+  if (a.type === 'eflame') {
+    c.fillStyle = '#3a3834';
+    c.beginPath(); c.ellipse(0, 0, 5.9, 3.3, 0, 0, 7); c.fill();
+    c.strokeStyle = '#5a5a50';
+    c.lineWidth = 0.7;
+    c.beginPath(); c.moveTo(-2.5, -1.2); c.lineTo(2.5, 1.2); c.stroke();
+    c.beginPath(); c.moveTo(-2.5, 1.2); c.lineTo(2.5, -1.2); c.stroke();
+    c.fillStyle = '#6a6a58';
+    c.beginPath(); c.ellipse(-5.5, -1.8, 3.6, 1.7, 0, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(-5.5, 1.8, 3.6, 1.7, 0, 0, 7); c.fill();
+    c.fillStyle = '#4a4a42';
+    c.beginPath(); c.ellipse(-4.8, 0, 1.5, 1.1, 0, 0, 7); c.fill();
+    c.strokeStyle = '#2a2820';
+    c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(3, 2.8); c.quadraticCurveTo(-1.5, 1.2, -4.5, 0.2); c.stroke();
+    c.fillStyle = '#3a3830';
+    c.beginPath(); c.ellipse(3.5, 2.5, 1.2, 1.6, 0.35, 0, 7); c.fill();
+  } else if (a.type === 'flamer') {
     c.fillStyle = '#7a4828';
     c.beginPath(); c.ellipse(-5.5, 0, 2.2, 3.8, 0, 0, 7); c.fill();
     c.fillStyle = '#3a3c30';
@@ -3863,10 +4181,55 @@ function drawProneSoldier(a) {
     drawFragGrenade(c, -1, 2.8, 0.7, { rot: -0.3 });
   }
   if (a.type === 'egren') {
-    drawStickGrenade(c, -4.5, 0.5, 0.75, 0.4);
-    drawStickGrenade(c, -2, 2.5, 0.68, 0.9);
+    drawStickGrenade(c, -5.2, 0.2, 0.78, 0.35);
+    drawStickGrenade(c, -2.5, 2.2, 0.72, 0.85);
+    drawStickGrenade(c, 0.8, 1.5, 0.68, 1.1);
+    c.fillStyle = '#4a4a3c';
+    c.beginPath(); c.ellipse(-5.5, 3.2, 2.4, 2.8, 0.3, 0, 7); c.fill();
+    c.strokeStyle = '#8a3830';
+    c.lineWidth = 0.8;
+    c.beginPath(); c.moveTo(-1.5, 0.5); c.lineTo(1.5, 3.5); c.stroke();
+    c.beginPath(); c.moveTo(1.5, 0.5); c.lineTo(-1.5, 3.5); c.stroke();
   }
-  if (a.t.mortar) {
+  if (a.type === 'esmg') {
+    c.fillStyle = '#3e3c34';
+    c.beginPath(); c.ellipse(0, 0, 5.6, 3.1, 0, 0, 7); c.fill();
+    drawMP40Mag(c, -4.8, 2.8, 0.55, 0.25);
+    drawMP40Mag(c, 2.8, 3.5, 0.52, -0.15);
+    drawStickGrenade(c, -5.5, 0.5, 0.7, 0.4);
+    c.fillStyle = '#3a3428';
+    c.beginPath(); c.ellipse(4.2, 2.2, 1.4, 2, 0.35, 0, 7); c.fill();
+    c.fillStyle = '#b8261c';
+    c.beginPath(); c.ellipse(2.5, 1.2, 1.2, 1.6, 0.3, 0, 7); c.fill();
+  }
+  if (a.type === 'erifle') {
+    c.fillStyle = '#3a3a32';
+    c.beginPath(); c.ellipse(-4.5, 1.2, 1.6, 2.2, 0.35, 0, 7); c.fill();
+    c.fillStyle = '#5a5a48';
+    c.beginPath(); c.ellipse(4.2, 2.2, 1.5, 2, 0.35, 0, 7); c.fill();
+    drawStripperClip(c, -5, 3.5, 0.5, 0.2);
+    drawStripperClip(c, 2.8, 3.5, 0.48, -0.1);
+    c.strokeStyle = '#4a4038';
+    c.lineWidth = 1.4;
+    c.beginPath(); c.moveTo(1.5, 2.5); c.lineTo(3.8, 4.2); c.stroke();
+  }
+  if (a.t.mortar && a.type === 'emortar') {
+    c.fillStyle = '#2a2c24';
+    c.beginPath(); c.ellipse(-5.2, 1.5, 4.5, 2.8, 0.3, 0, 7); c.fill();
+    c.strokeStyle = '#4a4c42';
+    c.lineWidth = 3.2;
+    c.beginPath(); c.moveTo(-5.2, 1.5); c.lineTo(2.5, -4.5); c.stroke();
+    c.strokeStyle = '#3a3c34';
+    c.lineWidth = 1.4;
+    c.beginPath(); c.arc(-1.5, -0.5, 1.8, 0, 7); c.stroke();
+    c.fillStyle = '#4a4438';
+    c.fillRect(-7.8, 2.5, 5, 3.5);
+    drawGrw81Round(c, -6.8, 3.6, 0.68, 0.25);
+    drawGrw81Round(c, -5.2, 3.9, 0.64, -0.1);
+    drawGrw81Round(c, -3.8, 2.8, 0.6, 0.4);
+    c.fillStyle = '#3a3c34';
+    c.beginPath(); c.ellipse(2.5, 1.2, 1.6, 2.2, 0.35, 0, 7); c.fill();
+  } else if (a.t.mortar) {
     c.fillStyle = '#2f3328';
     c.beginPath(); c.ellipse(-5, 1.5, 4, 2.5, 0.3, 0, 7); c.fill();
     c.strokeStyle = '#5a5c42';
@@ -3976,7 +4339,7 @@ function drawFragGrenade(c, x, y, scale, opts) {
   c.restore();
 }
 
-// Stielhandgranate — steel can on a wooden handle
+// Stielhandgranate — steel can, porcelain cap, red warning band, wooden handle
 function drawStickGrenade(c, x, y, scale, rot) {
   scale = scale || 1;
   rot = rot != null ? rot : 0;
@@ -3985,14 +4348,28 @@ function drawStickGrenade(c, x, y, scale, rot) {
   c.rotate(rot);
   c.strokeStyle = '#6b5330';
   c.lineWidth = 1.55 * scale;
-  c.beginPath(); c.moveTo(0, 0.5 * scale); c.lineTo(0, 6 * scale); c.stroke();
+  c.beginPath(); c.moveTo(0, 0.5 * scale); c.lineTo(0, 6.2 * scale); c.stroke();
+  c.strokeStyle = '#5a4828';
+  c.lineWidth = 0.55 * scale;
+  c.beginPath(); c.moveTo(-0.45 * scale, 1.2 * scale); c.lineTo(-0.45 * scale, 5.8 * scale); c.stroke();
   c.fillStyle = '#33332a';
   c.beginPath(); c.arc(0, -0.6 * scale, 2.05 * scale, 0, 7); c.fill();
   c.strokeStyle = '#1e1e18';
   c.lineWidth = 0.75 * scale;
   c.beginPath(); c.arc(0, -0.6 * scale, 2.05 * scale, 0, 7); c.stroke();
+  c.fillStyle = '#c8c4b8';
+  c.beginPath(); c.arc(0, -1.35 * scale, 1.45 * scale, Math.PI, 0); c.fill();
+  c.strokeStyle = '#9a9690';
+  c.lineWidth = 0.45 * scale;
+  c.beginPath(); c.arc(0, -1.35 * scale, 1.45 * scale, Math.PI, 0); c.stroke();
   c.fillStyle = '#4a4a40';
   c.fillRect(-0.85 * scale, -2.7 * scale, 1.7 * scale, 1.15 * scale);
+  c.strokeStyle = '#8a3028';
+  c.lineWidth = 1.15 * scale;
+  c.beginPath(); c.moveTo(0, 2.6 * scale); c.lineTo(0, 4.1 * scale); c.stroke();
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 0.5 * scale;
+  c.beginPath(); c.arc(1.15 * scale, -2.4 * scale, 0.6 * scale, 0, 7); c.stroke();
   c.restore();
 }
 
@@ -4159,6 +4536,115 @@ function drawOfficerCap(c, fx, fy, us) {
   c.stroke();
 }
 
+// Schirmmütze peaked cap — silver cord, cockade, and oak leaves
+function drawEoffCap(c, fx, fy) {
+  c.fillStyle = '#4a4840';
+  c.beginPath(); c.arc(0, -1.2, 4.0, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.35)';
+  c.lineWidth = 0.85;
+  c.beginPath(); c.arc(0, -1.2, 4.0, 0, 7); c.stroke();
+  c.fillStyle = '#8a2820';
+  c.fillRect(-4.1, -0.2, 8.2, 1.8);
+  c.fillStyle = '#3a3834';
+  c.fillRect(-3.8, 0.6, 7.6, 2.2);
+  c.fillStyle = 'rgba(0,0,0,0.5)';
+  c.beginPath();
+  c.ellipse(fx * 3.8, -1 + fy * 3.8, 3.4, 1.7, Math.atan2(fy, fx), 0, 7);
+  c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.28)';
+  c.lineWidth = 0.7;
+  c.beginPath();
+  c.ellipse(fx * 3.8, -1 + fy * 3.8, 3.4, 1.7, Math.atan2(fy, fx), 0, 7);
+  c.stroke();
+  c.strokeStyle = '#c8c8c0';
+  c.lineWidth = 0.85;
+  c.beginPath();
+  c.moveTo(-3.2, 0.3); c.quadraticCurveTo(0, 2.3, 3.2, 0.3); c.stroke();
+  const cx = -fx * 1.8, cy = -1.2 + fy * 1.8;
+  c.fillStyle = '#e8e0c0';
+  c.beginPath(); c.arc(cx, cy, 0.85, 0, 7); c.fill();
+  c.fillStyle = '#8a2820';
+  c.beginPath(); c.arc(cx, cy, 0.45, 0, 7); c.fill();
+  c.strokeStyle = '#c8c8c0';
+  c.lineWidth = 1.15;
+  c.beginPath(); c.arc(0, -1.4, 1.7, 0.2, 6); c.stroke();
+  c.fillStyle = '#e8e0c0';
+  c.beginPath(); c.arc(0, -1.4, 0.7, 0, 7); c.fill();
+  c.fillStyle = '#2a2820';
+  c.beginPath(); c.arc(0, -1.4, 0.32, 0, 7); c.fill();
+  c.strokeStyle = '#3a3028';
+  c.lineWidth = 0.8;
+  c.beginPath();
+  c.moveTo(-3.4, 0.9); c.lineTo(-fx * 2.8, -1 + fy * 2.8); c.lineTo(3.4, 0.9); c.stroke();
+}
+
+function drawEoffKit(c, fx, fy, face) {
+  c.strokeStyle = '#6a5a42';
+  c.lineWidth = 1.75;
+  c.beginPath();
+  c.moveTo(-fy * 4.8 - fx * 2.8, fx * 4.8 - fy * 2.8);
+  c.lineTo(fy * 4.8 - fx * 2.8, -fx * 4.8 - fy * 2.8);
+  c.stroke();
+  c.strokeStyle = '#5a4a38';
+  c.lineWidth = 2;
+  c.beginPath(); c.moveTo(-5.5, 4.2); c.lineTo(5.5, 4.2); c.stroke();
+  c.fillStyle = '#8a8a80';
+  c.fillRect(-1.8, 3.4, 3.6, 2.2);
+  c.strokeStyle = '#4a4030';
+  c.lineWidth = 0.7;
+  c.strokeRect(-1.8, 3.4, 3.6, 2.2);
+  const rx = -fy * 1.8, ry = fx * 1.8;
+  c.fillStyle = '#2a2820';
+  c.fillRect(rx - 0.6, ry - 1.5, 1.2, 3);
+  c.fillStyle = '#e8e0c0';
+  c.beginPath(); c.arc(rx, ry, 0.65, 0, 7); c.fill();
+  c.fillStyle = '#2a2820';
+  c.fillRect(rx - 0.25, ry - 0.2, 0.5, 1.4);
+  c.fillRect(rx - 0.7, ry + 0.1, 1.4, 0.5);
+  c.fillStyle = '#3a3428';
+  c.beginPath(); c.ellipse(-fy * 5.8, fx * 5.8, 2.3, 2.9, face, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.85;
+  c.stroke();
+  c.fillStyle = '#c8b898';
+  c.fillRect(fy * 4.2 - 2, -fx * 4.2 - 2.2, 3.8, 4.8);
+  c.strokeStyle = '#6a5a40';
+  c.lineWidth = 0.65;
+  c.strokeRect(fy * 4.2 - 2, -fx * 4.2 - 2.2, 3.8, 4.8);
+  c.strokeStyle = '#8a7a58';
+  c.lineWidth = 0.5;
+  c.beginPath();
+  c.moveTo(fy * 4.2 - 1.4, -fx * 4.2 + 0.2);
+  c.lineTo(fy * 4.2 + 1.2, -fx * 4.2 + 1.5);
+  c.stroke();
+  c.fillStyle = '#2a2a22';
+  c.fillRect(-fy * 3.2 - 2.2, fx * 3.2 - 1.3, 4.4, 2.8);
+  c.strokeStyle = '#6a5a40';
+  c.lineWidth = 0.75;
+  c.strokeRect(-fy * 3.2 - 2.2, fx * 3.2 - 1.3, 4.4, 2.8);
+  c.fillStyle = '#1a1a14';
+  c.beginPath(); c.arc(-fy * 3.2 - 1.3, fx * 3.2, 0.9, 0, 7); c.fill();
+  c.beginPath(); c.arc(-fy * 3.2 + 1.3, fx * 3.2, 0.9, 0, 7); c.fill();
+  c.fillStyle = 'rgba(120,130,110,0.42)';
+  c.beginPath(); c.arc(-fy * 3.2 - 1.3, fx * 3.2, 0.42, 0, 7); c.fill();
+  c.beginPath(); c.arc(-fy * 3.2 + 1.3, fx * 3.2, 0.42, 0, 7); c.fill();
+  c.strokeStyle = '#8a8880';
+  c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(fy * 3.5, -fx * 3.5); c.lineTo(fy * 5.2, -fx * 5.2 + 0.5); c.stroke();
+  c.fillStyle = '#3a3428';
+  c.beginPath(); c.ellipse(fy * 5.4, -fx * 5.4 + 0.5, 0.8, 1.4, face + 0.6, 0, 7); c.fill();
+  c.fillStyle = '#6a5a42';
+  c.fillRect(fy * 4.8 - 0.4, -fx * 4.8 - 0.3, 0.8, 1.8);
+  c.strokeStyle = '#8a7a58';
+  c.lineWidth = 0.65;
+  c.beginPath();
+  c.moveTo(-fy * 2.5, fx * 2.5);
+  c.quadraticCurveTo(-fy * 1.5, fx * 1.5 + 2, fy * 1, -fx * 1);
+  c.stroke();
+  c.fillStyle = '#6a5a48';
+  c.beginPath(); c.ellipse(fy * 1.2, -fx * 1.2, 0.7, 1.1, face, 0, 7); c.fill();
+}
+
 function drawOfficerKit(c, fx, fy, face, us) {
   c.strokeStyle = '#6a5a40';
   c.lineWidth = 1.75;
@@ -4201,18 +4687,11 @@ function drawOfficerKit(c, fx, fy, face, us) {
   c.fillStyle = 'rgba(120,150,170,0.42)';
   c.beginPath(); c.arc(-fy * 3.2 - 1.3, fx * 3.2, 0.42, 0, 7); c.fill();
   c.beginPath(); c.arc(-fy * 3.2 + 1.3, fx * 3.2, 0.42, 0, 7); c.fill();
-  if (!us) {
-    c.fillStyle = '#2a2820';
-    c.fillRect(-fy * 2.8 - 0.5, fx * 2.8 - 2.8, 1, 2.2);
-    c.fillStyle = '#8a2820';
-    c.fillRect(-fy * 2.8 - 0.35, fx * 2.8 - 2.5, 0.7, 1.6);
-  } else {
-    c.fillStyle = '#ffd94a';
-    c.beginPath(); c.arc(fy * 2.5, -fx * 2.5, 0.85, 0, 7); c.fill();
-    c.strokeStyle = '#3a3028';
-    c.lineWidth = 0.6;
-    c.beginPath(); c.arc(fy * 2.5, -fx * 2.5, 0.85, 0, 7); c.stroke();
-  }
+  c.fillStyle = '#ffd94a';
+  c.beginPath(); c.arc(fy * 2.5, -fx * 2.5, 0.85, 0, 7); c.fill();
+  c.strokeStyle = '#3a3028';
+  c.lineWidth = 0.6;
+  c.beginPath(); c.arc(fy * 2.5, -fx * 2.5, 0.85, 0, 7); c.stroke();
 }
 
 function drawM1Garand(c, fx, fy, gunLen, face) {
@@ -4317,6 +4796,596 @@ function drawKar98k(c, fx, fy, gunLen, face, stickGrenade) {
   }
 }
 
+// Kar98k with hooded sight and sling — standard Wehrmacht rifleman loadout
+function drawKar98kRifleman(c, fx, fy, gunLen, face) {
+  drawKar98k(c, fx, fy, gunLen, face, false);
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  const px = -fy, py = fx;
+  c.fillStyle = '#3a3830';
+  c.beginPath(); c.arc(tipX + fx * 0.35, tipY + fy * 0.35, 1.05, 0, 7); c.fill();
+  c.fillStyle = '#2a2820';
+  c.beginPath();
+  c.moveTo(tipX - px * 0.75, tipY - py * 0.75);
+  c.lineTo(tipX + fx * 0.85 - px * 1.15, tipY + fy * 0.85 - py * 1.15);
+  c.lineTo(tipX + fx * 0.85 + px * 0.45, tipY + fy * 0.85 + py * 0.45);
+  c.closePath(); c.fill();
+  c.strokeStyle = '#5a4a38';
+  c.lineWidth = 1.1;
+  c.beginPath();
+  c.moveTo(fx * 1.1 - px * 2.3, fy * 1.1 + py * 2.3);
+  c.quadraticCurveTo(-px * 1.8, py * 1.8, fx * (gunLen * 0.62) + px * 1.1, fy * (gunLen * 0.62) + py * 1.1);
+  c.stroke();
+  c.strokeStyle = '#6a5a42';
+  c.lineWidth = 0.55;
+  c.beginPath(); c.arc(fx * 1.1 - px * 2.3, fy * 1.1 + py * 2.3, 0.55, 0, 7); c.stroke();
+}
+
+function drawStripperClip(c, x, y, scale, rot) {
+  scale = scale || 1;
+  rot = rot != null ? rot : 0;
+  c.save();
+  c.translate(x, y);
+  c.rotate(rot);
+  c.fillStyle = '#c8a858';
+  c.fillRect(-0.5 * scale, -1.8 * scale, 1 * scale, 3.6 * scale);
+  c.strokeStyle = '#8a7a48';
+  c.lineWidth = 0.4 * scale;
+  c.strokeRect(-0.5 * scale, -1.8 * scale, 1 * scale, 3.6 * scale);
+  for (let i = -1; i <= 1; i++) {
+    c.fillStyle = '#a08838';
+    c.fillRect(-0.35 * scale, i * 0.85 * scale - 0.3 * scale, 0.7 * scale, 0.45 * scale);
+  }
+  c.restore();
+}
+
+function drawErifleKit(c, fx, fy, face) {
+  c.strokeStyle = '#3c3c33';
+  c.lineWidth = 1.3;
+  c.beginPath(); c.moveTo(-3, -3.2); c.lineTo(0, 2); c.lineTo(3, -3.2); c.stroke();
+  c.strokeStyle = '#6a5a42';
+  c.lineWidth = 1.4;
+  c.beginPath();
+  c.moveTo(-fy * 4.4 - fx * 1, fx * 4.4 - fy * 1);
+  c.lineTo(fy * 4.4 - fx * 1, -fx * 4.4 - fy * 1);
+  c.stroke();
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 1.6;
+  c.beginPath(); c.moveTo(-6, 4); c.lineTo(6, 4); c.stroke();
+  c.fillStyle = '#6a5a42';
+  c.fillRect(-0.7, 3.4, 1.4, 1.2);
+  for (const off of [-4.2, 4.2]) {
+    c.fillStyle = '#3a3428';
+    c.fillRect(off - 1.5, 3.5, 3, 2.8);
+    c.strokeStyle = '#2a2820';
+    c.lineWidth = 0.7;
+    c.strokeRect(off - 1.5, 3.5, 3, 2.8);
+    c.fillStyle = '#4a4038';
+    c.beginPath(); c.arc(off, 4.2, 0.55, 0, 7); c.fill();
+    drawStripperClip(c, off, 4.5, 0.55, 0);
+  }
+  c.fillStyle = '#5a5a48';
+  c.beginPath(); c.ellipse(fy * 5.2, -fx * 5.2, 2.2, 2.8, face, 0, 7); c.fill();
+  c.strokeStyle = '#3a3a30';
+  c.lineWidth = 0.75;
+  c.stroke();
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 0.9;
+  c.beginPath();
+  c.moveTo(fy * 5.2 - 1, -fx * 5.2 - 1.8);
+  c.lineTo(fy * 5.2 + 1, -fx * 5.2 + 1.8);
+  c.stroke();
+  c.fillStyle = '#4a4a40';
+  c.beginPath(); c.ellipse(-fy * 5.4, fx * 5.4, 1.5, 2.2, face, 0, 7); c.fill();
+  c.fillStyle = '#6a5a42';
+  c.beginPath(); c.ellipse(-fy * 5.4, fx * 5.4 - 1.8, 1.1, 0.7, face, 0, 7); c.fill();
+  c.strokeStyle = '#6a5a40';
+  c.lineWidth = 1.1;
+  c.beginPath();
+  c.moveTo(-fy * 5.4, fx * 5.4 - 2.5);
+  c.lineTo(-fy * 4.2, fx * 4.2 - 1);
+  c.stroke();
+  c.fillStyle = '#3a3a32';
+  c.beginPath(); c.ellipse(-fy * 4.8, fx * 4.8, 2, 2.6, face + 0.3, 0, 7); c.fill();
+  c.strokeStyle = '#2a2a24';
+  c.lineWidth = 0.85;
+  c.stroke();
+  c.fillStyle = '#4a4a40';
+  c.beginPath(); c.ellipse(-fy * 4.8, fx * 4.8 - 2, 1.3, 0.8, face + 0.3, 0, 7); c.fill();
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 1.8;
+  c.beginPath();
+  c.moveTo(fy * 2.5, -fx * 2.5);
+  c.lineTo(fy * 4.8, -fx * 4.8 + 1.5);
+  c.stroke();
+  c.fillStyle = '#3a3428';
+  c.beginPath(); c.ellipse(fy * 5.5, -fx * 5.5 + 1.2, 0.7, 1.2, face + 0.5, 0, 7); c.fill();
+}
+
+// Kar98k with Schiessbecher rifle-grenade discharger — the Axis grenadier's signature
+function drawKar98kGrenadier(c, fx, fy, gunLen, face) {
+  drawKar98k(c, fx, fy, gunLen, face, false);
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  const px = -fy, py = fx;
+  c.strokeStyle = '#4a4840';
+  c.lineWidth = 1.85;
+  c.beginPath();
+  c.moveTo(tipX - px * 1.7, tipY - py * 1.7);
+  c.lineTo(tipX + fx * 2.6 - px * 2.1, tipY + fy * 2.6 - py * 2.1);
+  c.lineTo(tipX + fx * 2.6 + px * 2.1, tipY + fy * 2.6 + py * 2.1);
+  c.lineTo(tipX + px * 1.7, tipY + py * 1.7);
+  c.closePath(); c.stroke();
+  c.fillStyle = '#3a3830';
+  c.beginPath();
+  c.moveTo(tipX - px * 1.4, tipY - py * 1.4);
+  c.lineTo(tipX + fx * 2.1 - px * 1.7, tipY + fy * 2.1 - py * 1.7);
+  c.lineTo(tipX + fx * 2.1 + px * 1.7, tipY + fy * 2.1 + py * 1.7);
+  c.lineTo(tipX + px * 1.4, tipY + py * 1.4);
+  c.closePath(); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.65;
+  for (let i = -1; i <= 1; i++) {
+    const vx = tipX + fx * 1.3 + px * i * 0.85;
+    const vy = tipY + fy * 1.3 + py * i * 0.85;
+    c.beginPath();
+    c.moveTo(vx - px * 0.45, vy - py * 0.45);
+    c.lineTo(vx + px * 0.45, vy + py * 0.45);
+    c.stroke();
+  }
+  c.fillStyle = '#2a2a22';
+  c.beginPath();
+  c.arc(tipX + fx * 1.8, tipY + fy * 1.8, 1.1, 0, 7);
+  c.fill();
+  c.strokeStyle = '#5a4a38';
+  c.lineWidth = 0.8;
+  c.beginPath();
+  c.arc(tipX + fx * 1.8, tipY + fy * 1.8, 1.1, 0, 7);
+  c.stroke();
+}
+
+function drawEgrenKit(c, fx, fy, face) {
+  c.strokeStyle = '#4a4438';
+  c.lineWidth = 1.35;
+  c.beginPath(); c.moveTo(-3.2, -3.5); c.lineTo(0, 2.2); c.lineTo(3.2, -3.5); c.stroke();
+  c.strokeStyle = '#7a6848';
+  c.lineWidth = 1.55;
+  c.beginPath();
+  c.moveTo(-fy * 5.5 - fx * 1.8, fx * 5.5 - fy * 1.8);
+  c.lineTo(fy * 5.5 - fx * 1.8, -fx * 5.5 - fy * 1.8);
+  c.stroke();
+  c.fillStyle = '#4a4a3c';
+  c.beginPath(); c.ellipse(fy * 5.2, -fx * 5.2, 2.8, 3.6, face, 0, 7); c.fill();
+  c.strokeStyle = '#3a3a30';
+  c.lineWidth = 0.85;
+  c.stroke();
+  drawStickGrenade(c, fy * 5.2 - 0.8, -fx * 5.2 - 1.5, 0.62, face - 0.2);
+  drawStickGrenade(c, fy * 5.2 + 1.2, -fx * 5.2 + 0.5, 0.58, face + 0.35);
+  drawStickGrenade(c, -6.2, 2.2, 0.88, face - 0.4);
+  drawStickGrenade(c, -4, 5.2, 0.8, face + 0.1);
+  drawStickGrenade(c, -0.8, 5.8, 0.76, face + 0.45);
+  drawStickGrenade(c, 3.5, 4.8, 0.72, face + 0.75);
+  c.strokeStyle = '#3c3830';
+  c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(-6, 4.2); c.lineTo(6, 4.2); c.stroke();
+  c.fillStyle = '#6a5a42';
+  c.fillRect(-0.8, 3.5, 1.6, 1.4);
+  c.fillStyle = '#3a3428';
+  c.beginPath(); c.ellipse(-fy * 4.5, fx * 4.5, 1.6, 2.4, face, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.7;
+  c.stroke();
+  c.fillStyle = '#4a4a40';
+  c.fillRect(-5.5, 3.8, 2.4, 2.2);
+  c.fillRect(4.2, 3.8, 2.4, 2.2);
+  c.strokeStyle = '#2a2e24';
+  c.lineWidth = 0.65;
+  c.strokeRect(-5.5, 3.8, 2.4, 2.2);
+  c.strokeRect(4.2, 3.8, 2.4, 2.2);
+}
+
+function drawMP40Mag(c, x, y, scale, rot) {
+  c.save();
+  c.translate(x, y);
+  c.rotate(rot);
+  c.scale(scale, scale);
+  c.fillStyle = '#3a3830';
+  c.fillRect(-1.1, -2.4, 2.2, 4.8);
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.65;
+  c.strokeRect(-1.1, -2.4, 2.2, 4.8);
+  c.strokeStyle = '#4a4840';
+  c.lineWidth = 0.45;
+  for (const sy of [-1.4, -0.4, 0.6]) {
+    c.beginPath(); c.moveTo(-0.85, sy); c.lineTo(0.85, sy); c.stroke();
+  }
+  c.fillStyle = '#2a2820';
+  c.fillRect(-0.55, 2.2, 1.1, 0.55);
+  c.restore();
+}
+
+// MP40 — perforated shroud, side mag, wire folding stock
+function drawMP40(c, fx, fy, gunLen, face) {
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  const px = -fy, py = fx;
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 2.35;
+  c.beginPath();
+  c.moveTo(fx * 2, fy * 2);
+  c.lineTo(tipX, tipY);
+  c.stroke();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 0.75;
+  for (let t = 0.22; t <= 0.88; t += 0.11) {
+    const sx = fx * (gunLen * t), sy = fy * (gunLen * t);
+    c.beginPath();
+    c.moveTo(sx - px * 1.45, sy - py * 1.45);
+    c.lineTo(sx + px * 1.45, sy + py * 1.45);
+    c.stroke();
+  }
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 1.85;
+  c.beginPath();
+  c.moveTo(fx * 2.2 + px * 1.35, fy * 2.2 + py * 1.35);
+  c.lineTo(fx * (gunLen * 0.72) + px * 1.35, fy * (gunLen * 0.72) + py * 1.35);
+  c.stroke();
+  c.fillStyle = '#3a3830';
+  c.beginPath();
+  c.moveTo(fx * 2.8 - px * 1.55, fy * 2.8 - py * 1.55);
+  c.lineTo(fx * 2.8 - px * 3.35, fy * 2.8 - py * 3.35);
+  c.lineTo(fx * 3.6 - px * 3.35, fy * 3.6 - py * 3.35);
+  c.lineTo(fx * 3.6 - px * 1.55, fy * 3.6 - py * 1.55);
+  c.closePath(); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.65;
+  c.stroke();
+  c.strokeStyle = '#5a4a38';
+  c.lineWidth = 1.55;
+  c.beginPath();
+  c.moveTo(fx * 2.1 + px * 1.85, fy * 2.1 + py * 1.85);
+  c.lineTo(fx * 2.1 + px * 4.2, fy * 2.1 + py * 4.2);
+  c.stroke();
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 1.15;
+  c.beginPath();
+  c.moveTo(fx * 2.1 + px * 4.2, fy * 2.1 + py * 4.2);
+  c.lineTo(fx * 0.4 + px * 4.2, fy * 0.4 + py * 4.2);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(fx * 0.4 + px * 4.2, fy * 0.4 + py * 4.2);
+  c.lineTo(fx * 0.4 + px * 2.4, fy * 0.4 + py * 2.4);
+  c.stroke();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 0.95;
+  c.beginPath();
+  c.arc(fx * 2.5 + px * 2.15, fy * 2.5 + py * 2.15, 1.05, face - 0.55, face + 0.45);
+  c.stroke();
+  c.fillStyle = '#1c1c16';
+  c.beginPath(); c.arc(tipX, tipY, 0.85, 0, 7); c.fill();
+}
+
+function drawEsmgKit(c, fx, fy, face) {
+  c.strokeStyle = '#3c3c33';
+  c.lineWidth = 1.35;
+  c.beginPath(); c.moveTo(-3.2, -3.5); c.lineTo(0, 2.2); c.lineTo(3.2, -3.5); c.stroke();
+  c.strokeStyle = '#6a5a42';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.moveTo(-fy * 4.8 - fx * 1.2, fx * 4.8 - fy * 1.2);
+  c.lineTo(fy * 4.8 - fx * 1.2, -fx * 4.8 - fy * 1.2);
+  c.stroke();
+  c.fillStyle = '#4a4a3c';
+  c.beginPath(); c.ellipse(fy * 4.5, -fx * 4.5, 2.6, 3.2, face, 0, 7); c.fill();
+  c.strokeStyle = '#3a3a30';
+  c.lineWidth = 0.8;
+  c.stroke();
+  drawMP40Mag(c, fy * 4.2, -fx * 4.2 - 1.2, 0.58, face - 0.15);
+  drawMP40Mag(c, fy * 4.2 + 1.4, -fx * 4.2 + 0.6, 0.54, face + 0.25);
+  for (const off of [-4.5, 4.5]) {
+    c.fillStyle = '#3a3428';
+    c.fillRect(off - 1.4, 3.6, 2.8, 2.6);
+    c.strokeStyle = '#2a2820';
+    c.lineWidth = 0.65;
+    c.strokeRect(off - 1.4, 3.6, 2.8, 2.6);
+    drawMP40Mag(c, off, 4.4, 0.52, 0);
+  }
+  drawStickGrenade(c, -fy * 5.2, fx * 5.2, 0.72, face + 0.55);
+  drawStickGrenade(c, fy * 3.2, -fx * 3.2 + 1.5, 0.65, face - 0.35);
+  c.strokeStyle = '#3c3830';
+  c.lineWidth = 1.45;
+  c.beginPath(); c.moveTo(-6, 4.2); c.lineTo(6, 4.2); c.stroke();
+  c.fillStyle = '#6a5a42';
+  c.fillRect(-0.8, 3.5, 1.6, 1.4);
+  c.fillStyle = '#3a3428';
+  c.beginPath(); c.ellipse(-fy * 4.8, fx * 4.8, 1.5, 2.2, face, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.7;
+  c.stroke();
+  c.fillStyle = '#4a4a40';
+  c.fillRect(-5.8, 3.8, 2.2, 2);
+  c.strokeStyle = '#2a2e24';
+  c.lineWidth = 0.6;
+  c.strokeRect(-5.8, 3.8, 2.2, 2);
+}
+
+// Flammenwerfer 41 lance — rifle stock, thin lance tube, igniter box, funnel nozzle
+function drawFlammenwerfer(c, fx, fy, gunLen, face, lit) {
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  const px = -fy, py = fx;
+  c.strokeStyle = '#4a4030';
+  c.lineWidth = 2.15;
+  c.beginPath();
+  c.moveTo(fx * 1.1 - px * 2.5, fy * 1.1 - py * 2.5);
+  c.lineTo(fx * 2.6 - px * 2.2, fy * 2.6 - py * 2.2);
+  c.stroke();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 2.65;
+  c.beginPath();
+  c.moveTo(fx * 2.4, fy * 2.4);
+  c.lineTo(tipX, tipY);
+  c.stroke();
+  c.strokeStyle = '#2e2c24';
+  c.lineWidth = 0.8;
+  for (let t = 0.32; t <= 0.82; t += 0.14) {
+    const sx = fx * (gunLen * t), sy = fy * (gunLen * t);
+    c.beginPath();
+    c.moveTo(sx - px * 1.05, sy - py * 1.05);
+    c.lineTo(sx + px * 1.05, sy + py * 1.05);
+    c.stroke();
+  }
+  const ignX = fx * (gunLen * 0.58), ignY = fy * (gunLen * 0.58);
+  c.fillStyle = '#3a3830';
+  c.beginPath();
+  c.moveTo(ignX - px * 1.5 - fx * 0.8, ignY - py * 1.5 - fy * 0.8);
+  c.lineTo(ignX + px * 1.5 - fx * 0.8, ignY + py * 1.5 - fy * 0.8);
+  c.lineTo(ignX + px * 1.5 + fx * 0.8, ignY + py * 1.5 + fy * 0.8);
+  c.lineTo(ignX - px * 1.5 + fx * 0.8, ignY - py * 1.5 + fy * 0.8);
+  c.closePath(); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.65;
+  c.stroke();
+  c.strokeStyle = '#4a3f32';
+  c.lineWidth = 1.85;
+  c.beginPath();
+  c.moveTo(fx * 3 + px * 1.35, fy * 3 + py * 1.35);
+  c.lineTo(fx * 3 + px * 3.2, fy * 3 + py * 3.2);
+  c.stroke();
+  c.strokeStyle = '#5a4a38';
+  c.lineWidth = 2.35;
+  c.beginPath();
+  c.moveTo(tipX - px * 2.1, tipY - py * 2.1);
+  c.lineTo(tipX + fx * 1.6, tipY + fy * 1.6);
+  c.lineTo(tipX + px * 2.1, tipY + py * 2.1);
+  c.stroke();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 1.85;
+  c.beginPath();
+  c.moveTo(-6, 0);
+  c.quadraticCurveTo(-fy * 3.5 + fx * 0.8, fx * 3.5 + fy * 0.8, fx * 2.8, fy * 2.8);
+  c.stroke();
+  c.strokeStyle = '#1e1c18';
+  c.lineWidth = 0.85;
+  c.beginPath();
+  c.moveTo(-6, 0);
+  c.quadraticCurveTo(-fy * 3.5 + fx * 0.8, fx * 3.5 + fy * 0.8, fx * 2.8, fy * 2.8);
+  c.stroke();
+  const nozX = tipX + fx * 1.3, nozY = tipY + fy * 1.3;
+  if (lit) {
+    c.shadowColor = '#ff6820';
+    c.shadowBlur = 10;
+    c.fillStyle = '#fff4b0';
+    c.beginPath(); c.arc(nozX, nozY, 2.8, 0, 7); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = '#ff9a28';
+    c.beginPath(); c.arc(nozX, nozY, 1.6, 0, 7); c.fill();
+  } else {
+    c.fillStyle = '#8a4020';
+    c.beginPath(); c.arc(nozX, nozY, 1.35, 0, 7); c.fill();
+    c.fillStyle = '#ff7020';
+    c.beginPath(); c.arc(nozX, nozY, 0.65, 0, 7); c.fill();
+  }
+}
+
+function drawEflameKit(c, fx, fy, face) {
+  const tankX = -6.4;
+  for (const ty of [-2.6, 2.6]) {
+    c.fillStyle = '#6a6a58';
+    c.beginPath(); c.ellipse(tankX, ty, 4.1, 2.15, 0, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.42)';
+    c.lineWidth = 0.85;
+    c.stroke();
+    c.fillStyle = '#5a5a4e';
+    c.beginPath(); c.ellipse(tankX - 3.6, ty, 0.75, 1.1, 0, 0, 7); c.fill();
+    c.strokeStyle = '#b8261c';
+    c.lineWidth = 0.7;
+    c.beginPath();
+    c.moveTo(tankX - 1.8, ty - 0.35);
+    c.lineTo(tankX + 0.4, ty - 0.35);
+    c.lineTo(tankX + 0.4, ty + 0.35);
+    c.lineTo(tankX - 1.8, ty + 0.35);
+    c.stroke();
+  }
+  c.fillStyle = '#4a4a42';
+  c.beginPath(); c.ellipse(tankX + 0.8, 0, 1.8, 1.35, 0, 0, 7); c.fill();
+  c.strokeStyle = '#3a3a34';
+  c.lineWidth = 0.75;
+  c.stroke();
+  c.strokeStyle = '#3c3830';
+  c.lineWidth = 1.45;
+  c.beginPath(); c.moveTo(tankX - 2.5, -5.2); c.lineTo(tankX + 2.5, 5.2); c.stroke();
+  c.beginPath(); c.moveTo(tankX + 2.5, -5.2); c.lineTo(tankX - 2.5, 5.2); c.stroke();
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 1.15;
+  c.beginPath();
+  c.moveTo(tankX - 1.5, -4.5);
+  c.quadraticCurveTo(-2, fy * 2.5, fx * 2.8, fy * 2.8);
+  c.stroke();
+  c.fillStyle = '#3a3830';
+  c.beginPath(); c.ellipse(fy * 3.8, -fx * 3.8, 1.5, 2.1, face, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.65;
+  c.stroke();
+  c.fillStyle = '#4a4840';
+  c.fillRect(fy * 3.4 - 0.9, -fx * 3.4 - 0.7, 1.8, 1.4);
+  c.strokeStyle = '#6a5a42';
+  c.lineWidth = 0.55;
+  c.beginPath(); c.moveTo(fy * 3.4, -fx * 3.4); c.lineTo(fy * 4.2, -fx * 4.2 + 0.8); c.stroke();
+  c.fillStyle = '#3a3428';
+  c.beginPath(); c.ellipse(-fy * 4.6, fx * 4.6, 1.4, 2, face, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.65;
+  c.stroke();
+  c.fillStyle = '#5a5a50';
+  c.beginPath(); c.ellipse(fx * 4.2, fy * 4.2, 1.6, 2.2, face, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(-fx * 3.8, fy * 3.8, 1.5, 2.1, face, 0, 7); c.fill();
+  c.strokeStyle = '#4a4840';
+  c.lineWidth = 0.6;
+  c.beginPath();
+  c.arc(fy * 5.2, -fx * 5.2, 1.1, face - 0.4, face + 0.9);
+  c.stroke();
+}
+
+function drawMG42BeltLink(c, x, y, scale, rot) {
+  c.save();
+  c.translate(x, y);
+  c.rotate(rot);
+  c.scale(scale, scale);
+  c.fillStyle = '#6a5a38';
+  for (let i = 0; i < 3; i++) {
+    const lx = i * 1.5 - 1.5;
+    c.beginPath();
+    c.moveTo(lx - 0.45, -0.35);
+    c.lineTo(lx + 0.45, -0.35);
+    c.lineTo(lx + 0.55, 0.35);
+    c.lineTo(lx - 0.35, 0.35);
+    c.closePath(); c.fill();
+    c.strokeStyle = '#4a4030';
+    c.lineWidth = 0.45;
+    c.stroke();
+    c.fillStyle = '#c8a858';
+    c.beginPath(); c.arc(lx, 0, 0.22, 0, 7); c.fill();
+    c.fillStyle = '#6a5a38';
+  }
+  c.restore();
+}
+
+// MG42 — ventilated barrel jacket, belt feed, Lafette bipod, booster muzzle
+function drawMG42(c, fx, fy, gunLen, face) {
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  const px = -fy, py = fx;
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 3.15;
+  c.beginPath();
+  c.moveTo(fx * 2, fy * 2);
+  c.lineTo(tipX, tipY);
+  c.stroke();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 0.72;
+  for (let t = 0.18; t <= 0.88; t += 0.07) {
+    const sx = fx * (gunLen * t), sy = fy * (gunLen * t);
+    c.beginPath();
+    c.moveTo(sx - px * 1.55, sy - py * 1.55);
+    c.lineTo(sx + px * 1.55, sy + py * 1.55);
+    c.stroke();
+  }
+  c.strokeStyle = '#4a4030';
+  c.lineWidth = 1.95;
+  c.beginPath();
+  c.moveTo(fx * 1.15 - px * 2.4, fy * 1.15 - py * 2.4);
+  c.lineTo(fx * 2.4 - px * 2.2, fy * 2.4 - py * 2.2);
+  c.stroke();
+  c.strokeStyle = '#4a3f32';
+  c.lineWidth = 1.85;
+  c.beginPath();
+  c.moveTo(fx * 3.1 + px * 1.45, fy * 3.1 + py * 1.45);
+  c.lineTo(fx * 3.1 + px * 3.8, fy * 3.1 + py * 3.8);
+  c.stroke();
+  c.strokeStyle = '#6b5a38';
+  c.lineWidth = 1.25;
+  c.beginPath();
+  c.moveTo(-fy * 7.2, fx * 7.2);
+  c.quadraticCurveTo(fx * 2 - fy * 3.2, fy * 2 + fx * 3.2, fx * 3.1, fy * 3.1);
+  c.stroke();
+  c.fillStyle = '#3a3828';
+  c.beginPath(); c.arc(-fy * 6.2, fx * 6.2, 2.15, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.65;
+  c.stroke();
+  drawMG42BeltLink(c, -fy * 5.8, fx * 5.8, 0.55, face + 0.4);
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 1.25;
+  for (const ang of [-0.85, 0, 0.85]) {
+    c.beginPath();
+    c.moveTo(tipX, tipY);
+    c.lineTo(
+      tipX + Math.cos(face + ang + 0.38) * 5.2,
+      tipY + Math.sin(face + ang + 0.38) * 5.2,
+    );
+    c.stroke();
+  }
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 2.15;
+  c.beginPath();
+  c.moveTo(tipX - px * 1.75, tipY - py * 1.75);
+  c.lineTo(tipX + px * 0.55, tipY + py * 0.55);
+  c.stroke();
+  c.fillStyle = '#1c1c16';
+  c.beginPath(); c.arc(tipX, tipY, 1.05, 0, 7); c.fill();
+}
+
+function drawEmgKit(c, fx, fy, face) {
+  c.strokeStyle = '#3c3c33';
+  c.lineWidth = 1.35;
+  c.beginPath(); c.moveTo(-3.2, -3.5); c.lineTo(0, 2.2); c.lineTo(3.2, -3.5); c.stroke();
+  c.fillStyle = '#4a4a3c';
+  c.beginPath(); c.ellipse(-fy * 5.4, fx * 5.4, 3.1, 3.8, face, 0, 7); c.fill();
+  c.strokeStyle = '#3a3a30';
+  c.lineWidth = 0.85;
+  c.stroke();
+  c.strokeStyle = '#5a5a48';
+  c.lineWidth = 0.75;
+  c.beginPath();
+  c.moveTo(-fy * 5.4 - 1.2, fx * 5.4 - 1.5);
+  c.lineTo(-fy * 5.4 + 1.2, fx * 5.4 + 1.5);
+  c.stroke();
+  c.fillStyle = '#6a5a42';
+  c.fillRect(-fy * 5.4 - 0.6, fx * 5.4 - 2.2, 1.2, 1.4);
+  c.strokeStyle = '#6a5a42';
+  c.lineWidth = 1.45;
+  c.beginPath();
+  c.moveTo(-fy * 5 - fx * 1.4, fx * 5 - fy * 1.4);
+  c.lineTo(fy * 4.8 - fx * 1.4, -fx * 4.8 - fy * 1.4);
+  c.stroke();
+  drawMG42BeltLink(c, -fy * 4.2, fx * 4.2, 0.62, face - 0.2);
+  drawMG42BeltLink(c, fy * 3.5, -fx * 3.5, 0.58, face + 0.45);
+  drawMG42BeltLink(c, -2.5, 4.8, 0.54, 0.15);
+  c.strokeStyle = '#4a4840';
+  c.lineWidth = 2.4;
+  c.beginPath();
+  c.moveTo(-fy * 4.5, fx * 4.5);
+  c.lineTo(fy * 3.8, -fx * 3.8 + 1.5);
+  c.stroke();
+  c.fillStyle = '#3a3830';
+  c.beginPath();
+  c.moveTo(fy * 3.2, -fx * 3.2 + 1.2);
+  c.lineTo(fy * 4.8, -fx * 4.8 + 0.5);
+  c.lineTo(fy * 4.5, -fx * 4.5 + 2.2);
+  c.closePath(); c.fill();
+  c.fillStyle = '#3a3428';
+  c.beginPath(); c.ellipse(-fy * 4.6, fx * 4.6, 1.5, 2.2, face, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.7;
+  c.stroke();
+  c.fillStyle = '#4a4a40';
+  c.fillRect(4.2, 3.8, 2.4, 2.2);
+  c.strokeStyle = '#2a2e24';
+  c.lineWidth = 0.6;
+  c.strokeRect(4.2, 3.8, 2.4, 2.2);
+  c.fillStyle = '#3a3830';
+  c.fillRect(-6, 3.8, 2.8, 2.4);
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.65;
+  c.strokeRect(-6, 3.8, 2.8, 2.4);
+}
+
 function drawRiflemanKit(c, fx, fy, face, us) {
   c.strokeStyle = '#8a7a48';
   c.lineWidth = 1.45;
@@ -4354,22 +5423,12 @@ function drawRiflemanKit(c, fx, fy, face, us) {
   c.stroke();
   c.fillStyle = '#5a4a38';
   c.beginPath(); c.arc(fy * 6.4, -fx * 6.4, 0.75, 0, 7); c.fill();
-  if (!us) {
-    c.fillStyle = '#5a5a48';
-    c.beginPath(); c.ellipse(fy * 4.9, -fx * 4.9, 2.15, 2.55, face, 0, 7); c.fill();
-    c.strokeStyle = '#3a3a30';
-    c.lineWidth = 0.7;
-    c.stroke();
-    c.fillStyle = '#3a3a30';
-    c.beginPath(); c.ellipse(fy * 4.9, -fx * 4.9, 1.1, 1.35, face, 0, 7); c.fill();
-  } else {
-    c.strokeStyle = '#6a5a40';
-    c.lineWidth = 1.15;
-    c.beginPath();
-    c.moveTo(-fy * 3.2, fx * 3.2);
-    c.quadraticCurveTo(0, 5.8, fy * 3.2, -fx * 3.2);
-    c.stroke();
-  }
+  c.strokeStyle = '#6a5a40';
+  c.lineWidth = 1.15;
+  c.beginPath();
+  c.moveTo(-fy * 3.2, fx * 3.2);
+  c.quadraticCurveTo(0, 5.8, fy * 3.2, -fx * 3.2);
+  c.stroke();
 }
 
 function drawScopedRifle(c, fx, fy, gunLen, face, us) {
@@ -4432,6 +5491,92 @@ function drawScopedRifle(c, fx, fy, gunLen, face, us) {
   }
 }
 
+// Kar98k with ZF39 high-mount scope — the German sniper's signature
+function drawKar98kSniper(c, fx, fy, gunLen, face) {
+  drawKar98k(c, fx, fy, gunLen, face, false);
+  const px = -fy, py = fx;
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  const scBaseX = fx * (gunLen * 0.38) + px * 2.4;
+  const scBaseY = fy * (gunLen * 0.38) + py * 2.4;
+  c.fillStyle = '#3a3830';
+  c.beginPath();
+  c.moveTo(scBaseX - px * 0.55, scBaseY - py * 0.55);
+  c.lineTo(scBaseX + fx * 0.85 + px * 0.45, scBaseY + fy * 0.85 + py * 0.45);
+  c.lineTo(scBaseX + fx * 0.85 - px * 0.45, scBaseY + fy * 0.85 - py * 0.45);
+  c.closePath(); c.fill();
+  c.strokeStyle = '#1a1a14';
+  c.lineWidth = 2.5;
+  c.beginPath();
+  c.moveTo(scBaseX, scBaseY);
+  c.lineTo(scBaseX + fx * 5.2, scBaseY + fy * 5.2);
+  c.stroke();
+  c.fillStyle = '#2a2a22';
+  c.beginPath(); c.arc(scBaseX + fx * 5.4, scBaseY + fy * 5.4, 1.35, 0, 7); c.fill();
+  c.beginPath(); c.arc(scBaseX - fx * 0.45, scBaseY - fy * 0.45, 1.05, 0, 7); c.fill();
+  c.fillStyle = 'rgba(140,150,130,0.45)';
+  c.beginPath(); c.arc(scBaseX + fx * 4.6, scBaseY + fy * 4.6, 0.6, 0, 7); c.fill();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 0.75;
+  c.beginPath();
+  c.moveTo(scBaseX + fx * 2.2 + px * 0.35, scBaseY + fy * 2.2 + py * 0.35);
+  c.lineTo(scBaseX + fx * 3.8 + px * 0.35, scBaseY + fy * 3.8 + py * 0.35);
+  c.stroke();
+  c.fillStyle = '#4a3f32';
+  c.beginPath(); c.ellipse(fx * 2.8 + px * 1.8, fy * 2.8 + py * 1.8, 1.2, 2, face, 0, 7); c.fill();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 1.15;
+  const bipX = fx * (gunLen * 0.74), bipY = fy * (gunLen * 0.74);
+  c.beginPath(); c.moveTo(bipX, bipY); c.lineTo(bipX + px * 2.6, bipY + py * 2.6); c.stroke();
+  c.fillStyle = '#3a3830';
+  c.beginPath(); c.arc(tipX + fx * 0.3, tipY + fy * 0.3, 0.95, 0, 7); c.fill();
+}
+
+function drawEsniperKit(c, fx, fy, face) {
+  c.fillStyle = 'rgba(42,38,28,0.55)';
+  for (const [px, py, rx, ry, rot] of [[-2.5, 1.2, 2.6, 1.6, 0.4], [2.8, -0.8, 2.2, 1.4, -0.6], [0, 3.2, 1.9, 1.2, 0.15],
+    [-3.8, -0.8, 1.7, 1.1, 0.25], [3.5, 2.2, 1.5, 1, -0.35]]) {
+    c.beginPath(); c.ellipse(px, py, rx, ry, rot, 0, 7); c.fill();
+  }
+  c.fillStyle = 'rgba(58,52,40,0.45)';
+  c.beginPath(); c.ellipse(0, 0, 6.5, 5.5, face, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(72,64,48,0.6)';
+  c.lineWidth = 0.75;
+  for (const [sx, sy, ex, ey] of [[-4.5, 1.5, -6, 3.5], [3.5, -1.5, 5, -2.5], [-1.5, 4.5, 0, 6], [4.5, 0.5, 5.5, 2]]) {
+    c.beginPath(); c.moveTo(sx, sy); c.lineTo(ex, ey); c.stroke();
+  }
+  c.strokeStyle = '#4a4840';
+  c.lineWidth = 1.4;
+  c.beginPath(); c.moveTo(-fy * 3.2, fx * 3.2); c.lineTo(-fy * 4.5, fx * 4.5); c.stroke();
+  c.beginPath(); c.moveTo(-fy * 3.2, fx * 3.2); c.lineTo(-fy * 2.2, fx * 2.2 + 2); c.stroke();
+  c.fillStyle = '#2a2a22';
+  c.beginPath(); c.arc(-fy * 4.5, fx * 4.5, 1.1, 0, 7); c.fill();
+  c.fillStyle = 'rgba(120,130,110,0.4)';
+  c.beginPath(); c.arc(-fy * 4.5, fx * 4.5, 0.45, 0, 7); c.fill();
+  c.fillStyle = '#3a3428';
+  c.fillRect(-6.5, -1.5, 3.2, 4.5);
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.7;
+  c.strokeRect(-6.5, -1.5, 3.2, 4.5);
+  c.strokeStyle = '#5a4a38';
+  c.lineWidth = 0.9;
+  c.beginPath(); c.moveTo(-6.5, 0.5); c.lineTo(-3.3, 0.5); c.stroke();
+  for (const off of [-4, 4]) {
+    c.fillStyle = '#3a3428';
+    c.fillRect(off - 1.4, 3.6, 2.8, 2.5);
+    c.strokeStyle = '#2a2820';
+    c.lineWidth = 0.65;
+    c.strokeRect(off - 1.4, 3.6, 2.8, 2.5);
+    drawStripperClip(c, off, 4.5, 0.52, 0);
+  }
+  c.fillStyle = '#4a4438';
+  c.beginPath(); c.ellipse(fy * 4.8, -fx * 4.8, 1.8, 2.4, face, 0, 7); c.fill();
+  c.fillStyle = '#c8b898';
+  c.beginPath(); c.ellipse(fy * 4.8, -fx * 4.8, 1.1, 1.4, face, 0, 7); c.fill();
+  c.strokeStyle = '#6a5a40';
+  c.lineWidth = 0.55;
+  c.beginPath(); c.moveTo(fy * 4.3, -fx * 4.3); c.lineTo(fy * 5.2, -fx * 5.2 + 0.8); c.stroke();
+}
+
 function drawSoldier(a) {
   if (a.prone > 0) {
     drawProneSoldier(a);
@@ -4461,7 +5606,9 @@ function drawSoldier(a) {
 
   // ---- weapon: silhouette varies by class
   const gunLen = a.t.gun;
-  if (a.t.flame) {
+  if (type === 'eflame') {
+    drawFlammenwerfer(c, fx, fy, gunLen, a.face, a.flameT > 0);
+  } else if (type === 'flamer') {
     // M2 flamethrower wand — heat shield, grip, bell nozzle, fuel hose
     const tipX = fx * gunLen, tipY = fy * gunLen;
     c.strokeStyle = '#3a3830';
@@ -4684,56 +5831,34 @@ function drawSoldier(a) {
     c.fillStyle = '#1c1c16';
     c.beginPath(); c.arc(fx * (gunLen - 0.5), fy * (gunLen - 0.5), 1, 0, 7); c.fill();
   } else if (type === 'egren') {
-    drawKar98k(c, fx, fy, gunLen, a.face, true);
+    drawKar98kGrenadier(c, fx, fy, gunLen, a.face);
+  } else if (type === 'erifle') {
+    drawKar98kRifleman(c, fx, fy, gunLen, a.face);
   } else if (isRifle) {
-    if (us) drawM1Garand(c, fx, fy, gunLen, a.face);
-    else drawKar98k(c, fx, fy, gunLen, a.face, false);
-  } else if (isSniper) {
-    drawScopedRifle(c, fx, fy, gunLen, a.face, us);
-  } else if (isOfficer || isMortar) {
+    drawM1Garand(c, fx, fy, gunLen, a.face);
+  } else if (type === 'esniper') {
+    drawKar98kSniper(c, fx, fy, gunLen, a.face);
+  } else if (type === 'esmg') {
+    drawMP40(c, fx, fy, gunLen, a.face);
+  } else if (type === 'sniper') {
+    drawScopedRifle(c, fx, fy, gunLen, a.face, true);
+  } else if (type === 'emg') {
+    drawMG42(c, fx, fy, gunLen, a.face);
+  } else if (type === 'eoff') {
+    drawSidearm(c, fx, fy, gunLen, a.face, false);
+  } else if (type === 'officer' || isMortar) {
     drawSidearm(c, fx, fy, gunLen, a.face, us);
   } else {
     c.strokeStyle = '#26261e';
-    c.lineWidth = isEmg ? 3.4 : isSMG ? 2.6 : 2;
+    c.lineWidth = isSMG ? 2.6 : 2;
     c.beginPath();
     c.moveTo(fx * 2, fy * 2);
     c.lineTo(fx * gunLen, fy * gunLen);
     c.stroke();
   }
-  if (isEmg) {
-    // MG42: vented shroud, belt feed, tripod
-    c.strokeStyle = '#3a3a30';
-    c.lineWidth = 0.9;
-    for (let t = 0.28; t <= 0.72; t += 0.14) {
-      const sx = fx * (gunLen * t), sy = fy * (gunLen * t);
-      c.beginPath();
-      c.moveTo(sx - fy * 1.6, sy + fx * 1.6);
-      c.lineTo(sx + fy * 1.6, sy - fx * 1.6);
-      c.stroke();
-    }
-    c.strokeStyle = '#6b5a38';
-    c.lineWidth = 1.2;
-    c.beginPath();
-    c.moveTo(-fy * 7.5, fx * 7.5);
-    c.quadraticCurveTo(fx * 2 - fy * 3.5, fy * 2 + fx * 3.5, fx * 3.2, fy * 3.2);
-    c.stroke();
-    c.fillStyle = '#3a3828';
-    c.beginPath(); c.arc(-fy * 6.5, fx * 6.5, 2.2, 0, 7); c.fill();
+  if (type === 'engineer') {
+    // M3 grease gun — box magazine hanging under the receiver
     c.strokeStyle = '#26261e';
-    c.lineWidth = 1.3;
-    const tipX = fx * gunLen, tipY = fy * gunLen;
-    for (const ang of [-0.9, 0, 0.9]) {
-      c.beginPath();
-      c.moveTo(tipX, tipY);
-      c.lineTo(
-        tipX + Math.cos(a.face + ang + 0.38) * 5.5,
-        tipY + Math.sin(a.face + ang + 0.38) * 5.5,
-      );
-      c.stroke();
-    }
-  }
-  if (isSMG) {
-    // box magazine hanging under the gun
     c.lineWidth = 2.4;
     c.beginPath();
     c.moveTo(fx * (a.t.gun * 0.55), fy * (a.t.gun * 0.55));
@@ -4748,14 +5873,37 @@ function drawSoldier(a) {
   c.fillStyle = a.t.color;
   c.beginPath(); c.ellipse(0, 0, bodyW, bodyH, a.face, 0, 7); c.fill();
   if (isOfficer) {
-    c.fillStyle = us ? '#5a6048' : '#4a4a42';
-    c.beginPath(); c.ellipse(fx * 0.8, fy * 0.8, bodyW - 0.8, bodyH - 0.4, a.face, 0, 7); c.fill();
-    c.strokeStyle = us ? '#7a8068' : '#5a5a52';
-    c.lineWidth = 0.9;
-    c.beginPath();
-    c.moveTo(-fy * 2.2, fx * 2.2);
-    c.lineTo(fy * 2.2, -fx * 2.2);
-    c.stroke();
+    if (us) {
+      c.fillStyle = '#5a6048';
+      c.beginPath(); c.ellipse(fx * 0.8, fy * 0.8, bodyW - 0.8, bodyH - 0.4, a.face, 0, 7); c.fill();
+      c.strokeStyle = '#7a8068';
+      c.lineWidth = 0.9;
+      c.beginPath();
+      c.moveTo(-fy * 2.2, fx * 2.2);
+      c.lineTo(fy * 2.2, -fx * 2.2);
+      c.stroke();
+    } else {
+      c.fillStyle = '#4a4840';
+      c.beginPath(); c.ellipse(fx * 0.8, fy * 0.8, bodyW - 0.8, bodyH - 0.4, a.face, 0, 7); c.fill();
+      c.fillStyle = '#8a8880';
+      c.beginPath(); c.ellipse(fx * 3.2, fy * 3.2, 2.2, 1.2, a.face, 0, 7); c.fill();
+      c.beginPath(); c.ellipse(-fx * 3.2, fy * 3.2, 2.2, 1.2, a.face, 0, 7); c.fill();
+      c.fillStyle = '#c8c8c0';
+      c.fillRect(fx * 3.2 - 0.3, fy * 3.2 - 0.8, 0.6, 1.6);
+      c.fillRect(-fx * 3.2 - 0.3, fy * 3.2 - 0.8, 0.6, 1.6);
+      c.strokeStyle = '#6a6860';
+      c.lineWidth = 0.65;
+      c.beginPath();
+      c.moveTo(-fy * 1.2, fx * 1.2 - 1);
+      c.quadraticCurveTo(0, fx * 1.2 - 2, fy * 1.2, fx * 1.2 - 1);
+      c.stroke();
+      c.strokeStyle = '#5a5a52';
+      c.lineWidth = 0.9;
+      c.beginPath();
+      c.moveTo(-fy * 2.2, fx * 2.2);
+      c.lineTo(fy * 2.2, -fx * 2.2);
+      c.stroke();
+    }
   }
   if (isShotgun) {
     // steel chest plate, heavy pauldrons, riveted breastplate
@@ -4775,7 +5923,27 @@ function drawSoldier(a) {
     c.lineWidth = 0.9;
     c.beginPath(); c.moveTo(-fy * 2.5, fx * 2.5); c.lineTo(fy * 2.5, -fx * 2.5); c.stroke();
   }
-  if (isFlamer) {
+  if (type === 'eflame') {
+    // Flam Panzer — asbestos suit with segmented steel plates and scorch marks
+    c.fillStyle = '#3a3834';
+    c.beginPath(); c.ellipse(fx * 1.3, fy * 1.3, 6.4, 5.4, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#2a2824';
+    c.lineWidth = 1;
+    c.stroke();
+    c.strokeStyle = '#5a5a50';
+    c.lineWidth = 0.75;
+    for (const off of [-1.6, 0, 1.6]) {
+      c.beginPath();
+      c.moveTo(-fy * 3.2 + off * fx * 0.25, fx * 3.2 + off * fy * 0.25);
+      c.lineTo(fy * 2.4 + off * fx * 0.25, -fx * 2.4 + off * fy * 0.25);
+      c.stroke();
+    }
+    c.fillStyle = '#4a4840';
+    c.beginPath(); c.ellipse(fx * 0.6, fy * 0.6 - 3.2, 4.6, 2.1, a.face, 0, 7); c.fill();
+    c.fillStyle = 'rgba(42,34,26,0.38)';
+    c.beginPath(); c.ellipse(-fy * 4.6, fx * 4.6, 2.2, 2.8, a.face, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(fy * 4.6, -fx * 4.6, 2.2, 2.8, a.face, 0, 7); c.fill();
+  } else if (type === 'flamer') {
     // flak vest — steel plate over the torso, heavier than a rifleman's kit
     c.fillStyle = '#4a4e42';
     c.beginPath(); c.ellipse(fx * 1.4, fy * 1.4, 6.2, 5.2, a.face, 0, 7); c.fill();
@@ -4789,7 +5957,27 @@ function drawSoldier(a) {
     c.lineWidth = 0.8;
     c.beginPath(); c.moveTo(-fy * 3, fx * 3); c.lineTo(fy * 3, -fx * 3); c.stroke();
   }
-  if (isSniper) {
+  if (type === 'emg') {
+    // Hüftschützer belt apron and ammunition harness for the MG42 crew
+    c.fillStyle = '#424038';
+    c.beginPath(); c.ellipse(fx * 1.2, fy * 1.2, 6.5, 5.4, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#2e2c28';
+    c.lineWidth = 0.9;
+    c.stroke();
+    c.strokeStyle = '#6a5a42';
+    c.lineWidth = 1.35;
+    c.beginPath();
+    c.moveTo(-fy * 4.5 - fx * 1.2, fx * 4.5 - fy * 1.2);
+    c.lineTo(fy * 4.5 - fx * 1.2, -fx * 4.5 - fy * 1.2);
+    c.stroke();
+    c.fillStyle = '#5a5a50';
+    c.beginPath(); c.ellipse(-fy * 4.8, fx * 4.8, 2.4, 3, a.face, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(fy * 4.8, -fx * 4.8, 2.4, 3, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#3a3e34';
+    c.lineWidth = 0.75;
+    c.beginPath(); c.moveTo(-fy * 2.8, fx * 2.8); c.lineTo(fy * 2.8, -fx * 2.8); c.stroke();
+  }
+  if (type === 'sniper') {
     // ghillie scrim — burlap patches and grass tufts
     c.fillStyle = 'rgba(30,36,22,0.55)';
     for (const [px, py, rx, ry, rot] of [[-2, 1.5, 2.4, 1.5, 0.5], [2.5, -1, 2, 1.3, -0.7], [0.5, 3, 1.7, 1.1, 0.2],
@@ -4819,6 +6007,9 @@ function drawSoldier(a) {
       c.fillRect(off - 0.6, 4.5, 1.2, 2.2);
     }
   }
+  if (type === 'esniper') {
+    drawEsniperKit(c, fx, fy, a.face);
+  }
   if (isBar) {
     // ammo bandolier, spare BAR mags, and sling across the chest
     c.strokeStyle = '#8a7a48';
@@ -4844,27 +6035,62 @@ function drawSoldier(a) {
     c.quadraticCurveTo(0, 5.5, fy * 3.5, -fx * 3.5);
     c.stroke();
   }
-  if (isEmg) {
-    // belt box and spare links across the chest
-    c.fillStyle = '#3a3828';
-    c.beginPath(); c.ellipse(-fy * 4.5, fx * 4.5, 2.6, 3.2, a.face, 0, 7); c.fill();
-    c.strokeStyle = '#4a4a3e';
-    c.lineWidth = 1.4;
+  if (type === 'esmg') {
+    // assault smock and collar Litzen — close-quarters stormtrooper loadout
+    c.fillStyle = '#3e3c34';
+    c.beginPath(); c.ellipse(fx * 1.1, fy * 1.1, 6.8, 5.6, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#2e2c28';
+    c.lineWidth = 0.85;
+    c.stroke();
+    c.fillStyle = '#4a4a42';
+    c.beginPath(); c.ellipse(fx * 2.5, fy * 2.5, 1.7, 1.1, a.face, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(-fx * 2.5, fy * 2.5, 1.7, 1.1, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#b8261c';
+    c.lineWidth = 0.85;
     c.beginPath();
-    c.moveTo(-fy * 5 - fx * 1.5, fx * 5 - fy * 1.5);
-    c.lineTo(fy * 4.5 - fx * 1.5, -fx * 4.5 - fy * 1.5);
+    c.moveTo(-fy * 4.8, fx * 4.8 - 1.2);
+    c.lineTo(-fy * 4.8, fx * 4.8 + 1.2);
     c.stroke();
   }
-  if (type === 'esmg') {
-    // stormtrooper y-straps
-    c.strokeStyle = '#3c3c33';
-    c.lineWidth = 1.2;
-    c.beginPath(); c.moveTo(-3, -3); c.lineTo(0, 2); c.lineTo(3, -3); c.stroke();
+  if (type === 'erifle') {
+    // collar Litzen tabs and tunic fold
+    c.fillStyle = '#4a4a42';
+    c.beginPath(); c.ellipse(fx * 2.5, fy * 2.5, 1.8, 1.2, a.face, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(-fx * 2.5, fy * 2.5, 1.8, 1.2, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#3a3a34';
+    c.lineWidth = 0.7;
+    c.beginPath(); c.moveTo(-fy * 1.5, fx * 1.5); c.lineTo(fy * 1.5, -fx * 1.5); c.stroke();
+  }
+  if (type === 'erifle') {
+    // loader's apron and heavy gloves for the GrW crew
+    c.fillStyle = '#46443c';
+    c.beginPath(); c.ellipse(fx * 1.2, fy * 1.2, 6.4, 5.4, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#2e2c28';
+    c.lineWidth = 0.9;
+    c.stroke();
+    c.fillStyle = '#3a3830';
+    c.beginPath(); c.ellipse(fx * 4.5, fy * 4.5, 1.8, 2.2, a.face, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(-fx * 3.5, fy * 3.5, 1.6, 2, a.face, 0, 7); c.fill();
+  }
+  if (type === 'egren') {
+    // reinforced web vest and hazard cross — carries a heavy explosive load
+    c.fillStyle = '#4a4e42';
+    c.beginPath(); c.ellipse(fx * 1.2, fy * 1.2, 6.4, 5.4, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#2e3228';
+    c.lineWidth = 1;
+    c.stroke();
+    c.strokeStyle = '#8a3830';
+    c.lineWidth = 0.9;
+    c.beginPath(); c.moveTo(-fy * 2, fx * 2); c.lineTo(fy * 2, -fx * 2); c.stroke();
+    c.beginPath(); c.moveTo(fy * 2, fx * 2); c.lineTo(-fy * 2, -fx * 2); c.stroke();
   }
 
   // ---- class kit
-  if (isRifle) {
-    drawRiflemanKit(c, fx, fy, a.face, us);
+  if (type === 'rifleman') {
+    drawRiflemanKit(c, fx, fy, a.face, true);
+  }
+  if (type === 'erifle') {
+    drawErifleKit(c, fx, fy, a.face);
   }
   if (isShotgun) {
     // 12-gauge bandolier and shell loops on the belt
@@ -4907,25 +6133,31 @@ function drawSoldier(a) {
     c.strokeRect(-5.8, 4.8, 3.2, 2.4);
   }
   if (type === 'egren') {
-    // stick grenades on the belt and tucked into the boot
-    drawStickGrenade(c, -6.2, 1.8, 0.85, a.face - 0.35);
-    drawStickGrenade(c, -3.8, 4.8, 0.78, a.face + 0.15);
-    drawStickGrenade(c, 4.5, 3.2, 0.72, a.face + 0.85);
-    c.strokeStyle = '#3c3c33';
-    c.lineWidth = 1.3;
-    c.beginPath(); c.moveTo(-5, 3.5); c.lineTo(5, 3.5); c.stroke();
-    c.fillStyle = '#4a4a40';
-    c.beginPath(); c.ellipse(-fy * 4.2, fx * 4.2, 2, 2.4, a.face, 0, 7); c.fill();
+    drawEgrenKit(c, fx, fy, a.face);
+  }
+  if (type === 'esmg') {
+    drawEsmgKit(c, fx, fy, a.face);
+  }
+  if (type === 'emg') {
+    drawEmgKit(c, fx, fy, a.face);
   }
   if (a.t.rocket) {
-    // launcher tube across the shoulders, open ends visible
+    // launcher tube slung across the shoulders
     c.strokeStyle = '#5a5c42';
     c.lineWidth = 3.2;
     c.beginPath(); c.moveTo(-8, -4); c.lineTo(8, -6.5); c.stroke();
     c.fillStyle = '#1c1c16';
     c.beginPath(); c.arc(8, -6.5, 1.6, 0, 7); c.fill();
+    if (type === 'bazooka') {
+      c.strokeStyle = '#4a4a40';
+      c.lineWidth = 0.8;
+      c.beginPath(); c.moveTo(-4, -5); c.lineTo(4, -5.8); c.stroke();
+    }
   }
-  if (a.t.mortar) {
+  if (a.t.mortar && type === 'emortar') {
+    const tube = drawGranatwerferTube(c, a.face, fx, fy, a.mortarFireT || 0);
+    drawEmortarKit(c, fx, fy, a.face, tube);
+  } else if (a.t.mortar) {
     const tube = drawMortarTube(c, a.face, fx, fy, a.mortarFireT || 0);
     // wooden ammo crate beside the baseplate
     c.fillStyle = '#5a4a38';
@@ -4956,10 +6188,15 @@ function drawSoldier(a) {
     c.lineWidth = 0.5;
     c.beginPath(); c.moveTo(-fy * 4.8 - 1.5, fx * 4.8); c.lineTo(-fy * 4.8 + 1, fx * 4.8 + 1.2); c.stroke();
   }
-  if (isOfficer) {
-    drawOfficerKit(c, fx, fy, a.face, us);
+  if (type === 'officer') {
+    drawOfficerKit(c, fx, fy, a.face, true);
   }
-  if (a.t.flame) {
+  if (type === 'eoff') {
+    drawEoffKit(c, fx, fy, a.face);
+  }
+  if (type === 'eflame') {
+    drawEflameKit(c, fx, fy, a.face);
+  } else if (type === 'flamer') {
     // twin fuel tanks on the back — metal cylinders, straps, warning stripe
     const tankX = -6.2;
     for (const [ty, fill, cap] of [[-2.2, '#7a4828', '#4a4038'], [2.8, '#3a3c30', '#323028']]) {
@@ -4983,13 +6220,40 @@ function drawSoldier(a) {
   }
 
   // ---- headgear
-  if (isOfficer) {
-    drawOfficerCap(c, fx, fy, us);
-  } else if (isSniper) {
-    // ghillie hood — dark scrim with leaf fringe
-    c.fillStyle = us ? '#2e3823' : '#3f3f34';
+  if (type === 'eoff') {
+    drawEoffCap(c, fx, fy);
+  } else if (type === 'officer') {
+    drawOfficerCap(c, fx, fy, true);
+  } else if (type === 'esniper') {
+    // helmet with oak-leaf cover and foliage loops
+    c.fillStyle = '#3f3f34';
     c.beginPath(); c.arc(0, -1, 4.0, 0, 7); c.fill();
-    c.strokeStyle = us ? 'rgba(48,58,32,0.75)' : 'rgba(52,52,44,0.75)';
+    c.fillStyle = 'rgba(58,52,40,0.55)';
+    for (let i = 0; i < 6; i++) {
+      const ang = i * Math.PI / 3 + 0.15;
+      c.beginPath();
+      c.ellipse(Math.cos(ang) * 2.8, -1 + Math.sin(ang) * 2.8, 1.1, 1.6, ang, 0, 7);
+      c.fill();
+    }
+    c.strokeStyle = 'rgba(72,64,48,0.65)';
+    c.lineWidth = 0.65;
+    for (let i = 0; i < 5; i++) {
+      const ang = i * Math.PI / 2.5 + 0.3;
+      c.beginPath();
+      c.moveTo(Math.cos(ang) * 3, -1 + Math.sin(ang) * 3);
+      c.lineTo(Math.cos(ang) * 4.5, -1 + Math.sin(ang) * 4.5);
+      c.stroke();
+    }
+    const hx = -fx * 2.3, hy = -1 + fy * 2.3;
+    c.strokeStyle = 'rgba(200,198,180,0.7)';
+    c.lineWidth = 0.55;
+    c.beginPath(); c.moveTo(hx - 1, hy); c.lineTo(hx + 1, hy); c.stroke();
+    c.beginPath(); c.moveTo(hx, hy - 1); c.lineTo(hx, hy + 1); c.stroke();
+  } else if (type === 'sniper') {
+    // ghillie hood — dark scrim with leaf fringe
+    c.fillStyle = '#2e3823';
+    c.beginPath(); c.arc(0, -1, 4.0, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(48,58,32,0.75)';
     c.lineWidth = 0.75;
     for (let i = 0; i < 8; i++) {
       const ang = i * Math.PI / 4 + 0.2;
@@ -4998,7 +6262,7 @@ function drawSoldier(a) {
       c.lineTo(Math.cos(ang) * 4.8, -1 + Math.sin(ang) * 4.8);
       c.stroke();
     }
-    c.fillStyle = us ? 'rgba(55,65,38,0.5)' : 'rgba(50,50,42,0.5)';
+    c.fillStyle = 'rgba(55,65,38,0.5)';
     c.beginPath(); c.ellipse(-fx * 2.5, -1 + fy * 2.5, 1.4, 1.8, a.face, 0, 7); c.fill();
   } else if (type === 'medic') {
     // white helmet with the red cross
@@ -5020,16 +6284,98 @@ function drawSoldier(a) {
       c.fillStyle = 'rgba(230,228,210,0.85)';
       c.beginPath(); c.arc(-fx * 2.8, -1 + fy * 2.8, 1.6, 0, 7); c.fill();
     }
+    if (type === 'egren') {
+      // white stick-grenade stencil on the helmet side
+      const hx = -fx * 2.5, hy = -1 + fy * 2.5;
+      c.strokeStyle = 'rgba(230,228,210,0.88)';
+      c.lineWidth = 0.95;
+      c.beginPath(); c.moveTo(hx, hy - 1.8); c.lineTo(hx, hy + 1.4); c.stroke();
+      c.fillStyle = 'rgba(230,228,210,0.88)';
+      c.beginPath(); c.arc(hx, hy - 2, 1.05, 0, 7); c.fill();
+      c.strokeStyle = 'rgba(200,198,180,0.7)';
+      c.lineWidth = 0.55;
+      c.beginPath(); c.arc(hx, hy - 2, 1.05, 0, 7); c.stroke();
+    }
+    if (type === 'emg') {
+      // white crossed cartridge belts — MG42 team stencil
+      const mx = -fx * 2.35, my = -1 + fy * 2.35;
+      c.strokeStyle = 'rgba(230,228,210,0.88)';
+      c.lineWidth = 0.85;
+      c.beginPath();
+      c.moveTo(mx - 1.2, my - 1.2); c.lineTo(mx + 1.2, my + 1.2);
+      c.moveTo(mx + 1.2, my - 1.2); c.lineTo(mx - 1.2, my + 1.2);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(mx - 0.8, my - 1.5); c.lineTo(mx - 0.8, my + 1.5);
+      c.moveTo(mx + 0.8, my - 1.5); c.lineTo(mx + 0.8, my + 1.5);
+      c.stroke();
+    }
+    if (type === 'eflame') {
+      // orange flame stencil on the helmet — Flammenwerfer section
+      const fx2 = -fx * 2.35, fy2 = -1 + fy * 2.35;
+      c.fillStyle = 'rgba(255,120,40,0.9)';
+      c.beginPath();
+      c.moveTo(fx2 - 0.3, fy2 + 1.5);
+      c.quadraticCurveTo(fx2 + 0.2, fy2 - 0.2, fx2 + 0.5, fy2 - 1.6);
+      c.quadraticCurveTo(fx2 + 0.9, fy2 - 0.3, fx2 + 0.6, fy2 + 1.5);
+      c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(230,180,80,0.7)';
+      c.lineWidth = 0.55;
+      c.stroke();
+    }
+    if (type === 'esmg') {
+      // white lightning bolt — assault stormtrooper stencil
+      const lx = -fx * 2.4, ly = -1 + fy * 2.4;
+      c.strokeStyle = 'rgba(230,228,210,0.9)';
+      c.lineWidth = 1.05;
+      c.beginPath();
+      c.moveTo(lx - 0.4, ly - 1.8);
+      c.lineTo(lx + 0.5, ly - 0.2);
+      c.lineTo(lx - 0.1, ly - 0.2);
+      c.lineTo(lx + 0.6, ly + 1.8);
+      c.stroke();
+      c.fillStyle = 'rgba(230,228,210,0.85)';
+      c.beginPath(); c.arc(-fx * 2.8, -1 + fy * 2.8, 1.4, 0, 7); c.fill();
+    }
+    if (type === 'erifle') {
+      // national shield decal and eagle on the helmet
+      const sx = -fx * 2.2, sy = -1 + fy * 2.2;
+      c.fillStyle = 'rgba(200,198,180,0.78)';
+      c.beginPath(); c.ellipse(sx, sy, 1.05, 1.35, a.face, 0, 7); c.fill();
+      c.strokeStyle = 'rgba(60,58,48,0.55)';
+      c.lineWidth = 0.5;
+      c.stroke();
+      c.strokeStyle = 'rgba(50,48,40,0.72)';
+      c.lineWidth = 0.65;
+      c.beginPath();
+      c.moveTo(sx - 0.6, sy - 0.8);
+      c.quadraticCurveTo(sx + 0.2, sy - 1.4, sx + 0.9, sy - 0.5);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(sx - 0.3, sy - 0.6); c.lineTo(sx + 0.5, sy - 0.2); c.stroke();
+    }
     if (isShotgun) {
       // steel chin strap — keeps the helmet on under recoil
       c.strokeStyle = '#4a4a40';
       c.lineWidth = 1.1;
       c.beginPath(); c.moveTo(-2.8, 1.5); c.lineTo(0, 3.8); c.lineTo(2.8, 1.5); c.stroke();
     }
-    if (isMortar) {
+    if (type === 'mortarman') {
       // red armband — mortar section identifier
       c.fillStyle = '#b8261c';
       c.beginPath(); c.ellipse(-fy * 4.2, fx * 4.2, 1.8, 2.4, a.face, 0, 7); c.fill();
+    }
+    if (type === 'emortar') {
+      // white falling bomb stencil — Granatwerfer section
+      const mx = -fx * 2.4, my = -1 + fy * 2.4;
+      c.fillStyle = 'rgba(230,228,210,0.85)';
+      c.beginPath(); c.arc(mx, my - 1.2, 0.9, 0, 7); c.fill();
+      c.strokeStyle = 'rgba(230,228,210,0.85)';
+      c.lineWidth = 0.85;
+      c.beginPath(); c.moveTo(mx, my - 0.3); c.lineTo(mx, my + 1.6); c.stroke();
+      c.beginPath();
+      c.moveTo(mx - 0.7, my + 1.2); c.lineTo(mx, my + 1.8); c.lineTo(mx + 0.7, my + 1.2);
+      c.stroke();
     }
     if (isRifle) {
       c.strokeStyle = 'rgba(30,36,22,0.38)';
@@ -5062,7 +6408,7 @@ function drawSoldier(a) {
     c.lineWidth = 1;
     c.beginPath(); c.moveTo(-2.5, 0.5); c.lineTo(-3.5, 2.5); c.stroke();
   }
-  if (isEmg) {
+  if (type === 'emg') {
     // MG team y-straps and chin strap
     c.strokeStyle = '#3c3c33';
     c.lineWidth = 1.1;
@@ -5092,7 +6438,11 @@ function drawSoldier(a) {
     c.strokeStyle = a.t.color;
     c.lineWidth = 2.4;
     c.beginPath(); c.moveTo(0, 0); c.lineTo(ax, ay); c.stroke();
-    drawMortarRound(c, ax + Math.cos(arm) * 1.8, ay + Math.sin(arm) * 1.8, 0.85, arm + Math.PI / 2);
+    if (type === 'emortar') {
+      drawGrw81Round(c, ax + Math.cos(arm) * 2, ay + Math.sin(arm) * 2, 0.9, arm + Math.PI / 2);
+    } else {
+      drawMortarRound(c, ax + Math.cos(arm) * 1.8, ay + Math.sin(arm) * 1.8, 0.85, arm + Math.PI / 2);
+    }
   }
 
   c.restore();
@@ -5852,6 +7202,22 @@ function drawSandbag(s) {
   ctx.restore();
 }
 
+function drawDecorSandbag(cx, cy, rx, ry) {
+  ctx.fillStyle = '#8a7a50';
+  ctx.strokeStyle = '#6e6040';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, 7);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(90,78,48,0.55)';
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(cx - rx * 0.55, cy);
+  ctx.lineTo(cx + rx * 0.55, cy);
+  ctx.stroke();
+}
+
 function drawBunker(b) {
   ctx.save();
   ctx.translate(b.x, b.y);
@@ -5903,6 +7269,16 @@ function drawBunker(b) {
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(14, -14); ctx.lineTo(10, -2); ctx.lineTo(16, 6); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(-18, 2); ctx.stroke();
+  }
+  if (b.up) {
+    // engineer breastwork — decorative sandbags stacked in front of the pillbox
+    ctx.fillStyle = 'rgba(0,0,0,0.14)';
+    ctx.beginPath(); ctx.ellipse(0, -18, 23, 6, 0, 0, 7); ctx.fill();
+    drawDecorSandbag(-16, -14, 7, 4);
+    drawDecorSandbag(0, -15, 8, 4.5);
+    drawDecorSandbag(16, -14, 7, 4);
+    drawDecorSandbag(-9, -20, 6.5, 3.8);
+    drawDecorSandbag(9, -20, 6.5, 3.8);
   }
   ctx.restore();
 }
@@ -6198,7 +7574,7 @@ function drawPlacementDefenseGhost(key, x, y, valid) {
   withPlacementGhostFilter(valid, () => {
     if (key === 'wire') drawWire({ x, y, up: false });
     else if (key === 'sandbags') drawSandbag({ x, y, up: false });
-    else if (key === 'bunker') drawBunker({ x, y, up: false, hp: 2400, maxhp: 2400 });
+    else if (key === 'bunker') drawBunker({ x, y, up: false, hp: BUNKER_HP, maxhp: BUNKER_HP });
     else if (key === 'mine') drawMine({ x, y, dead: false });
   });
 }
@@ -6945,9 +8321,9 @@ function place(p, x, y) {
       scheduleShell(x + rand(-80, 80), y + rand(-65, 65), 1.6 + i * 0.5, 50, 95, true);
     }
   } else if (p.key === 'sandbags') {
-    G.sandbags.push({ x, y, hp: 330, maxhp: 330, up: false, workProg: 0 });
+    G.sandbags.push({ x, y, hp: SANDBAG_HP, maxhp: SANDBAG_HP, up: false, workProg: 0 });
   } else if (p.key === 'bunker') {
-    G.bunkers.push({ x, y, hp: 2400, maxhp: 2400, up: false, workProg: 0 });
+    G.bunkers.push({ x, y, hp: BUNKER_HP, maxhp: BUNKER_HP, up: false, workProg: 0 });
   } else if (p.key === 'wire') {
     G.wires.push({ x, y, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
   } else if (p.key === 'mine') {

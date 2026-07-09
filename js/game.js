@@ -361,7 +361,8 @@ const ENDLESS_DIFFICULTIES = {
 // so a level's final assault always has the biggest budget. Unused TP never
 // carries over — spend it or lose it.
 function axisWavePayout(level, wave) {
-  return level.wavePayout + (level.wavePayoutStep || 0) * (wave - 1);
+  const base = level.wavePayout + (level.wavePayoutStep || 0) * (wave - 1);
+  return Math.round(base * 1.15);
 }
 
 // US defender placement helpers for the Axis campaign setups (hoisted).
@@ -371,6 +372,28 @@ function usWire(G, x, y, hp = 3750)  { G.wires.push({ x, y, hp, maxhp: hp, up: f
 function usMine(G, x, y)             { G.mines.push({ x, y, dead: false }); }
 function usMan(G, type, x, y)        { G.units.push(makeUnit(type, x, y)); }
 function usRow(G, type, y, xs)       { for (const x of xs) G.units.push(makeUnit(type, x, y)); }
+// flank pickets — strength 1–3 scales from a lone sentry to wired gun teams
+function usFlankPicket(G, strength = 1) {
+  const y = 428;
+  for (const left of [true, false]) {
+    const edge = left ? 90 : W - 90;
+    const mid = left ? 165 : W - 165;
+    const far = left ? 55 : W - 55;
+    usBag(G, edge, y - 7);
+    usMan(G, 'rifleman', edge, y);
+    if (strength >= 2) {
+      usWire(G, left ? 115 : W - 115, DEPLOY_Y - 42);
+      usMan(G, 'rifleman', mid, y + 10);
+      usBag(G, mid, y + 3);
+    }
+    if (strength >= 3) {
+      usWire(G, left ? 75 : W - 75, DEPLOY_Y - 48);
+      usMan(G, 'gunner', left ? 130 : W - 130, y + 38);
+      usMan(G, 'rifleman', far, y - 5);
+      usMine(G, left ? 100 : W - 100, H / 2 + 18);
+    }
+  }
+}
 
 const LEVELS = {
   endless: {
@@ -427,7 +450,7 @@ const LEVELS = {
     id: 'axis1',
     name: 'AXIS 1: BREAK THE LINE',
     menuName: 'LEVEL 1 — BREAK THE LINE',
-    menuDesc: 'Your first push. Two waves, a thin American picket. 25 TP the first wave, 35 the second.',
+    menuDesc: 'Your first push. Two waves, a thin American picket. 29 TP the first wave, 40 the second.',
     mode: 'axis',
     winBreaches: 5,
     axisWaves: 2,
@@ -437,10 +460,11 @@ const LEVELS = {
     placeables: AXIS_PLACEABLES,
     briefing: 'Two assault waves against a thin American picket. Fresh TP each wave — spend it or lose it. Get 5 men past the bottom, or wipe the defenders.',
     setup(G) {
-      usBag(G, W / 2 - 70, 435); usBag(G, W / 2 + 70, 435);
-      usWire(G, W / 2, DEPLOY_Y - 30);
-      usRow(G, 'rifleman', 428, [W / 2 - 70, W / 2 + 70]);
+      usBag(G, W / 2 - 105, 435); usBag(G, W / 2 - 35, 435); usBag(G, W / 2 + 35, 435); usBag(G, W / 2 + 105, 435);
+      usWire(G, W / 2 - 70, DEPLOY_Y - 30); usWire(G, W / 2 + 70, DEPLOY_Y - 30);
+      usRow(G, 'rifleman', 428, [W / 2 - 105, W / 2 - 35, W / 2 + 35, W / 2 + 105]);
       usMan(G, 'gunner', W / 2, 485);
+      usFlankPicket(G, 1);
     },
   },
 
@@ -448,7 +472,7 @@ const LEVELS = {
     id: 'axis2',
     name: 'AXIS 2: PROBING ATTACK',
     menuName: 'LEVEL 2 — PROBING ATTACK',
-    menuDesc: 'Three waves. The line has a sniper now and a little wire. Budgets start at 30 TP and grow.',
+    menuDesc: 'Three waves. The line has a sniper now and a little wire. Budgets start at 35 TP and grow.',
     mode: 'axis',
     winBreaches: 5,
     axisWaves: 3,
@@ -458,12 +482,14 @@ const LEVELS = {
     placeables: AXIS_PLACEABLES,
     briefing: 'Three waves against a reinforced picket with a marksman watching the field.',
     setup(G) {
-      usBag(G, W / 2 - 120, 435); usBag(G, W / 2, 435); usBag(G, W / 2 + 120, 435);
-      usWire(G, W / 2 - 90, DEPLOY_Y - 40); usWire(G, W / 2 + 90, DEPLOY_Y - 40);
-      usMine(G, W / 2, H / 2 + 20);
-      usRow(G, 'rifleman', 428, [W / 2 - 120, W / 2, W / 2 + 120]);
-      usMan(G, 'gunner', W / 2 - 60, 490);
+      usBag(G, W / 2 - 180, 435); usBag(G, W / 2 - 90, 435); usBag(G, W / 2, 435);
+      usBag(G, W / 2 + 90, 435); usBag(G, W / 2 + 180, 435);
+      usWire(G, W / 2 - 140, DEPLOY_Y - 40); usWire(G, W / 2, DEPLOY_Y - 45); usWire(G, W / 2 + 140, DEPLOY_Y - 40);
+      usMine(G, W / 2 - 60, H / 2 + 20); usMine(G, W / 2 + 60, H / 2 + 20);
+      usRow(G, 'rifleman', 428, [W / 2 - 180, W / 2 - 90, W / 2, W / 2 + 90, W / 2 + 180]);
+      usMan(G, 'gunner', W / 2 - 60, 490); usMan(G, 'gunner', W / 2 + 60, 490);
       usMan(G, 'sniper', W / 2 + 90, H - 80);
+      usFlankPicket(G, 2);
     },
   },
 
@@ -471,7 +497,7 @@ const LEVELS = {
     id: 'axis3',
     name: 'AXIS 3: COFFEE BREAK',
     menuName: 'LEVEL 3 — COFFEE BREAK ☕',
-    menuDesc: 'Themed: the whole detail is huddled around the coffee urn dead center. The flanks are wide open — just walk around the party.',
+    menuDesc: 'Themed: the whole detail is huddled around the coffee urn dead center. Thin flank sentries — still softer than the middle.',
     mode: 'axis',
     winBreaches: 5,
     axisWaves: 3,
@@ -479,17 +505,19 @@ const LEVELS = {
     wavePayoutStep: 12,
     events: false,
     placeables: AXIS_PLACEABLES,
-    briefing: 'The Americans are on a coffee break, bunched in the middle with mugs in hand. Nobody is watching the flanks. Go wide.',
+    briefing: 'The Americans are on a coffee break, bunched in the middle with mugs in hand. Flank sentries are half asleep — the center is still the hard knot.',
     setup(G) {
       const cx = W / 2;
-      // everybody crowded around the urn, dead center — flanks unguarded
+      // everybody crowded around the urn, dead center — flanks thin but not empty
       usBag(G, cx - 40, 450); usBag(G, cx + 40, 450); usBag(G, cx, 505);
       usRow(G, 'rifleman', 470, [cx - 45, cx, cx + 45]);
       usMan(G, 'gunner', cx, 512);
       usMan(G, 'shotgunner', cx - 30, 522);
       usMan(G, 'medic', cx + 30, 522);
-      // one lone, bewildered sentry on a single flank
-      usMan(G, 'rifleman', 120, 440);
+      // distracted flank sentries — easy to beat but they will shoot
+      usMan(G, 'rifleman', 110, 440);
+      usMan(G, 'rifleman', W - 110, 440);
+      usWire(G, 130, DEPLOY_Y - 38); usWire(G, W - 130, DEPLOY_Y - 38);
     },
   },
 
@@ -507,14 +535,15 @@ const LEVELS = {
     placeables: AXIS_PLACEABLES,
     briefing: 'A bunkered crossroads held in strength. Four waves to crack it.',
     setup(G) {
-      usBag(G, W / 2 - 150, 435); usBag(G, W / 2 - 50, 435); usBag(G, W / 2 + 50, 435); usBag(G, W / 2 + 150, 435);
+      for (const x of [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]) usBag(G, x, 435);
       usBunker(G, W / 2, DEPLOY_Y + 80);
-      usWire(G, W / 2 - 110, DEPLOY_Y - 45); usWire(G, W / 2 + 110, DEPLOY_Y - 45);
-      usMine(G, W / 2 - 180, H / 2 + 15); usMine(G, W / 2 + 180, H / 2 + 15);
-      usRow(G, 'rifleman', 428, [W / 2 - 150, W / 2 - 50, W / 2 + 50, W / 2 + 150]);
+      usWire(G, W / 2 - 170, DEPLOY_Y - 45); usWire(G, W / 2 - 55, DEPLOY_Y - 50);
+      usWire(G, W / 2 + 55, DEPLOY_Y - 50); usWire(G, W / 2 + 170, DEPLOY_Y - 45);
+      usMine(G, W / 2 - 200, H / 2 + 15); usMine(G, W / 2 + 200, H / 2 + 15);
+      usRow(G, 'rifleman', 428, [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]);
       usMan(G, 'gunner', W / 2, DEPLOY_Y + 80);
-      usMan(G, 'sniper', W / 2 - 120, H - 80);
-      usMan(G, 'medic', W / 2 + 120, H - 80);
+      usMan(G, 'sniper', W / 2 - 120, H - 80); usMan(G, 'sniper', W / 2 + 120, H - 80);
+      usFlankPicket(G, 2);
     },
   },
 
@@ -532,13 +561,15 @@ const LEVELS = {
     placeables: AXIS_PLACEABLES,
     briefing: 'A deep line of infantry with medics in support. No cleverness — just outweigh them.',
     setup(G) {
-      for (const x of [W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200]) usBag(G, x, 435);
-      usWire(G, W / 2 - 130, DEPLOY_Y - 45); usWire(G, W / 2, DEPLOY_Y - 55); usWire(G, W / 2 + 130, DEPLOY_Y - 45);
-      usMine(G, W / 2 - 90, H / 2 + 20); usMine(G, W / 2 + 90, H / 2 + 20);
-      usRow(G, 'rifleman', 428, [W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200]);
-      usRow(G, 'gunner', 495, [W / 2 - 80, W / 2 + 80]);
-      usMan(G, 'medic', W / 2, H - 70);
-      usMan(G, 'sniper', W / 2 - 160, H - 80);
+      for (const x of [W / 2 - 280, W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200, W / 2 + 280]) usBag(G, x, 435);
+      usWire(G, W / 2 - 180, DEPLOY_Y - 45); usWire(G, W / 2 - 60, DEPLOY_Y - 55);
+      usWire(G, W / 2 + 60, DEPLOY_Y - 55); usWire(G, W / 2 + 180, DEPLOY_Y - 45);
+      usMine(G, W / 2 - 120, H / 2 + 20); usMine(G, W / 2, H / 2 + 20); usMine(G, W / 2 + 120, H / 2 + 20);
+      usRow(G, 'rifleman', 428, [W / 2 - 280, W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200, W / 2 + 280]);
+      usRow(G, 'gunner', 495, [W / 2 - 140, W / 2, W / 2 + 140]);
+      usMan(G, 'medic', W / 2 - 80, H - 70); usMan(G, 'medic', W / 2 + 80, H - 70);
+      usMan(G, 'sniper', W / 2 - 200, H - 80); usMan(G, 'sniper', W / 2 + 200, H - 80);
+      usFlankPicket(G, 2);
     },
   },
 
@@ -558,12 +589,13 @@ const LEVELS = {
     setup(G) {
       usBunker(G, W / 2, DEPLOY_Y + 70);
       usMan(G, 'sherman', W / 2, 470);
-      usMan(G, 'atgun', W / 2 - 200, 440);
-      usBag(G, W / 2 - 120, 435); usBag(G, W / 2 + 120, 435);
-      for (const mx of [W / 2 - 220, W / 2 - 60, W / 2 + 60, W / 2 + 220]) usMine(G, mx, H / 2 + 10);
-      usWire(G, W / 2 - 90, DEPLOY_Y - 45); usWire(G, W / 2 + 90, DEPLOY_Y - 45);
-      usRow(G, 'rifleman', 428, [W / 2 - 120, W / 2 + 120]);
-      usMan(G, 'gunner', W / 2 + 200, 445);
+      usMan(G, 'atgun', W / 2 - 260, 440); usMan(G, 'atgun', W / 2 + 260, 440);
+      usBag(G, W / 2 - 180, 435); usBag(G, W / 2 - 60, 435); usBag(G, W / 2 + 60, 435); usBag(G, W / 2 + 180, 435);
+      for (const mx of [W / 2 - 280, W / 2 - 140, W / 2, W / 2 + 140, W / 2 + 280]) usMine(G, mx, H / 2 + 10);
+      usWire(G, W / 2 - 150, DEPLOY_Y - 45); usWire(G, W / 2, DEPLOY_Y - 50); usWire(G, W / 2 + 150, DEPLOY_Y - 45);
+      usRow(G, 'rifleman', 428, [W / 2 - 180, W / 2 - 60, W / 2 + 60, W / 2 + 180]);
+      usMan(G, 'gunner', W / 2 - 220, 445); usMan(G, 'gunner', W / 2 + 220, 445);
+      usFlankPicket(G, 2);
     },
   },
 
@@ -581,14 +613,16 @@ const LEVELS = {
     placeables: AXIS_PLACEABLES,
     briefing: 'Two bunkers with MG42-killers dug into the ridge. Five waves to storm it.',
     setup(G) {
-      usBunker(G, W / 2 - 140, DEPLOY_Y + 70); usBunker(G, W / 2 + 140, DEPLOY_Y + 70);
-      for (const x of [W / 2 - 210, W / 2 - 70, W / 2 + 70, W / 2 + 210]) usBag(G, x, 435);
-      usWire(G, W / 2 - 130, DEPLOY_Y - 50); usWire(G, W / 2, DEPLOY_Y - 55); usWire(G, W / 2 + 130, DEPLOY_Y - 50);
-      usMine(G, W / 2 - 100, H / 2 + 20); usMine(G, W / 2 + 100, H / 2 + 20);
-      usRow(G, 'rifleman', 428, [W / 2 - 210, W / 2 - 70, W / 2 + 70, W / 2 + 210]);
-      usRow(G, 'gunner', DEPLOY_Y + 70, [W / 2 - 140, W / 2 + 140]);
-      usMan(G, 'sniper', W / 2, H - 80);
-      usMan(G, 'medic', W / 2 - 60, H - 70);
+      usBunker(G, W / 2 - 180, DEPLOY_Y + 70); usBunker(G, W / 2 + 180, DEPLOY_Y + 70);
+      for (const x of [W / 2 - 280, W / 2 - 180, W / 2 - 60, W / 2 + 60, W / 2 + 180, W / 2 + 280]) usBag(G, x, 435);
+      usWire(G, W / 2 - 200, DEPLOY_Y - 50); usWire(G, W / 2 - 70, DEPLOY_Y - 55);
+      usWire(G, W / 2 + 70, DEPLOY_Y - 55); usWire(G, W / 2 + 200, DEPLOY_Y - 50);
+      usMine(G, W / 2 - 130, H / 2 + 20); usMine(G, W / 2 + 130, H / 2 + 20);
+      usRow(G, 'rifleman', 428, [W / 2 - 280, W / 2 - 180, W / 2 - 60, W / 2 + 60, W / 2 + 180, W / 2 + 280]);
+      usRow(G, 'gunner', DEPLOY_Y + 70, [W / 2 - 180, W / 2 + 180]);
+      usMan(G, 'sniper', W / 2 - 100, H - 80); usMan(G, 'sniper', W / 2 + 100, H - 80);
+      usMan(G, 'medic', W / 2 - 60, H - 70); usMan(G, 'medic', W / 2 + 60, H - 70);
+      usFlankPicket(G, 3);
     },
   },
 
@@ -606,14 +640,16 @@ const LEVELS = {
     placeables: AXIS_PLACEABLES,
     briefing: 'A deep line with two medics keeping everyone on their feet. Bleed them white.',
     setup(G) {
-      for (const x of [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]) usBag(G, x, 435);
+      for (const x of [W / 2 - 300, W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220, W / 2 + 300]) usBag(G, x, 435);
       usBunker(G, W / 2, DEPLOY_Y + 80);
-      usWire(G, W / 2 - 130, DEPLOY_Y - 50); usWire(G, W / 2 + 130, DEPLOY_Y - 50);
-      for (const mx of [W / 2 - 160, W / 2, W / 2 + 160]) usMine(G, mx, H / 2 + 15);
-      usRow(G, 'rifleman', 428, [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]);
-      usRow(G, 'gunner', 495, [W / 2 - 90, W / 2 + 90]);
-      usRow(G, 'medic', H - 70, [W / 2 - 120, W / 2 + 120]);
-      usMan(G, 'sniper', W / 2, H - 90);
+      usWire(G, W / 2 - 200, DEPLOY_Y - 50); usWire(G, W / 2 - 70, DEPLOY_Y - 55);
+      usWire(G, W / 2 + 70, DEPLOY_Y - 55); usWire(G, W / 2 + 200, DEPLOY_Y - 50);
+      for (const mx of [W / 2 - 240, W / 2 - 80, W / 2 + 80, W / 2 + 240]) usMine(G, mx, H / 2 + 15);
+      usRow(G, 'rifleman', 428, [W / 2 - 300, W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220, W / 2 + 300]);
+      usRow(G, 'gunner', 495, [W / 2 - 150, W / 2, W / 2 + 150]);
+      usRow(G, 'medic', H - 70, [W / 2 - 180, W / 2 + 180]);
+      usMan(G, 'sniper', W / 2 - 80, H - 90); usMan(G, 'sniper', W / 2 + 80, H - 90);
+      usFlankPicket(G, 3);
     },
   },
 
@@ -631,12 +667,15 @@ const LEVELS = {
     placeables: AXIS_PLACEABLES,
     briefing: 'Five American snipers watch the field and pick off your leaders and gunners first. Rush cheap men through the gaps.',
     setup(G) {
-      usWire(G, W / 2 - 160, DEPLOY_Y - 50); usWire(G, W / 2, DEPLOY_Y - 40); usWire(G, W / 2 + 160, DEPLOY_Y - 50);
-      for (const x of [W / 2 - 150, W / 2 + 150]) usBag(G, x, 435);
-      usRow(G, 'sniper', 470, [W / 2 - 250, W / 2 - 90, W / 2 + 90, W / 2 + 250]);
+      usWire(G, W / 2 - 220, DEPLOY_Y - 50); usWire(G, W / 2 - 80, DEPLOY_Y - 45);
+      usWire(G, W / 2 + 80, DEPLOY_Y - 45); usWire(G, W / 2 + 220, DEPLOY_Y - 50);
+      for (const x of [W / 2 - 280, W / 2 - 150, W / 2 + 150, W / 2 + 280]) usBag(G, x, 435);
+      usRow(G, 'sniper', 470, [90, W / 2 - 250, W / 2 - 90, W / 2 + 90, W / 2 + 250, W - 90]);
       usMan(G, 'sniper', W / 2, H - 90);
-      usRow(G, 'rifleman', 428, [W / 2 - 150, W / 2 + 150]);
+      usRow(G, 'rifleman', 428, [W / 2 - 280, W / 2 - 150, W / 2 + 150, W / 2 + 280]);
+      usRow(G, 'rifleman', 500, [130, W - 130]);
       usMan(G, 'medic', W / 2, 520);
+      usFlankPicket(G, 2);
     },
   },
 
@@ -654,14 +693,16 @@ const LEVELS = {
     placeables: AXIS_PLACEABLES,
     briefing: 'Three bunkers, four belts of wire, and an engineer keeping the wall standing. Six waves to breach it.',
     setup(G) {
-      usBunker(G, W / 2 - 180, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 80); usBunker(G, W / 2 + 180, DEPLOY_Y + 70);
-      for (const x of [W / 2 - 240, W / 2 - 120, W / 2 + 120, W / 2 + 240]) usBag(G, x, 435);
-      for (const wx of [W / 2 - 180, W / 2 - 60, W / 2 + 60, W / 2 + 180]) usWire(G, wx, DEPLOY_Y - 50);
-      for (const mx of [W / 2 - 200, W / 2 - 70, W / 2 + 70, W / 2 + 200]) usMine(G, mx, H / 2 + 15);
-      usRow(G, 'gunner', DEPLOY_Y + 72, [W / 2 - 180, W / 2, W / 2 + 180]);
-      usRow(G, 'rifleman', 428, [W / 2 - 240, W / 2 - 120, W / 2 + 120, W / 2 + 240]);
+      usBunker(G, W / 2 - 220, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 80); usBunker(G, W / 2 + 220, DEPLOY_Y + 70);
+      for (const x of [W / 2 - 300, W / 2 - 200, W / 2 - 100, W / 2 + 100, W / 2 + 200, W / 2 + 300]) usBag(G, x, 435);
+      for (const wx of [W / 2 - 240, W / 2 - 120, W / 2, W / 2 + 120, W / 2 + 240]) usWire(G, wx, DEPLOY_Y - 50);
+      for (const mx of [W / 2 - 280, W / 2 - 140, W / 2, W / 2 + 140, W / 2 + 280]) usMine(G, mx, H / 2 + 15);
+      usRow(G, 'gunner', DEPLOY_Y + 72, [W / 2 - 220, W / 2, W / 2 + 220]);
+      usRow(G, 'rifleman', 428, [W / 2 - 300, W / 2 - 200, W / 2 - 100, W / 2 + 100, W / 2 + 200, W / 2 + 300]);
       usMan(G, 'engineer', W / 2, 520);
-      usMan(G, 'medic', W / 2 - 100, H - 70); usMan(G, 'sniper', W / 2 + 100, H - 80);
+      usMan(G, 'medic', W / 2 - 140, H - 70); usMan(G, 'medic', W / 2 + 140, H - 70);
+      usMan(G, 'sniper', W / 2 - 80, H - 80); usMan(G, 'sniper', W / 2 + 80, H - 80);
+      usFlankPicket(G, 3);
     },
   },
 
@@ -679,13 +720,15 @@ const LEVELS = {
     placeables: AXIS_PLACEABLES,
     briefing: 'Three American mortar crews have the killing ground zeroed. Rush across before the shells find you.',
     setup(G) {
-      for (const x of [W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200]) usBag(G, x, 435);
+      for (const x of [W / 2 - 280, W / 2 - 180, W / 2 - 90, W / 2, W / 2 + 90, W / 2 + 180, W / 2 + 280]) usBag(G, x, 435);
       usBunker(G, W / 2, DEPLOY_Y + 80);
-      usWire(G, W / 2 - 130, DEPLOY_Y - 50); usWire(G, W / 2 + 130, DEPLOY_Y - 50);
-      usRow(G, 'mortarman', H - 60, [W / 2 - 150, W / 2, W / 2 + 150]);
-      usRow(G, 'rifleman', 428, [W / 2 - 150, W / 2, W / 2 + 150]);
-      usRow(G, 'gunner', 495, [W / 2 - 90, W / 2 + 90]);
-      usMan(G, 'medic', W / 2 + 200, H - 70);
+      usWire(G, W / 2 - 200, DEPLOY_Y - 50); usWire(G, W / 2 - 70, DEPLOY_Y - 55);
+      usWire(G, W / 2 + 70, DEPLOY_Y - 55); usWire(G, W / 2 + 200, DEPLOY_Y - 50);
+      usRow(G, 'mortarman', H - 60, [W / 2 - 200, W / 2, W / 2 + 200]);
+      usRow(G, 'rifleman', 428, [W / 2 - 280, W / 2 - 180, W / 2 - 90, W / 2, W / 2 + 90, W / 2 + 180, W / 2 + 280]);
+      usRow(G, 'gunner', 495, [W / 2 - 150, W / 2, W / 2 + 150]);
+      usMan(G, 'medic', W / 2 - 220, H - 70); usMan(G, 'medic', W / 2 + 220, H - 70);
+      usFlankPicket(G, 3);
     },
   },
 
@@ -703,23 +746,20 @@ const LEVELS = {
     placeables: AXIS_PLACEABLES,
     briefing: 'The Americans have thrown one of every unit into the line — riflemen to flamethrowers to a jeep and an AT gun. It is a mess, but a dangerous one.',
     setup(G) {
-      usBunker(G, W / 2, DEPLOY_Y + 80);
-      usBag(G, W / 2 - 160, 435); usBag(G, W / 2 + 160, 435);
-      usWire(G, W / 2 - 110, DEPLOY_Y - 50); usWire(G, W / 2 + 110, DEPLOY_Y - 50);
-      usMine(G, W / 2, H / 2 + 15);
-      usMan(G, 'rifleman', W / 2 - 260, 440);
-      usMan(G, 'gunner', W / 2 - 190, 460);
-      usMan(G, 'grenadier', W / 2 - 120, 480);
-      usMan(G, 'shotgunner', W / 2 - 50, 500);
-      usMan(G, 'bazooka', W / 2 + 30, 500);
-      usMan(G, 'flamer', W / 2 + 110, 480);
-      usMan(G, 'sniper', W / 2 + 190, 460);
-      usMan(G, 'mortarman', W / 2 + 260, 440);
-      usMan(G, 'medic', W / 2 - 40, H - 70);
-      usMan(G, 'engineer', W / 2 + 40, H - 70);
+      usBunker(G, W / 2 - 120, DEPLOY_Y + 80); usBunker(G, W / 2 + 120, DEPLOY_Y + 80);
+      usBag(G, W / 2 - 280, 435); usBag(G, W / 2 - 160, 435); usBag(G, W / 2 + 160, 435); usBag(G, W / 2 + 280, 435);
+      usWire(G, W / 2 - 200, DEPLOY_Y - 50); usWire(G, W / 2, DEPLOY_Y - 55); usWire(G, W / 2 + 200, DEPLOY_Y - 50);
+      usMine(G, W / 2 - 120, H / 2 + 15); usMine(G, W / 2 + 120, H / 2 + 15);
+      usMan(G, 'rifleman', W / 2 - 300, 440); usMan(G, 'rifleman', W / 2 + 300, 440);
+      usMan(G, 'gunner', W / 2 - 220, 460); usMan(G, 'gunner', W / 2 + 220, 460);
+      usMan(G, 'grenadier', W / 2 - 140, 480); usMan(G, 'grenadier', W / 2 + 140, 480);
+      usMan(G, 'shotgunner', W / 2 - 60, 500); usMan(G, 'bazooka', W / 2 + 60, 500);
+      usMan(G, 'flamer', W / 2 - 20, 510); usMan(G, 'sniper', W / 2 + 20, 510);
+      usMan(G, 'mortarman', W / 2 - 80, 455); usMan(G, 'mortarman', W / 2 + 80, 455);
+      usMan(G, 'medic', W / 2 - 100, H - 70); usMan(G, 'engineer', W / 2 + 100, H - 70);
       usMan(G, 'officer', W / 2, H - 55);
-      usMan(G, 'jeep', W / 2 - 220, 525);
-      usMan(G, 'atgun', W / 2 + 220, 525);
+      usMan(G, 'jeep', W / 2 - 260, 525); usMan(G, 'atgun', W / 2 + 260, 525);
+      usFlankPicket(G, 2);
     },
   },
 
@@ -737,19 +777,20 @@ const LEVELS = {
     placeables: AXIS_PLACEABLES,
     briefing: 'The final line: two Shermans, two AT guns, three bunkers, snipers and mortars under an officer. Seven waves, and the fattest budgets of the campaign. Break it and the sector is yours.',
     setup(G) {
-      usBunker(G, W / 2 - 200, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 85); usBunker(G, W / 2 + 200, DEPLOY_Y + 70);
-      for (const x of [W / 2 - 260, W / 2 - 130, W / 2 + 130, W / 2 + 260]) usBag(G, x, 435);
-      for (const wx of [W / 2 - 200, W / 2 - 70, W / 2 + 70, W / 2 + 200]) usWire(G, wx, DEPLOY_Y - 50);
-      for (const mx of [W / 2 - 230, W / 2 - 100, W / 2 + 100, W / 2 + 230]) usMine(G, mx, H / 2 + 12);
-      usMan(G, 'sherman', W / 2 - 120, 500); usMan(G, 'sherman', W / 2 + 120, 500);
-      usMan(G, 'atgun', W / 2 - 300, 460); usMan(G, 'atgun', W / 2 + 300, 460);
-      usRow(G, 'gunner', DEPLOY_Y + 72, [W / 2 - 200, W / 2, W / 2 + 200]);
-      usRow(G, 'rifleman', 428, [W / 2 - 260, W / 2 - 130, W / 2 + 130, W / 2 + 260]);
-      usRow(G, 'sniper', H - 90, [W / 2 - 150, W / 2 + 150]);
-      usRow(G, 'mortarman', H - 55, [W / 2 - 60, W / 2 + 60]);
-      usRow(G, 'medic', H - 78, [W / 2 - 250, W / 2 + 250]);
+      usBunker(G, W / 2 - 240, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 85); usBunker(G, W / 2 + 240, DEPLOY_Y + 70);
+      for (const x of [W / 2 - 320, W / 2 - 220, W / 2 - 110, W / 2 + 110, W / 2 + 220, W / 2 + 320]) usBag(G, x, 435);
+      for (const wx of [W / 2 - 280, W / 2 - 150, W / 2 - 50, W / 2 + 50, W / 2 + 150, W / 2 + 280]) usWire(G, wx, DEPLOY_Y - 50);
+      for (const mx of [W / 2 - 300, W / 2 - 160, W / 2, W / 2 + 160, W / 2 + 300]) usMine(G, mx, H / 2 + 12);
+      usMan(G, 'sherman', W / 2 - 140, 500); usMan(G, 'sherman', W / 2 + 140, 500);
+      usMan(G, 'atgun', W / 2 - 340, 460); usMan(G, 'atgun', W / 2 + 340, 460);
+      usRow(G, 'gunner', DEPLOY_Y + 72, [W / 2 - 240, W / 2, W / 2 + 240]);
+      usRow(G, 'rifleman', 428, [W / 2 - 320, W / 2 - 220, W / 2 - 110, W / 2 + 110, W / 2 + 220, W / 2 + 320]);
+      usRow(G, 'sniper', H - 90, [W / 2 - 180, W / 2 + 180, 100, W - 100]);
+      usRow(G, 'mortarman', H - 55, [W / 2 - 80, W / 2 + 80]);
+      usRow(G, 'medic', H - 78, [W / 2 - 280, W / 2 + 280]);
       usMan(G, 'engineer', W / 2, H - 62);
       usMan(G, 'officer', W / 2, H - 40);
+      usFlankPicket(G, 3);
     },
   },
 
@@ -7712,6 +7753,7 @@ const TOOLBAR_SIZE_MAX = 400;
 const TOOLBAR_SIZE_DEFAULT = 100;
 const SOUND_VOLUME_KEY = 'soundVolume';
 const SOUND_VOLUME_DEFAULT = 100;
+const SOUND_MUTED_KEY = 'soundMuted';
 
 function clampToolbarSize(pct) {
   return Math.max(TOOLBAR_SIZE_MIN, Math.min(TOOLBAR_SIZE_MAX, Math.round(pct)));
@@ -7763,11 +7805,33 @@ function saveSoundVolume(pct) {
   localStorage.setItem(SOUND_VOLUME_KEY, String(vol));
 }
 
-function openSettings(from) {
-  settingsReturnTo = from;
+function loadSoundMuted() {
+  const saved = localStorage.getItem(SOUND_MUTED_KEY);
+  if (saved === 'true') return true;
+  if (saved === 'false') return false;
+  return false;
+}
+
+function applySoundMuted(muted) {
+  SFX.setMuted(muted);
+  syncMuteButtons();
+  return muted;
+}
+
+function saveSoundMuted(muted) {
+  const on = applySoundMuted(muted);
+  localStorage.setItem(SOUND_MUTED_KEY, String(on));
+}
+
+function applySavedSettings() {
   applyToolbarSize(loadToolbarSize());
   applySoundVolume(loadSoundVolume());
-  syncMuteButtons();
+  applySoundMuted(loadSoundMuted());
+}
+
+function openSettings(from) {
+  settingsReturnTo = from;
+  applySavedSettings();
   el('settings').classList.remove('hidden');
   if (from === 'pause') el('pause').classList.add('hidden');
   else el('intro').classList.add('hidden');
@@ -7783,8 +7847,7 @@ el('settings-btn').addEventListener('click', () => openSettings('intro'));
 el('pause-settings-btn').addEventListener('click', () => openSettings('pause'));
 el('settings-back-btn').addEventListener('click', closeSettings);
 el('settings-mute-btn').addEventListener('click', () => {
-  SFX.toggleMute();
-  syncMuteButtons();
+  saveSoundMuted(!SFX.muted);
 });
 el('toolbar-size-slider').addEventListener('input', e => {
   saveToolbarSize(Number(e.target.value));
@@ -7834,12 +7897,14 @@ function returnToMenu() {
   mobileToolbarMinimized = false;
   activePointers.clear();
   viewGesture = null;
+  pendingAxisLevelId = null;
   el('pause').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('codex').classList.add('hidden');
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
   el('axis-select').classList.add('hidden');
+  el('axis-briefing').classList.add('hidden');
   el('commando-select').classList.add('hidden');
   el('intro').classList.remove('hidden');
   syncMobileViewUI();
@@ -7864,6 +7929,65 @@ const AXIS_CAMPAIGN = [
 
 const COMMANDO_CAMPAIGN = ['hitsquad'];
 
+let pendingAxisLevelId = null;
+
+function buildAxisBriefingStats(level) {
+  return {
+    waves: level.axisWaves,
+    winBreaches: level.winBreaches,
+    wave1TP: axisWavePayout(level, 1),
+    waveFinalTP: axisWavePayout(level, level.axisWaves),
+  };
+}
+
+function appendBriefingObjective(list, text) {
+  const colon = text.indexOf(':');
+  const li = document.createElement('li');
+  if (colon >= 0) {
+    li.innerHTML = '<b>' + text.slice(0, colon + 1) + '</b>' + text.slice(colon + 1);
+  } else {
+    li.textContent = text;
+  }
+  list.appendChild(li);
+}
+
+function openAxisBriefing(levelId) {
+  const level = LEVELS[levelId];
+  if (!level) return;
+  pendingAxisLevelId = levelId;
+  const stats = buildAxisBriefingStats(level);
+  const titleEl = el('axis-briefing-title');
+  titleEl.textContent = level.menuName || level.name;
+  titleEl.classList.toggle('briefing-themed', !!(level.menuDesc && level.menuDesc.startsWith('Themed:')));
+  el('axis-briefing-text').textContent = level.briefing || '';
+  const objList = el('axis-briefing-objectives');
+  objList.replaceChildren();
+  appendBriefingObjective(objList, 'Waves: ' + stats.waves + ' assault waves');
+  appendBriefingObjective(objList,
+    'Objective: ' + stats.winBreaches + ' breakthroughs past the bottom edge, or wipe every defender');
+  appendBriefingObjective(objList,
+    'Budget: ' + stats.wave1TP + ' TP (wave 1) → ' + stats.waveFinalTP + ' TP (final wave) — spend each wave or lose it');
+  appendBriefingObjective(objList,
+    'Rules: Deploy in the top strip, then START WAVE. Defenders persist.');
+  el('intro').classList.add('hidden');
+  el('axis-select').classList.add('hidden');
+  el('gameover').classList.add('hidden');
+  el('axis-briefing').classList.remove('hidden');
+}
+
+function closeAxisBriefing() {
+  pendingAxisLevelId = null;
+  el('axis-briefing').classList.add('hidden');
+  buildAxisSelect();
+  el('axis-select').classList.remove('hidden');
+}
+
+function deployAxisBriefing() {
+  const id = pendingAxisLevelId;
+  pendingAxisLevelId = null;
+  if (id) startGame(id);
+}
+
 function campaignForLevel(id) {
   if (AXIS_CAMPAIGN.includes(id)) return AXIS_CAMPAIGN;
   if (COMMANDO_CAMPAIGN.includes(id)) return COMMANDO_CAMPAIGN;
@@ -7878,9 +8002,10 @@ function getNextMissionId(id) {
   return campaign[idx + 1];
 }
 
-function buildCampaignSelect(listId, campaignIds) {
+function buildCampaignSelect(listId, campaignIds, onSelect) {
   const list = el(listId);
   if (!list) return;
+  const launch = onSelect || startGame;
   list.replaceChildren();
   for (const id of campaignIds) {
     const lv = LEVELS[id];
@@ -7909,13 +8034,13 @@ function buildCampaignSelect(listId, campaignIds) {
       : 'Locked — beat the previous level.';
     btn.appendChild(title);
     btn.appendChild(desc);
-    if (unlocked) btn.addEventListener('click', () => startGame(id));
+    if (unlocked) btn.addEventListener('click', () => launch(id));
     list.appendChild(btn);
   }
 }
 
 function buildAxisSelect() {
-  buildCampaignSelect('axis-list', AXIS_CAMPAIGN);
+  buildCampaignSelect('axis-list', AXIS_CAMPAIGN, openAxisBriefing);
 }
 
 function buildCommandoSelect() {
@@ -7967,6 +8092,7 @@ function startGame(levelId, difficultyId) {
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
   el('axis-select').classList.add('hidden');
+  el('axis-briefing').classList.add('hidden');
   el('commando-select').classList.add('hidden');
   el('pause').classList.add('hidden');
   syncMobileViewUI();
@@ -8003,12 +8129,16 @@ for (const btn of document.querySelectorAll('[data-endless-diff]')) {
 el('start-allied').addEventListener('click', () => startGame('allied1'));
 el('start-axis').addEventListener('click', openAxisSelect);
 el('axis-back-btn').addEventListener('click', closeAxisSelect);
+el('axis-briefing-deploy').addEventListener('click', deployAxisBriefing);
+el('axis-briefing-back').addEventListener('click', closeAxisBriefing);
 el('start-commando').addEventListener('click', openCommandoSelect);
 el('commando-back-btn').addEventListener('click', closeCommandoSelect);
 el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless', G?.difficulty?.id));
 el('next-mission-btn').addEventListener('click', () => {
   const id = el('next-mission-btn')?.dataset.nextLevel;
-  if (id) startGame(id);
+  if (!id) return;
+  if (AXIS_CAMPAIGN.includes(id)) openAxisBriefing(id);
+  else startGame(id);
 });
 el('menu-btn').addEventListener('click', returnToMenu);
 el('speed-btn').addEventListener('click', cycleSpeed);
@@ -8069,9 +8199,7 @@ function frame(now) {
 }
 
 buildToolbar(PLACEABLES);
-applyToolbarSize(loadToolbarSize());
-applySoundVolume(loadSoundVolume());
-syncMuteButtons();
+applySavedSettings();
 fitLayout();
 const hudEl = el('hud');
 if (hudEl && typeof ResizeObserver !== 'undefined') {

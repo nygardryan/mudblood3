@@ -40,11 +40,11 @@ python3 -m http.server 8000
   - **Level 1** opens with just **2 waves** against a thin picket, and both the
     number of waves and the strength of the defense climb as you go — up to a
     **7-wave finale** against a fortress bristling with Shermans, AT guns and bunkers.
-  - **Each wave hands you a bigger pile of TP than the last** (e.g. Level 1 pays 25
-    then 35), and later levels start richer and grow faster, so the final push of any
+  - **Each wave hands you a bigger pile of TP than the last** (e.g. Level 1 pays 29
+    then 40), and later levels start richer and grow faster, so the final push of any
     level is always your best-funded.
-  - **Every third level is a themed set-piece** for flavor: **Coffee Break** (the
-    whole detail huddled around the coffee urn dead center, flanks wide open),
+  - **Every third level is a themed set-piece** for flavor:     **Coffee Break** (the
+    whole detail huddled around the coffee urn dead center, thin flank sentries),
     **Tank Graveyard** (one stubborn Sherman and a minefield of wrecks),
     **Sniper Alley** (a marksman behind every hedgerow, hunting your officers first),
     and **The Kitchen Sink** (one of literally every American unit thrown into the line).

@@ -395,6 +395,35 @@ body {
 }
 .overlay b { color: #ffd94a; }
 .overlay .quote { font-style: italic; color: #8a8668; font-size: 13px; }
+
+.briefing-objectives {
+  text-align: left;
+  max-width: 480px;
+  margin-bottom: 24px;
+  padding-left: 0;
+  list-style: none;
+  line-height: 1.7;
+  font-size: clamp(12px, 3.2vw, 14px);
+  color: #c9c19a;
+}
+.briefing-objectives li {
+  margin-bottom: 8px;
+  padding-left: 1.2em;
+  text-indent: -1.2em;
+}
+.briefing-objectives li::before {
+  content: '▸ ';
+  color: #8a8668;
+}
+.briefing-themed::after {
+  content: 'SET-PIECE';
+  display: block;
+  margin-top: 6px;
+  font-size: clamp(10px, 2.8vw, 12px);
+  letter-spacing: 3px;
+  color: #ffd94a;
+  font-weight: normal;
+}
 .overlay button {
   background: #3d3819;
   border: 2px solid #ffd94a;

@@ -168,6 +168,7 @@ const SFX = (() => {
 
   return {
     resume,
+    setMuted(on) { muted = !!on; applyMasterGain(); return muted; },
     toggleMute() { muted = !muted; applyMasterGain(); return muted; },
     get muted() { return muted; },
     setVolume,

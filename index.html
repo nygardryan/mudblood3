@@ -58,7 +58,9 @@
         <button id="start-allied">ALLIED CAMPAIGN
           <span class="mode-desc">Level 1: Hold the Line. Survive 12 scripted German waves. 7 breaches and the sector falls.</span></button>
         <button id="start-axis">AXIS CAMPAIGN
-          <span class="mode-desc">Thirteen assaults on the American line. Level 1 is just two waves; each wave hands you a bigger pile of TP. Every third level is a themed set-piece.</span></button>
+          <span class="mode-desc">Thirteen assaults on the American line. Beat each level to unlock the next. Progress is saved in your browser.</span></button>
+        <button id="start-commando">COMMANDO CAMPAIGN
+          <span class="mode-desc">Direct-control missions behind enemy lines. Level 1: Hit Squad — kill the marked officer in five minutes.</span></button>
       </div>
       <div class="intro-btns">
         <button id="codex-btn" class="secondary">CODEX</button>
@@ -84,9 +86,16 @@
 
     <div id="axis-select" class="overlay hidden">
       <h1>AXIS CAMPAIGN</h1>
-      <p>Thirteen assaults on the American line. Level 1 opens with two waves; wave counts, defenders and per-wave TP all climb from there. Each wave hands you a fresh, bigger budget — spend it in the build phase, because none of it carries over. Every third level is a themed set-piece.</p>
+      <p>Thirteen assaults on the American line. Beat each level to unlock the next — progress is saved in your browser. Each wave hands you a fresh, bigger budget in the build phase; none of it carries over.</p>
       <div id="axis-list" class="intro-btns modes"></div>
       <button id="axis-back-btn" class="secondary">BACK</button>
+    </div>
+
+    <div id="commando-select" class="overlay hidden">
+      <h1>COMMANDO CAMPAIGN</h1>
+      <p>Direct-control missions behind enemy lines. You command a small squad — click to select, click to move. No TP, no purchases.</p>
+      <div id="commando-list" class="intro-btns modes"></div>
+      <button id="commando-back-btn" class="secondary">BACK</button>
     </div>
 
     <div id="codex" class="overlay hidden">
@@ -134,6 +143,7 @@
       <p id="go-stats"></p>
       <p class="quote">"War is mud, blood, and the man next to you."</p>
       <div class="intro-btns">
+        <button id="next-mission-btn" class="hidden">NEXT MISSION</button>
         <button id="restart-btn">RE-ENLIST</button>
         <button id="menu-btn" class="secondary">MAIN MENU</button>
       </div>

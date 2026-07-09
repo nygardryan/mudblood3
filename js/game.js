@@ -755,8 +755,8 @@ const LEVELS = {
 
   hitsquad: {
     id: 'hitsquad',
-    name: 'AXIS: HIT SQUAD',
-    menuName: 'BONUS — HIT SQUAD',
+    name: 'COMMANDO 1: HIT SQUAD',
+    menuName: 'LEVEL 1 — HIT SQUAD',
     menuDesc: 'A commando mission. Command six veterans directly — click to select, click to move. Kill the marked US officer in 5 minutes.',
     mode: 'hitsquad',
     timeLimit: 300,
@@ -3429,6 +3429,20 @@ function endRun(won, title, stats) {
   titleEl.textContent = title;
   titleEl.classList.toggle('victory', won);
   document.getElementById('go-stats').textContent = stats;
+  const nextBtn = el('next-mission-btn');
+  const nextId = won && G ? getNextMissionId(G.level.id) : null;
+  if (nextBtn) {
+    nextBtn.classList.toggle('hidden', !nextId);
+    if (nextId) {
+      const nextLevel = LEVELS[nextId];
+      nextBtn.dataset.nextLevel = nextId;
+      nextBtn.textContent = nextLevel
+        ? 'NEXT: ' + (nextLevel.menuName || nextLevel.name)
+        : 'NEXT MISSION';
+    } else {
+      delete nextBtn.dataset.nextLevel;
+    }
+  }
   document.getElementById('gameover').classList.remove('hidden');
   el('pause').classList.add('hidden');
   refreshHUD();
@@ -3472,6 +3486,9 @@ function victory() {
     endRun(true, 'SECTOR HELD',
       `You stopped all ${G.wave} waves in ${t} seconds. ` +
       `${G.kills} Germans will not go home. The line is yours.`);
+  }
+  if (G.mode === 'axis' || G.mode === 'hitsquad') {
+    markLevelComplete(G.level.id);
   }
 }
 
@@ -7637,6 +7654,46 @@ for (const btn of document.querySelectorAll('.codex-tab')) {
   btn.addEventListener('click', () => buildCodex(btn.dataset.tab));
 }
 
+// ============================================================ campaign progress
+
+const PROGRESS_KEY = 'campaignProgress';
+const PROGRESS_VERSION = 1;
+
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if (!raw) return { version: PROGRESS_VERSION, completed: {} };
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object' || data.version !== PROGRESS_VERSION) {
+      return { version: PROGRESS_VERSION, completed: {} };
+    }
+    return { version: PROGRESS_VERSION, completed: data.completed || {} };
+  } catch {
+    return { version: PROGRESS_VERSION, completed: {} };
+  }
+}
+
+function saveProgress(progress) {
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+}
+
+function markLevelComplete(id) {
+  const progress = loadProgress();
+  progress.completed[id] = true;
+  saveProgress(progress);
+}
+
+function isLevelComplete(id) {
+  return !!loadProgress().completed[id];
+}
+
+function isLevelUnlocked(id, campaign) {
+  const idx = campaign.indexOf(id);
+  if (idx < 0) return false;
+  if (idx === 0) return true;
+  return isLevelComplete(campaign[idx - 1]);
+}
+
 // ============================================================ settings
 
 const TOOLBAR_SIZE_KEY = 'toolbarSize';
@@ -7773,6 +7830,7 @@ function returnToMenu() {
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
   el('axis-select').classList.add('hidden');
+  el('commando-select').classList.add('hidden');
   el('intro').classList.remove('hidden');
   syncMobileViewUI();
   syncMobileChrome();
@@ -7788,38 +7846,93 @@ function closeEndlessSelect() {
   el('intro').classList.remove('hidden');
 }
 
-// the Axis campaign, in order, with the Hit Squad commando run as a bonus
+// the Axis campaign, in order — beat each level to unlock the next
 const AXIS_CAMPAIGN = [
   'axis1', 'axis2', 'axis3', 'axis4', 'axis5', 'axis6', 'axis7',
-  'axis8', 'axis9', 'axis10', 'axis11', 'axis12', 'axis13', 'hitsquad',
+  'axis8', 'axis9', 'axis10', 'axis11', 'axis12', 'axis13',
 ];
 
-function buildAxisSelect() {
-  const list = el('axis-list');
-  if (!list || list.childElementCount) return;
-  for (const id of AXIS_CAMPAIGN) {
+const COMMANDO_CAMPAIGN = ['hitsquad'];
+
+function campaignForLevel(id) {
+  if (AXIS_CAMPAIGN.includes(id)) return AXIS_CAMPAIGN;
+  if (COMMANDO_CAMPAIGN.includes(id)) return COMMANDO_CAMPAIGN;
+  return null;
+}
+
+function getNextMissionId(id) {
+  const campaign = campaignForLevel(id);
+  if (!campaign) return null;
+  const idx = campaign.indexOf(id);
+  if (idx < 0 || idx >= campaign.length - 1) return null;
+  return campaign[idx + 1];
+}
+
+function buildCampaignSelect(listId, campaignIds) {
+  const list = el(listId);
+  if (!list) return;
+  list.replaceChildren();
+  for (const id of campaignIds) {
     const lv = LEVELS[id];
     if (!lv) continue;
+    const complete = isLevelComplete(id);
+    const unlocked = isLevelUnlocked(id, campaignIds);
     const btn = document.createElement('button');
-    const title = document.createTextNode(lv.menuName || lv.name);
+    if (!unlocked) {
+      btn.disabled = true;
+      btn.classList.add('locked');
+    }
+    if (complete) btn.classList.add('cleared');
+    const title = document.createElement('span');
+    title.className = 'mode-title';
+    title.textContent = lv.menuName || lv.name;
+    if (complete) {
+      const badge = document.createElement('span');
+      badge.className = 'cleared-badge';
+      badge.textContent = 'CLEARED';
+      title.appendChild(badge);
+    }
     const desc = document.createElement('span');
     desc.className = 'mode-desc';
-    desc.textContent = lv.menuDesc || lv.briefing || '';
+    desc.textContent = unlocked
+      ? (lv.menuDesc || lv.briefing || '')
+      : 'Locked — beat the previous level.';
     btn.appendChild(title);
     btn.appendChild(desc);
-    btn.addEventListener('click', () => startGame(id));
+    if (unlocked) btn.addEventListener('click', () => startGame(id));
     list.appendChild(btn);
   }
+}
+
+function buildAxisSelect() {
+  buildCampaignSelect('axis-list', AXIS_CAMPAIGN);
+}
+
+function buildCommandoSelect() {
+  buildCampaignSelect('commando-list', COMMANDO_CAMPAIGN);
 }
 
 function openAxisSelect() {
   buildAxisSelect();
   el('intro').classList.add('hidden');
+  el('commando-select').classList.add('hidden');
   el('axis-select').classList.remove('hidden');
 }
 
 function closeAxisSelect() {
   el('axis-select').classList.add('hidden');
+  el('intro').classList.remove('hidden');
+}
+
+function openCommandoSelect() {
+  buildCommandoSelect();
+  el('intro').classList.add('hidden');
+  el('axis-select').classList.add('hidden');
+  el('commando-select').classList.remove('hidden');
+}
+
+function closeCommandoSelect() {
+  el('commando-select').classList.add('hidden');
   el('intro').classList.remove('hidden');
 }
 
@@ -7844,6 +7957,7 @@ function startGame(levelId, difficultyId) {
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
   el('axis-select').classList.add('hidden');
+  el('commando-select').classList.add('hidden');
   el('pause').classList.add('hidden');
   syncMobileViewUI();
   syncMobileChrome();
@@ -7879,7 +7993,13 @@ for (const btn of document.querySelectorAll('[data-endless-diff]')) {
 el('start-allied').addEventListener('click', () => startGame('allied1'));
 el('start-axis').addEventListener('click', openAxisSelect);
 el('axis-back-btn').addEventListener('click', closeAxisSelect);
+el('start-commando').addEventListener('click', openCommandoSelect);
+el('commando-back-btn').addEventListener('click', closeCommandoSelect);
 el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless', G?.difficulty?.id));
+el('next-mission-btn').addEventListener('click', () => {
+  const id = el('next-mission-btn')?.dataset.nextLevel;
+  if (id) startGame(id);
+});
 el('menu-btn').addEventListener('click', returnToMenu);
 el('speed-btn').addEventListener('click', cycleSpeed);
 el('pause-btn').addEventListener('click', pauseGame);

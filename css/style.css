@@ -120,6 +120,7 @@ body {
 #view-reset:hover { border-color: #8a8668; }
 #stage:not(.mobile-view) #view-reset { display: none !important; }
 #pause-btn.hidden { display: none; }
+#next-mission-btn.hidden { display: none; }
 
 .sandbox-wave-skip {
   pointer-events: auto;
@@ -361,7 +362,7 @@ body {
 }
 .overlay.hidden { display: none; }
 /* many campaign buttons — anchor to the top so they all scroll into reach */
-#axis-select { justify-content: flex-start; }
+#axis-select, #commando-select { justify-content: flex-start; }
 .overlay h1 {
   font-size: clamp(24px, 8vw, 52px);
   letter-spacing: clamp(2px, 2vw, 10px);
@@ -444,6 +445,31 @@ body {
   font-weight: normal;
   letter-spacing: 0.5px;
   color: #c9c19a;
+}
+.mode-title {
+  display: block;
+}
+.cleared-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: clamp(9px, 2.4vw, 10px);
+  letter-spacing: 1px;
+  color: #8fbf5a;
+  border: 1px solid #6a9a4a;
+  vertical-align: middle;
+}
+.intro-btns.modes button.cleared {
+  border-color: #6a9a4a;
+}
+.intro-btns.modes button.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: #5a5640;
+  color: #8a8668;
+}
+.intro-btns.modes button.locked:hover {
+  background: #3d3819;
 }
 .overlay button.secondary {
   border-color: #8a8668;

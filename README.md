@@ -29,7 +29,8 @@ python3 -m http.server 8000
   wave and the sector is yours. 7 breaches still lose it. No income attrition and
   no random events — the assault plan is fixed.
 - **Axis Campaign — 13 levels** — the tables turn: now you're the one attacking a
-  dug-in American line. Pick a level from the campaign list. Each wave freezes into a
+  dug-in American line. Levels unlock in order — beat one to open the next; progress
+  is saved in your browser. Pick a level from the campaign list. Each wave freezes into a
   **build phase** — deploy German units in the top strip, then hit **START WAVE** and
   the assault steps off on its own. Nothing moves or fights until you do, and unused
   TP does **not** carry over. US defenders persist across waves with no
@@ -47,17 +48,16 @@ python3 -m http.server 8000
     **Tank Graveyard** (one stubborn Sherman and a minefield of wrecks),
     **Sniper Alley** (a marksman behind every hedgerow, hunting your officers first),
     and **The Kitchen Sink** (one of literally every American unit thrown into the line).
-- **Axis Campaign — Bonus: Hit Squad** — a commando mission with direct
-  control. You command a fixed six-man squad (officer, sniper, MG gunner, two
-  stormtroopers, a grenadier) exactly like US soldiers: click or drag-select,
-  then click ground to move. Nobody advances without orders. Your men are
-  hand-picked veterans — tougher, deadlier, and longer-armed than line
-  infantry — but six guns cannot win a stand-up fight against the whole
-  detail. **Kill the marked US officer** at the bottom of the map within
-  **5 minutes**. The direct approach is wired and mined; the flanks are thin —
-  work around the line and let the sniper finish the job from range. Lose if
-  the clock runs out or the whole squad dies. No TP, no purchases — the six
-  men are all you get.
+- **Commando Campaign — Level 1: Hit Squad** — a separate direct-control campaign.
+  You command a fixed six-man squad (officer, sniper, MG gunner, two stormtroopers,
+  a grenadier) exactly like US soldiers: click or drag-select, then click ground to
+  move. Nobody advances without orders. Your men are hand-picked veterans — tougher,
+  deadlier, and longer-armed than line infantry — but six guns cannot win a stand-up
+  fight against the whole detail. **Kill the marked US officer** at the bottom of
+  the map within **5 minutes**. The direct approach is wired and mined; the flanks are
+  thin — work around the line and let the sniper finish the job from range. Lose if
+  the clock runs out or the whole squad dies. No TP, no purchases — the six men are
+  all you get. Completion is tracked locally like the Axis campaign.
 
 ## How to play
 

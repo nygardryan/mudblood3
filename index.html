@@ -58,7 +58,7 @@
         <button id="start-allied">ALLIED CAMPAIGN
           <span class="mode-desc">Level 1: Hold the Line. Survive 12 scripted German waves. 7 breaches and the sector falls.</span></button>
         <button id="start-axis">AXIS CAMPAIGN
-          <span class="mode-desc">Thirteen assaults on the American line. Beat each level to unlock the next. Progress is saved in your browser.</span></button>
+          <span class="mode-desc">Thirteen historical offensives across Europe. Research units between battles, then assault with per-wave TP.</span></button>
         <button id="start-commando">COMMANDO CAMPAIGN
           <span class="mode-desc">Direct-control missions behind enemy lines. Level 1: Hit Squad — kill the marked officer in five minutes.</span></button>
       </div>
@@ -86,17 +86,31 @@
 
     <div id="axis-select" class="overlay hidden">
       <h1>AXIS CAMPAIGN</h1>
-      <p>Thirteen assaults on the American line. Beat each level to unlock the next — progress is saved in your browser. Each wave hands you a fresh, bigger budget in the build phase; none of it carries over.</p>
+      <p>A tour of German offensives from Poland 1939 to the Ardennes 1944. Beat each battle to unlock the next. Spend <b>Research Points (RP)</b> to unlock unit types permanently, then spend <b>TP</b> each wave to deploy them. Progress is saved in your browser.</p>
+      <p class="axis-rp-line">Research bank: <b id="axis-rp-balance">0 RP</b></p>
+      <div class="intro-btns axis-select-actions">
+        <button id="axis-research-btn">RESEARCH</button>
+      </div>
       <div id="axis-list" class="intro-btns modes"></div>
       <button id="axis-back-btn" class="secondary">BACK</button>
     </div>
 
+    <div id="axis-research" class="overlay hidden">
+      <h1>RESEARCH &amp; DEVELOPMENT</h1>
+      <p>Spend Research Points to permanently unlock unit types for the campaign. Starter units are free; spend TP each wave to deploy them in battle.</p>
+      <p class="axis-rp-line">Available: <b id="axis-research-rp">0 RP</b></p>
+      <div id="axis-research-grid" class="research-grid"></div>
+      <button id="axis-research-back" class="secondary">BACK</button>
+    </div>
+
     <div id="axis-briefing" class="overlay hidden">
       <h1 id="axis-briefing-title"></h1>
+      <p id="axis-briefing-history"></p>
       <p id="axis-briefing-text"></p>
       <ul id="axis-briefing-objectives" class="briefing-objectives"></ul>
       <div class="intro-btns">
         <button id="axis-briefing-deploy">DEPLOY</button>
+        <button id="axis-briefing-research" class="secondary">RESEARCH</button>
         <button id="axis-briefing-back" class="secondary">BACK</button>
       </div>
     </div>

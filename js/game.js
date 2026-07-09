@@ -8,6 +8,9 @@ const W = 900, H = 620;
 const DEPLOY_Y = 380;          // your side of the field starts here
 const FORWARD_Y = H / 3;       // units may advance and mines/wire may be laid this far up
 const AXIS_DEPLOY_Y = 90;      // axis campaign: attackers step off from this top strip
+const AXIS_PARA_DROP_MAX_Y = DEPLOY_Y - 25; // paradrops may land almost to the US line
+const AXIS_PARA_POOL_BASE = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];
+const AXIS_PARA_POOL_EXTRAS = ['emg', 'esniper', 'eflame', 'eoff', 'emortar', 'ebazooka'];
 const MAX_BREACH = 7;
 const MAX_OFFICERS = 5;
 const MEDIC_RANGE = 95;
@@ -193,6 +196,20 @@ const ENEMY_TYPES = {
     fireCone: { arc: 0.25 },
     mg: { range: 230, dmg: 7, acc: 0.4, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
   },
+  estug: {
+    name: 'StuG III', hp: 800, speed: 12, range: 300, dmg: 0, acc: 0,
+    rof: 3.8, burst: 1, burstGap: 0, reward: 12, shellDmg: 95,
+    color: '#4a4a42', gun: 0, sfx: 'boom', priority: 0, tank: true, casemate: true,
+    fireCone: { arc: 0.2 },
+    mg: { range: 200, dmg: 6, acc: 0.38, burst: 4, burstGap: 0.08, gun: 20, sfx: 'mg' },
+  },
+  etiger: {
+    name: 'Tiger I', hp: 1800, speed: 5, range: 360, dmg: 0, acc: 0,
+    rof: 5.2, burst: 1, burstGap: 0, reward: 22, shellDmg: 110,
+    color: '#3f3f38', gun: 0, sfx: 'boom', priority: 0, tank: true, heavy: true,
+    fireCone: { arc: 0.22 },
+    mg: { range: 240, dmg: 8, acc: 0.42, burst: 6, burstGap: 0.08, gun: 26, sfx: 'mg' },
+  },
 };
 
 const ENEMY_INFO = {
@@ -209,6 +226,8 @@ const ENEMY_INFO = {
   ejeep: 'Kübelwagen with a mounted MG. Mobile fire support, lightly armored.',
   ehalftrack: 'Sd.Kfz. 251 halftrack. Heavy armor, bow MG, and a squad ready to dismount.',
   panzer: 'Panzer IV. Thick armor and a 75mm cannon. Your line\'s worst nightmare.',
+  estug: 'StuG III assault gun. Low-profile casemate mount; hunts bunkers and armor from range.',
+  etiger: 'Tiger I heavy tank. Nearly impenetrable frontal armor and a devastating 88mm.',
 };
 
 const EVENT_INFO = [
@@ -327,7 +346,7 @@ const AXIS_PLACEABLES = [
     desc: 'Leutnant. Nearby troops fight harder; earns +1 TP every 30 s while alive.' },
   { key: 'emortar', label: 'GRANATWERFER', cost: 14, kind: 'eunit', hotkey: 'M',
     desc: '81mm mortar team. Long-range indirect fire; blind inside 220 px.' },
-  { key: 'ebazooka', label: 'PANZERFAUST', cost: 12, kind: 'eunit', hotkey: 'B',
+  { key: 'ebazooka', label: 'PANZERFAUST', cost: 16, kind: 'eunit', hotkey: 'B',
     desc: 'Panzerfaust operator. Prioritizes armor; scatter is brutal at range.' },
   { key: 'ebike', label: 'KRAD', cost: 30, kind: 'eunit', hotkey: 'K',
     desc: 'Kradschützen motorcycle team. Blazing speed — races for the breach.' },
@@ -340,6 +359,34 @@ const AXIS_PLACEABLES = [
   { key: 'ebarrage', label: 'ARTILLERY', cost: 16, kind: 'support', hotkey: 'A',
     desc: 'German 105mm barrage: 10 heavy shells on target. Indiscriminate.' },
 ];
+
+// campaign-exclusive axis units — merged into research tree when tier gate met
+const AXIS_CAMPAIGN_EXTRA_ENTRIES = {
+  eparadrop: { key: 'eparadrop', label: 'PARADROP', cost: 7, kind: 'eparadrop', hotkey: 'P',
+    desc: 'Paradrop behind the US line. Unit type is random on landing from your researched infantry.' },
+  estug: { key: 'estug', label: 'STU G III', cost: 55, kind: 'eunit', hotkey: 'S',
+    desc: 'StuG III assault gun. Faster than a Panzer IV; casemate 75mm hunts strongpoints.' },
+  etiger: { key: 'etiger', label: 'TIGER I', cost: 120, kind: 'eunit', hotkey: 'G',
+    desc: 'Tiger I heavy tank. Slow, armored, and ruinous — the breakthrough weapon.' },
+};
+
+const AXIS_STARTER_UNITS = ['erifle', 'esmg', 'egren'];
+
+const AXIS_RESEARCH_COSTS = {
+  emg: 15, eflame: 12, esniper: 18, emortar: 22, ebazooka: 20, eoff: 28,
+  ebike: 35, ejeep: 38, ebarrage: 30, ehalftrack: 55, panzer: 60,
+  eparadrop: 25, estug: 45, etiger: 90,
+};
+
+const AXIS_RESEARCH_TIERS = { eparadrop: 3, estug: 6, etiger: 13 };
+
+const AXIS_RESEARCH_LABELS = {
+  erifle: 'Rifleman', esmg: 'Stormtrooper', egren: 'Grenadier', emg: 'MG42 Team',
+  esniper: 'Sniper', eflame: 'Flammenwerfer', eoff: 'Officer', emortar: 'Granatwerfer',
+  ebazooka: 'Panzerfaust', ebike: 'Kradschützen', ejeep: 'Kübelwagen',
+  ehalftrack: 'Halftrack', panzer: 'Panzer IV', ebarrage: 'Artillery Barrage',
+  eparadrop: 'Paradrop', estug: 'StuG III', etiger: 'Tiger I',
+};
 
 // ============================================================ levels
 // every mode is a level. endless is the classic open-ended defense; campaign
@@ -360,9 +407,10 @@ const ENDLESS_DIFFICULTIES = {
 // wave 1 pays `wavePayout`; every wave after that adds `wavePayoutStep` more,
 // so a level's final assault always has the biggest budget. Unused TP never
 // carries over — spend it or lose it.
+const AXIS_TP_MULT = 1.50;
 function axisWavePayout(level, wave) {
   const base = level.wavePayout + (level.wavePayoutStep || 0) * (wave - 1);
-  return Math.round(base * 1.15);
+  return Math.round(base * AXIS_TP_MULT);
 }
 
 // US defender placement helpers for the Axis campaign setups (hoisted).
@@ -448,17 +496,17 @@ const LEVELS = {
   // climb from there. Every third level is a themed set-piece for flavor.
   axis1: {
     id: 'axis1',
-    name: 'AXIS 1: BREAK THE LINE',
-    menuName: 'LEVEL 1 — BREAK THE LINE',
-    menuDesc: 'Your first push. Two waves, a thin American picket. 29 TP the first wave, 40 the second.',
+    name: 'AXIS 1: BATTLE OF MOKRA',
+    menuName: 'LEVEL 1 — BATTLE OF MOKRA',
+    menuDesc: 'September 1939, Poland. Two waves against a thin cavalry screen. 38 TP the first wave, 53 the second.',
     mode: 'axis',
     winBreaches: 5,
     axisWaves: 2,
     wavePayout: 25,
     wavePayoutStep: 10,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'Two assault waves against a thin American picket. Fresh TP each wave — spend it or lose it. Get 5 men past the bottom, or wipe the defenders.',
+    history: 'September 1, 1939. German panzer columns slam into Polish cavalry screens west of Łódź. At Mokra, lancers and riflemen hold the ridgeline — your first test of blitzkrieg against a stubborn picket.',
+    briefing: 'Two assault waves against a thin defensive screen. Fresh TP each wave — spend it or lose it. Get 5 men past the bottom, or wipe the defenders.',
     setup(G) {
       usBag(G, W / 2 - 105, 435); usBag(G, W / 2 - 35, 435); usBag(G, W / 2 + 35, 435); usBag(G, W / 2 + 105, 435);
       usWire(G, W / 2 - 70, DEPLOY_Y - 30); usWire(G, W / 2 + 70, DEPLOY_Y - 30);
@@ -470,17 +518,17 @@ const LEVELS = {
 
   axis2: {
     id: 'axis2',
-    name: 'AXIS 2: PROBING ATTACK',
-    menuName: 'LEVEL 2 — PROBING ATTACK',
-    menuDesc: 'Three waves. The line has a sniper now and a little wire. Budgets start at 35 TP and grow.',
+    name: 'AXIS 2: CROSSING THE MEUSE — SEDAN',
+    menuName: 'LEVEL 2 — SEDAN',
+    menuDesc: 'May 1940, France. Three waves through wire and mines toward the Meuse crossing. Budgets start at 45 TP.',
     mode: 'axis',
     winBreaches: 5,
     axisWaves: 3,
     wavePayout: 30,
     wavePayoutStep: 10,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'Three waves against a reinforced picket with a marksman watching the field.',
+    history: 'May 13, 1940. Guderian\'s panzer corps must force the Meuse at Sedan before the French can rally. The defenders have wired the approaches and posted marksmen on the heights.',
+    briefing: 'Three waves to crack a reinforced picket guarding the river crossing. Stormtroopers and flammenwerfer will help clear the wire.',
     setup(G) {
       usBag(G, W / 2 - 180, 435); usBag(G, W / 2 - 90, 435); usBag(G, W / 2, 435);
       usBag(G, W / 2 + 90, 435); usBag(G, W / 2 + 180, 435);
@@ -495,26 +543,24 @@ const LEVELS = {
 
   axis3: {
     id: 'axis3',
-    name: 'AXIS 3: COFFEE BREAK',
-    menuName: 'LEVEL 3 — COFFEE BREAK ☕',
-    menuDesc: 'Themed: the whole detail is huddled around the coffee urn dead center. Thin flank sentries — still softer than the middle.',
+    name: 'AXIS 3: FALL OF MALEME — CRETE',
+    menuName: 'LEVEL 3 — MALEME, CRETE',
+    menuDesc: 'May 1941. Three waves to seize the airfield at Maleme. Paradrop deployment unlocks in research.',
     mode: 'axis',
     winBreaches: 5,
     axisWaves: 3,
     wavePayout: 32,
     wavePayoutStep: 12,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'The Americans are on a coffee break, bunched in the middle with mugs in hand. Flank sentries are half asleep — the center is still the hard knot.',
+    history: 'May 20, 1941. Fallschirmjäger descend on Crete to seize airfields for the invasion fleet. At Maleme the garrison clusters around the runway while flank sentries watch the olive groves.',
+    briefing: 'The defenders are bunched around the airfield with thin flanks. Research paradrop if you can — drop random infantry behind their line.',
     setup(G) {
       const cx = W / 2;
-      // everybody crowded around the urn, dead center — flanks thin but not empty
       usBag(G, cx - 40, 450); usBag(G, cx + 40, 450); usBag(G, cx, 505);
       usRow(G, 'rifleman', 470, [cx - 45, cx, cx + 45]);
       usMan(G, 'gunner', cx, 512);
       usMan(G, 'shotgunner', cx - 30, 522);
       usMan(G, 'medic', cx + 30, 522);
-      // distracted flank sentries — easy to beat but they will shoot
       usMan(G, 'rifleman', 110, 440);
       usMan(G, 'rifleman', W - 110, 440);
       usWire(G, 130, DEPLOY_Y - 38); usWire(G, W - 130, DEPLOY_Y - 38);
@@ -523,17 +569,17 @@ const LEVELS = {
 
   axis4: {
     id: 'axis4',
-    name: 'AXIS 4: THE CROSSROADS',
-    menuName: 'LEVEL 4 — THE CROSSROADS',
-    menuDesc: 'Four waves. A bunkered strongpoint with mines on the shoulders. Bigger budgets every wave.',
+    name: 'AXIS 4: BREST FORTRESS',
+    menuName: 'LEVEL 4 — BREST FORTRESS',
+    menuDesc: 'June 1941, USSR. Four waves against a bunkered Soviet strongpoint on the frontier.',
     mode: 'axis',
     winBreaches: 6,
     axisWaves: 4,
     wavePayout: 36,
     wavePayoutStep: 12,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'A bunkered crossroads held in strength. Four waves to crack it.',
+    history: 'June 22, 1941. Operation Barbarossa opens with fortress cities on the border. Brest holds out in bunkers and trenches — a preview of the grinding fights ahead on the Eastern Front.',
+    briefing: 'A bunkered fortress line with deep wire belts. Four waves to crack the citadel. Mortars and grenadiers will help dig them out.',
     setup(G) {
       for (const x of [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]) usBag(G, x, 435);
       usBunker(G, W / 2, DEPLOY_Y + 80);
@@ -549,17 +595,17 @@ const LEVELS = {
 
   axis5: {
     id: 'axis5',
-    name: 'AXIS 5: GRIND',
-    menuName: 'LEVEL 5 — GRIND',
-    menuDesc: 'Four waves into a wall of riflemen, gunners and a medic keeping them up. Grind them down.',
+    name: 'AXIS 5: KASSERINE PASS',
+    menuName: 'LEVEL 5 — KASSERINE PASS',
+    menuDesc: 'February 1943, Tunisia. Four waves through a deep American line with medics in support.',
     mode: 'axis',
     winBreaches: 6,
     axisWaves: 4,
     wavePayout: 40,
     wavePayoutStep: 13,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'A deep line of infantry with medics in support. No cleverness — just outweigh them.',
+    history: 'February 19, 1943. Rommel\'s Afrika Korps punches through the inexperienced American II Corps at Kasserine Pass — the first major clash between US and German forces in North Africa.',
+    briefing: 'A deep infantry line with medics keeping casualties on their feet. Outlast them wave by wave — motorcycles can race for the breach.',
     setup(G) {
       for (const x of [W / 2 - 280, W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200, W / 2 + 280]) usBag(G, x, 435);
       usWire(G, W / 2 - 180, DEPLOY_Y - 45); usWire(G, W / 2 - 60, DEPLOY_Y - 55);
@@ -575,17 +621,17 @@ const LEVELS = {
 
   axis6: {
     id: 'axis6',
-    name: 'AXIS 6: TANK GRAVEYARD',
-    menuName: 'LEVEL 6 — TANK GRAVEYARD 🪦',
-    menuDesc: 'Themed: one Sherman that refuses to die, an AT gun for company, and a field of mines. Bring armor at your peril — bring mines instead.',
+    name: 'AXIS 6: KURSK — PROKHOROVKA',
+    menuName: 'LEVEL 6 — PROKHOROVKA',
+    menuDesc: 'July 1943, USSR. Sherman, AT guns and mines — StuG III now in research. Panzers feed the graveyard.',
     mode: 'axis',
     winBreaches: 6,
     axisWaves: 4,
     wavePayout: 44,
     wavePayoutStep: 14,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'A lone stubborn Sherman and an AT gun guard a minefield of old wrecks. Panzers will feed the graveyard — try mines and infantry.',
+    history: 'July 12, 1943. The largest tank battle in history rages near Prokhorovka. Soviet armor and anti-tank guns wait behind minefields — heavy Panzers die here without support.',
+    briefing: 'A Sherman and AT guns guard a minefield. Panzerfausts and StuG IIIs will serve you better than charging tanks into the killing ground.',
     setup(G) {
       usBunker(G, W / 2, DEPLOY_Y + 70);
       usMan(G, 'sherman', W / 2, 470);
@@ -601,17 +647,17 @@ const LEVELS = {
 
   axis7: {
     id: 'axis7',
-    name: 'AXIS 7: THE RIDGE',
-    menuName: 'LEVEL 7 — THE RIDGE',
-    menuDesc: 'Five waves. Twin bunkers with MG teams and a marksman command the slope. Budgets keep climbing.',
+    name: 'AXIS 7: MONTE CASSINO',
+    menuName: 'LEVEL 7 — MONTE CASSINO',
+    menuDesc: 'February 1944, Italy. Five waves up the ridge against twin bunkers and MG nests.',
     mode: 'axis',
     winBreaches: 6,
     axisWaves: 5,
     wavePayout: 48,
     wavePayoutStep: 14,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'Two bunkers with MG42-killers dug into the ridge. Five waves to storm it.',
+    history: 'February 1944. The abbey on Monte Cassino commands the Liri Valley. Allied infantry and New Zealand gunners hold the slopes in bunkers — four assaults have already failed here.',
+    briefing: 'Twin bunkers with machine-gun teams command the ridge. Five waves to storm the heights. Flammenwerfer and mortars clear dug-in positions.',
     setup(G) {
       usBunker(G, W / 2 - 180, DEPLOY_Y + 70); usBunker(G, W / 2 + 180, DEPLOY_Y + 70);
       for (const x of [W / 2 - 280, W / 2 - 180, W / 2 - 60, W / 2 + 60, W / 2 + 180, W / 2 + 280]) usBag(G, x, 435);
@@ -628,17 +674,17 @@ const LEVELS = {
 
   axis8: {
     id: 'axis8',
-    name: 'AXIS 8: ATTRITION',
-    menuName: 'LEVEL 8 — ATTRITION',
-    menuDesc: 'Five waves into a deep, medic-backed line around a central bunker. A war of numbers.',
+    name: 'AXIS 8: OPERATION BAGRATION',
+    menuName: 'LEVEL 8 — BELARUS',
+    menuDesc: 'June 1944, Eastern Front. Five waves into a deep medic-backed Soviet line.',
     mode: 'axis',
     winBreaches: 7,
     axisWaves: 5,
     wavePayout: 52,
     wavePayoutStep: 15,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'A deep line with two medics keeping everyone on their feet. Bleed them white.',
+    history: 'June 1944. While the Allies land in Normandy, the Red Army unleashes Operation Bagration — shattering Army Group Centre. This is a desperate counterattack into a deep, layered Soviet defense.',
+    briefing: 'A deep line with medics keeping everyone on their feet. Bleed them white across five waves — numbers and firepower decide this fight.',
     setup(G) {
       for (const x of [W / 2 - 300, W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220, W / 2 + 300]) usBag(G, x, 435);
       usBunker(G, W / 2, DEPLOY_Y + 80);
@@ -655,17 +701,17 @@ const LEVELS = {
 
   axis9: {
     id: 'axis9',
-    name: 'AXIS 9: SNIPER ALLEY',
-    menuName: 'LEVEL 9 — SNIPER ALLEY 🎯',
-    menuDesc: 'Themed: every hedgerow hides a marksman, and they hunt officers and MG teams first. Keep the assault moving and never bunch up.',
+    name: 'AXIS 9: HÜRTGEN FOREST',
+    menuName: 'LEVEL 9 — HÜRTGEN FOREST',
+    menuDesc: 'September 1944, Germany. Five waves through sniper-laced hedgerows. Keep the assault moving.',
     mode: 'axis',
     winBreaches: 7,
     axisWaves: 5,
     wavePayout: 56,
     wavePayoutStep: 16,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'Five American snipers watch the field and pick off your leaders and gunners first. Rush cheap men through the gaps.',
+    history: 'September 1944. The US 28th Infantry Division pushes into the Hürtgen Forest — dense woods, mud, and hidden marksmen. The longest battle on German soil begins in these dark trees.',
+    briefing: 'Marksmen behind every hedgerow hunt your officers and gunners. Rush cheap riflemen through the gaps — never bunch up in the open.',
     setup(G) {
       usWire(G, W / 2 - 220, DEPLOY_Y - 50); usWire(G, W / 2 - 80, DEPLOY_Y - 45);
       usWire(G, W / 2 + 80, DEPLOY_Y - 45); usWire(G, W / 2 + 220, DEPLOY_Y - 50);
@@ -681,17 +727,17 @@ const LEVELS = {
 
   axis10: {
     id: 'axis10',
-    name: 'AXIS 10: THE WALL',
-    menuName: 'LEVEL 10 — THE WALL',
-    menuDesc: 'Six waves against three bunkers, layered wire and mines, and an engineer patching it all. Bring firepower.',
+    name: 'AXIS 10: SIEGFRIED LINE — AACHEN',
+    menuName: 'LEVEL 10 — AACHEN',
+    menuDesc: 'October 1944. Six waves against the West Wall — three bunkers, wire, mines, and an engineer.',
     mode: 'axis',
     winBreaches: 7,
     axisWaves: 6,
     wavePayout: 60,
     wavePayoutStep: 16,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'Three bunkers, four belts of wire, and an engineer keeping the wall standing. Six waves to breach it.',
+    history: 'October 1944. Aachen is the first German city to face direct assault. The Siegfried Line\'s bunkers and dragon\'s teeth slow every advance — the Americans have an engineer keeping the wall intact.',
+    briefing: 'Three bunkers, layered wire, and an engineer patching the fortifications. Bring mortars, flammenwerfer, and armor to breach the West Wall.',
     setup(G) {
       usBunker(G, W / 2 - 220, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 80); usBunker(G, W / 2 + 220, DEPLOY_Y + 70);
       for (const x of [W / 2 - 300, W / 2 - 200, W / 2 - 100, W / 2 + 100, W / 2 + 200, W / 2 + 300]) usBag(G, x, 435);
@@ -708,17 +754,17 @@ const LEVELS = {
 
   axis11: {
     id: 'axis11',
-    name: 'AXIS 11: STEEL RAIN',
-    menuName: 'LEVEL 11 — STEEL RAIN',
-    menuDesc: 'Six waves. Three mortar teams have zeroed the open ground — the sky rains shells. Move fast and spread out.',
+    name: 'AXIS 11: MARKET GARDEN — ARNHEM',
+    menuName: 'LEVEL 11 — ARNHEM',
+    menuDesc: 'September 1944, Netherlands. Six waves past mortar teams that own the open ground.',
     mode: 'axis',
     winBreaches: 7,
     axisWaves: 6,
     wavePayout: 66,
     wavePayoutStep: 17,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'Three American mortar crews have the killing ground zeroed. Rush across before the shells find you.',
+    history: 'September 17, 1944. Operation Market Garden aims to seize the Rhine bridges. At Arnhem, British paratroopers hold the far bank while mortars zero every approach — a bridge too far.',
+    briefing: 'Mortar crews have the killing ground zeroed. Rush across before the shells find you — spread out and keep moving.',
     setup(G) {
       for (const x of [W / 2 - 280, W / 2 - 180, W / 2 - 90, W / 2, W / 2 + 90, W / 2 + 180, W / 2 + 280]) usBag(G, x, 435);
       usBunker(G, W / 2, DEPLOY_Y + 80);
@@ -734,17 +780,17 @@ const LEVELS = {
 
   axis12: {
     id: 'axis12',
-    name: 'AXIS 12: THE KITCHEN SINK',
-    menuName: 'LEVEL 12 — THE KITCHEN SINK 🚿',
-    menuDesc: 'Themed: somebody handed a rifle to the cook, the clerk and the chaplain. One of literally everything is down there — a glorious, disorganized mess.',
+    name: 'AXIS 12: BULGE — ST. VITH',
+    menuName: 'LEVEL 12 — ST. VITH',
+    menuDesc: 'December 1944, Belgium. Six waves through American combined arms holding the road hub.',
     mode: 'axis',
     winBreaches: 7,
     axisWaves: 6,
     wavePayout: 72,
     wavePayoutStep: 18,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'The Americans have thrown one of every unit into the line — riflemen to flamethrowers to a jeep and an AT gun. It is a mess, but a dangerous one.',
+    history: 'December 16, 1944. The Ardennes offensive surges west. St. Vith is a critical road junction — the 7th Armored and scattered infantry throw everything they have into blocking the advance.',
+    briefing: 'Combined arms defense: riflemen, armor, and support weapons in a disorganized but deadly line. Punch through before they rally.',
     setup(G) {
       usBunker(G, W / 2 - 120, DEPLOY_Y + 80); usBunker(G, W / 2 + 120, DEPLOY_Y + 80);
       usBag(G, W / 2 - 280, 435); usBag(G, W / 2 - 160, 435); usBag(G, W / 2 + 160, 435); usBag(G, W / 2 + 280, 435);
@@ -765,17 +811,17 @@ const LEVELS = {
 
   axis13: {
     id: 'axis13',
-    name: 'AXIS 13: FORTRESS AMERICA',
-    menuName: 'LEVEL 13 — FORTRESS AMERICA',
-    menuDesc: 'Finale. Seven waves against everything the Americans have: twin Shermans, AT guns, three bunkers, snipers, mortars and an officer. The biggest budgets in the war.',
+    name: 'AXIS 13: BASTOGNE — WACHT AM RHEIN',
+    menuName: 'LEVEL 13 — BASTOGNE',
+    menuDesc: 'December 1944. Seven-wave finale. Twin Shermans, AT guns, bunkers — research the Tiger I here.',
     mode: 'axis',
     winBreaches: 7,
     axisWaves: 7,
     wavePayout: 80,
     wavePayoutStep: 22,
     events: false,
-    placeables: AXIS_PLACEABLES,
-    briefing: 'The final line: two Shermans, two AT guns, three bunkers, snipers and mortars under an officer. Seven waves, and the fattest budgets of the campaign. Break it and the sector is yours.',
+    history: 'December 1944. Bastogne is the hinge of the Bulge. The 101st Airborne and attached armor form a fortress ring — seven waves and every gun in the theater to break "Nuts!"',
+    briefing: 'The final line: Shermans, AT guns, bunkers, and mortars under an officer. Seven waves and the fattest budgets of the war. Break Bastogne and the offensive lives.',
     setup(G) {
       usBunker(G, W / 2 - 240, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 85); usBunker(G, W / 2 + 240, DEPLOY_Y + 70);
       for (const x of [W / 2 - 320, W / 2 - 220, W / 2 - 110, W / 2 + 110, W / 2 + 220, W / 2 + 320]) usBag(G, x, 435);
@@ -995,6 +1041,7 @@ function newGame(level, difficulty) {
     buffFrame: 0,
     usOfficers: [],
     deOfficers: [],
+    paraFlybyPlayed: false,
   };
   paintGround();
   level.setup(G);
@@ -1291,7 +1338,66 @@ function clearAxisWaveEffects() {
   G.tracers = [];
   G.particles = [];
   G.flashes = [];
+  G.paraFlybyPlayed = false;
   clearPlacing();
+}
+
+function isParaDropUnit(key) {
+  return key === 'eparadrop';
+}
+
+function axisParadropPool() {
+  const { unlocked } = loadAxisResearch();
+  const pool = AXIS_PARA_POOL_BASE.slice();
+  for (const k of AXIS_PARA_POOL_EXTRAS) {
+    if (unlocked.includes(k)) pool.push(k);
+  }
+  return pool;
+}
+
+function resolveParadropLanding(e) {
+  if (!e.paraRoll) return;
+  const replacement = makeEnemy(e.paraRoll, e.x, e.y);
+  replacement.face = e.face || Math.PI / 2;
+  const idx = G.enemies.indexOf(e);
+  if (idx !== -1) G.enemies[idx] = replacement;
+}
+
+function axisDeployMaxY(p) {
+  return isParaDropUnit(p.key) ? AXIS_PARA_DROP_MAX_Y : AXIS_DEPLOY_Y;
+}
+
+function updateEnemyChute(e, dt) {
+  if (!(e.chute > 0)) return;
+  e.chute -= dt;
+  e.sway = (e.sway || 0) + dt * 2.2;
+  e.x = clamp(e.x + Math.sin(e.sway) * 9 * dt, 14, W - 14);
+  if (e.chute <= 0) {
+    e.chute = 0;
+    for (let i = 0; i < 6; i++) {
+      G.particles.push({
+        x: e.x + rand(-6, 6), y: e.y + rand(-2, 4),
+        vx: rand(-30, 30), vy: rand(-40, -10),
+        ttl: rand(0.25, 0.5), grav: 160, size: rand(1.2, 2.4),
+        color: pick(['#6e6046', '#57492f', '#8a7a5a']),
+      });
+    }
+    if (e.paraRoll) resolveParadropLanding(e);
+  }
+}
+
+function placeAxisParatrooper(x, y) {
+  const e = makeEnemy('erifle', x, y);
+  e.paraRoll = pick(axisParadropPool());
+  const depth = clamp((y - 14) / Math.max(AXIS_PARA_DROP_MAX_Y - 14, 1), 0, 1);
+  e.chute = rand(2.2, 3.0) + depth * 0.9;
+  e.chuteMax = e.chute;
+  e.sway = rand(0, Math.PI * 2);
+  G.enemies.push(e);
+  if (!G.paraFlybyPlayed) {
+    G.paraFlybyPlayed = true;
+    spawnTransportFlyby();
+  }
 }
 
 function startAxisCombat() {
@@ -2942,21 +3048,7 @@ function enemyOfficerNear(e) {
 function updateEnemy(e, dt) {
   // still under canopy: drift down, sway in the wind, do nothing else
   if (e.chute > 0) {
-    e.chute -= dt;
-    e.sway = (e.sway || 0) + dt * 2.2;
-    e.x = clamp(e.x + Math.sin(e.sway) * 9 * dt, 14, W - 14);
-    if (e.chute <= 0) {
-      e.chute = 0;
-      // boots hit the dirt: kick up a little dust
-      for (let i = 0; i < 6; i++) {
-        G.particles.push({
-          x: e.x + rand(-6, 6), y: e.y + rand(-2, 4),
-          vx: rand(-30, 30), vy: rand(-40, -10),
-          ttl: rand(0.25, 0.5), grav: 160, size: rand(1.2, 2.4),
-          color: pick(['#6e6046', '#57492f', '#8a7a5a']),
-        });
-      }
-    }
+    updateEnemyChute(e, dt);
     return;
   }
 
@@ -3135,7 +3227,8 @@ function advance(e, dt, buffed) {
 
 function updateTank(e, dt) {
   // grind forward, slower than infantry, ignores wire — and fires on the move
-  e.y += e.t.speed * dt;
+  const spd = e.t.speed * (e.t.heavy ? 0.85 : 1);
+  e.y += spd * dt;
   updateTankCombat(e, dt);
 }
 
@@ -3300,6 +3393,9 @@ function update(dt) {
 
   if (inBuildPhase()) {
     if (G.fog > 0) G.fog -= dt;
+    for (const e of G.enemies) {
+      if (!e.dead && e.chute > 0) updateEnemyChute(e, dt);
+    }
     if (G.banner) { G.banner.ttl -= dt; if (G.banner.ttl <= 0) G.banner = null; }
     return;
   }
@@ -3513,11 +3609,13 @@ function victory() {
   const t = Math.floor(G.time);
   if (G.mode === 'axis') {
     const wiped = !G.units.some(u => !u.dead);
-    endRun(true, 'LINE BROKEN',
-      wiped
-        ? `Every defender is down after ${G.wave} waves. ${G.breaches} men through the breach, ${G.kills} Americans eliminated.`
-        : `The American line collapses after ${G.wave} waves. ` +
-          `${G.breaches} men through the breach, ${G.kills} defenders down.`);
+    const rpEarned = awardAxisRP(G.level, wiped, G.wave);
+    let stats = wiped
+      ? `Every defender is down after ${G.wave} waves. ${G.breaches} men through the breach, ${G.kills} eliminated.`
+      : `The line collapses after ${G.wave} waves. ` +
+        `${G.breaches} men through the breach, ${G.kills} defenders down.`;
+    if (rpEarned > 0) stats += ` +${rpEarned} Research Points earned.`;
+    endRun(true, 'LINE BROKEN', stats);
   } else if (G.mode === 'hitsquad') {
     const alive = G.enemies.filter(e => !e.dead).length;
     endRun(true, 'TARGET ELIMINATED',
@@ -5078,22 +5176,28 @@ function drawTank(a) {
   const home = vehicleHomeFace(a);
   const hullAng = vehicleHullAngle(a);
   const hullRot = hullAng - home;
+  const heavy = !!a.t.heavy;
+  const casemate = !!a.t.casemate;
+  const hw = heavy ? 20 : 17;
+  const hh = heavy ? 17 : 14;
+  const trackW = heavy ? 9 : 8;
+  const trackOff = heavy ? 27 : 24;
   c.save();
   c.translate(a.x, a.y);
   // shadow
   c.fillStyle = 'rgba(0,0,0,0.3)';
-  c.beginPath(); c.ellipse(0, 4, 26, 18, 0, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(0, 4, heavy ? 30 : 26, heavy ? 21 : 18, 0, 0, 7); c.fill();
   if (a.moveTo) c.rotate(hullRot);
   // tracks
   c.fillStyle = '#2f2f28';
-  c.fillRect(-24, -16, 8, 32);
-  c.fillRect(16, -16, 8, 32);
+  c.fillRect(-trackOff, -16, trackW, 32);
+  c.fillRect(trackOff - trackW, -16, trackW, 32);
   // hull
   c.fillStyle = a.t.color;
-  c.fillRect(-17, -14, 34, 28);
+  c.fillRect(-hw, -hh, hw * 2, hh * 2);
   c.strokeStyle = us ? '#39462f' : '#3a3a32';
   c.lineWidth = 1.5;
-  c.strokeRect(-17, -14, 34, 28);
+  c.strokeRect(-hw, -hh, hw * 2, hh * 2);
   if (us) {
     // white US star on the hull
     c.strokeStyle = 'rgba(230,230,220,0.85)';
@@ -5107,13 +5211,19 @@ function drawTank(a) {
     c.closePath();
     c.stroke();
   }
-  // turret — compensate for hull rotation so barrel stays at world bearing a.turret
-  c.rotate(a.turret - hullAng + home);
-  c.fillStyle = us ? '#54634a' : '#4c4c43';
-  c.fillRect(6, -2.5, 24, 5);          // barrel
-  c.beginPath(); c.arc(0, 0, 10, 0, 7); c.fill();
-  c.strokeStyle = us ? '#39462f' : '#33332c';
-  c.beginPath(); c.arc(0, 0, 10, 0, 7); c.stroke();
+  if (casemate) {
+    c.fillStyle = '#3e3e36';
+    c.fillRect(-4, -5, 28, 10);
+    c.fillRect(20, -3, 18, 6);
+  } else {
+    // turret — compensate for hull rotation so barrel stays at world bearing a.turret
+    c.rotate(a.turret - hullAng + home);
+    c.fillStyle = us ? '#54634a' : (heavy ? '#353530' : '#4c4c43');
+    c.fillRect(6, -2.5, heavy ? 28 : 24, heavy ? 6 : 5);          // barrel
+    c.beginPath(); c.arc(0, 0, heavy ? 12 : 10, 0, 7); c.fill();
+    c.strokeStyle = us ? '#39462f' : '#33332c';
+    c.beginPath(); c.arc(0, 0, heavy ? 12 : 10, 0, 7); c.stroke();
+  }
   c.restore();
 
   if (a.hp < a.maxhp) {
@@ -6077,7 +6187,9 @@ function drawPlacementActor(a) {
 }
 
 function drawPlacementUnitGhost(p, x, y, valid) {
-  const a = p.kind === 'eunit' ? makeEnemy(p.key, x, y) : makeUnit(p.key, x, y);
+  const a = p.kind === 'eunit' ? makeEnemy(p.key, x, y)
+    : p.kind === 'eparadrop' ? makeEnemy('erifle', x, y)
+    : makeUnit(p.key, x, y);
   a._ghost = true;
   withPlacementGhostFilter(valid, () => drawPlacementActor(a));
 }
@@ -6107,12 +6219,12 @@ function drawPlacementGhost() {
     ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y);
     ctx.moveTo(x, y - 10); ctx.lineTo(x, y + 10);
     ctx.stroke();
-  } else if (p.kind === 'eunit') {
-    // attackers deploy in the top strip; everything south of it is off limits
+  } else if (p.kind === 'eunit' || p.kind === 'eparadrop') {
+    const maxDeployY = axisDeployMaxY(p);
     ctx.fillStyle = 'rgba(200,50,40,0.12)';
-    ctx.fillRect(0, AXIS_DEPLOY_Y, W, H - AXIS_DEPLOY_Y);
+    ctx.fillRect(0, maxDeployY, W, H - maxDeployY);
     drawPlacementUnitGhost(p, x, y, valid);
-    const et = ENEMY_TYPES[p.key];
+    const et = p.kind === 'eparadrop' ? ENEMY_TYPES.erifle : ENEMY_TYPES[p.key];
     if (et && et.fireCone) {
       drawFireCone(x, y, Math.PI / 2, et.fireCone.arc, et.range * fogMult(), 0.35);
     } else if (et && et.flame) {
@@ -6131,7 +6243,7 @@ function drawPlacementGhost() {
         ctx.beginPath(); ctx.arc(x, y, r * fogMult(), 0, 7); ctx.stroke();
       }
     }
-    drawSpecialistRangeAt(x, y, p.key, 'de');
+    drawSpecialistRangeAt(x, y, p.kind === 'eparadrop' ? 'erifle' : p.key, 'de');
   } else {
     // shade the invalid zone
     ctx.fillStyle = 'rgba(200,50,40,0.12)';
@@ -6592,7 +6704,7 @@ function updateHUD() {
 }
 
 const TOOLBAR_CATEGORIES = [
-  { id: 'units', label: 'UNITS', filter: p => p.kind === 'unit' || p.kind === 'eunit' },
+  { id: 'units', label: 'UNITS', filter: p => p.kind === 'unit' || p.kind === 'eunit' || p.kind === 'eparadrop' },
   { id: 'abilities', label: 'ABILITIES', filter: p => p.kind === 'support' },
   { id: 'emplacements', label: 'EMPLACEMENTS', filter: p => p.kind === 'defense' },
 ];
@@ -6785,13 +6897,13 @@ function placementMinY(p) {
 
 function placementValid(p, x, y) {
   if (p.kind === 'support') return y > 20 && y < H - 10;
-  if (p.kind === 'eunit') {
-    // axis attackers step off from the top strip and march south on their own
-    if (y < 14 || y > AXIS_DEPLOY_Y || x < 16 || x > W - 16) return false;
-    const t = ENEMY_TYPES[p.key];
-    const bulk = t.tank ? 34 : t.apc ? 30 : t.vehicle || t.bike ? 26 : 16;
+  if (p.kind === 'eunit' || p.kind === 'eparadrop') {
+    const maxY = axisDeployMaxY(p);
+    if (y < 14 || y > maxY || x < 16 || x > W - 16) return false;
+    const t = p.kind === 'eparadrop' ? ENEMY_TYPES.erifle : ENEMY_TYPES[p.key];
+    const bulk = t.heavy ? 40 : t.tank ? 34 : t.apc ? 30 : t.vehicle || t.bike ? 26 : 16;
     for (const e of G.enemies) {
-      const gap = Math.max(bulk, e.t.tank ? 34 : e.t.vehicle ? 26 : 16);
+      const gap = Math.max(bulk, e.t.heavy ? 40 : e.t.tank ? 34 : e.t.vehicle ? 26 : 16);
       if (dist(e, { x, y }) < gap) return false;
     }
     return true;
@@ -6823,6 +6935,8 @@ function place(p, x, y) {
 
   if (p.kind === 'unit') {
     G.units.push(makeUnit(p.key, x, y));
+  } else if (p.kind === 'eparadrop') {
+    placeAxisParatrooper(x, y);
   } else if (p.kind === 'eunit') {
     G.enemies.push(makeEnemy(p.key, x, y));
   } else if (p.key === 'ebarrage') {
@@ -7705,6 +7819,226 @@ for (const btn of document.querySelectorAll('.codex-tab')) {
   btn.addEventListener('click', () => buildCodex(btn.dataset.tab));
 }
 
+// ============================================================ axis research
+
+const RESEARCH_KEY = 'axisResearch';
+const RESEARCH_VERSION = 1;
+
+function defaultAxisResearch() {
+  return { version: RESEARCH_VERSION, rp: 0, unlocked: AXIS_STARTER_UNITS.slice(), earned: {} };
+}
+
+function loadAxisResearch() {
+  try {
+    const raw = localStorage.getItem(RESEARCH_KEY);
+    if (!raw) return migrateAxisResearch(defaultAxisResearch());
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object' || data.version !== RESEARCH_VERSION) {
+      return migrateAxisResearch(defaultAxisResearch());
+    }
+    data.unlocked = Array.isArray(data.unlocked) ? data.unlocked : AXIS_STARTER_UNITS.slice();
+    data.earned = data.earned && typeof data.earned === 'object' ? data.earned : {};
+    data.rp = Number.isFinite(data.rp) ? data.rp : 0;
+    return migrateAxisResearch(data);
+  } catch {
+    return migrateAxisResearch(defaultAxisResearch());
+  }
+}
+
+function saveAxisResearch(data) {
+  localStorage.setItem(RESEARCH_KEY, JSON.stringify(data));
+}
+
+function migrateAxisResearch(data) {
+  const progress = loadProgress();
+  let changed = false;
+  if (data.unlocked.includes('efall')) {
+    data.unlocked = data.unlocked.filter(k => k !== 'efall');
+    if (!data.unlocked.includes('eparadrop')) data.unlocked.push('eparadrop');
+    changed = true;
+  }
+  for (let i = 1; i <= 13; i++) {
+    const id = 'axis' + i;
+    if (progress.completed[id] && !data.earned[id]) {
+      const level = LEVELS[id];
+      if (level) {
+        data.rp += 12 + i * 8;
+        data.earned[id] = true;
+        changed = true;
+      }
+    }
+  }
+  if (changed) saveAxisResearch(data);
+  return data;
+}
+
+function axisLevelNum(id) {
+  const m = /^axis(\d+)$/.exec(id);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+function axisCampaignTierReached() {
+  let tier = 1;
+  for (let i = 1; i <= 13; i++) {
+    if (isLevelUnlocked('axis' + i, AXIS_CAMPAIGN)) tier = i;
+  }
+  return tier;
+}
+
+function allAxisResearchEntries() {
+  return [...AXIS_PLACEABLES, ...Object.values(AXIS_CAMPAIGN_EXTRA_ENTRIES)];
+}
+
+function axisResearchEntry(key) {
+  return allAxisResearchEntries().find(p => p.key === key);
+}
+
+function axisResearchCost(key) {
+  if (AXIS_STARTER_UNITS.includes(key)) return 0;
+  return AXIS_RESEARCH_COSTS[key] != null ? AXIS_RESEARCH_COSTS[key] : null;
+}
+
+function axisResearchTierGate(key) {
+  return AXIS_RESEARCH_TIERS[key] || 0;
+}
+
+function axisResearchVisible(key) {
+  const tier = axisResearchTierGate(key);
+  return !tier || axisCampaignTierReached() >= tier;
+}
+
+function axisPlaceablesForResearch() {
+  const { unlocked } = loadAxisResearch();
+  const set = new Set(unlocked);
+  return allAxisResearchEntries().filter(p => set.has(p.key));
+}
+
+function calcAxisRPAward(level, wiped, wave, axisWaves) {
+  const n = axisLevelNum(level.id);
+  let rp = 12 + n * 8;
+  if (wiped) rp += 8;
+  const unused = Math.max(0, axisWaves - wave);
+  if (unused >= 2) rp += unused * 4;
+  return rp;
+}
+
+function awardAxisRP(level, wiped, wave) {
+  const data = loadAxisResearch();
+  if (data.earned[level.id]) return 0;
+  const rp = calcAxisRPAward(level, wiped, wave, level.axisWaves);
+  data.rp += rp;
+  data.earned[level.id] = true;
+  saveAxisResearch(data);
+  return rp;
+}
+
+function buyAxisResearch(key) {
+  const data = loadAxisResearch();
+  if (data.unlocked.includes(key)) return false;
+  if (!axisResearchVisible(key)) return false;
+  const cost = axisResearchCost(key);
+  if (cost == null || cost > data.rp) return false;
+  data.rp -= cost;
+  data.unlocked.push(key);
+  saveAxisResearch(data);
+  return true;
+}
+
+function syncAxisRPDisplays() {
+  const data = loadAxisResearch();
+  const text = data.rp + ' RP';
+  const bal = el('axis-rp-balance');
+  const briefBal = el('axis-briefing-rp');
+  const researchBal = el('axis-research-rp');
+  if (bal) bal.textContent = text;
+  if (briefBal) briefBal.textContent = text;
+  if (researchBal) researchBal.textContent = text;
+}
+
+function buildAxisResearchUI() {
+  const grid = el('axis-research-grid');
+  if (!grid) return;
+  const data = loadAxisResearch();
+  const unlocked = new Set(data.unlocked);
+  grid.replaceChildren();
+  const keys = [
+    ...AXIS_PLACEABLES.map(p => p.key),
+    ...Object.keys(AXIS_CAMPAIGN_EXTRA_ENTRIES),
+  ];
+  for (const key of keys) {
+    const entry = axisResearchEntry(key);
+    if (!entry) continue;
+    const cost = axisResearchCost(key);
+    const owned = unlocked.has(key);
+    const visible = axisResearchVisible(key);
+    const tier = axisResearchTierGate(key);
+    const card = document.createElement('div');
+    card.className = 'research-card';
+    if (owned) card.classList.add('owned');
+    if (!visible) card.classList.add('locked');
+    const title = document.createElement('div');
+    title.className = 'research-card-title';
+    title.textContent = AXIS_RESEARCH_LABELS[key] || entry.label;
+    const stats = document.createElement('div');
+    stats.className = 'research-card-stats';
+    stats.textContent = owned
+      ? 'OWNED · ' + entry.cost + ' TP per deploy'
+      : (cost === 0 ? 'STARTER' : cost + ' RP') + ' · ' + entry.cost + ' TP';
+    const desc = document.createElement('div');
+    desc.className = 'research-card-desc';
+    desc.textContent = entry.desc;
+    card.appendChild(title);
+    card.appendChild(stats);
+    card.appendChild(desc);
+    if (!visible) {
+      const lock = document.createElement('div');
+      lock.className = 'research-card-lock';
+      lock.textContent = 'Reach Level ' + tier;
+      card.appendChild(lock);
+    } else if (!owned && cost > 0) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'research-buy-btn';
+      btn.textContent = 'BUY (' + cost + ' RP)';
+      btn.disabled = data.rp < cost;
+      btn.addEventListener('click', () => {
+        if (buyAxisResearch(key)) {
+          SFX.click();
+          buildAxisResearchUI();
+          syncAxisRPDisplays();
+        }
+      });
+      card.appendChild(btn);
+    } else if (owned) {
+      const badge = document.createElement('div');
+      badge.className = 'research-card-owned';
+      badge.textContent = 'OWNED';
+      card.appendChild(badge);
+    }
+    grid.appendChild(card);
+  }
+  syncAxisRPDisplays();
+}
+
+function openAxisResearch() {
+  buildAxisResearchUI();
+  el('intro').classList.add('hidden');
+  el('axis-select').classList.add('hidden');
+  el('axis-briefing').classList.add('hidden');
+  el('axis-research').classList.remove('hidden');
+}
+
+function closeAxisResearch() {
+  el('axis-research').classList.add('hidden');
+  if (pendingAxisLevelId) {
+    openAxisBriefing(pendingAxisLevelId);
+  } else {
+    buildAxisSelect();
+    syncAxisRPDisplays();
+    el('axis-select').classList.remove('hidden');
+  }
+}
+
 // ============================================================ campaign progress
 
 const PROGRESS_KEY = 'campaignProgress';
@@ -7905,6 +8239,7 @@ function returnToMenu() {
   el('endless-select').classList.add('hidden');
   el('axis-select').classList.add('hidden');
   el('axis-briefing').classList.add('hidden');
+  el('axis-research').classList.add('hidden');
   el('commando-select').classList.add('hidden');
   el('intro').classList.remove('hidden');
   syncMobileViewUI();
@@ -7930,6 +8265,20 @@ const AXIS_CAMPAIGN = [
 const COMMANDO_CAMPAIGN = ['hitsquad'];
 
 let pendingAxisLevelId = null;
+
+function newResearchAtLevel(levelNum) {
+  const out = [];
+  for (const [key, tier] of Object.entries(AXIS_RESEARCH_TIERS)) {
+    if (tier === levelNum) {
+      out.push({
+        key,
+        name: AXIS_RESEARCH_LABELS[key] || key,
+        cost: axisResearchCost(key),
+      });
+    }
+  }
+  return out;
+}
 
 function buildAxisBriefingStats(level) {
   return {
@@ -7958,10 +8307,15 @@ function openAxisBriefing(levelId) {
   const stats = buildAxisBriefingStats(level);
   const titleEl = el('axis-briefing-title');
   titleEl.textContent = level.menuName || level.name;
-  titleEl.classList.toggle('briefing-themed', !!(level.menuDesc && level.menuDesc.startsWith('Themed:')));
+  titleEl.classList.remove('briefing-themed');
+  const histEl = el('axis-briefing-history');
+  if (histEl) histEl.textContent = level.history || '';
   el('axis-briefing-text').textContent = level.briefing || '';
   const objList = el('axis-briefing-objectives');
   objList.replaceChildren();
+  const research = loadAxisResearch();
+  appendBriefingObjective(objList, 'Research: ' + research.rp + ' RP banked · ' +
+    research.unlocked.length + ' unit types unlocked');
   appendBriefingObjective(objList, 'Waves: ' + stats.waves + ' assault waves');
   appendBriefingObjective(objList,
     'Objective: ' + stats.winBreaches + ' breakthroughs past the bottom edge, or wipe every defender');
@@ -7969,8 +8323,15 @@ function openAxisBriefing(levelId) {
     'Budget: ' + stats.wave1TP + ' TP (wave 1) → ' + stats.waveFinalTP + ' TP (final wave) — spend each wave or lose it');
   appendBriefingObjective(objList,
     'Rules: Deploy in the top strip, then START WAVE. Defenders persist.');
+  const levelNum = axisLevelNum(levelId);
+  for (const item of newResearchAtLevel(levelNum)) {
+    appendBriefingObjective(objList,
+      'New in research: ' + item.name + ' (' + item.cost + ' RP)');
+  }
+  syncAxisRPDisplays();
   el('intro').classList.add('hidden');
   el('axis-select').classList.add('hidden');
+  el('axis-research').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('axis-briefing').classList.remove('hidden');
 }
@@ -8048,9 +8409,13 @@ function buildCommandoSelect() {
 }
 
 function openAxisSelect() {
+  loadAxisResearch();
   buildAxisSelect();
+  syncAxisRPDisplays();
   el('intro').classList.add('hidden');
   el('commando-select').classList.add('hidden');
+  el('axis-research').classList.add('hidden');
+  el('axis-briefing').classList.add('hidden');
   el('axis-select').classList.remove('hidden');
 }
 
@@ -8085,7 +8450,8 @@ function startGame(levelId, difficultyId) {
   paused = false;
   gameSpeed = 1;
   syncSpeedButton();
-  buildToolbar(level.placeables);
+  const placeables = level.mode === 'axis' ? axisPlaceablesForResearch() : level.placeables;
+  buildToolbar(placeables);
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('codex').classList.add('hidden');
@@ -8093,6 +8459,7 @@ function startGame(levelId, difficultyId) {
   el('endless-select').classList.add('hidden');
   el('axis-select').classList.add('hidden');
   el('axis-briefing').classList.add('hidden');
+  el('axis-research').classList.add('hidden');
   el('commando-select').classList.add('hidden');
   el('pause').classList.add('hidden');
   syncMobileViewUI();
@@ -8129,6 +8496,13 @@ for (const btn of document.querySelectorAll('[data-endless-diff]')) {
 el('start-allied').addEventListener('click', () => startGame('allied1'));
 el('start-axis').addEventListener('click', openAxisSelect);
 el('axis-back-btn').addEventListener('click', closeAxisSelect);
+el('axis-research-btn').addEventListener('click', openAxisResearch);
+el('axis-research-back').addEventListener('click', closeAxisResearch);
+el('axis-briefing-research').addEventListener('click', () => {
+  el('axis-briefing').classList.add('hidden');
+  buildAxisResearchUI();
+  el('axis-research').classList.remove('hidden');
+});
 el('axis-briefing-deploy').addEventListener('click', deployAxisBriefing);
 el('axis-briefing-back').addEventListener('click', closeAxisBriefing);
 el('start-commando').addEventListener('click', openCommandoSelect);

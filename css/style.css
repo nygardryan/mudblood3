@@ -424,6 +424,87 @@ body {
   color: #ffd94a;
   font-weight: normal;
 }
+
+#axis-briefing-history {
+  max-width: 560px;
+  margin: 0 auto 16px;
+  font-size: clamp(11px, 3vw, 13px);
+  color: #a8a080;
+  line-height: 1.6;
+}
+@media (max-width: 520px) {
+  #axis-briefing-layout {
+    flex-direction: column;
+    align-items: center;
+  }
+  #axis-briefing-history { text-align: center; }
+}
+
+.axis-rp-line {
+  font-size: clamp(13px, 3.5vw, 15px);
+  color: #c9c19a;
+  margin-bottom: 12px;
+}
+.axis-select-actions {
+  margin-bottom: 14px;
+}
+
+.research-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  max-width: 640px;
+  width: 100%;
+  max-height: 50vh;
+  overflow-y: auto;
+  margin-bottom: 18px;
+  padding: 4px;
+}
+.research-card {
+  background: rgba(30, 28, 18, 0.85);
+  border: 1px solid #5a5322;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: clamp(10px, 2.8vw, 12px);
+  color: #c9c19a;
+}
+.research-card.owned { border-color: #6a7a4a; }
+.research-card.locked { opacity: 0.45; }
+.research-card-title {
+  font-weight: bold;
+  color: #ffd94a;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+  font-size: clamp(11px, 3vw, 13px);
+}
+.research-card-stats {
+  color: #8a8668;
+  margin-bottom: 6px;
+}
+.research-card-desc {
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+.research-card-lock {
+  color: #a08040;
+  font-style: italic;
+}
+.research-card-owned {
+  color: #8fbf5a;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+.research-buy-btn {
+  width: 100%;
+  padding: 6px 10px !important;
+  font-size: clamp(11px, 3vw, 13px) !important;
+  min-height: 36px !important;
+}
+.research-buy-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .overlay button {
   background: #3d3819;
   border: 2px solid #ffd94a;

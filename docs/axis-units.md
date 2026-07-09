@@ -170,3 +170,17 @@ Some types intentionally use different movement rules:
 - **Hit Squad** — player-issued `moveTo` only; no auto push (`command === true` skips urges).
 
 When adding a new Axis type, either hook it into the patterns above or document why it is an exception.
+
+---
+
+## 3. Campaign-exclusive units (Axis campaign only)
+
+These exist in `ENEMY_TYPES` and `AXIS_CAMPAIGN_EXTRA_ENTRIES` but are **not** added to `waveComposition()` endless spawns. They appear in the research tree when the player reaches the matching campaign level:
+
+| Key | Name | Tier gate | RP cost | Notes |
+|-----|------|-----------|---------|-------|
+| `efall` | Fallschirmjäger | axis3 (Crete) | 25 | Elite infantry: `esmg`-like speed, `erifle`-like range |
+| `estug` | StuG III | axis6 (Kursk) | 45 | `tank: true`, `casemate: true` — fixed gun, faster than Panzer IV |
+| `etiger` | Tiger I | axis13 (Bastogne) | 90 | `tank: true`, `heavy: true` — slower, tougher, harder-hitting |
+
+Use `drawTank()` branches for `casemate` and `heavy` when adding distinct visuals. Hook movement through `updateTank()` like Panzer IV.

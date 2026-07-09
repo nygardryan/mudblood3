@@ -28,26 +28,22 @@ python3 -m http.server 8000
   ramping from rifle squads to a halftrack-led final assault. Wipe out the last
   wave and the sector is yours. 7 breaches still lose it. No income attrition and
   no random events — the assault plan is fixed.
-- **Axis Campaign — 13 levels** — the tables turn: now you're the one attacking a
-  dug-in American line. Levels unlock in order — beat one to open the next; progress
-  is saved in your browser. Pick a level from the campaign list. Each wave freezes into a
-  **build phase** — deploy German units in the top strip, then hit **START WAVE** and
-  the assault steps off on its own. Nothing moves or fights until you do, and unused
-  TP does **not** carry over. US defenders persist across waves with no
-  reinforcements. Win any level by getting enough men **past the bottom edge** (5–7,
-  depending on the level) or by wiping out every defender; lose if you run out of
-  waves without breaking through.
-  - **Level 1** opens with just **2 waves** against a thin picket, and both the
-    number of waves and the strength of the defense climb as you go — up to a
-    **7-wave finale** against a fortress bristling with Shermans, AT guns and bunkers.
-  - **Each wave hands you a bigger pile of TP than the last** (e.g. Level 1 pays 29
-    then 40), and later levels start richer and grow faster, so the final push of any
-    level is always your best-funded.
-  - **Every third level is a themed set-piece** for flavor: **Coffee Break** (the
-    whole detail huddled around the coffee urn dead center, thin flank sentries),
-    **Tank Graveyard** (one stubborn Sherman and a minefield of wrecks),
-    **Sniper Alley** (a marksman behind every hedgerow, hunting your officers first),
-    and **The Kitchen Sink** (one of literally every American unit thrown into the line).
+- **Axis Campaign — 13 levels** — a tour of famous German offensives from Poland
+  1939 to the Ardennes 1944. Levels unlock in order; progress is saved in your
+  browser. Between battles, spend **Research Points (RP)** in the **Research**
+  screen to permanently unlock unit types (rifle, stormtrooper, and grenadier are
+  free starters). Each wave then gives you **TP** to deploy individuals from your
+  researched roster in the top strip — hit **START WAVE** and the assault steps
+  off. Unused TP does **not** carry over. Win by getting enough men **past the
+  bottom edge** (5–7) or wiping every defender; lose if you run out of waves.
+  - **Mokra → Sedan → Crete → Brest → Kasserine → Kursk → Cassino → Belarus →
+    Hürtgen → Aachen → Arnhem → St. Vith → Bastogne** — each briefing shows a
+    map of Europe with the attack arrow.
+  - **Earn RP** on first victory per mission (20 RP at Mokra up to 116 at
+    Bastogne, plus bonuses for wiping defenders or saving waves). Re-clearing
+    missions awards nothing.
+  - **Campaign-exclusive units** appear in research at Crete (Fallschirmjäger),
+    Kursk (StuG III), and Bastogne (Tiger I).
 - **Commando Campaign — Level 1: Hit Squad** — a separate direct-control campaign.
   You command a fixed six-man squad (officer, sniper, MG gunner, two stormtroopers,
   a grenadier) exactly like US soldiers: click or drag-select, then click ground to

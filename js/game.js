@@ -1065,11 +1065,11 @@ const SPECIAL_WAVES = [
     banner: 'BLITZKRIEG! KRADSCHÜTZEN SWARM!',
     // a torrent of motorcycles racing for your line, gun cars in the second echelon
     spawn(t) {
-      const bikes = 3 + t;
+      const bikes = Math.floor(1.3 * (3 + t));
       for (let i = 0; i < bikes; i++) {
         spawnEnemyAt('ebike', rand(60, W - 60), -20 - i * rand(30, 70));
       }
-      for (let i = 0; i < Math.floor(t / 2); i++) {
+      for (let i = 0; i < Math.floor(1.3 * t / 2); i++) {
         spawnEnemyAt('ejeep', rand(100, W - 100), -80 - i * 100);
       }
     },
@@ -1082,7 +1082,7 @@ const SPECIAL_WAVES = [
       spawnTransportFlyby();
       const pool = ['erifle', 'esmg', 'esmg', 'egren'];
       if (t >= 3) pool.push('emg');
-      const count = 6 + 2 * t;
+      const count = Math.floor(1.3 * (6 + 2 * t));
       for (let i = 0; i < count; i++) {
         const e = spawnEnemyAt(pick(pool), rand(40, W - 40), rand(40, H * (2 / 3) - 10));
         e.chute = rand(2.8, 4.0) + i * 0.15;
@@ -1093,7 +1093,7 @@ const SPECIAL_WAVES = [
         o.chute = rand(3, 4);
         o.chuteMax = o.chute;
       }
-      for (let i = 0; i < 3 + Math.floor(t / 2); i++) {
+      for (let i = 0; i < Math.floor(1.3 * (3 + t / 2)); i++) {
         spawnEnemyAt(pick(['erifle', 'esmg']), rand(80, W - 80), rand(-70, -20));
       }
     },
@@ -1103,14 +1103,14 @@ const SPECIAL_WAVES = [
     banner: 'STURMANGRIFF! HUMAN WAVE!',
     // a shoulder-to-shoulder line of shock infantry across the whole field
     spawn(t) {
-      const count = 8 + 2 * t;
+      const count = Math.floor(1.3 * (8 + 2 * t));
       for (let i = 0; i < count; i++) {
         const x = (W / (count + 1)) * (i + 1) + rand(-25, 25);
         const roll = Math.random();
         const type = roll < 0.5 ? 'esmg' : roll < 0.65 && t >= 3 ? 'eflame' : 'erifle';
         spawnEnemyAt(type, x, rand(-90, -20));
       }
-      const officers = 1 + Math.floor(t / 5);
+      const officers = Math.floor(1.3 * (1 + t / 5));
       for (let i = 0; i < officers; i++) {
         spawnEnemyAt('eoff', rand(120, W - 120), rand(-130, -90));
       }
@@ -1122,19 +1122,19 @@ const SPECIAL_WAVES = [
     // tanks and halftracks in column with an infantry screen out front
     spawn(t) {
       const cx = rand(180, W - 180);
-      const panzers = t < 6 ? 1 : Math.max(1, Math.floor(t / 3));
+      const panzers = t < 6 ? 1 : Math.max(1, Math.floor(1.3 * t / 3));
       for (let i = 0; i < panzers; i++) {
         spawnEnemyAt('panzer', cx + rand(-120, 120), -40 - i * 150);
       }
-      const tracks = t < 6 ? 0 : 1 + Math.floor((t - 6) / 5);
+      const tracks = t < 6 ? 0 : Math.floor(1.3 * (1 + (t - 6) / 5));
       for (let i = 0; i < tracks; i++) {
         spawnEnemyAt('ehalftrack', cx + rand(-160, 160), -110 - i * 130);
       }
-      const jeeps = t < 5 ? 0 : Math.floor((t - 4) / 3);
+      const jeeps = t < 5 ? 0 : Math.floor(1.3 * (t - 4) / 3);
       for (let i = 0; i < jeeps; i++) {
         spawnEnemyAt('ejeep', cx + rand(-200, 200), -70 - i * 100);
       }
-      for (let i = 0; i < 4 + Math.floor(t / 2); i++) {
+      for (let i = 0; i < Math.floor(1.3 * (4 + t / 2)); i++) {
         spawnEnemyAt(pick(['erifle', 'esmg', 'egren']), cx + rand(-200, 200), rand(-60, -20));
       }
     },
@@ -1145,13 +1145,13 @@ const SPECIAL_WAVES = [
     // fog blankets the field while marksmen and MGs creep in behind the infantry
     spawn(t) {
       G.fog = Math.max(G.fog, Math.round((24 + t) * 1.15));
-      for (let i = 0; i < 2 + Math.floor(t / 4); i++) {
+      for (let i = 0; i < Math.floor(1.3 * (2 + t / 4)); i++) {
         spawnEnemyAt('esniper', rand(60, W - 60), rand(-140, -60));
       }
-      for (let i = 0; i < 1 + Math.floor(t / 4); i++) {
+      for (let i = 0; i < Math.floor(1.3 * (1 + t / 4)); i++) {
         spawnEnemyAt('emg', rand(80, W - 80), rand(-110, -40));
       }
-      for (let i = 0; i < 6 + t; i++) {
+      for (let i = 0; i < Math.floor(1.3 * (6 + t)); i++) {
         spawnEnemyAt(pick(['erifle', 'erifle', 'esmg']), rand(50, W - 50), rand(-90, -20));
       }
     },

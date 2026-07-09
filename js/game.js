@@ -159,6 +159,18 @@ const ENEMY_TYPES = {
     flame: { range: 120, arc: 0.45, dps: 34 },
     blastResist: 0.5,
   },
+  emortar: {
+    name: 'Granatwerfer', hp: 75, speed: 18, range: 120, dmg: 8, acc: 0.45,
+    rof: 1.0, burst: 1, burstGap: 0, reward: 5,
+    color: '#565648', gun: 5, sfx: 'pistol', priority: 3,
+    mortar: { range: 520, min: 220, cdMin: 11, cdMax: 15, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
+  },
+  ebazooka: {
+    name: 'Panzerfaust', hp: 75, speed: 20, range: 120, dmg: 8, acc: 0.45,
+    rof: 1.0, burst: 1, burstGap: 0, reward: 5,
+    color: '#545648', gun: 5, sfx: 'pistol', priority: 4,
+    rocket: { range: 363, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
+  },
   ebike: {
     name: 'Kradschützen', hp: 80, speed: 85, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 5,
@@ -191,6 +203,8 @@ const ENEMY_INFO = {
   eoff: 'Leutnant rallying nearby troops. Kill him first — his aura stiffens German morale.',
   esniper: 'Camouflaged sharpshooter. Picks off officers, medics, and gunners from afar.',
   eflame: 'Flammenwerfer operator in a flak vest. Burns through wire, sandbags, and flesh alike.',
+  emortar: 'Granatwerfer team. Lobs 81mm shells into your backfield from beyond rifle range.',
+  ebazooka: 'Panzerfaust operator. Hunts Shermans and gun emplacements; wildly inaccurate at distance.',
   ebike: 'Kradschützen on motorcycles. Blazing speed — they breach before you can react.',
   ejeep: 'Kübelwagen with a mounted MG. Mobile fire support, lightly armored.',
   ehalftrack: 'Sd.Kfz. 251 halftrack. Heavy armor, bow MG, and a squad ready to dismount.',
@@ -311,6 +325,10 @@ const AXIS_PLACEABLES = [
     desc: 'Flammenwerfer operator in a flak vest. Burns through wire, sandbags and flesh alike.' },
   { key: 'eoff', label: 'OFFICER', cost: 15, kind: 'eunit', hotkey: '6',
     desc: 'Leutnant. Nearby troops fight harder; earns +1 TP every 30 s while alive.' },
+  { key: 'emortar', label: 'GRANATWERFER', cost: 14, kind: 'eunit', hotkey: 'M',
+    desc: '81mm mortar team. Long-range indirect fire; blind inside 220 px.' },
+  { key: 'ebazooka', label: 'PANZERFAUST', cost: 12, kind: 'eunit', hotkey: 'B',
+    desc: 'Panzerfaust operator. Prioritizes armor; scatter is brutal at range.' },
   { key: 'ebike', label: 'KRAD', cost: 30, kind: 'eunit', hotkey: 'K',
     desc: 'Kradschützen motorcycle team. Blazing speed — races for the breach.' },
   { key: 'ejeep', label: 'KÜBELWAGEN', cost: 30, kind: 'eunit', hotkey: 'J',
@@ -973,6 +991,8 @@ function makeEnemy(type, x, y) {
     pushT: 0, pushCd: rand(2, 5),
     prone: 0, proneCd: 0,
     moveTo: null,   // hit-squad mode: player-issued destination
+    rocketCd: rand(1, 2),
+    mortCd: rand(4, 8),
   };
 }
 
@@ -1031,6 +1051,8 @@ function waveComposition(w) {
   if (w >= 10) pool.push('emg');
   if (w >= 12) pool.push('eflame');
   if (w >= 14) pool.push('esniper');
+  if (w >= 60) pool.push('emortar');
+  if (w >= 80) pool.push('ebazooka');
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
   if (w >= 12 && Math.random() < 0.30 + late * 0.004) out.push('eoff');
@@ -1371,7 +1393,10 @@ function explode(x, y, r, dmg, big, by) {
   for (const u of G.units) {
     let hd = hitArea(u);
     if (hd > 0) {
-      if (u.t.blastResist) hd *= (1 - u.t.blastResist);
+      if (u.t.tank) {
+        const am = by && by.t && by.t.rocket && by.t.rocket.armorMult;
+        if (am != null) hd *= am;
+      } else if (u.t.blastResist) hd *= (1 - u.t.blastResist);
       damageUnit(u, hd, { x, y });
     }
   }
@@ -2959,6 +2984,8 @@ function updateEnemy(e, dt) {
   }
 
   const target = nearestUnitInRange(e, range);
+  let rocketTarget = null;
+  let mortarTarget = null;
 
   // grenadier lobs grenades
   if (e.t.grenade) {
@@ -2977,24 +3004,74 @@ function updateEnemy(e, dt) {
     }
   }
 
-  if (target) {
-    if (!command) {
-      // roll the urge to advance; never when already on top of the target
-      e.pushCd -= dt;
-      if (e.pushCd <= 0) {
-        e.pushCd = rand(3, 6);
-        if (Math.random() < 0.4 && dist(e, target) > 70) {
-          e.pushT = rand(1.2, 2.8);
-        }
-      }
+  if (e.t.rocket) {
+    e.rocketCd -= dt;
+    const rk = e.t.rocket;
+    const rr = rk.range * fogMult();
+    const safe = u => dist(e, u) > rk.r + 20;
+    rocketTarget = nearestUnitInRange(e, rr, u => u.t.tank && safe(u)) ||
+                   nearestUnitInRange(e, rr, u => (u.t.vehicle || u.t.atgun) && safe(u)) ||
+                   nearestUnitInRange(e, rr, safe);
+    if (e.rocketCd <= 0 && rocketTarget) {
+      e.rocketCd = rand(rk.cdMin, rk.cdMax);
+      e.face = Math.atan2(rocketTarget.y - e.y, rocketTarget.x - e.x);
+      SFX.rocket();
+      const d = dist(e, rocketTarget);
+      let scatter = 8 + d * 0.11;
+      if (rocketTarget.t.tank) scatter *= 0.45;
+      scatter = Math.max(6, scatter);
+      const tx = rocketTarget.x + rand(-scatter, scatter), ty = rocketTarget.y + rand(-scatter, scatter);
+      G.rockets.push({
+        sx: e.x, sy: e.y, x: e.x, y: e.y, tx, ty,
+        t: 0, dur: Math.max(dist(e, { x: tx, y: ty }) / rk.speed, 0.15),
+        r: rk.r, dmg: rk.dmg, by: e,
+      });
     }
+  }
+
+  if (e.t.mortar) {
+    e.mortCd -= dt;
+    const mt = e.t.mortar;
+    const mr = mt.range * fogMult();
+    mortarTarget = nearestUnitInRange(e, mr, u => dist(e, u) > mt.min);
+    if (e.mortCd <= 0 && mortarTarget) {
+      e.mortCd = rand(mt.cdMin, mt.cdMax);
+      e.face = Math.atan2(mortarTarget.y - e.y, mortarTarget.x - e.x);
+      e.mortarFireT = 0.18;
+      G.flashes.push({ x: e.x, y: e.y - 6, r: 5, ttl: 0.07, max: 0.07 });
+      scheduleShell(
+        mortarTarget.x + rand(-mt.scatter, mt.scatter),
+        mortarTarget.y + rand(-mt.scatter, mt.scatter),
+        mt.flight, mt.r, mt.dmg, false, e);
+    }
+  }
+
+  const engageTarget = target || rocketTarget || mortarTarget;
+
+  if (target) {
+    rollEnemyPushUrge(e, engageTarget, dt, command);
     runWeapon(e, target, dt, buffed ? { rofMult: 0.8 } : null);
     // stormtroopers keep pushing even under fire
     if (!command && e.t.speed >= 30 && dist(e, target) > range * 0.5) {
       advance(e, dt, buffed);
     }
+  } else if (engageTarget) {
+    // rocket/mortar range but outside the sidearm — hold and engage, push only on urge
+    rollEnemyPushUrge(e, engageTarget, dt, command);
   } else if (!command) {
     advance(e, dt, buffed);
+  }
+}
+
+// discipline only goes so far: periodically stop shooting and push upfield
+function rollEnemyPushUrge(e, target, dt, command) {
+  if (command || !target) return;
+  e.pushCd -= dt;
+  if (e.pushCd <= 0) {
+    e.pushCd = rand(3, 6);
+    if (Math.random() < 0.4 && dist(e, target) > 70) {
+      e.pushT = rand(1.2, 2.8);
+    }
   }
 }
 
@@ -3049,20 +3126,31 @@ function updateBike(e, dt) {
 
 // Kübelwagen: drives at the line, halts in HMG range and hoses the defenders
 function updateEnemyJeep(e, dt) {
+  const command = G.mode === 'hitsquad';
+  if (e.pushT > 0) {
+    e.pushT -= dt;
+    driveEnemyVehicle(e, dt, 0.08, 8, true);
+    return;
+  }
   const target = nearestUnitInRange(e, unitRange(e, e.t.range) * fogMult());
   if (target) {
+    rollEnemyPushUrge(e, target, dt, command);
     runWeapon(e, target, dt, null);
     return;
   }
+  driveEnemyVehicle(e, dt, 0.08, 8, true);
+}
+
+function driveEnemyVehicle(e, dt, wireDrag, wireDmg, wobble) {
   let speed = e.t.speed;
   for (const wr of G.wires) {
     if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
-      speed *= 0.08;
-      wr.hp -= 8 * dt;
+      speed *= wireDrag;
+      wr.hp -= wireDmg * dt;
       break;
     }
   }
-  e.x = clamp(e.x + Math.sin(e.y * 0.015) * 12 * dt, 20, W - 20);
+  if (wobble) e.x = clamp(e.x + Math.sin(e.y * 0.015) * 12 * dt, 20, W - 20);
   e.y += speed * dt;
   e.face = Math.PI / 2;
 }
@@ -3086,21 +3174,22 @@ function updateHalftrack(e, dt) {
       return;
     }
   } else {
+    const command = G.mode === 'hitsquad';
+    if (e.pushT > 0) {
+      e.pushT -= dt;
+      driveEnemyVehicle(e, dt, 0.2, 15, false);
+      return;
+    }
     const target = nearestUnitInRange(e, unitRange(e, e.t.range) * fogMult());
-    if (target) { runWeapon(e, target, dt, null); return; }
+    if (target) {
+      rollEnemyPushUrge(e, target, dt, command);
+      runWeapon(e, target, dt, null);
+      return;
+    }
   }
 
   // drive on; wire slows it but the tracks chew through fast
-  let speed = e.t.speed;
-  for (const wr of G.wires) {
-    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
-      speed *= 0.2;
-      wr.hp -= 15 * dt;
-      break;
-    }
-  }
-  e.y += speed * dt;
-  e.face = Math.PI / 2;
+  driveEnemyVehicle(e, dt, 0.2, 15, false);
 }
 
 function dismountBike(e) {
@@ -3209,6 +3298,7 @@ function update(dt) {
   for (const u of G.units) if (!u.dead && u.shotgunBlastT > 0) u.shotgunBlastT -= dt;
   for (const u of G.units) if (!u.dead && u.atgunFireT > 0) u.atgunFireT -= dt;
   for (const u of G.units) if (!u.dead && u.mortarFireT > 0) u.mortarFireT -= dt;
+  for (const e of G.enemies) if (!e.dead && e.mortarFireT > 0) e.mortarFireT -= dt;
 
   // mines
   for (const m of G.mines) {
@@ -3620,7 +3710,7 @@ function drawProneSoldier(a) {
     drawStickGrenade(c, -4.5, 0.5, 0.75, 0.4);
     drawStickGrenade(c, -2, 2.5, 0.68, 0.9);
   }
-  if (a.type === 'mortarman') {
+  if (a.t.mortar) {
     c.fillStyle = '#2f3328';
     c.beginPath(); c.ellipse(-5, 1.5, 4, 2.5, 0.3, 0, 7); c.fill();
     c.strokeStyle = '#5a5c42';
@@ -4203,7 +4293,7 @@ function drawSoldier(a) {
   const isShotgun = type === 'shotgunner';
   const isOfficer = type === 'officer' || type === 'eoff';
   const isGrenadier = type === 'grenadier' || type === 'egren';
-  const isMortar = type === 'mortarman';
+  const isMortar = !!a.t.mortar;
   const isRifle = type === 'rifleman' || type === 'erifle';
   const fx = Math.cos(a.face), fy = Math.sin(a.face);
   c.save();

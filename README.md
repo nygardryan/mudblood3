@@ -43,7 +43,7 @@ python3 -m http.server 8000
   - **Each wave hands you a bigger pile of TP than the last** (e.g. Level 1 pays 29
     then 40), and later levels start richer and grow faster, so the final push of any
     level is always your best-funded.
-  - **Every third level is a themed set-piece** for flavor:     **Coffee Break** (the
+  - **Every third level is a themed set-piece** for flavor: **Coffee Break** (the
     whole detail huddled around the coffee urn dead center, thin flank sentries),
     **Tank Graveyard** (one stubborn Sherman and a minefield of wrecks),
     **Sniper Alley** (a marksman behind every hedgerow, hunting your officers first),
@@ -63,16 +63,22 @@ python3 -m http.server 8000
 
 France, 1944. Pick a mode from the main menu.
 
-- **Tactical Points (TP)** are your only currency. You earn them from kills, a slow
-  trickle over time, and officers (+1 TP / 10 s each). In Endless, supply lines thin
+- **Tactical Points (TP)** are your only currency. You earn them from kills, **+1 TP
+  every 8 s**, and living officers (**+1 TP / 30 s** each — up to **3 TP** for a
+  max-rank officer; **5 officers** max on the field). In Endless, supply lines thin
   out as the battle drags on: all income shrinks ~1% per wave, dropping to a hard
   10% floor from wave 90 on. Campaign levels pay full rate.
-- Click a toolbar button (or press its **number key**), then click the field to
-  deploy. Right-click or **Esc** cancels placement.
+- Open **Units**, **Abilities**, or **Emplacements** on the left toolbar, pick an
+  item (each shows its hotkey), then click the field to deploy. Right-click or
+  **Esc** cancels placement.
 - Press **Esc** or the **PAUSE** button in the HUD to open the pause menu mid-game;
-  choose **Resume** to return to the fight.
-- Men and defenses can only be placed in the **lower half** (behind the trench line).
-  Mortar and artillery strikes can be called anywhere.
+  choose **Resume** to return to the fight. The **speed** button cycles **0.5× / 1×
+  / 2× / 3×**. **CODEX** (main menu or pause) lists every unit, defense, enemy, event,
+  and sound; **SETTINGS** adjusts toolbar size and master volume.
+- Men and most defenses deploy **behind the trench line** (the lower ~40% of the
+  field). **Wire** and **minefields** can go as far forward as the no-man's-land
+  line (top third). Mortar and artillery strikes can be called anywhere. Move orders
+  can send soldiers up to that forward line.
 - Left-click one of your soldiers to select him, then click open ground to move him.
   He can't shoot while running.
 - Drag a box over several soldiers to select the whole group; a move order spreads
@@ -86,18 +92,18 @@ France, 1944. Pick a mode from the main menu.
 | Item | TP | Notes |
 |---|---|---|
 | Rifleman | 3 | M1 Garand. Cheap, reliable backbone. |
-| Gunner | 7 | BAR. Long-range automatic bursts. |
-| Grenadier | 8 | Outranges the rifleman by 50%; lobs a devastating frag every 11–16 s. |
-| Shotgunner | 9 | M97 trench gun and body armor. High HP; buckshot shreds every enemy in the cone up close. |
-| Bazooka | 11 | M1A1 rocket launcher. Prioritizes armor. Scatters badly at range; veterans aim better. |
+| Gunner | 9 | BAR. Long-range automatic bursts. |
+| Grenadier | 7 | Outranges the rifleman by 50%; lobs a devastating frag every ~10–14 s. |
+| Shotgunner | 5 | M97 trench gun and body armor. High HP; buckshot shreds every enemy in the cone up close. |
+| Bazooka | 12 | M1A1 rocket launcher. Prioritizes armor. Scatters badly at range; veterans aim better. |
 | Mortarman | 14 | Portable 60mm mortar. Long-range indirect fire, blind inside 220px. |
 | Sniper | 10 | Sees the whole field, prioritizes officers, snipers, MGs. |
 | Medic | 12 | Heals nearby wounded over time. |
 | Engineer | 14 | Repairs emplacements; fortifies nearby sandbags/bunkers/wire (more HP, better effect). SMG, close range only. |
 | Officer | 15 | Nearby men fire faster and straighter; generates TP. |
-| Flamer | 13 | M2 flamethrower and flak vest. Devastating cone of fire — burns friend and foe alike. |
+| Flamer | 7 | M2 flamethrower and flak vest. Devastating cone of fire — burns friend and foe alike. |
 | Jeep | 30 | Willys jeep with a .50 cal HMG. Fast, fires on the move, unarmored — no field repairs. |
-| Sherman | 50 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
+| Sherman | 80 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
 | AT Gun | 40 | 57mm anti-tank gun. Immobile once placed; only fires on vehicles inside its forward cone. Direct-fire AP shells wreck armor. |
 | Wire | 4 | Slows the advance until it wears out. |
 | Sandbags | 5 | Soldiers behind them dodge half of incoming fire. |
@@ -116,7 +122,7 @@ max-rank soldier is roughly **3–4x** the fighter a green private is, and
 specialists scale their trade too — bazookas and mortars reload faster and land
 tighter and heavier, grenadiers throw more often, flamethrowers burn far hotter,
 Sherman crews reload and shoot straighter, and a veteran officer casts a
-stronger aura and brings in up to 3 TP per tick. Medics rank up by healing
+stronger aura and brings in up to 3 TP every 30 s. Medics rank up by healing
 instead — 1 XP per 150 HP restored, a slow road — and a MSG medic patches men
 at over three times the rate. The engineer earns XP the same way through
 repairs, plus a bonus for each fortification he completes, and works about 3x
@@ -129,16 +135,17 @@ veteran is worth more than anything you can buy.
 
 Riflemen at first, then stormtroopers, grenadiers, MG teams, flamethrowers who
 burn anything in front of them (including their own men), officers who drive
-their men harder, the rare sniper — and from wave 15 on, the occasional
-**Panzer IV**. From wave 7, watch for **motorcycle sidecar teams** that race
-down the field and drop a two-man crew (random types) at rifle range. Shoot
-the bike early and the crew dies with it; barbed wire ends the ride instantly.
-From wave 8 the **Kübelwagen** gun car may roll in — it halts at range and
-hoses your line with an MG42 until someone deals with it.
-From wave 11 the **Sd.Kfz. 251 halftrack** hauls a full squad forward: it
-dumps six troopers the moment it reaches rifle distance of your line, then
-keeps fighting as an armored gun truck. Kill the bus early, before it delivers.
-Small arms bounce off armor; use mines, mortars, or artillery.
+their men harder, and snipers from wave 14 on. From wave 9, watch for
+**motorcycle sidecar teams** that race down the field and drop a two-man crew
+(random types) at rifle range. Shoot the bike early and the crew dies with it;
+barbed wire ends the ride instantly. From wave 16 the **Kübelwagen** gun car may
+roll in — it halts at range and hoses your line with an MG42 until someone
+deals with it. From wave 18 the **Sd.Kfz. 251 halftrack** hauls a full squad
+forward: it dumps six troopers the moment it reaches rifle distance of your
+line, then keeps fighting as an armored gun truck. Kill the bus early, before
+it delivers. From wave 25 on, the occasional **Panzer IV** grinds in; from
+wave 60, **mortar teams**; from wave 80, **Panzerfaust** carriers. Small arms
+bounce off armor; use mines, mortars, or artillery.
 
 Every **10th wave** is a themed set-piece assault, and they rotate:
 Blitzkrieg (a swarm of motorcycles), Fallschirmjäger Assault (a mass paradrop
@@ -147,9 +154,18 @@ Panzerkeil (an armor column with an infantry screen), and Nebelsturm (an attack
 rolling in under fog with snipers and MGs). Each theme comes back bigger and
 meaner every time it cycles around — but you get a short breather afterward.
 
-Random battlefield events keep you honest: enemy barrages (more shells, heavier
-hits, and tighter salvos as waves climb), fog, strafing runs from a friendly P-47,
-and the occasional fresh replacement wandering in.
+Random battlefield events keep you honest (Endless only, from wave 3 on): enemy
+barrages from wave 4 (more shells, heavier hits, and tighter salvos as waves
+climb), fog, **Fallschirmjäger** paradrops from wave 6, strafing runs from a
+friendly P-47 from wave 8, and the occasional fresh replacement wandering in.
+
+### Mobile / touch
+
+On phones and tablets the field scales to fill the screen. **Drag** to pan,
+**pinch** or **double-tap** to zoom, and tap **MAP** to reset the view. Tap a
+soldier to select him, tap ground to move; **DESELECT** and **SHOP** appear when
+men are selected. The purchase toolbar works the same way — tap a category, then
+an item, then the field. Hold on the field to cancel placement.
 
 ## Files
 
@@ -158,3 +174,4 @@ and the occasional fresh replacement wandering in.
 - `assets/sounds/` — open-licensed OGG sound effects (+ `ATTRIBUTION.md`)
 - `js/audio.js` — sample playback with WebAudio synthesis fallback
 - `js/game.js` — all game logic and rendering
+- `docs/axis-units.md` — design notes for tuning German unit stats and AI

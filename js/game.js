@@ -3872,6 +3872,21 @@ function drawProneSoldier(a) {
     c.translate(3, 2.8);
     drawMG42(c, 1, 0, gunX - 3, 0);
     c.restore();
+  } else if (a.type === 'bazooka') {
+    c.save();
+    c.translate(3, 2.8);
+    drawBazooka(c, 1, 0, 0);
+    c.restore();
+    c.strokeStyle = '#4a4038';
+    c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(2.5, 3.5); c.lineTo(2.5, 5.5); c.lineTo(3.8, 5.5); c.stroke();
+  } else if (a.type === 'ebazooka') {
+    c.save();
+    c.translate(3, 2.8);
+    drawPanzerfaust(c, 1, 0, 0);
+    c.restore();
+    c.fillStyle = '#4a4a42';
+    c.beginPath(); c.arc(gunX + 1.5, 2.2, 1.6, 0, 7); c.fill();
   } else if (!isSniper) {
     c.strokeStyle = '#26261e';
     c.lineWidth = isEmg ? 2.6 : isBar ? 2.2 : isShot ? 2.8 : isGren ? 2 : 1.8;
@@ -4239,6 +4254,19 @@ function drawProneSoldier(a) {
     c.fillRect(-7.5, 2.5, 4.5, 3);
     drawMortarRound(c, -6.5, 3.5, 0.65, 0.25);
     drawMortarRound(c, -5, 3.8, 0.62, -0.1);
+  }
+  if (a.type === 'bazooka') {
+    drawSpareRocketTube(c, -7.5, -2.5, 5, -5.5);
+    c.fillStyle = '#3a3428';
+    c.beginPath(); c.ellipse(2.5, 1.8, 1.5, 2, 0.35, 0, 7); c.fill();
+  }
+  if (a.type === 'ebazooka') {
+    drawSpareRocketTube(c, -7, -2, 4.5, -5);
+    drawSpareRocketTube(c, -6.5, 2.5, 5, 5.5);
+    c.fillStyle = '#4a4a42';
+    c.beginPath(); c.arc(4.5, -5, 1.4, 0, 7); c.fill();
+    c.beginPath(); c.arc(5, 5.5, 1.2, 0, 7); c.fill();
+    drawStickGrenade(c, -4.5, 3.5, 0.62, 0.2);
   }
   c.restore();
 }
@@ -5106,6 +5134,218 @@ function drawEsmgKit(c, fx, fy, face) {
   c.strokeRect(-5.8, 3.8, 2.2, 2);
 }
 
+// M1A1 bazooka — shoulder-mounted tube with grips, wire sight, and flare ring
+function drawBazooka(c, fx, fy, face) {
+  const px = -fy, py = fx;
+  const shoulderX = fx * 2.5 + px * 2.2;
+  const shoulderY = fy * 2.5 + py * 2.2;
+  const tubeLen = 14;
+  const tipX = shoulderX + fx * tubeLen;
+  const tipY = shoulderY + fy * tubeLen;
+
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 2.4;
+  c.beginPath();
+  c.moveTo(shoulderX - fx * 2.8, shoulderY - fy * 2.8);
+  c.lineTo(shoulderX - fx * 5.5 - px * 1.2, shoulderY - fy * 5.5 - py * 1.2);
+  c.stroke();
+  c.fillStyle = '#3a3830';
+  c.beginPath();
+  c.ellipse(shoulderX - fx * 4 + px * 0.5, shoulderY - fy * 4 + py * 0.5, 1.8, 2.2, face, 0, 7);
+  c.fill();
+
+  c.strokeStyle = '#4a5240';
+  c.lineWidth = 5.2;
+  c.beginPath();
+  c.moveTo(shoulderX, shoulderY);
+  c.lineTo(tipX, tipY);
+  c.stroke();
+  c.strokeStyle = '#3a4034';
+  c.lineWidth = 1.8;
+  c.beginPath();
+  c.moveTo(shoulderX + fx * 1.5, shoulderY + fy * 1.5);
+  c.lineTo(tipX - fx * 0.8, tipY - fy * 0.8);
+  c.stroke();
+
+  const grip1X = shoulderX + fx * 10;
+  const grip1Y = shoulderY + fy * 10;
+  c.strokeStyle = '#3a4034';
+  c.lineWidth = 2.1;
+  c.beginPath();
+  c.moveTo(grip1X + px * 2.8, grip1Y + py * 2.8);
+  c.lineTo(grip1X + px * 4.5, grip1Y + py * 4.5);
+  c.stroke();
+  const grip2X = shoulderX + fx * 5.5;
+  const grip2Y = shoulderY + fy * 5.5;
+  c.beginPath();
+  c.moveTo(grip2X + px * 2.2, grip2Y + py * 2.2);
+  c.lineTo(grip2X + px * 4, grip2Y + py * 4);
+  c.stroke();
+
+  c.strokeStyle = '#5a5c48';
+  c.lineWidth = 1.3;
+  const sightX = shoulderX + fx * 8;
+  const sightY = shoulderY + fy * 8;
+  c.beginPath();
+  c.moveTo(sightX - px * 0.5, sightY - py * 0.5);
+  c.lineTo(sightX - px * 0.5 - fx * 1.8, sightY - py * 0.5 - fy * 1.8);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(sightX + px * 0.8, sightY + py * 0.8);
+  c.lineTo(sightX + px * 0.8 - fx * 1.2, sightY + py * 0.8 - fy * 1.2);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(sightX - px * 0.5 - fx * 1.8, sightY - py * 0.5 - fy * 1.8);
+  c.lineTo(sightX + px * 0.8 - fx * 1.2, sightY + py * 0.8 - fy * 1.2);
+  c.stroke();
+
+  c.strokeStyle = '#5a5c48';
+  c.lineWidth = 2.6;
+  c.beginPath();
+  c.moveTo(tipX - px * 2.2, tipY - py * 2.2);
+  c.lineTo(tipX + fx * 0.5, tipY + fy * 0.5);
+  c.lineTo(tipX + px * 2.2, tipY + py * 2.2);
+  c.stroke();
+  c.fillStyle = '#1c1c16';
+  c.beginPath(); c.arc(tipX, tipY, 1.4, 0, 7); c.fill();
+}
+
+// Panzerfaust 60 — short tube, oversized warhead, flip-up sight
+function drawPanzerfaust(c, fx, fy, face) {
+  const px = -fy, py = fx;
+  const shoulderX = fx * 2.5 + px * 2.2;
+  const shoulderY = fy * 2.5 + py * 2.2;
+  const tubeLen = 10;
+  const tipX = shoulderX + fx * tubeLen;
+  const tipY = shoulderY + fy * tubeLen;
+
+  c.strokeStyle = '#5a4a38';
+  c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(shoulderX - fx * 2, shoulderY - fy * 2);
+  c.lineTo(shoulderX - fx * 4.2 - px * 0.8, shoulderY - fy * 4.2 - py * 0.8);
+  c.stroke();
+
+  c.strokeStyle = '#4a4c42';
+  c.lineWidth = 3.6;
+  c.beginPath();
+  c.moveTo(shoulderX, shoulderY);
+  c.lineTo(tipX, tipY);
+  c.stroke();
+  c.strokeStyle = '#3a3c34';
+  c.lineWidth = 1.4;
+  c.beginPath();
+  c.moveTo(shoulderX + fx * 1, shoulderY + fy * 1);
+  c.lineTo(tipX - fx * 0.5, tipY - fy * 0.5);
+  c.stroke();
+
+  const headX = tipX + fx * 2.2;
+  const headY = tipY + fy * 2.2;
+  c.fillStyle = '#4a4a42';
+  c.beginPath();
+  c.ellipse(headX, headY, 2.8, 4.2, face, 0, 7);
+  c.fill();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 0.9;
+  c.stroke();
+  c.fillStyle = '#3a3830';
+  c.beginPath();
+  c.ellipse(headX + fx * 2.5, headY + fy * 2.5, 1.6, 2.4, face, 0, 7);
+  c.fill();
+
+  c.strokeStyle = '#5a5c48';
+  c.lineWidth = 1.1;
+  const sightX = shoulderX + fx * 5.5;
+  const sightY = shoulderY + fy * 5.5;
+  c.beginPath();
+  c.moveTo(sightX - px * 0.4, sightY - py * 0.4);
+  c.lineTo(sightX - px * 0.4 - fx * 1.4, sightY - py * 0.4 - fy * 1.4);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(sightX + px * 0.6, sightY + py * 0.6);
+  c.lineTo(sightX + px * 0.6 - fx * 1, sightY + py * 0.6 - fy * 1);
+  c.stroke();
+
+  const gripX = shoulderX + fx * 4.5;
+  const gripY = shoulderY + fy * 4.5;
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 1.85;
+  c.beginPath();
+  c.moveTo(gripX + px * 2, gripY + py * 2);
+  c.lineTo(gripX + px * 3.6, gripY + py * 3.6);
+  c.stroke();
+}
+
+function drawSpareRocketTube(c, x1, y1, x2, y2) {
+  c.strokeStyle = '#5a5c42';
+  c.lineWidth = 2.6;
+  c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
+  c.fillStyle = '#1c1c16';
+  c.beginPath(); c.arc(x2, y2, 1.4, 0, 7); c.fill();
+}
+
+function drawBazookaKit(c, fx, fy, face) {
+  c.strokeStyle = '#8a7a48';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.moveTo(-fy * 5.2 - fx * 1.2, fx * 5.2 - fy * 1.2);
+  c.lineTo(fy * 5.2 - fx * 1.2, -fx * 5.2 - fy * 1.2);
+  c.stroke();
+  drawSpareRocketTube(c, -8, -4, 8, -6.5);
+  c.strokeStyle = '#4a4a40';
+  c.lineWidth = 0.8;
+  c.beginPath(); c.moveTo(-4, -5); c.lineTo(4, -5.8); c.stroke();
+  c.fillStyle = '#3a4034';
+  c.beginPath(); c.ellipse(-fy * 5, fx * 5, 2.4, 3, face, 0, 7); c.fill();
+  c.strokeStyle = '#4a4a3e';
+  c.lineWidth = 0.75;
+  c.stroke();
+  c.fillStyle = '#3a3428';
+  c.beginPath(); c.ellipse(fy * 4.2, -fx * 4.2, 1.5, 2.2, face, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.65;
+  c.stroke();
+  c.fillStyle = '#2a2820';
+  c.fillRect(-fy * 3.8 - 0.5, fx * 3.8 - 1.2, 1, 2.4);
+}
+
+function drawEbazookaKit(c, fx, fy, face) {
+  c.fillStyle = '#46443c';
+  c.beginPath(); c.ellipse(fx * 1.2, fy * 1.2, 6.4, 5.4, face, 0, 7); c.fill();
+  c.strokeStyle = '#2e2c28';
+  c.lineWidth = 0.9;
+  c.stroke();
+  c.fillStyle = '#4a4a42';
+  c.beginPath(); c.ellipse(fx * 2.5, fy * 2.5, 1.8, 1.2, face, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(-fx * 2.5, fy * 2.5, 1.8, 1.2, face, 0, 7); c.fill();
+  c.strokeStyle = '#6a5a42';
+  c.lineWidth = 1.35;
+  c.beginPath();
+  c.moveTo(-fy * 5.5 - fx * 1.5, fx * 5.5 - fy * 1.5);
+  c.lineTo(fy * 4.5 - fx * 1.5, -fx * 4.5 - fy * 1.5);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(-fy * 4.5 + fx * 1.5, fx * 4.5 + fy * 1.5);
+  c.lineTo(fy * 5.5 + fx * 1.5, -fx * 5.5 + fy * 1.5);
+  c.stroke();
+  drawSpareRocketTube(c, -7.5, -3.5, 7, -7);
+  drawSpareRocketTube(c, -6.5, 3.5, 6.5, 7);
+  c.fillStyle = '#4a4a42';
+  c.beginPath(); c.arc(7, -7, 1.8, 0, 7); c.fill();
+  c.beginPath(); c.arc(6.5, 7, 1.6, 0, 7); c.fill();
+  drawStickGrenade(c, fy * 4.2, -fx * 4.2, 0.68, face + 0.35);
+  c.strokeStyle = '#3c3830';
+  c.lineWidth = 1.45;
+  c.beginPath(); c.moveTo(-6, 4.2); c.lineTo(6, 4.2); c.stroke();
+  c.fillStyle = '#6a5a42';
+  c.fillRect(-0.8, 3.5, 1.6, 1.4);
+  c.fillStyle = '#3a3428';
+  c.beginPath(); c.ellipse(-fy * 4.8, fx * 4.8, 1.5, 2.2, face, 0, 7); c.fill();
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.7;
+  c.stroke();
+}
+
 // Flammenwerfer 41 lance — rifle stock, thin lance tube, igniter box, funnel nozzle
 function drawFlammenwerfer(c, fx, fy, gunLen, face, lit) {
   const tipX = fx * gunLen, tipY = fy * gunLen;
@@ -5844,6 +6084,10 @@ function drawSoldier(a) {
     drawScopedRifle(c, fx, fy, gunLen, a.face, true);
   } else if (type === 'emg') {
     drawMG42(c, fx, fy, gunLen, a.face);
+  } else if (type === 'bazooka') {
+    drawBazooka(c, fx, fy, a.face);
+  } else if (type === 'ebazooka') {
+    drawPanzerfaust(c, fx, fy, a.face);
   } else if (type === 'eoff') {
     drawSidearm(c, fx, fy, gunLen, a.face, false);
   } else if (type === 'officer' || isMortar) {
@@ -6084,6 +6328,16 @@ function drawSoldier(a) {
     c.beginPath(); c.moveTo(-fy * 2, fx * 2); c.lineTo(fy * 2, -fx * 2); c.stroke();
     c.beginPath(); c.moveTo(fy * 2, fx * 2); c.lineTo(-fy * 2, -fx * 2); c.stroke();
   }
+  if (type === 'bazooka') {
+    c.fillStyle = '#4a5245';
+    c.beginPath(); c.ellipse(fx * 1.2, fy * 1.2, 6.5, 5.4, a.face, 0, 7); c.fill();
+    c.strokeStyle = '#8a7a48';
+    c.lineWidth = 1.4;
+    c.beginPath();
+    c.moveTo(-fy * 4.8 - fx * 1.2, fx * 4.8 - fy * 1.2);
+    c.lineTo(fy * 4.8 - fx * 1.2, -fx * 4.8 - fy * 1.2);
+    c.stroke();
+  }
 
   // ---- class kit
   if (type === 'rifleman') {
@@ -6141,19 +6395,8 @@ function drawSoldier(a) {
   if (type === 'emg') {
     drawEmgKit(c, fx, fy, a.face);
   }
-  if (a.t.rocket) {
-    // launcher tube slung across the shoulders
-    c.strokeStyle = '#5a5c42';
-    c.lineWidth = 3.2;
-    c.beginPath(); c.moveTo(-8, -4); c.lineTo(8, -6.5); c.stroke();
-    c.fillStyle = '#1c1c16';
-    c.beginPath(); c.arc(8, -6.5, 1.6, 0, 7); c.fill();
-    if (type === 'bazooka') {
-      c.strokeStyle = '#4a4a40';
-      c.lineWidth = 0.8;
-      c.beginPath(); c.moveTo(-4, -5); c.lineTo(4, -5.8); c.stroke();
-    }
-  }
+  if (type === 'bazooka') drawBazookaKit(c, fx, fy, a.face);
+  if (type === 'ebazooka') drawEbazookaKit(c, fx, fy, a.face);
   if (a.t.mortar && type === 'emortar') {
     const tube = drawGranatwerferTube(c, a.face, fx, fy, a.mortarFireT || 0);
     drawEmortarKit(c, fx, fy, a.face, tube);
@@ -6375,6 +6618,33 @@ function drawSoldier(a) {
       c.beginPath(); c.moveTo(mx, my - 0.3); c.lineTo(mx, my + 1.6); c.stroke();
       c.beginPath();
       c.moveTo(mx - 0.7, my + 1.2); c.lineTo(mx, my + 1.8); c.lineTo(mx + 0.7, my + 1.2);
+      c.stroke();
+    }
+    if (type === 'bazooka') {
+      // white rocket stencil — bazooka section
+      const rx = -fx * 2.35, ry = -1 + fy * 2.35;
+      c.strokeStyle = 'rgba(230,228,210,0.9)';
+      c.lineWidth = 0.95;
+      c.beginPath();
+      c.moveTo(rx - 0.3, ry + 1.2);
+      c.lineTo(rx + 0.8, ry - 1.4);
+      c.stroke();
+      c.fillStyle = 'rgba(255,180,60,0.85)';
+      c.beginPath(); c.arc(rx + 0.8, ry - 1.4, 0.55, 0, 7); c.fill();
+    }
+    if (type === 'ebazooka') {
+      // white tank silhouette — Panzerfaust section
+      const tx = -fx * 2.35, ty = -1 + fy * 2.35;
+      c.strokeStyle = 'rgba(230,228,210,0.9)';
+      c.lineWidth = 0.85;
+      c.strokeRect(tx - 1.2, ty - 0.8, 2.4, 1.6);
+      c.beginPath();
+      c.moveTo(tx - 1.2, ty + 0.8); c.lineTo(tx - 1.8, ty + 1.4);
+      c.moveTo(tx + 1.2, ty + 0.8); c.lineTo(tx + 1.8, ty + 1.4);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(tx - 0.5, ty - 0.8); c.lineTo(tx - 0.5, ty - 1.4);
+      c.moveTo(tx + 0.5, ty - 0.8); c.lineTo(tx + 0.5, ty - 1.4);
       c.stroke();
     }
     if (isRifle) {
@@ -7221,6 +7491,13 @@ function drawDecorSandbag(cx, cy, rx, ry) {
 function drawBunker(b) {
   ctx.save();
   ctx.translate(b.x, b.y);
+  if (b.up) {
+    // breastwork bags sit in front; bunker draws on top
+    ctx.fillStyle = 'rgba(0,0,0,0.14)';
+    ctx.beginPath(); ctx.ellipse(0, -16, 14, 4, 0, 0, 7); ctx.fill();
+    drawDecorSandbag(-9, -15, 7, 4);
+    drawDecorSandbag(9, -15, 7, 4);
+  }
   // drop shadow
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.beginPath(); ctx.ellipse(0, 5, 30, 11, 0, 0, 7); ctx.fill();
@@ -7269,16 +7546,6 @@ function drawBunker(b) {
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(14, -14); ctx.lineTo(10, -2); ctx.lineTo(16, 6); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(-18, 2); ctx.stroke();
-  }
-  if (b.up) {
-    // engineer breastwork — decorative sandbags stacked in front of the pillbox
-    ctx.fillStyle = 'rgba(0,0,0,0.14)';
-    ctx.beginPath(); ctx.ellipse(0, -18, 23, 6, 0, 0, 7); ctx.fill();
-    drawDecorSandbag(-16, -14, 7, 4);
-    drawDecorSandbag(0, -15, 8, 4.5);
-    drawDecorSandbag(16, -14, 7, 4);
-    drawDecorSandbag(-9, -20, 6.5, 3.8);
-    drawDecorSandbag(9, -20, 6.5, 3.8);
   }
   ctx.restore();
 }

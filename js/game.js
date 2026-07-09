@@ -541,6 +541,8 @@ const VIEW_ZOOM_MAX_MUL = 2.5;
 let lastCoverZoom = null;
 let running = false;
 let paused = false;
+let gameSpeed = 1;
+const SPEED_STEPS = [0.5, 1, 2, 3];
 let codexReturnTo = 'intro';
 let settingsReturnTo = 'intro';
 let lastT = 0;
@@ -6089,6 +6091,7 @@ function updateHUD() {
   }
 
   el('sandbox-wave-skip').classList.toggle('hidden', !(isSandbox() && isPlaying()));
+  el('speed-btn').classList.toggle('hidden', !(running && G && !G.over));
   el('pause-btn').classList.toggle('hidden', !(running && G && !G.over));
   const startBtn = el('start-wave-btn');
   if (startBtn) {
@@ -7318,7 +7321,18 @@ el('sound-volume-slider').addEventListener('input', e => {
   saveSoundVolume(Number(e.target.value));
 });
 
-// ============================================================ game flow
+function syncSpeedButton() {
+  const btn = el('speed-btn');
+  if (!btn) return;
+  btn.textContent = gameSpeed + 'x';
+}
+
+function cycleSpeed() {
+  const idx = SPEED_STEPS.indexOf(gameSpeed);
+  gameSpeed = SPEED_STEPS[(idx + 1) % SPEED_STEPS.length];
+  syncSpeedButton();
+  SFX.click();
+}
 
 function pauseGame() {
   if (!running || !G || G.over || paused) return;
@@ -7380,6 +7394,8 @@ function startGame(levelId, difficultyId) {
   mobileToolbarMinimized = false;
   running = true;
   paused = false;
+  gameSpeed = 1;
+  syncSpeedButton();
   buildToolbar(level.placeables);
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');
@@ -7423,6 +7439,7 @@ el('start-axis').addEventListener('click', () => startGame('axis1'));
 el('start-axis2').addEventListener('click', () => startGame('axis2'));
 el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless', G?.difficulty?.id));
 el('menu-btn').addEventListener('click', returnToMenu);
+el('speed-btn').addEventListener('click', cycleSpeed);
 el('pause-btn').addEventListener('click', pauseGame);
 el('start-wave-btn').addEventListener('click', startAxisCombat);
 el('pause-resume-btn').addEventListener('click', resumeGame);
@@ -7460,7 +7477,14 @@ function frame(now) {
   const dt = Math.min((now - lastT) / 1000, 0.05);
   lastT = now;
   const playing = running && !G.over && !paused;
-  if (playing) update(dt);
+  if (playing) {
+    let remaining = dt * gameSpeed;
+    while (remaining > 0) {
+      const step = Math.min(remaining, 0.05);
+      update(step);
+      remaining -= step;
+    }
+  }
   if (G && (playing || viewDirty)) {
     draw();
     viewDirty = false;

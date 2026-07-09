@@ -76,6 +76,16 @@ body {
 }
 #hud-tp { color: #ffd94a; }
 .hud-box.breach { color: #ff6b57; margin-left: auto; }
+#speed-btn {
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 44px;
+  min-height: 32px;
+  padding: 6px 12px;
+}
+#speed-btn:hover { border-color: #8a8668; }
+#speed-btn.hidden { display: none; }
 #pause-btn {
   pointer-events: auto;
   cursor: pointer;

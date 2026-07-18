@@ -25,7 +25,7 @@ const UNIT_TYPES = {
     desc: 'M1 Garand. The backbone of your line.',
   },
   gunner: {
-    name: 'Gunner', hp: 100, range: 297, dmg: 9, acc: 0.32,
+    name: 'Gunner', hp: 100, range: 267, dmg: 9, acc: 0.32,
     rof: 1.36, burst: 6, burstGap: 0.09, speed: 36,
     color: '#3d5236', gun: 10, sfx: 'mg',
     desc: 'BAR automatic rifle. Suppressive bursts.',
@@ -330,11 +330,11 @@ const PLACEABLES = [
 // costs mirror the closest allied PLACEABLES counterpart (rifleman, gunner,
 // grenadier, shotgunner, sniper, flamer, officer, jeep, sherman, artillery).
 const AXIS_PLACEABLES = [
-  { key: 'erifle', label: 'RIFLEMAN', cost: 3, kind: 'eunit', hotkey: '1',
+  { key: 'erifle', label: 'RIFLEMAN', cost: 4, kind: 'eunit', hotkey: '1',
     desc: 'Wehrmacht rifleman. Slow, steady, expendable.' },
-  { key: 'esmg', label: 'STORMTROOP', cost: 3, kind: 'eunit', hotkey: '2',
+  { key: 'esmg', label: 'STORMTROOP', cost: 4, kind: 'eunit', hotkey: '2',
     desc: 'MP40 assault trooper. Fast mover, deadly up close.' },
-  { key: 'egren', label: 'GRENADIER', cost: 8, kind: 'eunit', hotkey: '3',
+  { key: 'egren', label: 'GRENADIER', cost: 10, kind: 'eunit', hotkey: '3',
     desc: 'Carries stick grenades into the fray. Blast ignores friend and foe.' },
   { key: 'emg', label: 'MG42 TEAM', cost: 9, kind: 'eunit', hotkey: '4',
     desc: 'MG42 gunner. Pins the Americans down from long range.' },
@@ -955,12 +955,21 @@ let viewPan = null;     // one-finger camera pan on mobile
 let placeHoldTimer = null;
 let mobileToolbarMinimized = false;
 let lastTap = { t: 0, x: 0, y: 0 };
+let lastUnitClick = { t: 0, type: null };
+let longPressTimer = null;
+let longPressing = false;
 let viewCam = { x: 0, y: 0, zoom: 1 };
 let viewDirty = false;
 let viewGesture = null;   // two-finger pinch/pan snapshot
 const activePointers = new Map();
 const VIEW_ZOOM_MAX_MUL = 2.5;
 let lastCoverZoom = null;
+
+function clearLongPress() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  longPressing = false;
+}
+
 let running = false;
 let paused = false;
 let gameSpeed = 1;
@@ -8643,7 +8652,14 @@ function handleCanvasTap(shiftKey = false) {
       if (si !== -1) G.selected.splice(si, 1);
       else G.selected.push(picked);
     } else {
-      G.selected = [picked];
+      // double-click on same unit type → select all of that type
+      const now = performance.now();
+      if (now - lastUnitClick.t < 400 && lastUnitClick.type === picked.type) {
+        G.selected = commandRoster().filter(u => !u.dead && u.type === picked.type);
+      } else {
+        G.selected = [picked];
+      }
+      lastUnitClick = { t: now, type: picked.type };
     }
     SFX.click();
     mobileVibrate(5);
@@ -8658,6 +8674,7 @@ function handleCanvasTap(shiftKey = false) {
     return;
   }
   G.selected = [];
+  lastUnitClick = { t: 0, type: null };
   syncSelectionMobile();
 }
 
@@ -8699,6 +8716,19 @@ canvas.addEventListener('pointerdown', e => {
 
   if (!isPlaying() || G.mode === 'axis') return;
   drag = { x0: mouse.x, y0: mouse.y, x1: mouse.x, y1: mouse.y, active: false };
+
+  // long-press on mobile → clear selection, enter multi-select drag mode
+  if (touchUI() && !placing) {
+    clearLongPress();
+    longPressTimer = setTimeout(() => {
+      if (placing) return;
+      G.selected = [];
+      longPressing = true;
+      clearViewPan();
+      syncSelectionMobile();
+      mobileVibrate(10);
+    }, 350);
+  }
 });
 
 canvas.addEventListener('pointermove', e => {
@@ -8730,14 +8760,17 @@ canvas.addEventListener('pointermove', e => {
   }
 
   if (viewPan && mobileViewActive() && activePointers.size === 1) {
-    if (!viewPan.active) {
-      const moved = Math.hypot(e.clientX - viewPan.clientX0, e.clientY - viewPan.clientY0);
-      if (moved > tapSlop()) {
-        if (!unitAtWorld(viewPan.worldX0, viewPan.worldY0)) {
-          viewPan.active = true;
-          drag = null;
-        } else {
-          clearViewPan();
+    // long-pressing → skip view pan, let drag marquee work instead
+    if (!longPressing) {
+      if (!viewPan.active) {
+        const moved = Math.hypot(e.clientX - viewPan.clientX0, e.clientY - viewPan.clientY0);
+        if (moved > tapSlop()) {
+          if (!unitAtWorld(viewPan.worldX0, viewPan.worldY0)) {
+            viewPan.active = true;
+            drag = null;
+          } else {
+            clearViewPan();
+          }
         }
       }
     }
@@ -8745,6 +8778,11 @@ canvas.addEventListener('pointermove', e => {
       applyViewPan(e.clientX, e.clientY);
       return;
     }
+  }
+
+  // cancel long-press timer if user started dragging before timer fired
+  if (longPressTimer && drag && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > tapSlop()) {
+    clearLongPress();
   }
 
   if (placeTouch?.active) {
@@ -8761,6 +8799,8 @@ canvas.addEventListener('pointerup', e => {
   if (e.button !== 0) return;
   activePointers.delete(e.pointerId);
   clearPlaceHold();
+  // ensure the long-press timer doesn't fire after release
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 
   if (viewGesture?.active) {
     if (activePointers.size < 2) viewGesture = null;
@@ -8823,12 +8863,29 @@ canvas.addEventListener('pointerup', e => {
     drag = null;
   }
 
+  // long-press held without dragging → suppress the tap (already deselected)
+  if (longPressing) {
+    suppressClick = true;
+    longPressing = false;
+  }
+
   if (!suppressClick && isPlaying() && !placing) {
     if (mobileViewActive() && !viewPan?.active && !(drag && drag.active)) {
       const now = performance.now();
       const dt = now - lastTap.t;
       const dd = Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y);
       if (dt < 320 && dd < 28) {
+        // double-tap on a unit → select all of same type instead of zooming
+        const hit = unitAtWorld(mouse.x, mouse.y);
+        if (hit && !hit.dead) {
+          G.selected = commandRoster().filter(u => !u.dead && u.type === hit.type);
+          SFX.click();
+          mobileVibrate(5);
+          syncSelectionMobile();
+          suppressClick = true;
+          lastTap.t = 0;
+          return;
+        }
         toggleZoomAt(mouse.x, mouse.y);
         suppressClick = true;
         lastTap.t = 0;
@@ -8847,6 +8904,7 @@ canvas.addEventListener('pointercancel', e => {
   if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
   clearPlaceHold();
   clearViewPan();
+  clearLongPress();
   placeTouch = null;
   drag = null;
   mouse.inside = false;

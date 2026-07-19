@@ -106,7 +106,7 @@ const UNIT_TYPES = {
   },
   atgun: {
     // trails are staked into the ground: it traverses inside its cone but never moves
-    name: 'AT Gun', hp: 200, range: 1080, dmg: 0, acc: 0,
+    name: 'AT Gun', hp: 200, range: 918, dmg: 0, acc: 0,
     rof: 8, burst: 1, burstGap: 0, speed: 0,
     color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true,
     atgun: { arc: 0.6, shellDmg: 403, r: 27, scatterMult: 1.3 },
@@ -2887,7 +2887,7 @@ function updateUnit(u, dt) {
     u.grenCd -= dt;
     if (u.grenCd <= 0) {
       // never inside his own blast, never onto a danger-close buddy
-      const gt = nearestEnemyInRange(u, 200 * fogMult(), e => dist(u, e) > 60);
+      const gt = nearestEnemyInRange(u, 200 * (1 + (u.rank || 0) * 0.10) * fogMult(), e => dist(u, e) > 60);
       if (gt && !friendlyNearPoint(gt.x, gt.y, 55, u)) {
         // grenades are a rare, heavy punch — the carbine does the daily work.
         // Veterans throw more often, tighter and harder.

@@ -4,7 +4,11 @@
 
 // ============================================================ constants
 
-const W = 900, H = 620;
+const W = 540, H = 620;
+// layouts below were authored against the original 900px-wide field; lx()
+// rescales an offset-from-center so those formations keep their proportions
+const LAYOUT_REF_W = 900;
+function lx(off) { return W / 2 + off * (W / LAYOUT_REF_W); }
 const DEPLOY_Y = 380;          // your side of the field starts here
 const FORWARD_Y = H / 3;       // units may advance and mines/wire may be laid this far up
 const AXIS_DEPLOY_Y = 90;      // axis campaign: attackers step off from this top strip
@@ -584,8 +588,8 @@ const LEVELS = {
     startTP: 25,
     setup(G) {
       // you start with two riflemen already dug in
-      G.units.push(makeUnit('rifleman', W / 2 - 70, 470));
-      G.units.push(makeUnit('rifleman', W / 2 + 70, 470));
+      G.units.push(makeUnit('rifleman', lx(-70), 470));
+      G.units.push(makeUnit('rifleman', lx(70), 470));
     },
   },
 
@@ -608,17 +612,17 @@ const LEVELS = {
     history: 'June 6, 1944. The US 1st and 29th Infantry hit Omaha under withering fire from the bluffs. Landing craft motor through the surf; when the ramps drop, the killing ground opens.',
     briefing: 'Deploy men only on the landing craft. Press START — the boats run in, ramps drop, and the Germans open fire. Get 5 men past the bottom edge, or wipe the beach defenses.',
     setup(G) {
-      usBunker(G, W / 2 - 160, DEPLOY_Y + 60);
-      usBunker(G, W / 2 + 160, DEPLOY_Y + 60);
-      usBag(G, W / 2 - 200, 435); usBag(G, W / 2 - 80, 435);
-      usBag(G, W / 2 + 80, 435); usBag(G, W / 2 + 200, 435);
-      usWire(G, W / 2 - 140, DEPLOY_Y - 20); usWire(G, W / 2, DEPLOY_Y - 25); usWire(G, W / 2 + 140, DEPLOY_Y - 20);
-      usMine(G, W / 2 - 100, H / 2 + 30); usMine(G, W / 2 + 100, H / 2 + 30);
-      deRow(G, 'rifleman', 428, [W / 2 - 200, W / 2 - 80, W / 2 + 80, W / 2 + 200]);
-      deMan(G, 'gunner', W / 2 - 160, DEPLOY_Y + 60);
-      deMan(G, 'gunner', W / 2 + 160, DEPLOY_Y + 60);
-      deMan(G, 'sniper', W / 2 - 40, H - 90);
-      deMan(G, 'sniper', W / 2 + 40, H - 90);
+      usBunker(G, lx(-160), DEPLOY_Y + 60);
+      usBunker(G, lx(160), DEPLOY_Y + 60);
+      usBag(G, lx(-200), 435); usBag(G, lx(-80), 435);
+      usBag(G, lx(80), 435); usBag(G, lx(200), 435);
+      usWire(G, lx(-140), DEPLOY_Y - 20); usWire(G, W / 2, DEPLOY_Y - 25); usWire(G, lx(140), DEPLOY_Y - 20);
+      usMine(G, lx(-100), H / 2 + 30); usMine(G, lx(100), H / 2 + 30);
+      deRow(G, 'rifleman', 428, [lx(-200), lx(-80), lx(80), lx(200)]);
+      deMan(G, 'gunner', lx(-160), DEPLOY_Y + 60);
+      deMan(G, 'gunner', lx(160), DEPLOY_Y + 60);
+      deMan(G, 'sniper', lx(-40), H - 90);
+      deMan(G, 'sniper', lx(40), H - 90);
       deMan(G, 'officer', W / 2, H - 70);
       deFlankPicket(G, 2);
     },
@@ -641,12 +645,12 @@ const LEVELS = {
     history: 'June 10–14, 1944. The 101st Airborne fights house-to-house and hedge-to-hedge to link Utah and Omaha. Fallschirmjäger hold the approaches with MG nests and snipers.',
     briefing: 'Three waves into a hedgerow line. Stormtroopers and flamers will clear the wire — push 5 men through or wipe them out.',
     setup(G) {
-      for (const x of [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]) usBag(G, x, 435);
-      usWire(G, W / 2 - 160, DEPLOY_Y - 40); usWire(G, W / 2, DEPLOY_Y - 45); usWire(G, W / 2 + 160, DEPLOY_Y - 40);
-      usMine(G, W / 2 - 80, H / 2 + 20); usMine(G, W / 2 + 80, H / 2 + 20);
-      deRow(G, 'rifleman', 428, [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]);
-      deMan(G, 'gunner', W / 2 - 60, 490); deMan(G, 'gunner', W / 2 + 60, 490);
-      deMan(G, 'sniper', W / 2 + 100, H - 80);
+      for (const x of [lx(-220), lx(-110), W / 2, lx(110), lx(220)]) usBag(G, x, 435);
+      usWire(G, lx(-160), DEPLOY_Y - 40); usWire(G, W / 2, DEPLOY_Y - 45); usWire(G, lx(160), DEPLOY_Y - 40);
+      usMine(G, lx(-80), H / 2 + 20); usMine(G, lx(80), H / 2 + 20);
+      deRow(G, 'rifleman', 428, [lx(-220), lx(-110), W / 2, lx(110), lx(220)]);
+      deMan(G, 'gunner', lx(-60), 490); deMan(G, 'gunner', lx(60), 490);
+      deMan(G, 'sniper', lx(100), H - 80);
       deFlankPicket(G, 2);
     },
   },
@@ -669,12 +673,12 @@ const LEVELS = {
     briefing: 'A bunkered bocage line with mines. Bring Shermans and bazookas — four waves to break into the open.',
     setup(G) {
       usBunker(G, W / 2, DEPLOY_Y + 70);
-      for (const x of [W / 2 - 240, W / 2 - 120, W / 2 + 120, W / 2 + 240]) usBag(G, x, 435);
-      for (const wx of [W / 2 - 180, W / 2 - 60, W / 2 + 60, W / 2 + 180]) usWire(G, wx, DEPLOY_Y - 45);
-      for (const mx of [W / 2 - 200, W / 2 - 70, W / 2 + 70, W / 2 + 200]) usMine(G, mx, H / 2 + 15);
-      deRow(G, 'rifleman', 428, [W / 2 - 240, W / 2 - 120, W / 2 + 120, W / 2 + 240]);
+      for (const x of [lx(-240), lx(-120), lx(120), lx(240)]) usBag(G, x, 435);
+      for (const wx of [lx(-180), lx(-60), lx(60), lx(180)]) usWire(G, wx, DEPLOY_Y - 45);
+      for (const mx of [lx(-200), lx(-70), lx(70), lx(200)]) usMine(G, mx, H / 2 + 15);
+      deRow(G, 'rifleman', 428, [lx(-240), lx(-120), lx(120), lx(240)]);
       deMan(G, 'gunner', W / 2, DEPLOY_Y + 70);
-      deMan(G, 'flamer', W / 2 - 40, 500); deMan(G, 'bazooka', W / 2 + 40, 500);
+      deMan(G, 'flamer', lx(-40), 500); deMan(G, 'bazooka', lx(40), 500);
       deMan(G, 'officer', W / 2, H - 70);
       deFlankPicket(G, 2);
     },
@@ -697,12 +701,12 @@ const LEVELS = {
     history: 'September 1944. While British paras fight at Arnhem, US forces storm the Nijmegen bridges. German mortars and MG nests own every approach across the open ground.',
     briefing: 'Mortar crews have the killing ground zeroed. Rush, spread out, and keep moving — five waves to crack the bridgehead.',
     setup(G) {
-      usBunker(G, W / 2 - 160, DEPLOY_Y + 70); usBunker(G, W / 2 + 160, DEPLOY_Y + 70);
-      for (const x of [W / 2 - 260, W / 2 - 130, W / 2, W / 2 + 130, W / 2 + 260]) usBag(G, x, 435);
-      usWire(G, W / 2 - 180, DEPLOY_Y - 50); usWire(G, W / 2, DEPLOY_Y - 55); usWire(G, W / 2 + 180, DEPLOY_Y - 50);
-      deRow(G, 'mortarman', H - 60, [W / 2 - 180, W / 2, W / 2 + 180]);
-      deRow(G, 'rifleman', 428, [W / 2 - 260, W / 2 - 130, W / 2, W / 2 + 130, W / 2 + 260]);
-      deRow(G, 'gunner', DEPLOY_Y + 70, [W / 2 - 160, W / 2 + 160]);
+      usBunker(G, lx(-160), DEPLOY_Y + 70); usBunker(G, lx(160), DEPLOY_Y + 70);
+      for (const x of [lx(-260), lx(-130), W / 2, lx(130), lx(260)]) usBag(G, x, 435);
+      usWire(G, lx(-180), DEPLOY_Y - 50); usWire(G, W / 2, DEPLOY_Y - 55); usWire(G, lx(180), DEPLOY_Y - 50);
+      deRow(G, 'mortarman', H - 60, [lx(-180), W / 2, lx(180)]);
+      deRow(G, 'rifleman', 428, [lx(-260), lx(-130), W / 2, lx(130), lx(260)]);
+      deRow(G, 'gunner', DEPLOY_Y + 70, [lx(-160), lx(160)]);
       deFlankPicket(G, 3);
     },
   },
@@ -724,12 +728,12 @@ const LEVELS = {
     history: 'Autumn 1944. The Hürtgen Forest swallows divisions in mud and treeburst artillery. German marksmen and MG teams hold every firebreak — the longest battle on German soil.',
     briefing: 'Snipers behind every tree hunt your officers and gunners. Rush cheap riflemen through the gaps — never bunch up.',
     setup(G) {
-      usWire(G, W / 2 - 220, DEPLOY_Y - 50); usWire(G, W / 2 - 80, DEPLOY_Y - 45);
-      usWire(G, W / 2 + 80, DEPLOY_Y - 45); usWire(G, W / 2 + 220, DEPLOY_Y - 50);
-      for (const x of [W / 2 - 280, W / 2 - 150, W / 2 + 150, W / 2 + 280]) usBag(G, x, 435);
-      deRow(G, 'sniper', 470, [90, W / 2 - 250, W / 2 - 90, W / 2 + 90, W / 2 + 250, W - 90]);
+      usWire(G, lx(-220), DEPLOY_Y - 50); usWire(G, lx(-80), DEPLOY_Y - 45);
+      usWire(G, lx(80), DEPLOY_Y - 45); usWire(G, lx(220), DEPLOY_Y - 50);
+      for (const x of [lx(-280), lx(-150), lx(150), lx(280)]) usBag(G, x, 435);
+      deRow(G, 'sniper', 470, [90, lx(-250), lx(-90), lx(90), lx(250), W - 90]);
       deMan(G, 'sniper', W / 2, H - 90);
-      deRow(G, 'rifleman', 428, [W / 2 - 280, W / 2 - 150, W / 2 + 150, W / 2 + 280]);
+      deRow(G, 'rifleman', 428, [lx(-280), lx(-150), lx(150), lx(280)]);
       deMan(G, 'gunner', W / 2, 500);
       deFlankPicket(G, 2);
     },
@@ -763,8 +767,8 @@ const LEVELS = {
         banner: 'FINAL ASSAULT! HALFTRACK LEADING!' },
     ],
     setup(G) {
-      G.units.push(makeUnit('rifleman', W / 2 - 70, 470));
-      G.units.push(makeUnit('rifleman', W / 2 + 70, 470));
+      G.units.push(makeUnit('rifleman', lx(-70), 470));
+      G.units.push(makeUnit('rifleman', lx(70), 470));
       G.sandbags.push({ x: W / 2, y: 455, hp: SANDBAG_HP, maxhp: SANDBAG_HP, up: false, workProg: 0 });
     },
   },
@@ -786,9 +790,9 @@ const LEVELS = {
     history: 'September 1, 1939. German panzer columns slam into Polish cavalry screens west of Łódź. At Mokra, lancers and riflemen hold the ridgeline — your first test of blitzkrieg against a stubborn picket.',
     briefing: 'Two assault waves against a thin defensive screen. Fresh TP each wave — spend it or lose it. Get 5 men past the bottom, or wipe the defenders.',
     setup(G) {
-      usBag(G, W / 2 - 105, 435); usBag(G, W / 2 - 35, 435); usBag(G, W / 2 + 35, 435); usBag(G, W / 2 + 105, 435);
-      usWire(G, W / 2 - 70, DEPLOY_Y - 30); usWire(G, W / 2 + 70, DEPLOY_Y - 30);
-      usRow(G, 'rifleman', 428, [W / 2 - 105, W / 2 - 35, W / 2 + 35, W / 2 + 105]);
+      usBag(G, lx(-105), 435); usBag(G, lx(-35), 435); usBag(G, lx(35), 435); usBag(G, lx(105), 435);
+      usWire(G, lx(-70), DEPLOY_Y - 30); usWire(G, lx(70), DEPLOY_Y - 30);
+      usRow(G, 'rifleman', 428, [lx(-105), lx(-35), lx(35), lx(105)]);
       usMan(G, 'gunner', W / 2, 485);
       usFlankPicket(G, 1);
     },
@@ -808,13 +812,13 @@ const LEVELS = {
     history: 'May 13, 1940. Guderian\'s panzer corps must force the Meuse at Sedan before the French can rally. The defenders have wired the approaches and posted marksmen on the heights.',
     briefing: 'Three waves to crack a reinforced picket guarding the river crossing. Stormtroopers and flammenwerfer will help clear the wire.',
     setup(G) {
-      usBag(G, W / 2 - 180, 435); usBag(G, W / 2 - 90, 435); usBag(G, W / 2, 435);
-      usBag(G, W / 2 + 90, 435); usBag(G, W / 2 + 180, 435);
-      usWire(G, W / 2 - 140, DEPLOY_Y - 40); usWire(G, W / 2, DEPLOY_Y - 45); usWire(G, W / 2 + 140, DEPLOY_Y - 40);
-      usMine(G, W / 2 - 60, H / 2 + 20); usMine(G, W / 2 + 60, H / 2 + 20);
-      usRow(G, 'rifleman', 428, [W / 2 - 180, W / 2 - 90, W / 2, W / 2 + 90, W / 2 + 180]);
-      usMan(G, 'gunner', W / 2 - 60, 490); usMan(G, 'gunner', W / 2 + 60, 490);
-      usMan(G, 'sniper', W / 2 + 90, H - 80);
+      usBag(G, lx(-180), 435); usBag(G, lx(-90), 435); usBag(G, W / 2, 435);
+      usBag(G, lx(90), 435); usBag(G, lx(180), 435);
+      usWire(G, lx(-140), DEPLOY_Y - 40); usWire(G, W / 2, DEPLOY_Y - 45); usWire(G, lx(140), DEPLOY_Y - 40);
+      usMine(G, lx(-60), H / 2 + 20); usMine(G, lx(60), H / 2 + 20);
+      usRow(G, 'rifleman', 428, [lx(-180), lx(-90), W / 2, lx(90), lx(180)]);
+      usMan(G, 'gunner', lx(-60), 490); usMan(G, 'gunner', lx(60), 490);
+      usMan(G, 'sniper', lx(90), H - 80);
       usFlankPicket(G, 2);
     },
   },
@@ -859,14 +863,14 @@ const LEVELS = {
     history: 'June 22, 1941. Operation Barbarossa opens with fortress cities on the border. Brest holds out in bunkers and trenches — a preview of the grinding fights ahead on the Eastern Front.',
     briefing: 'A bunkered fortress line with deep wire belts. Four waves to crack the citadel. Mortars and grenadiers will help dig them out.',
     setup(G) {
-      for (const x of [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]) usBag(G, x, 435);
+      for (const x of [lx(-220), lx(-110), W / 2, lx(110), lx(220)]) usBag(G, x, 435);
       usBunker(G, W / 2, DEPLOY_Y + 80);
-      usWire(G, W / 2 - 170, DEPLOY_Y - 45); usWire(G, W / 2 - 55, DEPLOY_Y - 50);
-      usWire(G, W / 2 + 55, DEPLOY_Y - 50); usWire(G, W / 2 + 170, DEPLOY_Y - 45);
-      usMine(G, W / 2 - 200, H / 2 + 15); usMine(G, W / 2 + 200, H / 2 + 15);
-      usRow(G, 'rifleman', 428, [W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220]);
+      usWire(G, lx(-170), DEPLOY_Y - 45); usWire(G, lx(-55), DEPLOY_Y - 50);
+      usWire(G, lx(55), DEPLOY_Y - 50); usWire(G, lx(170), DEPLOY_Y - 45);
+      usMine(G, lx(-200), H / 2 + 15); usMine(G, lx(200), H / 2 + 15);
+      usRow(G, 'rifleman', 428, [lx(-220), lx(-110), W / 2, lx(110), lx(220)]);
       usMan(G, 'gunner', W / 2, DEPLOY_Y + 80);
-      usMan(G, 'sniper', W / 2 - 120, H - 80); usMan(G, 'sniper', W / 2 + 120, H - 80);
+      usMan(G, 'sniper', lx(-120), H - 80); usMan(G, 'sniper', lx(120), H - 80);
       usFlankPicket(G, 2);
     },
   },
@@ -885,14 +889,14 @@ const LEVELS = {
     history: 'February 19, 1943. Rommel\'s Afrika Korps punches through the inexperienced American II Corps at Kasserine Pass — the first major clash between US and German forces in North Africa.',
     briefing: 'A deep infantry line with medics keeping casualties on their feet. Outlast them wave by wave — motorcycles can race for the breach.',
     setup(G) {
-      for (const x of [W / 2 - 280, W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200, W / 2 + 280]) usBag(G, x, 435);
-      usWire(G, W / 2 - 180, DEPLOY_Y - 45); usWire(G, W / 2 - 60, DEPLOY_Y - 55);
-      usWire(G, W / 2 + 60, DEPLOY_Y - 55); usWire(G, W / 2 + 180, DEPLOY_Y - 45);
-      usMine(G, W / 2 - 120, H / 2 + 20); usMine(G, W / 2, H / 2 + 20); usMine(G, W / 2 + 120, H / 2 + 20);
-      usRow(G, 'rifleman', 428, [W / 2 - 280, W / 2 - 200, W / 2 - 100, W / 2, W / 2 + 100, W / 2 + 200, W / 2 + 280]);
-      usRow(G, 'gunner', 495, [W / 2 - 140, W / 2, W / 2 + 140]);
-      usMan(G, 'medic', W / 2 - 80, H - 70); usMan(G, 'medic', W / 2 + 80, H - 70);
-      usMan(G, 'sniper', W / 2 - 200, H - 80); usMan(G, 'sniper', W / 2 + 200, H - 80);
+      for (const x of [lx(-280), lx(-200), lx(-100), W / 2, lx(100), lx(200), lx(280)]) usBag(G, x, 435);
+      usWire(G, lx(-180), DEPLOY_Y - 45); usWire(G, lx(-60), DEPLOY_Y - 55);
+      usWire(G, lx(60), DEPLOY_Y - 55); usWire(G, lx(180), DEPLOY_Y - 45);
+      usMine(G, lx(-120), H / 2 + 20); usMine(G, W / 2, H / 2 + 20); usMine(G, lx(120), H / 2 + 20);
+      usRow(G, 'rifleman', 428, [lx(-280), lx(-200), lx(-100), W / 2, lx(100), lx(200), lx(280)]);
+      usRow(G, 'gunner', 495, [lx(-140), W / 2, lx(140)]);
+      usMan(G, 'medic', lx(-80), H - 70); usMan(G, 'medic', lx(80), H - 70);
+      usMan(G, 'sniper', lx(-200), H - 80); usMan(G, 'sniper', lx(200), H - 80);
       usFlankPicket(G, 2);
     },
   },
@@ -913,12 +917,12 @@ const LEVELS = {
     setup(G) {
       usBunker(G, W / 2, DEPLOY_Y + 70);
       usMan(G, 'sherman', W / 2, 470);
-      usMan(G, 'atgun', W / 2 - 260, 440); usMan(G, 'atgun', W / 2 + 260, 440);
-      usBag(G, W / 2 - 180, 435); usBag(G, W / 2 - 60, 435); usBag(G, W / 2 + 60, 435); usBag(G, W / 2 + 180, 435);
-      for (const mx of [W / 2 - 280, W / 2 - 140, W / 2, W / 2 + 140, W / 2 + 280]) usMine(G, mx, H / 2 + 10);
-      usWire(G, W / 2 - 150, DEPLOY_Y - 45); usWire(G, W / 2, DEPLOY_Y - 50); usWire(G, W / 2 + 150, DEPLOY_Y - 45);
-      usRow(G, 'rifleman', 428, [W / 2 - 180, W / 2 - 60, W / 2 + 60, W / 2 + 180]);
-      usMan(G, 'gunner', W / 2 - 220, 445); usMan(G, 'gunner', W / 2 + 220, 445);
+      usMan(G, 'atgun', lx(-260), 440); usMan(G, 'atgun', lx(260), 440);
+      usBag(G, lx(-180), 435); usBag(G, lx(-60), 435); usBag(G, lx(60), 435); usBag(G, lx(180), 435);
+      for (const mx of [lx(-280), lx(-140), W / 2, lx(140), lx(280)]) usMine(G, mx, H / 2 + 10);
+      usWire(G, lx(-150), DEPLOY_Y - 45); usWire(G, W / 2, DEPLOY_Y - 50); usWire(G, lx(150), DEPLOY_Y - 45);
+      usRow(G, 'rifleman', 428, [lx(-180), lx(-60), lx(60), lx(180)]);
+      usMan(G, 'gunner', lx(-220), 445); usMan(G, 'gunner', lx(220), 445);
       usFlankPicket(G, 2);
     },
   },
@@ -937,15 +941,15 @@ const LEVELS = {
     history: 'February 1944. The abbey on Monte Cassino commands the Liri Valley. Allied infantry and New Zealand gunners hold the slopes in bunkers — four assaults have already failed here.',
     briefing: 'Twin bunkers with machine-gun teams command the ridge. Five waves to storm the heights. Flammenwerfer and mortars clear dug-in positions.',
     setup(G) {
-      usBunker(G, W / 2 - 180, DEPLOY_Y + 70); usBunker(G, W / 2 + 180, DEPLOY_Y + 70);
-      for (const x of [W / 2 - 280, W / 2 - 180, W / 2 - 60, W / 2 + 60, W / 2 + 180, W / 2 + 280]) usBag(G, x, 435);
-      usWire(G, W / 2 - 200, DEPLOY_Y - 50); usWire(G, W / 2 - 70, DEPLOY_Y - 55);
-      usWire(G, W / 2 + 70, DEPLOY_Y - 55); usWire(G, W / 2 + 200, DEPLOY_Y - 50);
-      usMine(G, W / 2 - 130, H / 2 + 20); usMine(G, W / 2 + 130, H / 2 + 20);
-      usRow(G, 'rifleman', 428, [W / 2 - 280, W / 2 - 180, W / 2 - 60, W / 2 + 60, W / 2 + 180, W / 2 + 280]);
-      usRow(G, 'gunner', DEPLOY_Y + 70, [W / 2 - 180, W / 2 + 180]);
-      usMan(G, 'sniper', W / 2 - 100, H - 80); usMan(G, 'sniper', W / 2 + 100, H - 80);
-      usMan(G, 'medic', W / 2 - 60, H - 70); usMan(G, 'medic', W / 2 + 60, H - 70);
+      usBunker(G, lx(-180), DEPLOY_Y + 70); usBunker(G, lx(180), DEPLOY_Y + 70);
+      for (const x of [lx(-280), lx(-180), lx(-60), lx(60), lx(180), lx(280)]) usBag(G, x, 435);
+      usWire(G, lx(-200), DEPLOY_Y - 50); usWire(G, lx(-70), DEPLOY_Y - 55);
+      usWire(G, lx(70), DEPLOY_Y - 55); usWire(G, lx(200), DEPLOY_Y - 50);
+      usMine(G, lx(-130), H / 2 + 20); usMine(G, lx(130), H / 2 + 20);
+      usRow(G, 'rifleman', 428, [lx(-280), lx(-180), lx(-60), lx(60), lx(180), lx(280)]);
+      usRow(G, 'gunner', DEPLOY_Y + 70, [lx(-180), lx(180)]);
+      usMan(G, 'sniper', lx(-100), H - 80); usMan(G, 'sniper', lx(100), H - 80);
+      usMan(G, 'medic', lx(-60), H - 70); usMan(G, 'medic', lx(60), H - 70);
       usFlankPicket(G, 3);
     },
   },
@@ -964,15 +968,15 @@ const LEVELS = {
     history: 'June 1944. While the Allies land in Normandy, the Red Army unleashes Operation Bagration — shattering Army Group Centre. This is a desperate counterattack into a deep, layered Soviet defense.',
     briefing: 'A deep line with medics keeping everyone on their feet. Bleed them white across five waves — numbers and firepower decide this fight.',
     setup(G) {
-      for (const x of [W / 2 - 300, W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220, W / 2 + 300]) usBag(G, x, 435);
+      for (const x of [lx(-300), lx(-220), lx(-110), W / 2, lx(110), lx(220), lx(300)]) usBag(G, x, 435);
       usBunker(G, W / 2, DEPLOY_Y + 80);
-      usWire(G, W / 2 - 200, DEPLOY_Y - 50); usWire(G, W / 2 - 70, DEPLOY_Y - 55);
-      usWire(G, W / 2 + 70, DEPLOY_Y - 55); usWire(G, W / 2 + 200, DEPLOY_Y - 50);
-      for (const mx of [W / 2 - 240, W / 2 - 80, W / 2 + 80, W / 2 + 240]) usMine(G, mx, H / 2 + 15);
-      usRow(G, 'rifleman', 428, [W / 2 - 300, W / 2 - 220, W / 2 - 110, W / 2, W / 2 + 110, W / 2 + 220, W / 2 + 300]);
-      usRow(G, 'gunner', 495, [W / 2 - 150, W / 2, W / 2 + 150]);
-      usRow(G, 'medic', H - 70, [W / 2 - 180, W / 2 + 180]);
-      usMan(G, 'sniper', W / 2 - 80, H - 90); usMan(G, 'sniper', W / 2 + 80, H - 90);
+      usWire(G, lx(-200), DEPLOY_Y - 50); usWire(G, lx(-70), DEPLOY_Y - 55);
+      usWire(G, lx(70), DEPLOY_Y - 55); usWire(G, lx(200), DEPLOY_Y - 50);
+      for (const mx of [lx(-240), lx(-80), lx(80), lx(240)]) usMine(G, mx, H / 2 + 15);
+      usRow(G, 'rifleman', 428, [lx(-300), lx(-220), lx(-110), W / 2, lx(110), lx(220), lx(300)]);
+      usRow(G, 'gunner', 495, [lx(-150), W / 2, lx(150)]);
+      usRow(G, 'medic', H - 70, [lx(-180), lx(180)]);
+      usMan(G, 'sniper', lx(-80), H - 90); usMan(G, 'sniper', lx(80), H - 90);
       usFlankPicket(G, 3);
     },
   },
@@ -991,12 +995,12 @@ const LEVELS = {
     history: 'September 1944. The US 28th Infantry Division pushes into the Hürtgen Forest — dense woods, mud, and hidden marksmen. The longest battle on German soil begins in these dark trees.',
     briefing: 'Marksmen behind every hedgerow hunt your officers and gunners. Rush cheap riflemen through the gaps — never bunch up in the open.',
     setup(G) {
-      usWire(G, W / 2 - 220, DEPLOY_Y - 50); usWire(G, W / 2 - 80, DEPLOY_Y - 45);
-      usWire(G, W / 2 + 80, DEPLOY_Y - 45); usWire(G, W / 2 + 220, DEPLOY_Y - 50);
-      for (const x of [W / 2 - 280, W / 2 - 150, W / 2 + 150, W / 2 + 280]) usBag(G, x, 435);
-      usRow(G, 'sniper', 470, [90, W / 2 - 250, W / 2 - 90, W / 2 + 90, W / 2 + 250, W - 90]);
+      usWire(G, lx(-220), DEPLOY_Y - 50); usWire(G, lx(-80), DEPLOY_Y - 45);
+      usWire(G, lx(80), DEPLOY_Y - 45); usWire(G, lx(220), DEPLOY_Y - 50);
+      for (const x of [lx(-280), lx(-150), lx(150), lx(280)]) usBag(G, x, 435);
+      usRow(G, 'sniper', 470, [90, lx(-250), lx(-90), lx(90), lx(250), W - 90]);
       usMan(G, 'sniper', W / 2, H - 90);
-      usRow(G, 'rifleman', 428, [W / 2 - 280, W / 2 - 150, W / 2 + 150, W / 2 + 280]);
+      usRow(G, 'rifleman', 428, [lx(-280), lx(-150), lx(150), lx(280)]);
       usRow(G, 'rifleman', 500, [130, W - 130]);
       usMan(G, 'medic', W / 2, 520);
       usFlankPicket(G, 2);
@@ -1017,15 +1021,15 @@ const LEVELS = {
     history: 'October 1944. Aachen is the first German city to face direct assault. The Siegfried Line\'s bunkers and dragon\'s teeth slow every advance — the Americans have an engineer keeping the wall intact.',
     briefing: 'Three bunkers, layered wire, and an engineer patching the fortifications. Bring mortars, flammenwerfer, and armor to breach the West Wall.',
     setup(G) {
-      usBunker(G, W / 2 - 220, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 80); usBunker(G, W / 2 + 220, DEPLOY_Y + 70);
-      for (const x of [W / 2 - 300, W / 2 - 200, W / 2 - 100, W / 2 + 100, W / 2 + 200, W / 2 + 300]) usBag(G, x, 435);
-      for (const wx of [W / 2 - 240, W / 2 - 120, W / 2, W / 2 + 120, W / 2 + 240]) usWire(G, wx, DEPLOY_Y - 50);
-      for (const mx of [W / 2 - 280, W / 2 - 140, W / 2, W / 2 + 140, W / 2 + 280]) usMine(G, mx, H / 2 + 15);
-      usRow(G, 'gunner', DEPLOY_Y + 72, [W / 2 - 220, W / 2, W / 2 + 220]);
-      usRow(G, 'rifleman', 428, [W / 2 - 300, W / 2 - 200, W / 2 - 100, W / 2 + 100, W / 2 + 200, W / 2 + 300]);
+      usBunker(G, lx(-220), DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 80); usBunker(G, lx(220), DEPLOY_Y + 70);
+      for (const x of [lx(-300), lx(-200), lx(-100), lx(100), lx(200), lx(300)]) usBag(G, x, 435);
+      for (const wx of [lx(-240), lx(-120), W / 2, lx(120), lx(240)]) usWire(G, wx, DEPLOY_Y - 50);
+      for (const mx of [lx(-280), lx(-140), W / 2, lx(140), lx(280)]) usMine(G, mx, H / 2 + 15);
+      usRow(G, 'gunner', DEPLOY_Y + 72, [lx(-220), W / 2, lx(220)]);
+      usRow(G, 'rifleman', 428, [lx(-300), lx(-200), lx(-100), lx(100), lx(200), lx(300)]);
       usMan(G, 'engineer', W / 2, 520);
-      usMan(G, 'medic', W / 2 - 140, H - 70); usMan(G, 'medic', W / 2 + 140, H - 70);
-      usMan(G, 'sniper', W / 2 - 80, H - 80); usMan(G, 'sniper', W / 2 + 80, H - 80);
+      usMan(G, 'medic', lx(-140), H - 70); usMan(G, 'medic', lx(140), H - 70);
+      usMan(G, 'sniper', lx(-80), H - 80); usMan(G, 'sniper', lx(80), H - 80);
       usFlankPicket(G, 3);
     },
   },
@@ -1044,14 +1048,14 @@ const LEVELS = {
     history: 'September 17, 1944. Operation Market Garden aims to seize the Rhine bridges. At Arnhem, British paratroopers hold the far bank while mortars zero every approach — a bridge too far.',
     briefing: 'Mortar crews have the killing ground zeroed. Rush across before the shells find you — spread out and keep moving.',
     setup(G) {
-      for (const x of [W / 2 - 280, W / 2 - 180, W / 2 - 90, W / 2, W / 2 + 90, W / 2 + 180, W / 2 + 280]) usBag(G, x, 435);
+      for (const x of [lx(-280), lx(-180), lx(-90), W / 2, lx(90), lx(180), lx(280)]) usBag(G, x, 435);
       usBunker(G, W / 2, DEPLOY_Y + 80);
-      usWire(G, W / 2 - 200, DEPLOY_Y - 50); usWire(G, W / 2 - 70, DEPLOY_Y - 55);
-      usWire(G, W / 2 + 70, DEPLOY_Y - 55); usWire(G, W / 2 + 200, DEPLOY_Y - 50);
-      usRow(G, 'mortarman', H - 60, [W / 2 - 200, W / 2, W / 2 + 200]);
-      usRow(G, 'rifleman', 428, [W / 2 - 280, W / 2 - 180, W / 2 - 90, W / 2, W / 2 + 90, W / 2 + 180, W / 2 + 280]);
-      usRow(G, 'gunner', 495, [W / 2 - 150, W / 2, W / 2 + 150]);
-      usMan(G, 'medic', W / 2 - 220, H - 70); usMan(G, 'medic', W / 2 + 220, H - 70);
+      usWire(G, lx(-200), DEPLOY_Y - 50); usWire(G, lx(-70), DEPLOY_Y - 55);
+      usWire(G, lx(70), DEPLOY_Y - 55); usWire(G, lx(200), DEPLOY_Y - 50);
+      usRow(G, 'mortarman', H - 60, [lx(-200), W / 2, lx(200)]);
+      usRow(G, 'rifleman', 428, [lx(-280), lx(-180), lx(-90), W / 2, lx(90), lx(180), lx(280)]);
+      usRow(G, 'gunner', 495, [lx(-150), W / 2, lx(150)]);
+      usMan(G, 'medic', lx(-220), H - 70); usMan(G, 'medic', lx(220), H - 70);
       usFlankPicket(G, 3);
     },
   },
@@ -1070,19 +1074,19 @@ const LEVELS = {
     history: 'December 16, 1944. The Ardennes offensive surges west. St. Vith is a critical road junction — the 7th Armored and scattered infantry throw everything they have into blocking the advance.',
     briefing: 'Combined arms defense: riflemen, armor, and support weapons in a disorganized but deadly line. Punch through before they rally.',
     setup(G) {
-      usBunker(G, W / 2 - 120, DEPLOY_Y + 80); usBunker(G, W / 2 + 120, DEPLOY_Y + 80);
-      usBag(G, W / 2 - 280, 435); usBag(G, W / 2 - 160, 435); usBag(G, W / 2 + 160, 435); usBag(G, W / 2 + 280, 435);
-      usWire(G, W / 2 - 200, DEPLOY_Y - 50); usWire(G, W / 2, DEPLOY_Y - 55); usWire(G, W / 2 + 200, DEPLOY_Y - 50);
-      usMine(G, W / 2 - 120, H / 2 + 15); usMine(G, W / 2 + 120, H / 2 + 15);
-      usMan(G, 'rifleman', W / 2 - 300, 440); usMan(G, 'rifleman', W / 2 + 300, 440);
-      usMan(G, 'gunner', W / 2 - 220, 460); usMan(G, 'gunner', W / 2 + 220, 460);
-      usMan(G, 'grenadier', W / 2 - 140, 480); usMan(G, 'grenadier', W / 2 + 140, 480);
-      usMan(G, 'shotgunner', W / 2 - 60, 500); usMan(G, 'bazooka', W / 2 + 60, 500);
-      usMan(G, 'flamer', W / 2 - 20, 510); usMan(G, 'sniper', W / 2 + 20, 510);
-      usMan(G, 'mortarman', W / 2 - 80, 455); usMan(G, 'mortarman', W / 2 + 80, 455);
-      usMan(G, 'medic', W / 2 - 100, H - 70); usMan(G, 'engineer', W / 2 + 100, H - 70);
+      usBunker(G, lx(-120), DEPLOY_Y + 80); usBunker(G, lx(120), DEPLOY_Y + 80);
+      usBag(G, lx(-280), 435); usBag(G, lx(-160), 435); usBag(G, lx(160), 435); usBag(G, lx(280), 435);
+      usWire(G, lx(-200), DEPLOY_Y - 50); usWire(G, W / 2, DEPLOY_Y - 55); usWire(G, lx(200), DEPLOY_Y - 50);
+      usMine(G, lx(-120), H / 2 + 15); usMine(G, lx(120), H / 2 + 15);
+      usMan(G, 'rifleman', lx(-300), 440); usMan(G, 'rifleman', lx(300), 440);
+      usMan(G, 'gunner', lx(-220), 460); usMan(G, 'gunner', lx(220), 460);
+      usMan(G, 'grenadier', lx(-140), 480); usMan(G, 'grenadier', lx(140), 480);
+      usMan(G, 'shotgunner', lx(-60), 500); usMan(G, 'bazooka', lx(60), 500);
+      usMan(G, 'flamer', lx(-20), 510); usMan(G, 'sniper', lx(20), 510);
+      usMan(G, 'mortarman', lx(-80), 455); usMan(G, 'mortarman', lx(80), 455);
+      usMan(G, 'medic', lx(-100), H - 70); usMan(G, 'engineer', lx(100), H - 70);
       usMan(G, 'officer', W / 2, H - 55);
-      usMan(G, 'jeep', W / 2 - 260, 525); usMan(G, 'atgun', W / 2 + 260, 525);
+      usMan(G, 'jeep', lx(-260), 525); usMan(G, 'atgun', lx(260), 525);
       usFlankPicket(G, 2);
     },
   },
@@ -1101,17 +1105,17 @@ const LEVELS = {
     history: 'December 1944. Bastogne is the hinge of the Bulge. The 101st Airborne and attached armor form a fortress ring — seven waves and every gun in the theater to break "Nuts!"',
     briefing: 'The final line: Shermans, AT guns, bunkers, and mortars under an officer. Seven waves and the fattest budgets of the war. Break Bastogne and the offensive lives.',
     setup(G) {
-      usBunker(G, W / 2 - 240, DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 85); usBunker(G, W / 2 + 240, DEPLOY_Y + 70);
-      for (const x of [W / 2 - 320, W / 2 - 220, W / 2 - 110, W / 2 + 110, W / 2 + 220, W / 2 + 320]) usBag(G, x, 435);
-      for (const wx of [W / 2 - 280, W / 2 - 150, W / 2 - 50, W / 2 + 50, W / 2 + 150, W / 2 + 280]) usWire(G, wx, DEPLOY_Y - 50);
-      for (const mx of [W / 2 - 300, W / 2 - 160, W / 2, W / 2 + 160, W / 2 + 300]) usMine(G, mx, H / 2 + 12);
-      usMan(G, 'sherman', W / 2 - 140, 500); usMan(G, 'sherman', W / 2 + 140, 500);
-      usMan(G, 'atgun', W / 2 - 340, 460); usMan(G, 'atgun', W / 2 + 340, 460);
-      usRow(G, 'gunner', DEPLOY_Y + 72, [W / 2 - 240, W / 2, W / 2 + 240]);
-      usRow(G, 'rifleman', 428, [W / 2 - 320, W / 2 - 220, W / 2 - 110, W / 2 + 110, W / 2 + 220, W / 2 + 320]);
-      usRow(G, 'sniper', H - 90, [W / 2 - 180, W / 2 + 180, 100, W - 100]);
-      usRow(G, 'mortarman', H - 55, [W / 2 - 80, W / 2 + 80]);
-      usRow(G, 'medic', H - 78, [W / 2 - 280, W / 2 + 280]);
+      usBunker(G, lx(-240), DEPLOY_Y + 70); usBunker(G, W / 2, DEPLOY_Y + 85); usBunker(G, lx(240), DEPLOY_Y + 70);
+      for (const x of [lx(-320), lx(-220), lx(-110), lx(110), lx(220), lx(320)]) usBag(G, x, 435);
+      for (const wx of [lx(-280), lx(-150), lx(-50), lx(50), lx(150), lx(280)]) usWire(G, wx, DEPLOY_Y - 50);
+      for (const mx of [lx(-300), lx(-160), W / 2, lx(160), lx(300)]) usMine(G, mx, H / 2 + 12);
+      usMan(G, 'sherman', lx(-140), 500); usMan(G, 'sherman', lx(140), 500);
+      usMan(G, 'atgun', lx(-340), 460); usMan(G, 'atgun', lx(340), 460);
+      usRow(G, 'gunner', DEPLOY_Y + 72, [lx(-240), W / 2, lx(240)]);
+      usRow(G, 'rifleman', 428, [lx(-320), lx(-220), lx(-110), lx(110), lx(220), lx(320)]);
+      usRow(G, 'sniper', H - 90, [lx(-180), lx(180), 100, W - 100]);
+      usRow(G, 'mortarman', H - 55, [lx(-80), lx(80)]);
+      usRow(G, 'medic', H - 78, [lx(-280), lx(280)]);
       usMan(G, 'engineer', W / 2, H - 62);
       usMan(G, 'officer', W / 2, H - 40);
       usFlankPicket(G, 3);
@@ -1135,8 +1139,8 @@ const LEVELS = {
       // is worth three line infantry: tougher, deadlier, longer-armed, and
       // quick back on their feet when pinned.
       const squad = [
-        ['eoff', W / 2 - 100], ['esniper', W / 2 - 60], ['emg', W / 2 - 20],
-        ['esmg', W / 2 + 20], ['esmg', W / 2 + 60], ['egren', W / 2 + 100],
+        ['eoff', lx(-100)], ['esniper', lx(-60)], ['emg', lx(-20)],
+        ['esmg', lx(20)], ['esmg', lx(60)], ['egren', lx(100)],
       ];
       for (const [type, x] of squad) {
         const e = makeEnemy(type, x, 36);
@@ -1163,22 +1167,22 @@ const LEVELS = {
       // a small detail on purpose: six commandos cannot win a stand-up fight
       // against a full platoon, so the mission is sized for maneuver
       const bag = (x, y) => G.sandbags.push({ x, y, hp: SANDBAG_HP, maxhp: SANDBAG_HP, up: false, workProg: 0 });
-      bag(W / 2 - 60, DEPLOY_Y + 40);
-      bag(W / 2 + 60, DEPLOY_Y + 40);
+      bag(lx(-60), DEPLOY_Y + 40);
+      bag(lx(60), DEPLOY_Y + 40);
       G.units.push(makeUnit('gunner', W / 2, DEPLOY_Y + 45));
-      G.units.push(makeUnit('rifleman', W / 2 - 60, DEPLOY_Y + 36));
-      G.units.push(makeUnit('rifleman', W / 2 + 60, DEPLOY_Y + 36));
-      G.units.push(makeUnit('rifleman', W / 2 - 260, DEPLOY_Y + 55));
-      G.units.push(makeUnit('rifleman', W / 2 + 260, DEPLOY_Y + 55));
-      G.units.push(makeUnit('shotgunner', W / 2 - 50, H - 85));
+      G.units.push(makeUnit('rifleman', lx(-60), DEPLOY_Y + 36));
+      G.units.push(makeUnit('rifleman', lx(60), DEPLOY_Y + 36));
+      G.units.push(makeUnit('rifleman', lx(-260), DEPLOY_Y + 55));
+      G.units.push(makeUnit('rifleman', lx(260), DEPLOY_Y + 55));
+      G.units.push(makeUnit('shotgunner', lx(-50), H - 85));
       // no mortar in the detail: indirect fire would punish the flanking
       // routes this mission is designed around
 
       // the direct approach is fortified: wire and mines down the middle
-      for (const wx of [W / 2 - 110, W / 2, W / 2 + 110]) {
+      for (const wx of [lx(-110), W / 2, lx(110)]) {
         G.wires.push({ x: wx, y: FORWARD_Y + 40, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
       }
-      for (const mx of [W / 2 - 60, W / 2, W / 2 + 60]) {
+      for (const mx of [lx(-60), W / 2, lx(60)]) {
         G.mines.push({ x: mx, y: H / 2 + 10, dead: false });
       }
     },
@@ -1351,7 +1355,7 @@ function newGame(level, difficulty) {
     groundMarks: [], // blood stains and blast craters, fade after GROUND_MARK_TTL
 
     spawnTimer: level.mode === 'allied' ? level.waves[0].delay : 6,
-    tpTrickle: 8,
+    tpTrickle: 6,
     officerTick: 30,
     eventTimer: rand(40, 60),
     fog: 0,
@@ -1463,16 +1467,23 @@ function makeDefender(nation, type, x, y) {
 
 // ============================================================ economy
 
-// war economy attrition (endless only): each wave pays ~1% less than the one
-// before, dropping to a hard 10% floor from wave 90 on. Campaign levels pay
-// full rate. G.tp holds fractions; the HUD floors it.
-// endless TP income is also cut 75% across the board (unit-count reduction pass).
-function earnTP(amount) {
-  let mult = G.mode === 'endless'
-    ? (G.wave >= 90 ? 0.1 : Math.max(0.1, Math.pow(0.99, G.wave)))
-    : 1;
-  if (G.mode === 'endless' && G.difficulty) mult *= G.difficulty.incomeMult;
-  if (G.mode === 'endless') mult *= 0.25;
+// Two income streams. Steady income (the supply trickle and officer pay) is
+// the backbone of the endless economy: it pays full rate so the player can
+// always save toward big-ticket AT purchases, scaled only by difficulty.
+// Kill bounties are pocket change by design — they carry the war-economy
+// attrition (each wave pays ~1% less than the one before, hard 10% floor from
+// wave 90 on) plus the endless-wide 75% cut from the unit-count reduction
+// pass. Campaign levels pay full rate either way. G.tp holds fractions; the
+// HUD floors it.
+function earnTP(amount, kind = 'kill') {
+  let mult = 1;
+  if (G.mode === 'endless') {
+    if (G.difficulty) mult *= G.difficulty.incomeMult;
+    if (kind === 'kill') {
+      mult *= G.wave >= 90 ? 0.1 : Math.max(0.1, Math.pow(0.99, G.wave));
+      mult *= 0.25;
+    }
+  }
   G.tp += amount * mult;
 }
 
@@ -1512,9 +1523,11 @@ function spawnIntervalForWave(w) {
 
 // enemy volume is cut 75% across the board (unit-count reduction pass), but
 // the first 10 waves felt too quiet at that rate, so they're bumped back up
-// 50% off that floor (0.25 * 1.5 = 0.375) — still a net cut, just a smaller one early.
+// toward 0.42 and then taper smoothly down to the 0.25 floor by wave 15 —
+// no sudden difficulty step at wave 11.
 function enemySpawnMult(w) {
-  return w <= 10 ? 0.375 : 0.25;
+  if (w <= 10) return 0.42;
+  return Math.max(0.25, 0.42 - (w - 10) * 0.034);
 }
 
 function waveComposition(w) {
@@ -1547,7 +1560,7 @@ function waveComposition(w) {
   if (w >= 16 && Math.random() < vehChance) out.push('ejeep');
   // an armored halftrack hauls a full squad to the front
   if (w >= 18 && Math.random() < vehChance) out.push('ehalftrack');
-  if (w >= 25 && Math.random() < vehChance) out.push('panzer');
+  if (w >= 30 && Math.random() < vehChance) out.push('panzer');
   // V2 battery: one at a time, and only once the fighting is desperate. Not
   // scaled by `mult` — that's a general enemy-volume knob and was crushing
   // this down to a ~3% roll per wave even deep past 140; it's a rare
@@ -1633,6 +1646,25 @@ const SPECIAL_WAVES = [
     },
   },
   {
+    key: 'nebel',
+    banner: 'NEBELSTURM! THEY COME IN THE FOG!',
+    // fog blankets the field while marksmen and MGs creep in behind the infantry
+    spawn(t) {
+      G.fog = Math.max(G.fog, Math.round((24 + t) * 1.15));
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 4)); i++) {
+        spawnEnemyAt('esniper', rand(60, W - 60), rand(-140, -60));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (1 + t / 4)); i++) {
+        spawnEnemyAt('emg', rand(80, W - 80), rand(-110, -40));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (6 + t)); i++) {
+        spawnEnemyAt(pick(['erifle', 'erifle', 'esmg']), rand(50, W - 50), rand(-90, -20));
+      }
+    },
+  },
+  // panzerkeil sits last in the rotation so the first guaranteed armor column
+  // doesn't hit until wave 50 — late enough to have saved for an AT answer
+  {
     key: 'panzerkeil',
     banner: 'PANZERKEIL! ARMOR COLUMN!',
     // tanks and halftracks in column with an infantry screen out front
@@ -1652,23 +1684,6 @@ const SPECIAL_WAVES = [
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (4 + t / 2)); i++) {
         spawnEnemyAt(pick(['erifle', 'esmg', 'egren']), cx + rand(-200, 200), rand(-60, -20));
-      }
-    },
-  },
-  {
-    key: 'nebel',
-    banner: 'NEBELSTURM! THEY COME IN THE FOG!',
-    // fog blankets the field while marksmen and MGs creep in behind the infantry
-    spawn(t) {
-      G.fog = Math.max(G.fog, Math.round((24 + t) * 1.15));
-      for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 4)); i++) {
-        spawnEnemyAt('esniper', rand(60, W - 60), rand(-140, -60));
-      }
-      for (let i = 0; i < Math.floor(specialWaveMult(t) * (1 + t / 4)); i++) {
-        spawnEnemyAt('emg', rand(80, W - 80), rand(-110, -40));
-      }
-      for (let i = 0; i < Math.floor(specialWaveMult(t) * (6 + t)); i++) {
-        spawnEnemyAt(pick(['erifle', 'erifle', 'esmg']), rand(50, W - 50), rand(-90, -20));
       }
     },
   },
@@ -1817,10 +1832,10 @@ function placeAxisParatrooper(x, y) {
 
 function initLandingCraft(G) {
   const slots = [
-    { x: W / 2 - 200, y: 42 },
-    { x: W / 2 - 70, y: 36 },
-    { x: W / 2 + 70, y: 36 },
-    { x: W / 2 + 200, y: 42 },
+    { x: lx(-200), y: 42 },
+    { x: lx(-70), y: 36 },
+    { x: lx(70), y: 36 },
+    { x: lx(200), y: 42 },
   ];
   G.landingCraft = slots.map(s => ({
     x: s.x, y: s.y, w: 72, h: 34,
@@ -1942,10 +1957,10 @@ function updateAssaultCombat() {
 
 function resetLandingCraftForWave(G) {
   const slots = [
-    { x: W / 2 - 200, y: 42 },
-    { x: W / 2 - 70, y: 36 },
-    { x: W / 2 + 70, y: 36 },
-    { x: W / 2 + 200, y: 42 },
+    { x: lx(-200), y: 42 },
+    { x: lx(-70), y: 36 },
+    { x: lx(70), y: 36 },
+    { x: lx(200), y: 42 },
   ];
   G.landingCraft = slots.map(s => ({
     x: s.x, y: s.y, w: 72, h: 34,
@@ -4320,14 +4335,14 @@ function update(dt) {
   if (G.mode !== 'hitsquad' && !isAssaultMode()) {
     // TP trickle
     G.tpTrickle -= dt;
-    if (G.tpTrickle <= 0) { G.tpTrickle = 8; earnTP(1); }
+    if (G.tpTrickle <= 0) { G.tpTrickle = 6; earnTP(1, 'steady'); }
 
     // officer TP bonus
     G.officerTick -= dt;
     if (G.officerTick <= 0) {
       G.officerTick = 30;
       // rank pays: a MSG officer brings in 3 TP where a green one brings 1
-      for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3);
+      for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3, 'steady');
     }
   }
 

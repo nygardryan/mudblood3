@@ -81,7 +81,7 @@ const UNIT_TYPES = {
     name: 'Engineer', hp: 95, range: 110, dmg: 7, acc: 0.45,
     rof: 1.1, burst: 4, burstGap: 0.07, speed: 44,
     color: '#51603e', gun: 6, sfx: 'mg',
-    desc: 'Repairs fortifications, upgrades emplacements. M3 grease gun up close.',
+    desc: 'Repairs fortifications, upgrades emplacements, and can wrench on damaged vehicles and AT guns (very slowly). M3 grease gun up close.',
   },
   officer: {
     name: 'Officer', hp: 95, range: 150, dmg: 9, acc: 0.5,
@@ -306,17 +306,17 @@ const PLACEABLES = [
   { key: 'medic', label: 'MEDIC', cost: 12, kind: 'unit', hotkey: '5',
     desc: 'Sidearm only, no real firepower. Automatically treats the most wounded man within 95px, and heals faster the more rank he earns. Can\'t patch vehicles, guns, or fortifications — and enemy snipers hunt him first.' },
   { key: 'engineer', label: 'ENGINEER', cost: 14, kind: 'unit', hotkey: 'E',
-    desc: 'Repairs fortifications; fortifies nearby emplacements (better stats). SMG for close range only.' },
+    desc: 'Repairs fortifications; fortifies nearby emplacements (better stats). Can also patch up damaged jeeps, Shermans, and AT guns, though that repair work is slow going. SMG for close range only.' },
   { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
     desc: 'Sidearm only. Every soldier within 130px fires faster and straighter, and the bonus sharpens further as the officer himself ranks up. Generates +1 TP every 30 s while alive — a high-value target enemy snipers will prioritize.' },
   { key: 'flamer', label: 'FLAMER', cost: 7, kind: 'unit', hotkey: 'F',
     desc: 'M2 flamethrower and flak vest. Devastating cone of fire that burns friend and foe alike.' },
   { key: 'jeep', label: 'JEEP', cost: 30, kind: 'unit', hotkey: 'J',
-    desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — no field repairs.' },
+    desc: 'Willys jeep with a .50 cal HMG. Fires on the move. Unarmored — medics can\'t touch it, but an engineer can patch it, slowly.' },
   { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
-    desc: 'M4 Sherman tank. 75mm HE cannon on a rotating turret; shrugs off small arms. Medics cannot repair it.' },
+    desc: 'M4 Sherman tank. 75mm HE cannon on a rotating turret; shrugs off small arms. Medics cannot repair it, but an engineer can — slowly.' },
   { key: 'atgun', label: 'AT GUN', cost: 40, kind: 'unit', hotkey: 'P',
-    desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor. No field repairs.' },
+    desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor. An engineer can patch it, slowly.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
   { key: 'sandbags', label: 'SANDBAGS', cost: 5, kind: 'defense', hotkey: '8',
@@ -3536,8 +3536,9 @@ function updateUnit(u, dt) {
   if (u.type === 'engineer') updateEngineer(u, dt);
 }
 
-// engineer work, one job at a time: repair emplacements, then fortify
-// an intact one he's standing next to
+// engineer work, one job at a time: repair emplacements, then repair
+// damaged vehicles (slowly), then fortify an intact emplacement he's
+// standing next to
 function updateEngineer(u, dt) {
   u.healTick -= dt;
   if (u.healTick > 0) return;
@@ -3571,6 +3572,25 @@ function updateEngineer(u, dt) {
     emp.hp += amt;
     credit(amt * 0.5);
     sparks(emp.x, emp.y);
+    return;
+  }
+
+  // 1.5) failing that, wrench on the most damaged vehicle or AT gun in range.
+  // Armor and gun barrels are slow going by hand and barely teach a man
+  // anything next to fortification work — a jeep, Sherman, or 57mm is
+  // patched at a crawl.
+  let veh = null, vehFrac = 1;
+  for (const a of G.units) {
+    if (a.dead || a === u || !(a.t.tank || a.t.vehicle || a.t.atgun) || a.hp >= a.maxhp) continue;
+    if (dist(u, a) > R) continue;
+    const f = a.hp / a.maxhp;
+    if (f < vehFrac) { vehFrac = f; veh = a; }
+  }
+  if (veh) {
+    const amt = Math.min(veh.maxhp - veh.hp, 0.25 + u.rank * 0.075);
+    veh.hp += amt;
+    credit(amt * 0.15);
+    sparks(veh.x, veh.y);
     return;
   }
 

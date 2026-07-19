@@ -641,6 +641,21 @@ const LEVELS = {
     },
   },
 
+  // ---- Tutorial campaign: scripted lessons, then endless defense.
+  tutorial1: {
+    id: 'tutorial1',
+    name: 'TUTORIAL 1: BASIC TRAINING',
+    menuName: 'LESSON 1 — BASIC TRAINING',
+    menuDesc: 'Learn to select, move, and buy units, then hold the line.',
+    mode: 'endless',
+    tutorial: true,
+    breachLimit: MAX_BREACH,
+    events: true,
+    placeables: PLACEABLES,
+    startTP: 0,
+    setup(G) { setupTutorial1(G); },
+  },
+
   // ---- Allied campaign: US assaults across Western Europe, then a defense finale.
   allied_dday: {
     id: 'allied_dday',
@@ -4691,10 +4706,195 @@ function stampBike(e, wrecked) {
   gctx.globalAlpha = 1;
 }
 
+// ============================================================ tutorial script
+
+function setupTutorial1(G) {
+  const rifle = makeUnit('rifleman', 300, 470);
+  rifle.xp = 1;   // one kill away from PFC: the scripted duel promotes him
+  G.units.push(rifle);
+  usBunker(G, 150, 435);
+  G.spawnTimer = 9999;   // no waves until the script hands off
+  G.tutorial = {
+    step: 'welcome',
+    timer: 3,
+    rifle,
+    bunker: G.bunkers[0],
+    foe: null,
+    done: false,
+    cam: { active: true, tx: 0, ty: 0, tzoom: 1 },
+  };
+  tutSetCam(2.6, rifle.x, rifle.y, true);
+}
+
+// aim the tutorial camera at a world point; snap jumps there instantly,
+// otherwise tutCamLerp eases toward it each frame
+function tutSetCam(zoom, cx, cy, snap) {
+  const c = G.tutorial.cam;
+  const { viewW, viewH } = viewSize(zoom);
+  c.tzoom = zoom;
+  c.tx = clamp(cx - viewW / 2, 0, Math.max(0, W - viewW));
+  c.ty = clamp(cy - viewH / 2, 0, Math.max(0, H - viewH));
+  if (snap) {
+    viewCam.zoom = zoom;
+    viewCam.x = c.tx;
+    viewCam.y = c.ty;
+    clampCamera();
+    viewDirty = true;
+  }
+}
+
+function tutCamLerp(dt) {
+  const c = G.tutorial.cam;
+  const k = Math.min(1, dt * 2.5);
+  viewCam.zoom += (c.tzoom - viewCam.zoom) * k;
+  viewCam.x += (c.tx - viewCam.x) * k;
+  viewCam.y += (c.ty - viewCam.y) * k;
+  clampCamera();
+  viewDirty = true;
+}
+
+function tutCamArrived() {
+  const c = G.tutorial.cam;
+  return Math.abs(viewCam.zoom - c.tzoom) < 0.02 &&
+         Math.hypot(viewCam.x - c.tx, viewCam.y - c.ty) < 3;
+}
+
+function setTutorialMsg(text) {
+  const m = el('tutorial-msg');
+  if (!m) return;
+  m.textContent = text || '';
+  m.classList.toggle('hidden', !text);
+}
+
+function tutEnterStep(step) {
+  const T = G.tutorial;
+  T.step = step;
+  switch (step) {
+    case 'welcome':
+      T.timer = 3;
+      setTutorialMsg('Welcome to the war, soldier!');
+      break;
+    case 'select':
+      setTutorialMsg('Click on a unit to select it.');
+      break;
+    case 'moveToBunker':
+      tutSetCam(1.5, 225, 450);
+      setTutorialMsg('Now click on the bunker to move a unit there. Units near bunkers and sandbags have a chance to block damage.');
+      break;
+    case 'fight':
+      T.timer = 1.2;
+      setTutorialMsg(null);
+      break;
+    case 'rankup':
+      T.timer = 5.5;
+      // the duel usually leaves him unscathed behind bunker cover — make sure
+      // he carries a wound so the medic lesson has something to heal
+      T.rifle.hp = Math.min(T.rifle.hp, T.rifle.maxhp - 35);
+      setTutorialMsg('Your soldiers gain experience and rank up. Experienced soldiers are far superior to their green counterparts — try and keep them alive.');
+      break;
+    case 'buyMedic':
+      if (G.tp < 12) G.tp = 12;   // exactly enough for the medic
+      setTutorialMsg('Purchase a medic to heal your wounded soldier.');
+      break;
+    case 'placeMedic':
+      setTutorialMsg('After selecting the medic, place him down near your soldier to heal him.');
+      break;
+    case 'breather':
+      T.timer = 3;
+      setTutorialMsg(null);
+      break;
+    case 'zoomOut':
+      if (mobileViewActive()) {
+        // the full map never fits a phone screen: release the cam and reset
+        T.cam.active = false;
+        resetViewCam(G.mode);
+        T.timer = 1.5;
+      } else {
+        tutSetCam(1, W / 2, H / 2);
+      }
+      break;
+    case 'handoff':
+      setTutorialMsg('The Germans are coming. Build up your defences and defend for as long as you can.');
+      showBanner('DEFEND THE LINE');
+      G.tp += 25;            // normal endless starting allowance
+      G.spawnTimer = 6;
+      markLevelComplete(G.level.id);
+      T.done = true;
+      T.cam.active = false;
+      T.timer = 6;
+      break;
+  }
+}
+
+function updateTutorial(dt) {
+  const T = G.tutorial;
+  if (T.cam.active) tutCamLerp(dt);
+  if (T.done) {
+    if (T.step === 'handoff') {
+      T.timer -= dt;
+      if (T.timer <= 0) {
+        T.step = 'over';
+        setTutorialMsg(null);
+      }
+    }
+    return;
+  }
+  if (T.rifle.dead) { gameOver(); return; }   // trainee lost the scripted duel
+  switch (T.step) {
+    case 'welcome':
+      T.timer -= dt;
+      if (T.timer <= 0) tutEnterStep('select');
+      break;
+    case 'select':
+      if (G.selected.includes(T.rifle)) tutEnterStep('moveToBunker');
+      break;
+    case 'moveToBunker':
+      if (dist(T.rifle, T.bunker) < 26 && !T.rifle.moveTo) tutEnterStep('fight');
+      break;
+    case 'fight':
+      if (!T.foe) {
+        T.timer -= dt;
+        if (T.timer <= 0) {
+          T.foe = makeEnemy('erifle', 165, -30);
+          G.enemies.push(T.foe);
+        }
+      } else if (T.foe.dead) {
+        tutEnterStep('rankup');
+      }
+      break;
+    case 'rankup':
+      T.timer -= dt;
+      if (T.timer <= 0) tutEnterStep('buyMedic');
+      break;
+    case 'buyMedic':
+      if (placing && placing.key === 'medic') tutEnterStep('placeMedic');
+      break;
+    case 'placeMedic':
+      if (G.units.some(u => u.type === 'medic' && !u.dead)) tutEnterStep('breather');
+      break;
+    case 'breather':
+      T.timer -= dt;
+      if (T.timer <= 0) tutEnterStep('zoomOut');
+      break;
+    case 'zoomOut':
+      if (mobileViewActive() || !T.cam.active) {
+        T.timer -= dt;
+        if (T.timer <= 0) tutEnterStep('handoff');
+      } else if (tutCamArrived()) {
+        viewCam.zoom = T.cam.tzoom;
+        viewCam.x = T.cam.tx;
+        viewCam.y = T.cam.ty;
+        tutEnterStep('handoff');
+      }
+      break;
+  }
+}
+
 // ============================================================ main update
 
 function update(dt) {
   G.time += dt;
+  if (G.tutorial) updateTutorial(dt);
 
   G.auraRefresh -= dt;
   if (G.auraRefresh <= 0) {
@@ -4756,7 +4956,7 @@ function update(dt) {
     if (!G.units.some(u => !u.dead && u.vip)) { victory(); return; }
     if (G.time >= G.level.timeLimit) { gameOver(); return; }
     if (!G.enemies.some(e => !e.dead)) { gameOver(); return; }
-  } else if (!isTestingMode()) {
+  } else if (!isTestingMode() && !tutorialScriptActive()) {
     G.spawnTimer -= dt;
     if (G.spawnTimer <= 0) spawnWave();
   }
@@ -4969,6 +5169,7 @@ function endRun(won, title, stats) {
   G.over = true;
   running = false;
   paused = false;
+  setTutorialMsg(null);
   const titleEl = document.getElementById('go-title');
   titleEl.textContent = title;
   titleEl.classList.toggle('victory', won);
@@ -9297,7 +9498,7 @@ function drawDefenses() {
 
 function draw() {
   ctx.save();
-  if (mobileViewActive()) {
+  if (viewTransformActive()) {
     const s = viewScale();
     ctx.scale(s, s);
     ctx.translate(-viewCam.x, -viewCam.y);
@@ -9494,12 +9695,29 @@ function draw() {
     ctx.fillRect(0, 0, W, H);
   }
 
+  drawTutorialHighlights();
   drawMoveDestinations();
   drawMoveRestrictedZone();
   drawMoveCursorPreview();
   drawPlacementGhost();
   drawDragBox();
   ctx.restore();
+}
+
+// pulsing ring around whatever the tutorial wants clicked next
+function drawTutorialHighlights() {
+  const T = G && G.tutorial;
+  if (!T || T.done) return;
+  let target = null, r0 = 0;
+  if (T.step === 'select' && !T.rifle.dead) { target = T.rifle; r0 = 16; }
+  else if (T.step === 'moveToBunker') { target = T.bunker; r0 = 30; }
+  if (!target) return;
+  const pulse = r0 + Math.sin(G.time * 5) * 3;
+  ctx.strokeStyle = 'rgba(255,217,74,0.9)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(target.x, target.y, pulse, 0, 7);
+  ctx.stroke();
 }
 
 function drawDragBox() {
@@ -9741,6 +9959,20 @@ function mobileViewActive() {
   return touchUI() && window.innerWidth <= 768;
 }
 
+function tutorialCamActive() {
+  return !!(G && G.tutorial && G.tutorial.cam.active);
+}
+
+// the world->screen transform applies on mobile, and everywhere while the
+// tutorial is driving the camera
+function viewTransformActive() {
+  return mobileViewActive() || tutorialCamActive();
+}
+
+function tutorialScriptActive() {
+  return !!(G && G.tutorial && !G.tutorial.done);
+}
+
 function portraitMobile() {
   return mobileViewActive() && window.innerHeight > window.innerWidth;
 }
@@ -9755,6 +9987,7 @@ function unitAtWorld(x, y) {
 }
 
 function beginViewPan(clientX, clientY, worldX, worldY) {
+  if (tutorialScriptActive()) return;
   viewPan = {
     clientX0: clientX,
     clientY0: clientY,
@@ -9860,7 +10093,7 @@ function viewSize(zoom = viewCam.zoom) {
 }
 
 function viewScale() {
-  if (!mobileViewActive()) return 1;
+  if (!viewTransformActive()) return 1;
   return canvas.width / viewSize().viewW;
 }
 
@@ -9904,7 +10137,7 @@ function zoomToward(wx, wy, targetZoom) {
 }
 
 function toggleZoomAt(wx, wy) {
-  if (!mobileViewActive()) return;
+  if (!mobileViewActive() || tutorialScriptActive()) return;
   const mid = coverZoom() * 1.85;
   const target = viewCam.zoom <= coverZoom() * 1.08 ? mid : coverZoom();
   zoomToward(wx, wy, target);
@@ -9912,7 +10145,7 @@ function toggleZoomAt(wx, wy) {
 }
 
 function edgeAutoPan(clientX, clientY) {
-  if (!mobileViewActive() || !isPlaying()) return;
+  if (!mobileViewActive() || !isPlaying() || tutorialScriptActive()) return;
   const r = canvas.getBoundingClientRect();
   const margin = 44;
   const speed = 10 / viewScale();
@@ -9939,7 +10172,7 @@ function clientToWorld(clientX, clientY) {
   const r = canvas.getBoundingClientRect();
   const nx = (clientX - r.left) / r.width;
   const ny = (clientY - r.top) / r.height;
-  if (!mobileViewActive()) return { x: nx * W, y: ny * H };
+  if (!viewTransformActive()) return { x: nx * W, y: ny * H };
   const { viewW, viewH } = viewSize();
   return { x: viewCam.x + nx * viewW, y: viewCam.y + ny * viewH };
 }
@@ -9957,6 +10190,7 @@ function pointerDist() {
 }
 
 function beginViewGesture() {
+  if (tutorialScriptActive()) return;
   const mid = pointerMid();
   const d = pointerDist();
   if (!mid || d < 1) return;
@@ -10138,6 +10372,7 @@ function updateHUD() {
   syncToolbarVisibility();
   syncToolbarLayout();
   syncViewStrip();
+  syncTutorialPulse();
 }
 
 const TOOLBAR_CATEGORIES = [
@@ -10236,6 +10471,7 @@ function renderToolbar() {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'tool-btn tool-cat-btn';
+      b.dataset.catId = cat.id;
       b.textContent = cat.label;
       b.addEventListener('click', () => {
         toolbarView = cat.id;
@@ -10277,6 +10513,24 @@ function renderToolbar() {
 
   syncToolbarVisibility();
   syncToolbarLayout();
+  syncTutorialPulse();
+}
+
+// tutorial: pulse the button the player should press next (category, then medic)
+function syncTutorialPulse() {
+  const bar = el('toolbar');
+  if (!bar) return;
+  for (const b of bar.querySelectorAll('.tut-pulse')) b.classList.remove('tut-pulse');
+  const T = G && G.tutorial;
+  if (!T || T.done || placing) return;
+  if (T.step !== 'buyMedic' && T.step !== 'placeMedic') return;
+  if (toolbarView === 'categories') {
+    const catBtn = bar.querySelector('[data-cat-id="units"]');
+    if (catBtn) catBtn.classList.add('tut-pulse');
+  } else if (toolbarView === 'units') {
+    const medic = toolButtons.find(t => t.p.key === 'medic');
+    if (medic) medic.el.classList.add('tut-pulse');
+  }
 }
 
 function buildToolbar(placeables) {
@@ -10293,6 +10547,12 @@ function activePlaceables() {
 function selectPlaceable(p) {
   if (!isPlaying()) return;
   if (isAssaultMode() && G.phase !== 'build') { SFX.error(); mobileVibrate(12); return; }
+  // during the tutorial script only the medic buy is allowed (covers hotkeys too)
+  if (tutorialScriptActive()) {
+    const T = G.tutorial;
+    const ok = (T.step === 'buyMedic' || T.step === 'placeMedic') && p.key === 'medic';
+    if (!ok) { SFX.error(); mobileVibrate(12); return; }
+  }
   // events have no placement step — they fire where they fire, right away
   if (p.kind === 'event') {
     SFX.click();
@@ -10429,6 +10689,14 @@ function place(p, x, y) {
     x = fallback.x;
     y = fallback.y;
   }
+  // tutorial script: the medic has to go down next to the wounded rifleman
+  if (tutorialScriptActive() && G.tutorial.step === 'placeMedic'
+      && dist({ x, y }, G.tutorial.rifle) > 130) {
+    SFX.error();
+    mobileVibrate(14);
+    G.texts.push({ x, y: y - 12, text: 'CLOSER TO YOUR MAN', ttl: 1.6 });
+    return;
+  }
   const cost = placeableCost(p);
   if (!canAffordTP(cost)) { SFX.error(); clearPlacing(); return; }
   if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); clearPlacing(); return; }
@@ -10540,6 +10808,17 @@ function handleCanvasTap(shiftKey = false) {
     SFX.click();
     mobileVibrate(5);
     syncSelectionMobile();
+    return;
+  }
+  // tutorial script: ground clicks only move a unit onto the highlighted bunker
+  if (tutorialScriptActive()) {
+    const T = G.tutorial;
+    if (T.step === 'moveToBunker' && G.selected.length && dist(T.bunker, { x, y }) < 34) {
+      // land him inside the bunker's cover radius
+      issueMoveOrder(G.selected, T.bunker.x, T.bunker.y + 2);
+      SFX.click();
+      mobileVibrate(5);
+    }
     return;
   }
   // move selected soldiers (the hit squad ranges the whole field)
@@ -11774,7 +12053,7 @@ function buildLeaderboardSelect() {
 function updateGameOverLeaderboard(won) {
   const entryBox = el('go-leaderboard-entry');
   const boardBox = el('go-leaderboard');
-  const diffId = G && G.mode === 'endless' && G.difficulty ? G.difficulty.id : null;
+  const diffId = G && G.mode === 'endless' && G.difficulty && !G.level.tutorial ? G.difficulty.id : null;
   if (won || !diffId || !LEADERBOARD_DIFFICULTIES.includes(diffId)) {
     entryBox.classList.add('hidden');
     boardBox.classList.add('hidden');
@@ -11971,7 +12250,9 @@ function returnToMenu() {
   el('axis-briefing').classList.add('hidden');
   el('axis-research').classList.add('hidden');
   el('commando-select').classList.add('hidden');
+  el('tutorial-select').classList.add('hidden');
   el('intro').classList.remove('hidden');
+  setTutorialMsg(null);
   syncMobileViewUI();
   syncMobileChrome();
 }
@@ -11998,6 +12279,8 @@ const ALLIED_CAMPAIGN = [
 ];
 
 const COMMANDO_CAMPAIGN = ['hitsquad'];
+
+const TUTORIAL_CAMPAIGN = ['tutorial1'];
 
 let pendingAxisLevelId = null;
 let pendingAlliedLevelId = null;
@@ -12141,6 +12424,7 @@ function campaignForLevel(id) {
   if (ALLIED_CAMPAIGN.includes(id)) return ALLIED_CAMPAIGN;
   if (AXIS_CAMPAIGN.includes(id)) return AXIS_CAMPAIGN;
   if (COMMANDO_CAMPAIGN.includes(id)) return COMMANDO_CAMPAIGN;
+  if (TUTORIAL_CAMPAIGN.includes(id)) return TUTORIAL_CAMPAIGN;
   return null;
 }
 
@@ -12201,6 +12485,24 @@ function buildCommandoSelect() {
   buildCampaignSelect('commando-list', COMMANDO_CAMPAIGN);
 }
 
+function buildTutorialSelect() {
+  buildCampaignSelect('tutorial-list', TUTORIAL_CAMPAIGN);
+  // placeholder card for the next lesson so the list reads as a campaign
+  const list = el('tutorial-list');
+  const btn = document.createElement('button');
+  btn.disabled = true;
+  btn.classList.add('locked');
+  const title = document.createElement('span');
+  title.className = 'mode-title';
+  title.textContent = 'LESSON 2 — COMING SOON';
+  const desc = document.createElement('span');
+  desc.className = 'mode-desc';
+  desc.textContent = 'More lessons are on the way.';
+  btn.appendChild(title);
+  btn.appendChild(desc);
+  list.appendChild(btn);
+}
+
 function openAlliedSelect() {
   buildAlliedSelect();
   el('intro').classList.add('hidden');
@@ -12247,6 +12549,21 @@ function closeCommandoSelect() {
   el('intro').classList.remove('hidden');
 }
 
+function openTutorialSelect() {
+  buildTutorialSelect();
+  el('intro').classList.add('hidden');
+  el('axis-select').classList.add('hidden');
+  el('allied-select').classList.add('hidden');
+  el('allied-briefing').classList.add('hidden');
+  el('commando-select').classList.add('hidden');
+  el('tutorial-select').classList.remove('hidden');
+}
+
+function closeTutorialSelect() {
+  el('tutorial-select').classList.add('hidden');
+  el('intro').classList.remove('hidden');
+}
+
 function startGame(levelId, difficultyId) {
   const level = LEVELS[levelId] || LEVELS.endless;
   const difficulty = level.mode === 'endless'
@@ -12254,7 +12571,8 @@ function startGame(levelId, difficultyId) {
     : null;
   SFX.resume();
   newGame(level, difficulty);
-  resetViewCam(level.mode);
+  if (G.tutorial) tutSetCam(2.6, G.tutorial.rifle.x, G.tutorial.rifle.y, true);
+  else resetViewCam(level.mode);
   placing = null;
   mobileToolbarMinimized = false;
   running = true;
@@ -12280,7 +12598,10 @@ function startGame(levelId, difficultyId) {
   el('axis-briefing').classList.add('hidden');
   el('axis-research').classList.add('hidden');
   el('commando-select').classList.add('hidden');
+  el('tutorial-select').classList.add('hidden');
   el('pause').classList.add('hidden');
+  if (G.tutorial) tutEnterStep('welcome');
+  else setTutorialMsg(null);
   syncMobileViewUI();
   syncMobileChrome();
   const viewHint = mobileViewActive()
@@ -12309,6 +12630,7 @@ function startGame(levelId, difficultyId) {
       : touchUI()
         ? 'Tap a soldier to select him, tap ground to move. Open Units, Abilities, or Emplacements to deploy. Back returns to the list; tap the item again to cancel.'
         : 'Left-click a soldier to select him, click ground to move. Open Units, Abilities, or Emplacements to deploy. Right-click / Esc cancels placement.') + viewHint;
+  if (level.tutorial) el('tipbar').textContent = '';
   if (level.mode === 'axis' || level.mode === 'assault') showBanner('WAVE 1 - DEPLOY');
   else if (level.briefing) showBanner(level.name);
   lastT = performance.now();
@@ -12346,6 +12668,8 @@ el('axis-briefing-deploy').addEventListener('click', deployAxisBriefing);
 el('axis-briefing-back').addEventListener('click', closeAxisBriefing);
 el('start-commando').addEventListener('click', openCommandoSelect);
 el('commando-back-btn').addEventListener('click', closeCommandoSelect);
+el('start-tutorial').addEventListener('click', openTutorialSelect);
+el('tutorial-back-btn').addEventListener('click', closeTutorialSelect);
 el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless', G?.difficulty?.id));
 el('next-mission-btn').addEventListener('click', () => {
   const id = el('next-mission-btn')?.dataset.nextLevel;

@@ -38,6 +38,8 @@
 
     <div id="tipbar">Left-click a soldier to select him, click ground to move him. Right-click / Esc cancels placement.</div>
 
+    <div id="tutorial-msg" class="hidden"></div>
+
     <div id="view-strip" class="hidden" aria-hidden="true"><div id="view-strip-window"></div></div>
 
     <div id="mobile-actions" class="hidden">
@@ -53,6 +55,8 @@
       <h2>An HTML5 tribute to the classic Flash game</h2>
       <p>France, 1944. Earn <b>Tactical Points (TP)</b> from kills and spend them on men, defenses and fire support. Fire support is <b>dangerous to your own men</b> — so it was in real life.</p>
       <div class="intro-btns modes">
+        <button id="start-tutorial">TUTORIAL
+          <span class="mode-desc">New to the front? Learn to select, move, and buy units — then hold the line.</span></button>
         <button id="start-endless">ENDLESS
           <span class="mode-desc">Hold the line against waves without end. There is no winning — only lasting one more wave.</span></button>
         <button id="start-allied">ALLIED CAMPAIGN
@@ -155,6 +159,13 @@
       <p>Direct-control missions behind enemy lines. You command a small squad — click to select, click to move. No TP, no purchases.</p>
       <div id="commando-list" class="intro-btns modes"></div>
       <button id="commando-back-btn" class="secondary">BACK</button>
+    </div>
+
+    <div id="tutorial-select" class="overlay hidden">
+      <h1>TUTORIAL</h1>
+      <p>Guided lessons for new recruits. Beat each lesson to unlock the next. Progress is saved in your browser.</p>
+      <div id="tutorial-list" class="intro-btns modes"></div>
+      <button id="tutorial-back-btn" class="secondary">BACK</button>
     </div>
 
     <div id="codex" class="overlay hidden">

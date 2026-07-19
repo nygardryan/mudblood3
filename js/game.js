@@ -2868,6 +2868,15 @@ function nearestEnemyInRange(u, range, pred) {
   return best;
 }
 
+function firstEnemyInRange(u, range, pred) {
+  for (const e of G.enemies) {
+    if (e.dead || e.y < 0 || e.chute > 0) continue;
+    if (pred && !pred(e)) continue;
+    if (dist(u, e) <= range) return e;
+  }
+  return null;
+}
+
 function sniperTarget(u, range) {
   let best = null, bp = -1, bd = Infinity;
   for (const e of G.enemies) {
@@ -3870,7 +3879,7 @@ function updateUnit(u, dt) {
     if (u.mortCd <= 0) {
       const mt = u.t.mortar;
       const mr = unitRange(u, mt.range) * fogMult();
-      const target = nearestEnemyInRange(u, mr, e => dist(u, e) > mt.min);
+      const target = firstEnemyInRange(u, mr, e => dist(u, e) > mt.min);
       if (target && !friendlyNearPoint(target.x, target.y, 55, u)) {
         // veteran crews drop rounds faster, tighter and heavier
         u.mortCd = rand(mt.cdMin, mt.cdMax) * (1 - u.rank * 0.08);

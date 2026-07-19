@@ -16,6 +16,8 @@ const MAX_OFFICERS = 5;
 const MEDIC_RANGE = 95;
 const ENGINEER_RANGE = 95;
 const OFFICER_AURA = 130;
+const WATCHTOWER_AURA = 30;
+const WATCHTOWER_RANGE_MULT = 1.33;
 
 const UNIT_TYPES = {
   rifleman: {
@@ -316,6 +318,8 @@ const PLACEABLES = [
     desc: 'Cover. Soldiers behind it dodge half of incoming fire.' },
   { key: 'bunker', label: 'BUNKER', cost: 15, kind: 'defense', hotkey: 'K',
     desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },
+  { key: 'watchtower', label: 'WATCH TOWER', cost: 20, kind: 'defense', hotkey: 'W',
+    desc: 'Wooden lookout post. Extends the range of nearby soldiers by 33%. Mortars ignore it — they already fire blind. Frail; falls fast under fire.' },
   { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
     desc: 'Cluster of 3 anti-personnel mines. Hurts tanks too. Germans can\'t see them.' },
   { key: 'mortar', label: 'MORTAR STRIKE', cost: 8, kind: 'support', hotkey: '0',
@@ -449,6 +453,7 @@ function axisWavePayout(level, wave) {
 // US defender placement helpers for the Axis campaign setups (hoisted).
 const SANDBAG_HP = 660;
 const BUNKER_HP = 2040;
+const WATCHTOWER_HP = 500;
 function usBag(G, x, y, hp = SANDBAG_HP)    { G.sandbags.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 function usBunker(G, x, y, hp = BUNKER_HP){ G.bunkers.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 function usWire(G, x, y, hp = 3750)  { G.wires.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
@@ -1278,6 +1283,7 @@ function newGame(level, difficulty) {
     bunkers: [],
     wires: [],
     mines: [],
+    watchtowers: [],
     shells: [],      // incoming ordnance {x,y,timer,r,dmg,big}
     grenades: [],    // thrown grenades in flight
     rockets: [],     // bazooka rockets in flight
@@ -1444,10 +1450,10 @@ function spawnIntervalForWave(w) {
 }
 
 // enemy volume is cut 75% across the board (unit-count reduction pass), but
-// the first 20 waves felt too quiet at that rate, so they're bumped back up
+// the first 10 waves felt too quiet at that rate, so they're bumped back up
 // 50% off that floor (0.25 * 1.5 = 0.375) — still a net cut, just a smaller one early.
 function enemySpawnMult(w) {
-  return w <= 20 ? 0.375 : 0.25;
+  return w <= 10 ? 0.375 : 0.25;
 }
 
 function waveComposition(w) {
@@ -3058,6 +3064,8 @@ function drawDefenseRangeIndicator(key, x, y) {
     ctx.setLineDash([5, 4]);
     ctx.strokeRect(x - 40, y - 14, 80, 28);
     ctx.setLineDash([]);
+  } else if (key === 'watchtower') {
+    drawOfficerAuraRing(x, y, WATCHTOWER_AURA, 0.45, true);
   }
 }
 
@@ -3251,10 +3259,21 @@ function unitRangeRankRate(type) {
     ? 0.05 : 0.01;
 }
 
+// a watch tower's raised vantage extends the sightline of nearby riflemen —
+// but a mortar crew fires indirect and blind, so the tower does nothing for them
+function nearWatchtower(u) {
+  if (u.side !== 'us' || u.t.mortar || !G.watchtowers.length) return false;
+  for (const wt of G.watchtowers) {
+    if (dist(wt, u) < WATCHTOWER_AURA) return true;
+  }
+  return false;
+}
+
 function unitRangeMult(u) {
   const rank = u.rank || 0;
-  if (rank <= 0) return 1;
-  return 1 + rank * unitRangeRankRate(u.type);
+  let mult = rank <= 0 ? 1 : 1 + rank * unitRangeRankRate(u.type);
+  if (nearWatchtower(u)) mult *= WATCHTOWER_RANGE_MULT;
+  return mult;
 }
 
 function unitRange(u, base) {
@@ -3485,9 +3504,9 @@ function updateEngineer(u, dt) {
     if (u.healed >= 150) { u.healed -= 150; gainXP(u); }
   };
 
-  // 1) restack damaged sandbags / patch bunker concrete / restring damaged wire
+  // 1) restack damaged sandbags / patch bunker concrete / restring damaged wire / brace the watch tower
   let emp = null, empFrac = 1;
-  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires]) {
+  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires, ...G.watchtowers]) {
     if (s.hp >= s.maxhp || dist(u, s) > R) continue;
     const f = s.hp / s.maxhp;
     if (f < empFrac) { empFrac = f; emp = s; }
@@ -3502,7 +3521,7 @@ function updateEngineer(u, dt) {
 
   // 2) fortify the nearest intact, un-upgraded emplacement (~6 s of work)
   let target = null, td = R;
-  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires]) {
+  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires, ...G.watchtowers]) {
     if (s.up) continue;
     const d = dist(u, s);
     if (d < td) { td = d; target = s; }
@@ -4183,6 +4202,7 @@ function update(dt) {
   compactInPlace(G.enemies, e => !e.dead);
   compactDefenses(G.sandbags, stampSandbagRubble);
   compactDefenses(G.bunkers, stampBunkerRubble);
+  compactDefenses(G.watchtowers, stampWatchtowerRubble);
   compactInPlace(G.wires, w => w.hp > 0);
   compactInPlace(G.mines, m => !m.dead);
   compactInPlace(G.shells, s => !s.done);
@@ -4216,6 +4236,23 @@ function stampBunkerRubble(b) {
     gctx.beginPath();
     gctx.ellipse(b.x + rand(-22, 22), b.y + rand(-9, 9), rand(3, 7), rand(2, 5), rand(0, 3), 0, 7);
     gctx.fill();
+  }
+}
+
+function stampWatchtowerRubble(t) {
+  // splintered timber frame collapsed in a heap
+  gctx.fillStyle = 'rgba(80,66,44,0.55)';
+  gctx.beginPath();
+  gctx.ellipse(t.x, t.y, 18, 8, 0, 0, 7);
+  gctx.fill();
+  gctx.strokeStyle = 'rgba(60,48,30,0.6)';
+  gctx.lineWidth = 2;
+  for (let i = 0; i < 4; i++) {
+    const a = rand(0, Math.PI * 2), len = rand(8, 16);
+    gctx.beginPath();
+    gctx.moveTo(t.x, t.y);
+    gctx.lineTo(t.x + Math.cos(a) * len, t.y + Math.sin(a) * len * 0.5);
+    gctx.stroke();
   }
 }
 
@@ -8129,10 +8166,60 @@ function drawMine(m) {
   ctx.beginPath(); ctx.arc(m.x, m.y, 2, 0, 7); ctx.fill();
 }
 
+function drawWatchtower(t) {
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  // drop shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath(); ctx.ellipse(0, 3, 15, 13, 0, 0, 7); ctx.fill();
+  // four corner legs peeking out from under the platform, seen from above
+  ctx.fillStyle = '#4a3c26';
+  for (const [lx, ly] of [[-12, -12], [12, -12], [-12, 12], [12, 12]]) {
+    ctx.beginPath(); ctx.arc(lx, ly, 2.6, 0, 7); ctx.fill();
+  }
+  // cross-bracing
+  ctx.strokeStyle = '#4a3c26';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(-12, -12); ctx.lineTo(12, 12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(12, -12); ctx.lineTo(-12, 12); ctx.stroke();
+  // fortified towers get a braced perimeter
+  if (t.up) {
+    ctx.strokeStyle = '#6b5636';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-12, -12, 24, 24);
+  }
+  // square lookout platform roof, viewed straight down
+  ctx.fillStyle = '#6b5636';
+  ctx.strokeStyle = '#3d3220';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.rect(-9, -9, 18, 18); ctx.fill(); ctx.stroke();
+  // roof ridge highlight
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-9, -9); ctx.lineTo(9, 9); ctx.stroke();
+  // lookout figure, seen from above
+  ctx.fillStyle = '#3a3428';
+  ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, 7); ctx.fill();
+  // battle damage: the frame splinters as it takes hits
+  const f = t.hp / t.maxhp;
+  if (f < 0.66) {
+    ctx.strokeStyle = 'rgba(30,24,14,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-2, 3); ctx.stroke();
+  }
+  if (f < 0.33) {
+    ctx.strokeStyle = 'rgba(30,24,14,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(6, -4); ctx.lineTo(3, 6); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawDefenses() {
   for (const wr of G.wires) drawWire(wr);
   for (const s of G.sandbags) drawSandbag(s);
   for (const b of G.bunkers) drawBunker(b);
+  for (const t of G.watchtowers) drawWatchtower(t);
   for (const m of G.mines) drawMine(m);
 }
 
@@ -8420,6 +8507,7 @@ function drawPlacementDefenseGhost(key, x, y, valid) {
     if (key === 'wire') drawWire({ x, y, up: false });
     else if (key === 'sandbags') drawSandbag({ x, y, up: false });
     else if (key === 'bunker') drawBunker({ x, y, up: false, hp: BUNKER_HP, maxhp: BUNKER_HP });
+    else if (key === 'watchtower') drawWatchtower({ x, y, up: false, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP });
     else if (key === 'mine') drawMine({ x, y, dead: false });
   });
 }
@@ -9215,6 +9303,8 @@ function place(p, x, y) {
     G.sandbags.push({ x, y, hp: SANDBAG_HP, maxhp: SANDBAG_HP, up: false, workProg: 0 });
   } else if (p.key === 'bunker') {
     G.bunkers.push({ x, y, hp: BUNKER_HP, maxhp: BUNKER_HP, up: false, workProg: 0 });
+  } else if (p.key === 'watchtower') {
+    G.watchtowers.push({ x, y, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP, up: false, workProg: 0 });
   } else if (p.key === 'wire') {
     G.wires.push({ x, y, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
   } else if (p.key === 'mine') {

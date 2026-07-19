@@ -19,7 +19,7 @@ const MAX_BREACH = 7;
 const MAX_OFFICERS = 5;
 const MEDIC_RANGE = 95;
 const ENGINEER_RANGE = 95;
-const OFFICER_AURA = 130;
+const OFFICER_AURA = 78;
 const WATCHTOWER_AURA = 30;
 const RANKUP_RADIUS = 140;  // testing-mode-only field-promotion ability
 const PURGE_RADIUS = 150;   // testing-mode-only kill-everything ability
@@ -34,20 +34,20 @@ const V2_ROCKET_ARC = 90;               // peak height of the V2 warhead's visib
 
 const UNIT_TYPES = {
   rifleman: {
-    name: 'Rifleman', hp: 100, range: 230, dmg: 13, acc: 0.55,
+    name: 'Rifleman', hp: 100, range: 154, dmg: 13, acc: 0.55,
     rof: 0.88, burst: 1, burstGap: 0, speed: 42,
     color: '#4a5d3a', gun: 7, sfx: 'rifle',
     desc: 'M1 Garand. The backbone of your line.',
   },
   gunner: {
-    name: 'Gunner', hp: 100, range: 267, dmg: 9, acc: 0.32,
+    name: 'Gunner', hp: 100, range: 179, dmg: 9, acc: 0.32,
     rof: 1.36, burst: 6, burstGap: 0.09, speed: 36,
     color: '#3d5236', gun: 10, sfx: 'mg',
     desc: 'BAR automatic rifle. Suppressive bursts.',
   },
   grenadier: {
-    // 50% more gun range than the rifleman (230): the better all-rounder
-    name: 'Grenadier', hp: 100, range: 345, dmg: 10, acc: 0.55,
+    // 50% more gun range than the rifleman (154): the better all-rounder
+    name: 'Grenadier', hp: 100, range: 231, dmg: 10, acc: 0.55,
     rof: 1.2, burst: 1, burstGap: 0, speed: 42,
     color: '#44583c', gun: 6, sfx: 'rifle', grenade: true,
     desc: 'Carbine most of the time; a heavy frag now and then. Quick enough to catch a live German grenade and heave it back.',
@@ -56,75 +56,75 @@ const UNIT_TYPES = {
     name: 'Shotgunner', hp: 145, range: 0, dmg: 0, acc: 0,
     rof: 1.5, burst: 1, burstGap: 0, speed: 34,
     color: '#424f38', gun: 9, sfx: 'shotgun',
-    shotgun: { range: 143, arc: 0.52, pellets: 8, dmg: 11, spread: 0.45 },
+    shotgun: { range: 96, arc: 0.52, pellets: 8, dmg: 11, spread: 0.45 },
     desc: 'M97 trench gun and steel plate. Buckshot shreds clusters up close.',
   },
   bazooka: {
-    name: 'Bazooka', hp: 90, range: 120, dmg: 8, acc: 0.45,
+    name: 'Bazooka', hp: 90, range: 80, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, speed: 40,
     color: '#3f5138', gun: 5, sfx: 'pistol',
-    rocket: { range: 363, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
+    rocket: { range: 243, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
     desc: 'M1A1 rocket launcher. The answer to armor.',
   },
   mortarman: {
-    name: 'Mortarman', hp: 90, range: 120, dmg: 8, acc: 0.45,
+    name: 'Mortarman', hp: 90, range: 80, dmg: 8, acc: 0.47,
     rof: 1.0, burst: 1, burstGap: 0, speed: 38,
     color: '#4c5a3f', gun: 5, sfx: 'pistol',
-    mortar: { range: 520, min: 220, cdMin: 11, cdMax: 15, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
+    mortar: { range: 348, min: 118, cdMin: 11, cdMax: 15, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
     desc: 'Portable 60mm mortar. Indirect fire at range.',
   },
   sniper: {
-    name: 'Sniper', hp: 85, range: 372, dmg: 46, acc: 0.72,
+    name: 'Sniper', hp: 85, range: 249, dmg: 46, acc: 0.72,
     rof: 5.2, burst: 1, burstGap: 0, speed: 38,
     color: '#38442e', gun: 12, sfx: 'sniper',
     desc: 'Springfield scoped rifle. Picks off officers and MGs first.',
   },
   medic: {
-    name: 'Medic', hp: 90, range: 140, dmg: 8, acc: 0.45,
+    name: 'Medic', hp: 90, range: 94, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, speed: 46,
     color: '#60744f', gun: 5, sfx: 'pistol',
     desc: 'Patches up the most wounded man in range, faster with rank. Carries a sidearm.',
   },
   engineer: {
-    name: 'Engineer', hp: 95, range: 110, dmg: 7, acc: 0.45,
+    name: 'Engineer', hp: 95, range: 74, dmg: 7, acc: 0.45,
     rof: 1.1, burst: 4, burstGap: 0.07, speed: 44,
     color: '#51603e', gun: 6, sfx: 'mg',
     desc: 'Repairs fortifications, upgrades emplacements, and can wrench on damaged vehicles and AT guns (very slowly). M3 grease gun up close.',
   },
   officer: {
-    name: 'Officer', hp: 95, range: 150, dmg: 9, acc: 0.5,
+    name: 'Officer', hp: 95, range: 101, dmg: 9, acc: 0.5,
     rof: 0.9, burst: 1, burstGap: 0, speed: 44,
     color: '#6b6d44', gun: 5, sfx: 'pistol',
     desc: 'Nearby men fire faster and straighter, more so as he ranks up. Earns +1 TP / 30 s.',
   },
   flamer: {
-    name: 'Flamethrower', hp: 130, range: 117, dmg: 0, acc: 0,
+    name: 'Flamethrower', hp: 130, range: 78, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, speed: 38,
     color: '#4f5c3a', gun: 8, sfx: 'rifle',
-    flame: { range: 117, arc: 0.45, dps: 38 },
+    flame: { range: 78, arc: 0.45, dps: 38 },
     blastResist: 0.5, rankHealMult: 3,
     desc: 'M2 flamethrower and flak vest. Burns everything in the cone — friend or foe.',
   },
   jeep: {
-    name: 'Jeep', hp: 250, range: 300, dmg: 13, acc: 0.42,
+    name: 'Jeep', hp: 250, range: 201, dmg: 13, acc: 0.42,
     rof: 2.1, burst: 16, burstGap: 0.07, speed: 110,
     color: '#4a5a3f', gun: 14, sfx: 'hmg', vehicle: true, rankMult: 3,
     desc: 'Willys jeep, pintle-mounted .50 cal. Fast and hard-hitting, but unarmored.',
   },
   sherman: {
-    name: 'Sherman', hp: 1000, range: 340, dmg: 0, acc: 0,
+    name: 'Sherman', hp: 1000, range: 262, dmg: 0, acc: 0,
     rof: 4.0, burst: 1, burstGap: 0, speed: 14, shellDmg: 80,
     color: '#4a5a3f', gun: 0, sfx: 'boom', tank: true,
     fireCone: { arc: 0.275 },
-    mg: { range: 240, dmg: 8, acc: 0.45, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
+    mg: { range: 161, dmg: 8, acc: 0.45, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
     desc: 'M4 Sherman. 75mm cannon on a rotating turret and thick armor. Medics can\'t fix steel.',
   },
   atgun: {
     // trails are staked into the ground: it traverses inside its cone but never moves
-    name: 'AT Gun', hp: 200, range: 918, dmg: 0, acc: 0,
-    rof: 8, burst: 1, burstGap: 0, speed: 0,
+    name: 'AT Gun', hp: 200, range: 519, dmg: 0, acc: 0,
+    rof: 8.8, burst: 1, burstGap: 0, speed: 0,
     color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true,
-    atgun: { arc: 0.6, shellDmg: 403, r: 27, scatterMult: 1.3 },
+    atgun: { arc: 0.338, shellDmg: 403, r: 27, scatterMult: 1.3 },
     desc: '57mm anti-tank gun. Immobile; direct-fire AP shells ruin any vehicle they find.',
   },
 };
@@ -141,53 +141,53 @@ const UNIT_TYPES = {
 
 const ENEMY_TYPES = {
   erifle: {
-    name: 'Rifleman', hp: 60, speed: 22, range: 210, dmg: 10, acc: 0.42,
+    name: 'Rifleman', hp: 60, speed: 22, range: 141, dmg: 10, acc: 0.42,
     rof: 1.5, burst: 1, burstGap: 0, reward: 2,
     color: '#5e5e52', gun: 7, sfx: 'rifle', priority: 1,
   },
   esmg: {
-    name: 'Stormtrooper', hp: 70, speed: 36, range: 130, dmg: 7, acc: 0.42,
+    name: 'Stormtrooper', hp: 70, speed: 36, range: 87, dmg: 7, acc: 0.42,
     rof: 1.0, burst: 3, burstGap: 0.08, reward: 2,
     color: '#46443a', gun: 6, sfx: 'mg', priority: 1,
   },
   egren: {
-    name: 'Grenadier', hp: 70, speed: 27, range: 150, dmg: 8, acc: 0.385,
+    name: 'Grenadier', hp: 70, speed: 27, range: 101, dmg: 8, acc: 0.385,
     rof: 1.6, burst: 1, burstGap: 0, reward: 3,
     color: '#524e3e', gun: 5, sfx: 'pistol', priority: 2, grenade: true,
   },
   emg: {
-    name: 'MG Gunner', hp: 90, speed: 16, range: 275, dmg: 8, acc: 0.33,
+    name: 'MG Gunner', hp: 90, speed: 16, range: 184, dmg: 8, acc: 0.33,
     rof: 1.9, burst: 5, burstGap: 0.08, reward: 3,
     color: '#484640', gun: 10, sfx: 'mg', priority: 3,
   },
   eoff: {
-    name: 'Officer', hp: 80, speed: 24, range: 140, dmg: 8, acc: 0.45,
+    name: 'Officer', hp: 80, speed: 24, range: 94, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, reward: 4,
     color: '#4a4840', gun: 5, sfx: 'pistol', priority: 5, aura: true,
   },
   esniper: {
-    name: 'Sniper', hp: 55, speed: 14, range: 312, dmg: 39, acc: 0.66,
+    name: 'Sniper', hp: 55, speed: 14, range: 209, dmg: 39, acc: 0.66,
     rof: 6.8, burst: 1, burstGap: 0, reward: 4,
     color: '#464438', gun: 12, sfx: 'sniper', priority: 4,
   },
   eflame: {
-    name: 'Flamethrower', hp: 85, speed: 34, range: 120, dmg: 0, acc: 0,
+    name: 'Flamethrower', hp: 85, speed: 34, range: 80, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 4,
     color: '#4a4438', gun: 8, sfx: 'rifle', priority: 3,
-    flame: { range: 120, arc: 0.45, dps: 34 },
+    flame: { range: 80, arc: 0.45, dps: 34 },
     blastResist: 0.5,
   },
   emortar: {
-    name: 'Granatwerfer', hp: 75, speed: 18, range: 120, dmg: 8, acc: 0.45,
+    name: 'Granatwerfer', hp: 75, speed: 18, range: 80, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, reward: 5,
     color: '#504e44', gun: 5, sfx: 'pistol', priority: 3,
-    mortar: { range: 520, min: 220, cdMin: 11, cdMax: 15, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
+    mortar: { range: 348, min: 118, cdMin: 11, cdMax: 15, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
   },
   ebazooka: {
-    name: 'Panzerfaust', hp: 75, speed: 20, range: 120, dmg: 8, acc: 0.45,
+    name: 'Panzerfaust', hp: 75, speed: 20, range: 80, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, reward: 5,
     color: '#545648', gun: 5, sfx: 'pistol', priority: 4,
-    rocket: { range: 308, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
+    rocket: { range: 206, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
   },
   ebike: {
     name: 'Kradschützen', hp: 80, speed: 85, range: 0, dmg: 0, acc: 0,
@@ -195,35 +195,35 @@ const ENEMY_TYPES = {
     color: '#55554a', gun: 0, sfx: 'rifle', priority: 2, bike: true,
   },
   ejeep: {
-    name: 'Kübelwagen', hp: 220, speed: 45, range: 280, dmg: 11, acc: 0.38,
+    name: 'Kübelwagen', hp: 220, speed: 45, range: 188, dmg: 11, acc: 0.38,
     rof: 2.3, burst: 8, burstGap: 0.07, reward: 8,
     color: '#57574a', gun: 14, sfx: 'hmg', priority: 3, vehicle: true,
   },
   ehalftrack: {
-    name: 'Sd.Kfz. 251', hp: 1000, speed: 30, range: 240, dmg: 7, acc: 0.38,
+    name: 'Sd.Kfz. 251', hp: 1000, speed: 30, range: 161, dmg: 7, acc: 0.38,
     rof: 2.2, burst: 6, burstGap: 0.08, reward: 12,
     color: '#54544a', gun: 16, sfx: 'mg', priority: 3, vehicle: true, apc: true,
   },
   panzer: {
-    name: 'Panzer IV', hp: 1200, speed: 8, range: 340, dmg: 0, acc: 0,
+    name: 'Panzer IV', hp: 1200, speed: 8, range: 228, dmg: 0, acc: 0,
     rof: 4.5, burst: 1, burstGap: 0, reward: 15, shellDmg: 85,
     color: '#57574e', gun: 0, sfx: 'boom', priority: 0, tank: true,
     fireCone: { arc: 0.25 },
-    mg: { range: 230, dmg: 7, acc: 0.4, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
+    mg: { range: 154, dmg: 7, acc: 0.4, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
   },
   estug: {
-    name: 'StuG III', hp: 800, speed: 12, range: 300, dmg: 0, acc: 0,
+    name: 'StuG III', hp: 800, speed: 12, range: 201, dmg: 0, acc: 0,
     rof: 3.8, burst: 1, burstGap: 0, reward: 12, shellDmg: 95,
     color: '#4a4a42', gun: 0, sfx: 'boom', priority: 0, tank: true, casemate: true,
     fireCone: { arc: 0.2 },
-    mg: { range: 200, dmg: 6, acc: 0.38, burst: 4, burstGap: 0.08, gun: 20, sfx: 'mg' },
+    mg: { range: 134, dmg: 6, acc: 0.38, burst: 4, burstGap: 0.08, gun: 20, sfx: 'mg' },
   },
   etiger: {
-    name: 'Tiger I', hp: 1800, speed: 5, range: 360, dmg: 0, acc: 0,
+    name: 'Tiger I', hp: 1800, speed: 5, range: 241, dmg: 0, acc: 0,
     rof: 5.2, burst: 1, burstGap: 0, reward: 22, shellDmg: 110,
     color: '#3f3f38', gun: 0, sfx: 'boom', priority: 0, tank: true, heavy: true,
     fireCone: { arc: 0.22 },
-    mg: { range: 240, dmg: 8, acc: 0.42, burst: 6, burstGap: 0.08, gun: 26, sfx: 'mg' },
+    mg: { range: 161, dmg: 8, acc: 0.42, burst: 6, burstGap: 0.08, gun: 26, sfx: 'mg' },
   },
   // A20 "V2" battery — a rear-echelon siege weapon, not a soldier. It stakes
   // itself out near the top of the field the instant it spawns and mostly
@@ -239,7 +239,7 @@ const ENEMY_TYPES = {
     // longer wipes out a whole line at once. dmg is 95% of a rifleman's 100
     // hp, so a near-direct hit maims rather than instantly kills, and
     // armorMult makes it brutal against anything on wheels or tracks.
-    v2: { range: W * 0.75, min: 250, cdMin: 21, cdMax: 30, r: 65, dmg: 95, flight: 3.4, scatter: 70, armorMult: 6 },
+    v2: { range: W * 0.625, min: 168, cdMin: 21, cdMax: 30, r: 65, dmg: 95, flight: 3.4, scatter: 70, armorMult: 6 },
   },
 };
 
@@ -381,7 +381,7 @@ const AXIS_PLACEABLES = [
   { key: 'eoff', label: 'OFFICER', cost: 15, kind: 'eunit', hotkey: '6',
     desc: 'Leutnant. Nearby troops fight harder; earns +1 TP every 30 s while alive.' },
   { key: 'emortar', label: 'GRANATWERFER', cost: 14, kind: 'eunit', hotkey: 'M',
-    desc: '81mm mortar team. Long-range indirect fire; blind inside 220 px.' },
+    desc: '81mm mortar team. Long-range indirect fire; blind inside 147 px.' },
   { key: 'ebazooka', label: 'PANZERFAUST', cost: 18, kind: 'eunit', hotkey: 'B',
     desc: 'Panzerfaust operator. Prioritizes armor; scatter is brutal at range.' },
   { key: 'ebike', label: 'KRAD', cost: 15, kind: 'eunit', hotkey: 'K',
@@ -2178,7 +2178,7 @@ function spawnStrafeRun(x) {
     done: false,
   });
   // a stick of bombs timed to burst right as the plane passes overhead
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     const by = 90 + i * 95;
     scheduleShell(x + rand(-22, 22), by, (startY - by) / speed + 0.12, 42, 90, false);
   }
@@ -3221,7 +3221,7 @@ function drawSpecialistRangeAt(x, y, type, side) {
     ctx.beginPath(); ctx.arc(x, y, ENGINEER_RANGE, 0, 7); ctx.stroke();
     ctx.setLineDash([]);
   } else if (type === 'officer' || type === 'eoff') {
-    const r = type === 'eoff' ? 140 : OFFICER_AURA;
+    const r = type === 'eoff' ? 84 : OFFICER_AURA;
     drawOfficerAuraRing(x, y, r, 0.45, type === 'officer' || side === 'us');
   }
 }

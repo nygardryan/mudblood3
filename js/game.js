@@ -123,18 +123,45 @@ const UNIT_TYPES = {
     // trails are staked into the ground: it traverses inside its cone but never moves
     name: 'AT Gun', hp: 200, range: 519, dmg: 0, acc: 0,
     rof: 8.8, burst: 1, burstGap: 0, speed: 0,
-    color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true,
+    color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true, gunEmplacement: true,
     atgun: { arc: 0.338, shellDmg: 403, r: 27, scatterMult: 1.3 },
     desc: '57mm anti-tank gun. Immobile; direct-fire AP shells ruin any vehicle they find.',
   },
+  aagun: {
+    // same staked trails as the 57mm, but the mount elevates: the barrels only
+    // point up. Bombers and men under canopy are the whole target list — it
+    // cannot depress onto anything standing on the ground.
+    // tuned so one green gun downs about a bomber per raid and a veteran crew
+    // breaks a raid outright. The narrow traverse wedge means it only gets a
+    // handful of shots per pass, so the cyclic rate and burst weight — not the
+    // aim — are what make it worth its cost; scatter stays deliberately wide.
+    name: 'AA Gun', hp: 200, range: 623, dmg: 0, acc: 0,
+    rof: 0.55, burst: 1, burstGap: 0, speed: 0,
+    color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true, gunEmplacement: true,
+    aagun: {
+      arc: 0.338,        // identical traverse wedge to the AT gun
+      hitR: 23,          // flak burst lethal radius
+      scatter: 15,       // base aim error, grows with range — only ~30% connect
+      shellSpeed: 660,   // used to lead a moving bomber
+      planeDmg: 64,
+    },
+    desc: '40mm Bofors. Immobile; elevated barrels engage aircraft and descending paratroopers only.',
+  },
 };
+
+// both staked guns share a traverse cone, a crew that never goes prone, and
+// the engineer-repairs-but-medics-don't rule; this returns whichever spec a
+// given emplacement carries
+function emplacementSpec(t) {
+  return t.atgun || t.aagun;
+}
 
 // TP paid to an Axis attacker for destroying each US defender (mirrors ENEMY_TYPES.reward)
 {
   const UNIT_REWARDS = {
     rifleman: 2, gunner: 3, grenadier: 3, shotgunner: 3, bazooka: 4,
     mortarman: 5, sniper: 4, medic: 4, engineer: 4, officer: 5,
-    flamer: 4, jeep: 6, sherman: 15, atgun: 8,
+    flamer: 4, jeep: 6, sherman: 15, atgun: 8, aagun: 8,
   };
   for (const [k, r] of Object.entries(UNIT_REWARDS)) UNIT_TYPES[k].reward = r;
 }
@@ -276,10 +303,10 @@ const EVENT_INFO = [
     desc: 'A green rifleman reports for duty — free of charge. He\'s untested, but every body counts.',
   },
   {
-    key: 'barrage',
-    name: 'Enemy Barrage',
+    key: 'airraid',
+    name: 'Air Bombing Raid',
     wave: 4,
-    desc: 'German artillery shells your sector. Shell count, blast radius, and damage escalate with each wave tier.',
+    desc: 'Luftwaffe bombers cross the field from the north, their shadows sweeping ahead of them. Any bomber that passes near your men drops a stick of 2-4 inaccurate bombs, then flies on until it clears the southern edge. Bomber numbers, bomb count, and blast damage all escalate with each wave tier. An AA gun is the only thing that can reach them.',
   },
   {
     key: 'paradrop',
@@ -338,13 +365,15 @@ const PLACEABLES = [
     desc: 'M2 flamethrower and flak vest. Burns everything in the cone — friend and foe alike. Ranking up sharply raises burn damage and tightens his stream, and extends his range faster than most units.' },
   { key: 'jeep', label: 'JEEP', cost: 30, kind: 'unit', hotkey: 'J',
     desc: 'Willys jeep with a .50 cal HMG, firing on the move. Unarmored — medics can\'t touch it, but an engineer can patch it, slowly. Ranking up makes him faster and deadlier, though he needs more kills per promotion than the infantry.' },
-  { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'unit', hotkey: 'T',
+  { key: 'sherman', label: 'SHERMAN', cost: 60, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon on a rotating turret; shrugs off small arms. Medics cannot repair it, but an engineer can, slowly. Ranking up takes many kills, but sharpens his aim and speeds up reloads on both the cannon and the coaxial MG.' },
-  { key: 'atgun', label: 'AT GUN', cost: 40, kind: 'unit', hotkey: 'P',
+  { key: 'atgun', label: 'AT GUN', cost: 30, kind: 'unit', hotkey: 'P',
     desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor. An engineer can patch it, slowly. Ranking up widens its firing arc, speeds up reloads, and hits harder.' },
+  { key: 'aagun', label: 'AA GUN', cost: 20, kind: 'unit', hotkey: 'V',
+    desc: '40mm Bofors flak gun. Cannot move; its barrels only elevate, so it ignores everything on the ground. Shoots down bombers during air raids and kills paratroopers still under canopy. Flak bursts are far from precise. An engineer can patch it, slowly. Ranking up widens its firing arc, speeds up reloads, and tightens its aim.' },
   { key: 'wire', label: 'WIRE', cost: 4, kind: 'defense', hotkey: '7',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
-  { key: 'sandbags', label: 'SANDBAGS', cost: 5, kind: 'defense', hotkey: '8',
+  { key: 'sandbags', label: 'SANDBAGS', cost: 4, kind: 'defense', hotkey: '8',
     desc: 'Cover. Soldiers behind it dodge half of incoming fire.' },
   { key: 'bunker', label: 'BUNKER', cost: 15, kind: 'defense', hotkey: 'K',
     desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },
@@ -417,6 +446,25 @@ const TESTING_ABILITIES = [
     desc: 'Instantly promotes every unit — American and German alike — within a wide radius by one rank. Testing mode only.' },
   { key: 'purge', label: 'PURGE', cost: 5, kind: 'support', hotkey: '',
     desc: 'Instantly destroys every unit and emplacement — American and German alike — within a wide radius. Testing mode only.' },
+];
+
+// testing-mode-only: the random-event roster, summoned on demand. These fire
+// the instant the button is clicked — there's nothing to place, so kind
+// 'event' skips placement mode entirely. Wave-gating is ignored: the whole
+// point is to see any event at any wave.
+const TESTING_EVENTS = [
+  { key: 'random', label: 'RANDOM', cost: 0, kind: 'event', hotkey: '',
+    desc: 'Rolls the wave-appropriate random event, exactly as the game would.' },
+  { key: 'fog', label: 'FOG', cost: 0, kind: 'event', hotkey: '',
+    desc: 'Rolls fog across the field — everyone shoots worse until it lifts.' },
+  { key: 'fng', label: 'FNG', cost: 0, kind: 'event', hotkey: '',
+    desc: 'A replacement rifleman reports to the back line.' },
+  { key: 'paradrop', label: 'PARADROP', cost: 0, kind: 'event', hotkey: '',
+    desc: 'Fallschirmjäger drop into the field. Stick size scales with the current wave.' },
+  { key: 'airraid', label: 'AIR RAID', cost: 0, kind: 'event', hotkey: '',
+    desc: 'German bombers cross the field north to south. Formation and payload scale with the current wave.' },
+  { key: 'airstrike', label: 'STRAFING RUN', cost: 0, kind: 'event', hotkey: '',
+    desc: 'A P-47 strafes a lane of the field.' },
 ];
 
 // allied assault toolbar: US attackers deploy in the top strip, then assault south.
@@ -1346,7 +1394,8 @@ function newGame(level, difficulty) {
     shells: [],      // incoming ordnance {x,y,timer,r,dmg,big}
     grenades: [],    // thrown grenades in flight
     rockets: [],     // bazooka rockets in flight
-    planes: [],      // friendly aircraft making strafing passes
+    planes: [],      // aircraft: friendly strafing runs, transports, enemy bombers
+    flak: [],        // AA shells fused to burst in mid-air {x,y,timer,...}
     tracers: [],
     particles: [],
     flashes: [],
@@ -1761,6 +1810,7 @@ function clearAxisWaveEffects() {
   G.grenades = [];
   G.rockets = [];
   G.planes = [];
+  G.flak = [];
   G.tracers = [];
   G.particles = [];
   G.flashes = [];
@@ -1975,14 +2025,18 @@ function updateAxisCombat() {
 
 // ============================================================ random events
 
-function barrageForWave(w) {
-  const t = clamp((w - 4) / 56, 0, 1); // ramps from wave 4 to ~60
+// air raid scaling: more bombers, heavier sticks, and tougher airframes as the
+// waves grind on. Ramps from wave 4 to ~60, same envelope the old barrage used.
+function raidForWave(w) {
+  const t = clamp((w - 4) / 56, 0, 1);
   return {
-    count: Math.round(6 + t * 6),
-    r: Math.round(48 + t * 14),
-    dmg: Math.round(80 + t * 35),
-    dMin: 1.5 - t * 0.6,
-    dMax: 4.5 - t * 1.8,
+    planes: Math.round(2 + t * 2),          // 2 -> 4 bombers
+    bombsMin: 2,
+    bombsMax: t < 0.5 ? 3 : 4,              // late raids drop the full stick
+    r: Math.round(42 + t * 16),             // blast radius
+    dmg: Math.round(70 + t * 60),           // bombs bite much harder later
+    hp: Math.round(65 + t * 65),            // airframe toughness vs. flak
+    attackR: Math.round(120 + t * 34),      // how far off the flight path they'll bomb
     big: w >= 36,
   };
 }
@@ -2014,24 +2068,58 @@ function triggerParadrop() {
   }
 }
 
+// ---- air bombing raid: a line of bombers crosses from the north edge to the
+// south. Each one only opens its bay when allied troops pass inside its attack
+// radius, and the sticks it drops are anything but precise. Once a bomber
+// clears the bottom of the screen it's gone — the raid ends when they all are.
+function triggerAirRaid(w) {
+  const cfg = raidForWave(w);
+  showBanner(w >= 40 ? 'HEAVY BOMBER RAID!' : w >= 20 ? 'BOMBERS INBOUND!' : 'AIR RAID! TAKE COVER!');
+  SFX.planeFlyby();
+
+  // spread the formation across the field in lanes, then jitter so it doesn't
+  // read as a parade; stagger the start heights so they arrive in sequence
+  const lane = W / (cfg.planes + 1);
+  for (let i = 0; i < cfg.planes; i++) {
+    G.planes.push({
+      role: 'bomber',
+      x: clamp(lane * (i + 1) + rand(-34, 34), 40, W - 40),
+      y: -70 - i * rand(70, 130),
+      vx: rand(-14, 14),
+      vy: rand(86, 112),
+      hp: cfg.hp,
+      maxhp: cfg.hp,
+      attackR: cfg.attackR,
+      bombsMin: cfg.bombsMin,
+      bombsMax: cfg.bombsMax,
+      bombR: cfg.r,
+      bombDmg: cfg.dmg,
+      bombBig: cfg.big,
+      bombCd: rand(0, 0.6),
+      sfxT: 0,
+      flybyPlayed: true,
+      done: false,
+    });
+  }
+}
+
 function triggerEvent() {
   const w = G.wave;
   const events = ['fog', 'fng'];
-  if (w >= 4) events.push('barrage');
-  if (w >= 12) events.push('barrage');
-  if (w >= 24) events.push('barrage');
-  if (w >= 40) events.push('barrage');
+  if (w >= 4) events.push('airraid');
+  if (w >= 12) events.push('airraid');
+  if (w >= 24) events.push('airraid');
+  if (w >= 40) events.push('airraid');
   if (w >= 8) events.push('airstrike');
   if (w >= 6) events.push('paradrop');
-  const ev = pick(events);
+  runEvent(pick(events), w);
+}
 
-  if (ev === 'barrage') {
-    const b = barrageForWave(w);
-    showBanner(w >= 40 ? 'HEAVY BARRAGE!' : w >= 20 ? 'ARTILLERY INBOUND!' : 'INCOMING BARRAGE!');
-    for (let i = 0; i < b.count; i++) {
-      scheduleShell(rand(60, W - 60), rand(DEPLOY_Y - 30, H - 40),
-        rand(b.dMin, b.dMax), b.r, b.dmg, b.big);
-    }
+// fires one named random event. Split out of triggerEvent so testing mode can
+// summon a specific one on demand instead of waiting on the wave-gated roll.
+function runEvent(ev, w) {
+  if (ev === 'airraid') {
+    triggerAirRaid(w);
   } else if (ev === 'paradrop') {
     triggerParadrop();
   } else if (ev === 'fog') {
@@ -2199,6 +2287,11 @@ function updatePlane(p, dt) {
     return;
   }
 
+  if (p.role === 'bomber') {
+    updateBomber(p, dt);
+    return;
+  }
+
   p.y -= p.speed * dt;
   p.x += p.drift * dt;
 
@@ -2239,8 +2332,119 @@ function updatePlane(p, dt) {
   if (p.y < -90) p.done = true;
 }
 
+// a bomber holds its heading and does not react to what's shooting at it: it
+// flies the line it was given, bombs whatever it happens to pass over, and
+// leaves. Everything interesting happens in the AA gun's arc, not up here.
+function updateBomber(p, dt) {
+  p.x += p.vx * dt;
+  p.y += p.vy * dt;
+
+  // engine drone only while it's actually over the field
+  if (p.y > -60) {
+    p.sfxT -= dt;
+    if (p.sfxT <= 0) { p.sfxT = 0.11; SFX.plane(); }
+  }
+
+  if (p.bombCd > 0) p.bombCd -= dt;
+
+  // bays stay shut until it's actually over the field and something is under it
+  if (p.bombCd <= 0 && p.y > -20 && p.y < H - 20) {
+    let victim = null, best = p.attackR;
+    for (const u of G.units) {
+      if (u.dead) continue;
+      const d = dist(u, p);
+      if (d < best) { best = d; victim = u; }
+    }
+    if (victim) dropBombStick(p, victim);
+  }
+
+  if (p.y > H + 90) p.done = true;
+}
+
+// the stick walks along the flight path from a badly-judged release point —
+// they're aiming at your men, but a bomb sight at this altitude is a suggestion
+function dropBombStick(p, victim) {
+  const count = randi(p.bombsMin, p.bombsMax);
+  p.bombCd = rand(2.6, 3.6);
+
+  const heading = Math.atan2(p.vy, p.vx);
+  const fx = Math.cos(heading), fy = Math.sin(heading);
+  // aim error: the whole stick is displaced, so a miss misses as a group
+  const aimX = victim.x + rand(-40, 40);
+  const aimY = victim.y + rand(-40, 40);
+  const spacing = rand(30, 42);
+
+  for (let i = 0; i < count; i++) {
+    const bx = clamp(aimX + fx * (i - (count - 1) / 2) * spacing + rand(-11, 11), 14, W - 14);
+    const by = clamp(aimY + fy * (i - (count - 1) / 2) * spacing + rand(-11, 11), 14, H - 14);
+    // release-to-impact, staggered so the stick walks rather than landing flat
+    scheduleShell(bx, by, rand(1.15, 1.45) + i * 0.14, p.bombR, p.bombDmg, p.bombBig);
+  }
+}
+
+// flak finds the airframe: it comes apart in the air and what's left of it
+// hits the ground still carrying whatever was in the bomb bay
+function killBomber(p, by) {
+  if (p.done) return;
+  p.done = true;
+  creditKill(by);
+  SFX.boom(true);
+  G.flashes.push({ x: p.x, y: p.y, r: 26, ttl: 0.25, max: 0.25 });
+  for (let i = 0; i < 34; i++) {
+    const ang = rand(0, Math.PI * 2);
+    G.particles.push({
+      x: p.x, y: p.y,
+      vx: Math.cos(ang) * rand(30, 150), vy: Math.sin(ang) * rand(30, 150) + 40,
+      ttl: rand(0.6, 1.5), grav: 190, size: rand(1.6, 4),
+      color: pick(['#2a2318', '#4a3d28', '#6e6046', '#8a7a5a', '#1a1712']),
+    });
+  }
+  // the wreck comes down south of where it was hit, still travelling
+  const cx = clamp(p.x + p.vx * 0.5, 20, W - 20);
+  const cy = clamp(p.y + p.vy * 0.55, 20, H - 20);
+  explode(cx, cy, 46, 70, true);
+}
+
+// bombers are never seen, only their shadows: a twin-engine silhouette
+// sweeping south across the ground, with the attack radius it will bomb inside
+function drawBomberShadow(p) {
+  const c = ctx;
+  if (p.y < -55) return;
+
+  c.save();
+  c.translate(p.x, p.y);
+  c.rotate(Math.atan2(p.vy, p.vx) - Math.PI / 2);
+
+  // the radius it's hunting inside — faint, so it reads as a threat envelope
+  // rather than a UI element
+  c.strokeStyle = 'rgba(0,0,0,0.13)';
+  c.lineWidth = 1;
+  c.setLineDash([5, 7]);
+  c.beginPath(); c.arc(0, 0, p.attackR, 0, 7); c.stroke();
+  c.setLineDash([]);
+
+  c.fillStyle = 'rgba(0,0,0,0.3)';
+  // fuselage
+  c.beginPath(); c.ellipse(0, 0, 7, 30, 0, 0, 7); c.fill();
+  // wing
+  c.beginPath(); c.ellipse(0, -3, 46, 9, 0, 0, 7); c.fill();
+  // tailplane and fin
+  c.beginPath(); c.ellipse(0, 24, 18, 5, 0, 0, 7); c.fill();
+  // engine nacelles slung under the wing
+  for (const ex of [-20, 20]) {
+    c.beginPath(); c.ellipse(ex, -5, 5, 13, 0, 0, 7); c.fill();
+  }
+  // prop discs
+  c.fillStyle = 'rgba(0,0,0,0.16)';
+  for (const ex of [-20, 20]) {
+    c.beginPath(); c.ellipse(ex, -17, 10, 2.5, 0, 0, 7); c.fill();
+  }
+  c.restore();
+}
+
 function drawPlane(p) {
   const c = ctx;
+  if (p.role === 'bomber') { drawBomberShadow(p); return; }
   const flyby = p.role === 'flyby';
   const facing = flyby ? (p.vx > 0 ? 1 : -1) : 0;
 
@@ -2400,7 +2604,7 @@ function damageUnit(u, dmg, from) {
     } else if (u.t.vehicle) {
       stampJeepWreck(u);
       explode(u.x, u.y, 30, 45, false);
-    } else if (u.t.atgun) {
+    } else if (u.t.gunEmplacement) {
       stampATGunWreck(u);
       explode(u.x, u.y, 26, 35, false);
     } else {
@@ -2568,7 +2772,7 @@ function camoNestAt(u) {
 }
 
 function isCamouflaged(u) {
-  if (u.side !== 'us' || u.dead || u.t.tank || u.t.vehicle || u.t.apc || u.t.bike || u.t.atgun) return false;
+  if (u.side !== 'us' || u.dead || u.t.tank || u.t.vehicle || u.t.apc || u.t.bike || u.t.gunEmplacement) return false;
   if (u.camoExposed > 0) return false;
   return !!camoNestAt(u);
 }
@@ -3144,8 +3348,9 @@ function drawUnitWeaponRange(a, opts) {
   const bearing = opts && opts.bearing != null ? opts.bearing
     : a.turret != null ? a.turret : a.face;
 
-  if (t.atgun) {
-    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, t.atgun.arc + (a.rank || 0) * 0.05236, unitRange(a, t.range) * fog, alpha);
+  const empl = emplacementSpec(t);
+  if (empl) {
+    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, empl.arc + (a.rank || 0) * 0.05236, unitRange(a, t.range) * fog, alpha);
     return;
   }
   if (t.fireCone) {
@@ -3488,10 +3693,15 @@ function updateUnit(u, dt) {
     }
   }
 
-  // the AT gun is staked in: it traverses and shoots, but never moves
+  // the staked guns traverse and shoot, but never move
   if (u.t.atgun) {
     u.moveTo = null;
     updateATGun(u, dt);
+    return;
+  }
+  if (u.t.aagun) {
+    u.moveTo = null;
+    updateAAGun(u, dt);
     return;
   }
 
@@ -3682,7 +3892,7 @@ function updateUnit(u, dt) {
       let worst = null, frac = 1;
       for (const a of G.units) {
         // no field-dressing machines: medics treat men, not metal
-        if (a.dead || a === u || a.t.tank || a.t.vehicle || a.t.atgun || a.hp >= a.maxhp) continue;
+        if (a.dead || a === u || a.t.tank || a.t.vehicle || a.t.gunEmplacement || a.hp >= a.maxhp) continue;
         if (dist(u, a) < MEDIC_RANGE) {
           const f = a.hp / a.maxhp;
           if (f < frac) { frac = f; worst = a; }
@@ -3748,7 +3958,7 @@ function updateEngineer(u, dt) {
   // patched at a crawl.
   let veh = null, vehFrac = 1;
   for (const a of G.units) {
-    if (a.dead || a === u || !(a.t.tank || a.t.vehicle || a.t.atgun) || a.hp >= a.maxhp) continue;
+    if (a.dead || a === u || !(a.t.tank || a.t.vehicle || a.t.gunEmplacement) || a.hp >= a.maxhp) continue;
     if (dist(u, a) > R) continue;
     const f = a.hp / a.maxhp;
     if (f < vehFrac) { vehFrac = f; veh = a; }
@@ -3835,6 +4045,148 @@ function updateATGun(u, dt) {
     target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
     0.45, spec.r, spec.shellDmg * (1 + u.rank * 0.06), false, u);
   u.cd = u.t.rof * (1 - u.rank * 0.08) * rand(0.85, 1.15);
+}
+
+// ---- 40mm anti-aircraft gun: the same staked mount as the 57mm, but the
+// barrels only elevate. It answers to bombers first and to paratroopers still
+// hanging under canopy second, and it cannot touch anything on the ground.
+// Nothing it fires is guaranteed to connect: it throws a fused shell at where
+// it thinks the target will be, and the burst hits whatever is actually there.
+function updateAAGun(u, dt) {
+  const spec = u.t.aagun;
+  const range = unitRange(u, u.t.range) * fogMult();
+  const HOME = -Math.PI / 2;   // staked facing north, where the raids come from
+  const arc = spec.arc + (u.rank || 0) * 0.05236;  // +3° per rank, same as the AT gun
+  const inRange = t => dist(u, t) <= range && inFireCone(u, t, HOME, arc);
+
+  u.cd -= dt;
+
+  // bombers are the reason this gun exists; a descending stick is a target of
+  // opportunity while the raid isn't up
+  let target = null, best = Infinity;
+  for (const p of G.planes) {
+    if (p.done || p.role !== 'bomber') continue;
+    const d = dist(u, p);
+    if (d < best && inRange(p)) { best = d; target = p; }
+  }
+  if (!target) {
+    for (const e of G.enemies) {
+      if (e.dead || !(e.chute > 0)) continue;
+      const d = dist(u, e);
+      if (d < best && inRange(e)) { best = d; target = e; }
+    }
+  }
+
+  if (!target) {
+    // barrels crank back to center
+    u.turret += clamp(angleDiff(HOME, u.turret), -0.9 * dt, 0.9 * dt);
+    u.face = u.turret;
+    return;
+  }
+
+  const want = Math.atan2(target.y - u.y, target.x - u.x);
+  const diff = angleDiff(want, u.turret);
+  // a flak mount traverses faster than an AT gun — it has to
+  u.turret += clamp(diff, -1.5 * dt, 1.5 * dt);
+  u.face = u.turret;
+  if (u.cd > 0 || Math.abs(diff) > 0.2) return;
+
+  fireFlakBurst(u, target, spec, best);
+  u.cd = u.t.rof * (1 - (u.rank || 0) * 0.08) * rand(0.85, 1.15);
+}
+
+function fireFlakBurst(u, target, spec, d) {
+  SFX.boom(false);
+  u.atgunFireT = 0.16;
+  const mx = u.x + Math.cos(u.turret) * 20, my = u.y + Math.sin(u.turret) * 20;
+  G.flashes.push({ x: mx, y: my, r: 7, ttl: 0.07, max: 0.07 });
+
+  // lead the target over the shell's time of flight; a chuted man isn't going
+  // anywhere, a bomber very much is
+  const flight = Math.max(0.12, d / spec.shellSpeed);
+  const tvx = target.vx || 0, tvy = target.vy || 0;
+  // gunnery error grows with range and tightens with rank, but never vanishes
+  const scatter = Math.max(9, (spec.scatter + d * 0.06) * (1 - (u.rank || 0) * 0.08));
+
+  G.flak.push({
+    x: target.x + tvx * flight + rand(-scatter, scatter),
+    y: target.y + tvy * flight + rand(-scatter, scatter),
+    sx: mx, sy: my,
+    timer: flight, dur: flight,
+    hitR: spec.hitR, dmg: spec.planeDmg,
+    by: u, done: false,
+  });
+}
+
+// the fuse runs out and the shell throws a ball of steel wherever it happens
+// to be. Anything airborne inside that ball takes it — including chutes, which
+// ground ordnance passes harmlessly underneath.
+function burstFlak(f) {
+  SFX.boom(false);
+  G.flashes.push({ x: f.x, y: f.y, r: f.hitR * 0.8, ttl: 0.18, max: 0.18 });
+  for (let i = 0; i < 12; i++) {
+    const ang = rand(0, Math.PI * 2);
+    G.particles.push({
+      x: f.x, y: f.y,
+      vx: Math.cos(ang) * rand(20, 90), vy: Math.sin(ang) * rand(20, 90),
+      ttl: rand(0.5, 1.2), grav: 12, size: rand(1.4, 3),
+      color: pick(['#4a4a44', '#6a6a62', '#8c8c84', '#2e2e2a']),
+    });
+  }
+
+  for (const p of G.planes) {
+    if (p.done || p.role !== 'bomber') continue;
+    if (dist(p, f) > f.hitR) continue;
+    p.hp -= f.dmg * rand(0.8, 1.2);
+    for (let i = 0; i < 6; i++) {
+      G.particles.push({
+        x: p.x + rand(-8, 8), y: p.y + rand(-8, 8),
+        vx: rand(-20, 20), vy: rand(-10, 30),
+        ttl: rand(0.4, 0.9), grav: 40, size: rand(1.2, 2.4),
+        color: pick(['#2a2318', '#4a3d28', '#6e6046']),
+      });
+    }
+    if (p.hp <= 0) killBomber(p, f.by);
+  }
+
+  for (const e of G.enemies) {
+    if (e.dead || !(e.chute > 0)) continue;
+    if (dist(e, f) > f.hitR) continue;
+    flakHitChute(e, f.by);
+  }
+}
+
+// a man on silk has nothing to hide behind: a flak burst that finds him is
+// almost always the end of it. This deliberately bypasses damageEnemy's chute
+// guard — AA fire is the only thing on the field allowed through it.
+function flakHitChute(e, by) {
+  // occasionally he only catches a fragment and rides the rest of the way down
+  if (Math.random() < 0.12) {
+    e.hp -= rand(15, 30);
+    bloodSplat(e.x, e.y, 4);
+    if (e.hp > 0) return;
+  }
+  e.hp = 0;
+  e.dead = true;
+  e.chute = 0;   // canopy is gone; stop drawing him as a man still descending
+  if (!isAssaultMode() && G.mode !== 'hitsquad') {
+    G.kills++;
+    earnTP(e.t.reward);
+  }
+  creditKill(by);
+  bloodSplat(e.x, e.y, 10);
+  spawnCorpse(e);
+  // the collapsed canopy drifts down after him
+  for (let i = 0; i < 9; i++) {
+    G.particles.push({
+      x: e.x + rand(-9, 9), y: e.y - rand(4, 16),
+      vx: rand(-22, 22), vy: rand(10, 45),
+      ttl: rand(0.9, 1.8), grav: -6, size: rand(1.8, 3.6),
+      color: pick(['#c9c19a', '#b0a888', '#8a8668']),
+    });
+  }
+  const si = G.selected.indexOf(e);
+  if (si !== -1) G.selected.splice(si, 1);
 }
 
 // ---- shared tank gunnery: both sides alternate the main gun and coaxial MG,
@@ -4054,7 +4406,7 @@ function updateEnemy(e, dt) {
     const rr = rk.range * fogMult();
     const safe = u => dist(e, u) > rk.r + 20;
     rocketTarget = nearestUnitInRange(e, rr, u => u.t.tank && safe(u)) ||
-                   nearestUnitInRange(e, rr, u => (u.t.vehicle || u.t.atgun) && safe(u)) ||
+                   nearestUnitInRange(e, rr, u => (u.t.vehicle || u.t.gunEmplacement) && safe(u)) ||
                    nearestUnitInRange(e, rr, safe);
     if (e.rocketCd <= 0 && rocketTarget) {
       e.rocketCd = rand(rk.cdMin, rk.cdMax);
@@ -4101,7 +4453,7 @@ function updateEnemy(e, dt) {
     // just less interested in them than in armor
     const safe = u => dist(e, u) > vk.r + 60;
     v2Target = nearestUnitInRange(e, vr, u => u.t.tank && safe(u)) ||
-               nearestUnitInRange(e, vr, u => (u.t.vehicle || u.t.atgun) && safe(u)) ||
+               nearestUnitInRange(e, vr, u => (u.t.vehicle || u.t.gunEmplacement) && safe(u)) ||
                nearestUnitInRange(e, vr, u => dist(e, u) > vk.min && safe(u));
     if (e.v2Cd <= 0 && v2Target) {
       e.v2Cd = rand(vk.cdMin, vk.cdMax);
@@ -4144,7 +4496,7 @@ function fireV2Rocket(e, target, vk) {
   const d = dist(e, target);
   let scatter = vk.scatter + d * 0.14;
   if (target.t.tank) scatter *= 0.6;
-  else if (target.t.vehicle || target.t.atgun) scatter *= 0.8;
+  else if (target.t.vehicle || target.t.gunEmplacement) scatter *= 0.8;
   const tx = clamp(target.x + rand(-scatter, scatter), 20, W - 20);
   const ty = clamp(target.y + rand(-scatter, scatter), 20, H - 20);
   const s = scheduleShell(tx, ty, vk.flight, vk.r, vk.dmg, true, e, 'v2');
@@ -4441,7 +4793,16 @@ function update(dt) {
     }
   }
 
-  // friendly aircraft on strafing passes
+  // AA shells running out their fuses on the way up
+  for (const f of G.flak) {
+    f.timer -= dt;
+    if (f.timer <= 0) {
+      f.done = true;
+      burstFlak(f);
+    }
+  }
+
+  // aircraft: friendly strafing passes, transports, and enemy bombers
   for (const p of G.planes) updatePlane(p, dt);
 
   // rockets in flight
@@ -4514,6 +4875,7 @@ function update(dt) {
   compactInPlace(G.grenades, g => !g.done);
   compactInPlace(G.rockets, r => !r.done);
   compactInPlace(G.planes, p => !p.done);
+  compactInPlace(G.flak, f => !f.done);
   compactInPlace(G.particles, p => p.ttl > 0);
   if (G.particles.length > PARTICLE_CAP) G.particles.splice(0, G.particles.length - PARTICLE_CAP);
   compactInPlace(G.tracers, t => t.ttl > 0);
@@ -8238,6 +8600,145 @@ function drawATGun(a) {
   }
 }
 
+// 40mm Bofors on a cruciform outrigger base: four staked legs, a pedestal, and
+// twin barrels that sit high. Seen from above the tubes are foreshortened —
+// they're pointing up at something, not across the field like the 57mm.
+function drawAAGun(a) {
+  const c = ctx;
+  const recoil = a.atgunFireT > 0 ? clamp(a.atgunFireT / 0.16, 0, 1) : 0;
+  const kick = recoil * 4;
+  c.save();
+  c.translate(a.x, a.y);
+
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  c.beginPath(); c.ellipse(0, 5, 18, 12, 0, 0, 7); c.fill();
+
+  // cruciform outriggers stay fixed to the ground; only the mount above rotates
+  c.strokeStyle = '#3d4a34';
+  c.lineWidth = 3;
+  for (const ang of [0.6, 2.54, 3.74, 5.68]) {
+    c.beginPath();
+    c.moveTo(0, 0);
+    c.lineTo(Math.cos(ang) * 17, Math.sin(ang) * 13);
+    c.stroke();
+  }
+  c.fillStyle = '#2f3a29';
+  for (const ang of [0.6, 2.54, 3.74, 5.68]) {
+    const fx2 = Math.cos(ang) * 17, fy2 = Math.sin(ang) * 13;
+    c.beginPath(); c.ellipse(fx2, fy2, 3.4, 2.6, 0, 0, 7); c.fill();
+  }
+
+  c.rotate(a.turret + Math.PI / 2);
+
+  // turntable and pedestal
+  c.fillStyle = '#3a4832';
+  c.beginPath(); c.arc(0, 0, 9.5, 0, 7); c.fill();
+  c.strokeStyle = '#2a3624';
+  c.lineWidth = 1;
+  c.beginPath(); c.arc(0, 0, 9.5, 0, 7); c.stroke();
+
+  // gunner's seats either side of the mount
+  c.fillStyle = '#4a4038';
+  c.beginPath(); c.arc(-8, 5, 2.6, 0, 7); c.fill();
+  c.beginPath(); c.arc(8, 5, 2.6, 0, 7); c.fill();
+
+  // receiver housing
+  c.fillStyle = a.t.color;
+  c.fillRect(-6, -2, 12, 10);
+  c.strokeStyle = '#39462f';
+  c.lineWidth = 1;
+  c.strokeRect(-6, -2, 12, 10);
+
+  // ammo clips standing in the loader's rack
+  c.fillStyle = '#c8a858';
+  c.fillRect(-4.5, 6.5, 2, 4);
+  c.fillRect(-1, 6.5, 2, 4);
+  c.fillRect(2.5, 6.5, 2, 4);
+
+  // twin barrels, elevated: short and stubby from directly overhead
+  const bTop = -15 + kick;
+  c.fillStyle = '#3a3830';
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 0.8;
+  for (const bxo of [-3.2, 3.2]) {
+    c.fillRect(bxo - 1.5, bTop, 3, 16);
+    c.strokeRect(bxo - 1.5, bTop, 3, 16);
+    // flash hider at the muzzle
+    c.fillStyle = '#4a4038';
+    c.fillRect(bxo - 2.1, bTop - 2.5, 4.2, 3);
+    c.fillStyle = '#3a3830';
+  }
+  // barrel clamp
+  c.fillStyle = '#4c5a42';
+  c.fillRect(-6, bTop + 5, 12, 3);
+
+  if (recoil > 0.15) {
+    c.shadowColor = '#ff9040';
+    c.shadowBlur = 9;
+    for (const bxo of [-3.2, 3.2]) {
+      c.fillStyle = `rgba(255,210,130,${recoil * 0.9})`;
+      c.beginPath(); c.arc(bxo, bTop - 3, 3.2 * recoil, 0, 7); c.fill();
+    }
+    c.shadowBlur = 0;
+  }
+
+  c.restore();
+
+  // loader crouched at the rear of the mount, feeding clips
+  const bx = a.x - Math.cos(a.turret) * 13;
+  const by = a.y - Math.sin(a.turret) * 13;
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath(); ctx.ellipse(bx + 1, by + 3, 5, 2.5, a.turret, 0, 7); ctx.fill();
+  ctx.fillStyle = a.t.color;
+  ctx.beginPath(); ctx.ellipse(bx, by, 4.2, 5.2, a.turret, 0, 7); ctx.fill();
+  ctx.fillStyle = '#5b6b4a';
+  ctx.beginPath(); ctx.arc(bx, by - 1, 3.4, 0, 7); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.arc(bx, by - 1, 3.4, 0, 7); ctx.stroke();
+
+  if (a.hp < a.maxhp) {
+    const f = clamp(a.hp / a.maxhp, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(a.x - 14, a.y - 24, 28, 3.5);
+    ctx.fillStyle = '#7ec850';
+    ctx.fillRect(a.x - 14, a.y - 24, 28 * f, 3.5);
+  }
+
+  if (a.rank > 0) {
+    ctx.strokeStyle = '#ffd94a';
+    ctx.lineWidth = 1;
+    let sx = a.x - (a.rank * 5 - 2) / 2;
+    const sy = a.y - 28;
+    for (let i = 0; i < a.rank; i++) {
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + 1.5, sy - 2.5);
+      ctx.lineTo(sx + 3, sy);
+      ctx.stroke();
+      sx += 5;
+    }
+  }
+
+  if (G.selected.includes(a)) {
+    drawUnitWeaponRange(a, { alpha: 0.3 });
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.arc(a.x, a.y, 22, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    if (G.selected.length === 1) {
+      ctx.font = 'bold 10px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' — ' + a.xp + ' KILLS';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillText(label, a.x + 1, a.y + 35);
+      ctx.fillStyle = '#ffe98a';
+      ctx.fillText(label, a.x, a.y + 34);
+    }
+  }
+}
+
 // Meillerwagen-style erector trailer: a flatbed truck (cab, chassis, six
 // wheels) with the A20 raised upright on its cradle at the back — dark olive
 // body, red/white recognition checker under the nose, four tail fins. During
@@ -8857,6 +9358,7 @@ function draw() {
     if (hidden) { ctx.save(); ctx.globalAlpha *= 0.4; }
     if (u.t.tank) drawTank(u);
     else if (u.t.atgun) drawATGun(u);
+    else if (u.t.aagun) drawAAGun(u);
     else if (u.t.vehicle) drawJeep(u);
     else drawSoldier(u);
     if (hidden) ctx.restore();
@@ -8927,6 +9429,21 @@ function draw() {
     ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.fill();
   }
   ctx.globalAlpha = 1;
+
+  // AA shells climbing toward their fuse point
+  for (const f of G.flak) {
+    if (f.done) continue;
+    const prog = clamp(1 - f.timer / f.dur, 0, 1);
+    const x = f.sx + (f.x - f.sx) * prog;
+    const y = f.sy + (f.y - f.sy) * prog;
+    const tailX = f.sx + (f.x - f.sx) * Math.max(0, prog - 0.12);
+    const tailY = f.sy + (f.y - f.sy) * Math.max(0, prog - 0.12);
+    ctx.strokeStyle = 'rgba(255,214,130,0.8)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(tailX, tailY); ctx.lineTo(x, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,240,190,0.95)';
+    ctx.beginPath(); ctx.arc(x, y, 1.6, 0, 7); ctx.fill();
+  }
 
   // aircraft overhead, above every ground effect
   for (const p of G.planes) drawPlane(p);
@@ -9052,6 +9569,7 @@ function withPlacementGhostFilter(valid, drawFn) {
 function drawPlacementActor(a) {
   if (a.t.tank) drawTank(a);
   else if (a.t.atgun) drawATGun(a);
+  else if (a.t.aagun) drawAAGun(a);
   else if (a.t.bike) drawBike(a);
   else if (a.t.apc) drawHalftrack(a);
   else if (a.t.vehicle) drawJeep(a);
@@ -9147,8 +9665,8 @@ function drawPlacementGhost() {
       }
     }
     const ut = UNIT_TYPES[p.key];
-    if (ut && ut.atgun) {
-      drawATGunRangeCone(x, y, -Math.PI / 2, ut.atgun.arc, ut.range * fogMult(), 0.45);
+    if (ut && emplacementSpec(ut)) {
+      drawATGunRangeCone(x, y, -Math.PI / 2, emplacementSpec(ut).arc, ut.range * fogMult(), 0.45);
     } else if (ut && ut.fireCone) {
       drawFireCone(x, y, -Math.PI / 2, ut.fireCone.arc, ut.range * fogMult(), 0.35);
     } else if (ut && ut.flame) {
@@ -9202,7 +9720,7 @@ function portraitMobile() {
 function unitAtWorld(x, y) {
   if (!G || isAssaultMode()) return null;
   for (const u of commandRoster()) {
-    const base = u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14;
+    const base = u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.gunEmplacement ? 18 : 14;
     if (dist(u, { x, y }) < touchHitRadius(base)) return u;
   }
   return null;
@@ -9599,6 +10117,7 @@ const TOOLBAR_CATEGORIES = [
   { id: 'abilities', label: 'ABILITIES', filter: p => p.kind === 'support' },
   { id: 'emplacements', label: 'EMPLACEMENTS', filter: p => p.kind === 'defense' },
   { id: 'germans', label: 'GERMANS', filter: p => p.kind === 'egerman' },
+  { id: 'events', label: 'EVENTS', filter: p => p.kind === 'event' },
 ];
 
 let toolButtons = [];
@@ -9719,7 +10238,9 @@ function renderToolbar() {
       b.className = 'tool-btn';
       b.title = p.desc;
       const key = p.hotkey ? `<span class="key">[${p.hotkey}]</span>` : '';
-      b.innerHTML = `${key}${p.label}<span class="cost">${cost} TP</span>`;
+      // events are free and instant — a "0 TP" tag would just be noise
+      const costTag = p.kind === 'event' ? '' : `<span class="cost">${cost} TP</span>`;
+      b.innerHTML = `${key}${p.label}${costTag}`;
       b.addEventListener('click', () => selectPlaceable(p));
       bar.appendChild(b);
       toolButtons.push({ p, el: b });
@@ -9744,6 +10265,13 @@ function activePlaceables() {
 function selectPlaceable(p) {
   if (!isPlaying()) return;
   if (isAssaultMode() && G.phase !== 'build') { SFX.error(); mobileVibrate(12); return; }
+  // events have no placement step — they fire where they fire, right away
+  if (p.kind === 'event') {
+    SFX.click();
+    if (p.key === 'random') triggerEvent();
+    else runEvent(p.key, G.wave);
+    return;
+  }
   if (!canAffordTP(placeableCost(p))) { SFX.error(); mobileVibrate(12); return; }
   if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); mobileVibrate(12); return; }
   SFX.click();
@@ -9837,7 +10365,7 @@ function placementValid(p, x, y) {
     if (pos.y < minY || pos.y > H - 14 || pos.x < 16 || pos.x > W - 16) return false;
   }
   if (p.kind === 'unit') {
-    const bulk = k => k === 'sherman' ? 34 : k === 'jeep' ? 26 : k === 'atgun' ? 24 : 16;
+    const bulk = k => k === 'sherman' ? 34 : k === 'jeep' ? 26 : (k === 'atgun' || k === 'aagun') ? 24 : 16;
     for (const u of G.units) {
       const gap = Math.max(bulk(p.key), u.t.tank ? 34 : u.t.vehicle ? 26 : 16);
       if (dist(u, { x, y }) < gap) return false;
@@ -9963,7 +10491,7 @@ function handleCanvasTap(shiftKey = false) {
   // select own soldier (vehicles are a bigger click target)
   let picked = null;
   for (const u of commandRoster()) {
-    const base = u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.atgun ? 18 : 14;
+    const base = u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.gunEmplacement ? 18 : 14;
     if (dist(u, { x, y }) < touchHitRadius(base)) { picked = u; break; }
   }
   if (picked) {
@@ -10471,6 +10999,25 @@ function drawCodexSoundIcon(category) {
   }
 }
 
+// stamp a real field-art draw call into the codex tile, centred and scaled to
+// fill it — emplacement entries use the same art the player sees on the field
+function codexStamp(scale, ox, oy, draw) {
+  ctx.save();
+  ctx.translate(CODEX_PW / 2 + ox, CODEX_PH / 2 + oy);
+  ctx.scale(scale, scale);
+  draw();
+  ctx.restore();
+}
+
+// scuffed earth under a dug-in emplacement, so it reads as placed ground
+// rather than floating on the tile background
+function codexGroundPatch(oy, rx, ry) {
+  ctx.fillStyle = '#332f22';
+  ctx.beginPath();
+  ctx.ellipse(CODEX_PW / 2, CODEX_PH / 2 + oy, rx, ry, 0, 0, 7);
+  ctx.fill();
+}
+
 function drawCodexIcon(key) {
   if (SOUND_CATEGORY_BY_KEY[key]) {
     drawCodexSoundIcon(SOUND_CATEGORY_BY_KEY[key]);
@@ -10482,104 +11029,28 @@ function drawCodexIcon(key) {
   c.fillRect(0, 0, CODEX_PW, CODEX_PH);
 
   if (key === 'wire') {
-    c.strokeStyle = '#6b6354';
-    c.lineWidth = 1.5;
-    for (const yy of [-6, 0, 6]) {
-      c.beginPath();
-      c.moveTo(10, cy + yy);
-      for (let x = 10; x <= CODEX_PW - 10; x += 5) {
-        c.lineTo(x, cy + yy + (x / 5 % 2 ? 2 : -2));
-      }
-      c.stroke();
-    }
-    c.strokeStyle = '#4b4438';
-    c.lineWidth = 2;
-    c.beginPath(); c.moveTo(14, cy + 8); c.lineTo(18, cy - 10); c.stroke();
-    c.beginPath(); c.moveTo(CODEX_PW - 14, cy + 8); c.lineTo(CODEX_PW - 18, cy - 10); c.stroke();
+    // two staggered runs of the field wire, the way a belt of it lays out
+    codexStamp(0.88, -2, -12, () => drawWire({ x: 0, y: 0, up: false }));
+    codexStamp(0.88, 2, 12, () => drawWire({ x: 0, y: 0, up: false }));
   } else if (key === 'sandbags') {
-    c.fillStyle = '#6a5a42';
-    for (let row = 0; row < 3; row++) {
-      for (let col = 0; col < 4; col++) {
-        c.fillRect(14 + col * 12 + (row % 2 ? 4 : 0), 46 - row * 12, 11, 9);
-      }
-    }
-    c.strokeStyle = '#4a4030';
-    c.lineWidth = 1;
-    for (let row = 0; row < 3; row++) {
-      for (let col = 0; col < 4; col++) {
-        c.strokeRect(14 + col * 12 + (row % 2 ? 4 : 0), 46 - row * 12, 11, 9);
-      }
-    }
+    codexGroundPatch(10, 30, 8);
+    codexStamp(1.25, 0, 4, () => drawSandbag({ x: 0, y: 0, up: false }));
   } else if (key === 'bunker') {
-    // concrete pillbox, firing slit forward
-    c.fillStyle = '#7f7d72';
-    c.strokeStyle = '#4e4c44';
-    c.lineWidth = 2;
-    c.beginPath();
-    c.moveTo(12, 52);
-    c.lineTo(12, 30);
-    c.quadraticCurveTo(12, 20, 22, 20);
-    c.lineTo(CODEX_PW - 22, 20);
-    c.quadraticCurveTo(CODEX_PW - 12, 20, CODEX_PW - 12, 30);
-    c.lineTo(CODEX_PW - 12, 52);
-    c.closePath();
-    c.fill(); c.stroke();
-    c.fillStyle = '#93917f';
-    c.fillRect(17, 25, CODEX_PW - 34, 8);
-    c.fillStyle = '#1e1c16';
-    c.fillRect(20, 28, CODEX_PW - 40, 5);
+    codexStamp(1.15, 0, 4, () =>
+      drawBunker({ x: 0, y: 0, up: false, hp: BUNKER_HP, maxhp: BUNKER_HP }));
   } else if (key === 'camonest') {
-    // dug-in mound, same footprint as the bunker, screened in foliage
-    c.fillStyle = '#4a5138';
-    c.strokeStyle = '#33392a';
-    c.lineWidth = 2;
-    c.beginPath();
-    c.moveTo(12, 52);
-    c.lineTo(12, 30);
-    c.quadraticCurveTo(12, 20, 22, 20);
-    c.lineTo(CODEX_PW - 22, 20);
-    c.quadraticCurveTo(CODEX_PW - 12, 20, CODEX_PW - 12, 30);
-    c.lineTo(CODEX_PW - 12, 52);
-    c.closePath();
-    c.fill(); c.stroke();
-    c.fillStyle = '#5c6b42';
-    for (const [fx, fy, fr] of [[20, 24, 5], [cx, 20, 6], [CODEX_PW - 20, 25, 5], [16, 40, 4], [CODEX_PW - 16, 40, 4]]) {
-      c.beginPath(); c.arc(fx, fy, fr, 0, 7); c.fill();
-    }
-    c.fillStyle = '#161810';
-    c.fillRect(20, 28, CODEX_PW - 40, 5);
+    codexStamp(1.15, 0, 4, () =>
+      drawCamoNest({ x: 0, y: 0, up: false, hp: CAMONEST_HP, maxhp: CAMONEST_HP }));
   } else if (key === 'watchtower') {
-    // wooden lookout post: crossed legs, a small platform, up top
-    c.strokeStyle = '#6b5a3e';
-    c.lineWidth = 2.2;
-    c.beginPath(); c.moveTo(cx - 16, CODEX_PH - 10); c.lineTo(cx - 6, 18); c.stroke();
-    c.beginPath(); c.moveTo(cx + 16, CODEX_PH - 10); c.lineTo(cx + 6, 18); c.stroke();
-    c.lineWidth = 1.4;
-    for (const yy of [26, 38, 50]) {
-      c.beginPath();
-      c.moveTo(cx - 16 + (CODEX_PH - 10 - yy) * 0.2, yy);
-      c.lineTo(cx + 16 - (CODEX_PH - 10 - yy) * 0.2, yy);
-      c.stroke();
-    }
-    c.fillStyle = '#7a684a';
-    c.fillRect(cx - 13, 14, 26, 6);
-    c.strokeStyle = '#4e4230';
-    c.lineWidth = 1.5;
-    c.strokeRect(cx - 13, 4, 26, 10);
+    codexStamp(2.1, 0, 0, () =>
+      drawWatchtower({ x: 0, y: 0, up: false, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP }));
   } else if (key === 'mine') {
-    c.fillStyle = '#3a3828';
-    c.beginPath(); c.arc(cx, cy + 4, 14, 0, 7); c.fill();
-    c.strokeStyle = '#8a8668';
-    c.lineWidth = 1.2;
-    for (let i = 0; i < 8; i++) {
-      const a = i * Math.PI / 4;
-      c.beginPath();
-      c.moveTo(cx + Math.cos(a) * 10, cy + 4 + Math.sin(a) * 10);
-      c.lineTo(cx + Math.cos(a) * 18, cy + 4 + Math.sin(a) * 18);
-      c.stroke();
+    // the three-mine scatter a single minefield drop actually lays down
+    for (const [mx, my] of [[0, 2], [21, -12], [-21, 16]]) {
+      c.fillStyle = 'rgba(50,46,34,0.55)';
+      c.beginPath(); c.arc(cx + mx, cy + my, 12, 0, 7); c.fill();
+      codexStamp(2.2, mx, my, () => drawMine({ x: 0, y: 0, dead: false }));
     }
-    c.fillStyle = '#ffd94a';
-    c.beginPath(); c.arc(cx, cy + 4, 4, 0, 7); c.fill();
   } else if (key === 'mortar') {
     c.strokeStyle = '#8a8668';
     c.lineWidth = 1.5;
@@ -10615,20 +11086,21 @@ function drawCodexIcon(key) {
     c.strokeStyle = '#26261e';
     c.lineWidth = 2;
     c.beginPath(); c.moveTo(cx, cy + 2); c.lineTo(cx, cy - 18); c.stroke();
-  } else if (key === 'barrage') {
-    c.fillStyle = '#5a5a48';
-    c.beginPath();
-    c.moveTo(cx, 12);
-    c.lineTo(cx + 7, 28);
-    c.lineTo(cx + 3, 28);
-    c.lineTo(cx + 5, CODEX_PH - 12);
-    c.lineTo(cx - 5, CODEX_PH - 12);
-    c.lineTo(cx - 3, 28);
-    c.lineTo(cx - 7, 28);
-    c.closePath();
-    c.fill();
-    c.fillStyle = 'rgba(255,120,40,0.45)';
-    c.beginPath(); c.arc(cx, CODEX_PH - 10, 14, 0, 7); c.fill();
+  } else if (key === 'airraid') {
+    // bomber shadow crossing south, bombs falling away beneath it
+    c.fillStyle = 'rgba(0,0,0,0.42)';
+    c.beginPath(); c.ellipse(cx, cy - 6, 4.5, 17, 0, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(cx, cy - 9, 26, 5.5, 0, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(cx, cy + 8, 10, 3, 0, 0, 7); c.fill();
+    for (const ex of [-12, 12]) {
+      c.beginPath(); c.ellipse(cx + ex, cy - 10, 3, 7.5, 0, 0, 7); c.fill();
+    }
+    c.fillStyle = '#4a4840';
+    for (const [bx, byo] of [[-7, 14], [0, 18], [7, 14]]) {
+      c.beginPath(); c.ellipse(cx + bx, cy + byo, 2, 4, 0, 0, 7); c.fill();
+    }
+    c.fillStyle = 'rgba(255,120,40,0.4)';
+    c.beginPath(); c.arc(cx, CODEX_PH - 8, 12, 0, 7); c.fill();
   } else if (key === 'paradrop') {
     c.strokeStyle = '#c9c19a';
     c.lineWidth = 1.2;
@@ -10727,6 +11199,13 @@ function renderPortrait(typeKey, side) {
       ctx.translate(-CODEX_PW / 2, -(CODEX_PH / 2 + 2));
       drawATGun(actor);
       ctx.restore();
+    } else if (t.aagun) {
+      ctx.save();
+      ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 2);
+      ctx.scale(1.3, 1.3);
+      ctx.translate(-CODEX_PW / 2, -(CODEX_PH / 2 + 2));
+      drawAAGun(actor);
+      ctx.restore();
     } else if (t.v2) {
       // the erector trailer is taller than it is wide (missile raised well
       // above the truck cab), so it needs a smaller scale and a lower pivot
@@ -10756,6 +11235,7 @@ function formatUnitStats(p, ut) {
   if (ut.rocket) parts.push('ROCKET');
   if (ut.mortar) parts.push('MORTAR');
   if (ut.atgun) parts.push('AP SHELL', 'VEHICLES ONLY', 'IMMOBILE');
+  if (ut.aagun) parts.push('FLAK', 'AIRCRAFT ONLY', 'IMMOBILE');
   parts.push(`${p.cost} TP`, `[${p.hotkey}]`);
   return parts.join(' · ');
 }
@@ -11757,7 +12237,7 @@ function startGame(levelId, difficultyId) {
     ? axisPlaceablesForResearch()
     : (level.mode === 'assault' ? (level.placeables || ASSAULT_PLACEABLES)
       : (difficulty && difficulty.testing
-        ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES, ...TESTING_ABILITIES]
+        ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES, ...TESTING_ABILITIES, ...TESTING_EVENTS]
         : level.placeables));
   buildToolbar(placeables);
   el('intro').classList.add('hidden');
@@ -11792,8 +12272,8 @@ function startGame(levelId, difficultyId) {
         : 'Click or drag-select your men, click ground to move them. Kill the marked officer. Right-click / Esc deselects.'
     : difficulty && difficulty.testing
       ? touchUI()
-        ? 'Testing: unlimited TP, no Germans spawn on their own. Open GERMANS to build them for the enemy side.'
-        : 'Testing: unlimited TP, no Germans spawn on their own. Open GERMANS to build them for the enemy side; right-click / Esc cancels placement.'
+        ? 'Testing: unlimited TP, no Germans spawn on their own. Open GERMANS to build them for the enemy side, or EVENTS to summon one on demand.'
+        : 'Testing: unlimited TP, no Germans spawn on their own. Open GERMANS to build them for the enemy side, or EVENTS to summon one on demand; right-click / Esc cancels placement.'
     : difficulty && difficulty.sandbox
       ? touchUI()
         ? 'Sandbox: unlimited TP. Use +1 / +5 / +10 in the HUD to jump ahead in waves.'

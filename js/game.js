@@ -2504,7 +2504,7 @@ function drawUnitWeaponRange(a, opts) {
     : a.turret != null ? a.turret : a.face;
 
   if (t.atgun) {
-    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, t.atgun.arc, unitRange(a, t.range) * fog, alpha);
+    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, t.atgun.arc + (a.rank || 0) * 0.05236, unitRange(a, t.range) * fog, alpha);
     return;
   }
   if (t.fireCone) {
@@ -3049,7 +3049,8 @@ function updateATGun(u, dt) {
   const spec = u.t.atgun;
   const range = unitRange(u, u.t.range) * fogMult();
   const HOME = -Math.PI / 2;   // staked facing the German end of the field
-  const inCone = e => inFireCone(u, e, HOME, spec.arc);
+  const arc = spec.arc + (u.rank || 0) * 0.05236;  // +3° per rank
+  const inCone = e => inFireCone(u, e, HOME, arc);
 
   u.cd -= dt;
 

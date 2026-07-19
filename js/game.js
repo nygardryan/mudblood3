@@ -1540,8 +1540,9 @@ function makeDefender(nation, type, x, y) {
 // wave 90 on) plus the endless-wide 75% cut from the unit-count reduction
 // pass. Campaign levels pay full rate either way. G.tp holds fractions; the
 // HUD floors it.
+const KILL_TP_MULT = 1.15;   // small across-the-board bump to kill bounties
 function earnTP(amount, kind = 'kill') {
-  let mult = 1;
+  let mult = kind === 'kill' ? KILL_TP_MULT : 1;
   if (G.mode === 'endless') {
     if (G.difficulty) mult *= G.difficulty.incomeMult;
     if (kind === 'kill') {

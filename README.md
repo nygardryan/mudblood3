@@ -75,6 +75,9 @@ France, 1944. Pick a mode from the main menu.
 - Open **Units**, **Abilities**, or **Emplacements** on the left toolbar, pick an
   item (each shows its hotkey), then click the field to deploy. Right-click or
   **Esc** cancels placement.
+- **Hover the mouse over any enemy** to read his name, current HP, weapon stats,
+  and what he does — the same blurb the codex carries, without leaving the fight.
+  (Mouse only; there is no hovering on touch.)
 - Press **Esc** or the **PAUSE** button in the HUD to open the pause menu mid-game;
   choose **Resume** to return to the fight. The **speed** button cycles **0.5× / 1×
   / 2× / 3×**. **CODEX** (main menu or pause) lists every unit, defense, enemy, event,

@@ -1295,6 +1295,7 @@ let G = null;         // game state
 let placing = null;   // placeable currently being placed
 let mouse = { x: W / 2, y: H / 2, inside: false };
 let drag = null;      // marquee selection in progress: { x0, y0, x1, y1, active }
+let hoverActor = null; // hostile under the cursor, described in a panel while hovered
 let suppressClick = false; // eat the click that follows a completed drag-select or pointerup action
 let placeTouch = null;  // touch placement drag: { active, moved, startX, startY }
 let viewPan = null;     // one-finger camera pan on mobile
@@ -9516,6 +9517,7 @@ function drawDefenses() {
 }
 
 function draw() {
+  hoverActor = findHoverActor();
   ctx.save();
   if (viewTransformActive()) {
     const s = viewScale();
@@ -9720,7 +9722,11 @@ function draw() {
   drawMoveCursorPreview();
   drawPlacementGhost();
   drawDragBox();
+  drawHoverHighlight();
   ctx.restore();
+
+  // the info panel sits in screen pixels so it stays legible under camera zoom
+  drawHoverPanel();
 }
 
 // pulsing ring around whatever the tutorial wants clicked next
@@ -9737,6 +9743,141 @@ function drawTutorialHighlights() {
   ctx.beginPath();
   ctx.arc(target.x, target.y, pulse, 0, 7);
   ctx.stroke();
+}
+
+// ============================================================ hover inspector
+// Point at anything hostile and get its name, condition, and the same blurb the
+// codex carries — without leaving the fight. Mouse only; there is no hovering
+// on touch.
+const HOVER_PANEL_W = 196;
+const HOVER_PAD = 7;
+
+// whoever is shooting at the player: he runs the attackers (G.enemies) in the
+// assault campaigns and in hit-squad, and the defenders (G.units) in endless
+function hostileRoster() {
+  if (!G) return [];
+  return (isAssaultMode() || G.mode === 'hitsquad') ? G.units : G.enemies;
+}
+
+// same click targets selection uses — vehicles and tanks are bigger
+function actorHitRadius(a) {
+  return a.t.tank ? 26 : a.t.vehicle ? 20 : a.t.gunEmplacement ? 18 : 14;
+}
+
+function findHoverActor() {
+  if (!G || !mouse.inside || placing || touchUI()) return null;
+  if (drag && drag.active) return null;
+  let best = null, bestD = Infinity;
+  for (const a of hostileRoster()) {
+    if (a.dead) continue;
+    const d = dist(a, mouse);
+    if (d < actorHitRadius(a) && d < bestD) { best = a; bestD = d; }
+  }
+  return best;
+}
+
+function hoverStats(a) {
+  const t = a.t;
+  const parts = [`${Math.max(0, Math.ceil(a.hp))}/${a.maxhp} HP`];
+  if (t.shellDmg) parts.push(`${t.shellDmg} SHELL`);
+  else if (t.dmg > 0) parts.push(`${t.dmg} DMG`);
+  if (t.range > 0) parts.push(`${Math.round(t.range)} RNG`);
+  if (t.flame) parts.push('FLAME');
+  if (t.grenade) parts.push('GRENADES');
+  if (t.rocket) parts.push('ROCKET');
+  if (t.mortar) parts.push('MORTAR');
+  if (t.v2) parts.push('V2 ROCKET');
+  if (t.atgun) parts.push('AP SHELL');
+  if (t.aagun) parts.push('FLAK');
+  if (t.tank) parts.push(t.heavy ? 'HEAVY ARMOR' : 'ARMOR');
+  else if (t.vehicle) parts.push('VEHICLE');
+  if (t.aura) parts.push('AURA');
+  if (t.fixed) parts.push('IMMOBILE');
+  if (t.reward) parts.push(`+${t.reward} TP`);
+  return parts;
+}
+
+// greedy wrap of `parts` into lines, against whatever font is set on ctx. Stats
+// pass their segments so a line never breaks inside one ("+4" / "TP"); prose
+// passes its words.
+function wrapCanvasText(parts, maxW, sep = ' ') {
+  const lines = [];
+  let line = '';
+  for (const part of parts) {
+    if (!part) continue;
+    const next = line ? line + sep + part : part;
+    if (line && ctx.measureText(next).width > maxW) { lines.push(line); line = part; }
+    else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+// dashed reticle on the man under the cursor, drawn in world space
+function drawHoverHighlight() {
+  if (!hoverActor) return;
+  ctx.strokeStyle = 'rgba(255,217,74,0.5)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 4]);
+  ctx.beginPath();
+  ctx.arc(hoverActor.x, hoverActor.y, actorHitRadius(hoverActor) - 2, 0, 7);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawHoverPanel() {
+  const a = hoverActor;
+  if (!a) return;
+  const desc = a.t.desc || ENEMY_INFO[a.type] || '';
+  const innerW = HOVER_PANEL_W - HOVER_PAD * 2;
+
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  ctx.font = '8px "Courier New", monospace';
+  const statLines = wrapCanvasText(hoverStats(a), innerW, ' · ');
+  ctx.font = '9px "Courier New", monospace';
+  const descLines = desc ? wrapCanvasText(desc.split(/\s+/), innerW) : [];
+
+  const h = HOVER_PAD * 2 + 11 + statLines.length * 10
+    + (descLines.length ? 4 + descLines.length * 11 : 0);
+
+  // the actor's position in canvas pixels — draw() has already unwound its
+  // camera transform by the time we get here
+  const s = viewTransformActive() ? viewScale() : 1;
+  const px = viewTransformActive() ? (a.x - viewCam.x) * s : a.x;
+  const py = viewTransformActive() ? (a.y - viewCam.y) * s : a.y;
+
+  let x = px + 18;
+  if (x + HOVER_PANEL_W > canvas.width - 4) x = px - 18 - HOVER_PANEL_W;
+  x = clamp(x, 4, Math.max(4, canvas.width - HOVER_PANEL_W - 4));
+  const y = clamp(py - h / 2, 4, Math.max(4, canvas.height - h - 4));
+
+  ctx.fillStyle = 'rgba(20,20,12,0.94)';
+  ctx.fillRect(x, y, HOVER_PANEL_W, h);
+  ctx.strokeStyle = '#4a4836';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, HOVER_PANEL_W - 1, h - 1);
+
+  let ty = y + HOVER_PAD;
+  ctx.font = 'bold 10px "Courier New", monospace';
+  ctx.fillStyle = '#ffd94a';
+  ctx.fillText((a.t.name || a.type).toUpperCase(), x + HOVER_PAD, ty);
+  ty += 11;
+
+  ctx.font = '8px "Courier New", monospace';
+  ctx.fillStyle = '#8a8668';
+  for (const l of statLines) { ctx.fillText(l, x + HOVER_PAD, ty); ty += 10; }
+
+  if (descLines.length) {
+    ty += 4;
+    ctx.font = '9px "Courier New", monospace';
+    ctx.fillStyle = '#d8d2b8';
+    for (const l of descLines) { ctx.fillText(l, x + HOVER_PAD, ty); ty += 11; }
+  }
+  ctx.restore();
 }
 
 function drawDragBox() {

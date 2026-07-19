@@ -86,10 +86,10 @@ const UNIT_TYPES = {
     desc: 'Nearby men fire faster and straighter. Earns +1 TP / 30 s.',
   },
   flamer: {
-    name: 'Flamethrower', hp: 130, range: 130, dmg: 0, acc: 0,
+    name: 'Flamethrower', hp: 130, range: 117, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, speed: 38,
     color: '#4f5c3a', gun: 8, sfx: 'rifle',
-    flame: { range: 130, arc: 0.45, dps: 38 },
+    flame: { range: 117, arc: 0.45, dps: 38 },
     blastResist: 0.5, rankHealMult: 3,
     desc: 'M2 flamethrower and flak vest. Burns everything in the cone — friend or foe.',
   },

@@ -3019,6 +3019,31 @@ function drawSpecialistRange(a) {
   drawSpecialistRangeAt(a.x, a.y, a.type, a.side);
 }
 
+// dashed area-of-effect indicator for defense-kind placement ghosts —
+// cover radius for bunker/sandbags, blast radius for mines, slow zone for wire
+function drawDefenseRangeIndicator(key, x, y) {
+  if (key === 'bunker' || key === 'sandbags') {
+    const r = key === 'bunker' ? 36 : 32;
+    ctx.strokeStyle = 'rgba(120,175,235,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (key === 'mine') {
+    ctx.strokeStyle = 'rgba(220,90,50,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.arc(x, y, 44, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (key === 'wire') {
+    ctx.strokeStyle = 'rgba(220,190,90,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(x - 40, y - 14, 80, 28);
+    ctx.setLineDash([]);
+  }
+}
+
 // one tick of flame from `actor` toward its facing: burns EVERYTHING in the
 // cone regardless of side — that's the deal you make with a flamethrower
 function flameSpray(actor, dt) {
@@ -8443,6 +8468,7 @@ function drawPlacementGhost() {
         drawPlacementUnitGhost(p, pos.x, pos.y, valid);
       } else if (p.kind === 'defense') {
         drawPlacementDefenseGhost(p.key, pos.x, pos.y, valid);
+        drawDefenseRangeIndicator(p.key, pos.x, pos.y);
       }
     }
     const ut = UNIT_TYPES[p.key];

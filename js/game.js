@@ -367,7 +367,7 @@ const PLACEABLES = [
     desc: 'Willys jeep with a .50 cal HMG, firing on the move. Unarmored — medics can\'t touch it, but an engineer can patch it, slowly. Ranking up makes him faster and deadlier, though he needs more kills per promotion than the infantry.' },
   { key: 'sherman', label: 'SHERMAN', cost: 60, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon on a rotating turret; shrugs off small arms. Medics cannot repair it, but an engineer can, slowly. Ranking up takes many kills, but sharpens his aim and speeds up reloads on both the cannon and the coaxial MG.' },
-  { key: 'atgun', label: 'AT GUN', cost: 30, kind: 'unit', hotkey: 'P',
+  { key: 'atgun', label: 'AT GUN', cost: 25, kind: 'unit', hotkey: 'P',
     desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor. An engineer can patch it, slowly. Ranking up widens its firing arc, speeds up reloads, and hits harder.' },
   { key: 'aagun', label: 'AA GUN', cost: 20, kind: 'unit', hotkey: 'V',
     desc: '40mm Bofors flak gun. Cannot move; its barrels only elevate, so it ignores everything on the ground. Shoots down bombers during air raids and kills paratroopers still under canopy. Flak bursts are far from precise. An engineer can patch it, slowly. Ranking up widens its firing arc, speeds up reloads, and tightens its aim.' },
@@ -2068,7 +2068,7 @@ function raidForWave(w) {
     bombsMin: 2,
     bombsMax: t < 0.5 ? 3 : 4,              // late raids drop the full stick
     r: Math.round(42 + t * 16),             // blast radius
-    dmg: Math.round(70 + t * 60),           // bombs bite much harder later
+    dmg: Math.round(70 + t * 30),           // bombs bite much harder later
     hp: Math.round(65 + t * 65),            // airframe toughness vs. flak
     attackR: Math.round(120 + t * 34),      // how far off the flight path they'll bomb
     big: w >= 36,
@@ -4238,6 +4238,8 @@ function flakHitChute(e, by) {
 // ---- shared tank gunnery: both sides alternate the main gun and coaxial MG,
 // and keep shooting while the hull is moving
 
+const TANK_SWAP_RELOAD = 2.0; // seconds between the cannon and the coax
+
 function tankTargets(a) {
   const fog = fogMult();
   const cannonRange = unitRange(a, a.t.range) * fog;
@@ -4256,6 +4258,12 @@ function tankTargets(a) {
     cannon: nearestUnitInRange(a, cannonRange, inCone),
     mg: nearestUnitInRange(a, mgRange, u2 => !u2.t.tank && inCone(u2)),
   };
+}
+
+// one fixed beat between the two weapons: whatever just fired, the crew needs
+// two seconds before the other one speaks. A veteran Sherman crew shaves it.
+function tankReload(a) {
+  return TANK_SWAP_RELOAD * (1 - (a.rank || 0) * 0.08);
 }
 
 function updateTankCombat(a, dt) {
@@ -4280,31 +4288,36 @@ function updateTankCombat(a, dt) {
       a.burstTimer = mgSpec.burstGap;
       if (a.burstLeft <= 0) {
         a.wpn = 'cannon';
-        a.cd = Math.max(1.2, a.t.rof - 2.3) * (1 - (a.rank || 0) * 0.08) * rand(0.85, 1.15);
+        a.cd = tankReload(a);
       }
     }
     return;
   }
 
   const targets = tankTargets(a);
-  // nothing for the weapon whose turn it is: hand over to the other one
-  if (!targets[a.wpn]) {
+  // nothing for the weapon whose turn it is: the other one may take the shot,
+  // but only once the swap reload has run out — the turn never gets skipped
+  // early, so the tank can't lean on the cannon alone
+  if (!targets[a.wpn] && a.cd <= 0) {
     const other = a.wpn === 'cannon' ? 'mg' : 'cannon';
-    if (targets[other]) { a.wpn = other; a.cd = Math.max(a.cd, 0.4); }
+    if (targets[other]) a.wpn = other;
   }
   const target = targets[a.wpn];
+  // mid-reload the turret still follows whatever is out there, so the swap
+  // isn't spent traversing from the parked heading
+  const aim = target || targets[a.wpn === 'cannon' ? 'mg' : 'cannon'];
 
-  if (!target) {
+  if (!aim) {
     // park the turret facing the enemy side of the field
     const home = a.side === 'us' ? -Math.PI / 2 : Math.PI / 2;
     a.turret += clamp(angleDiff(home, a.turret), -TURRET_HOME * dt, TURRET_HOME * dt);
     return;
   }
 
-  const want = Math.atan2(target.y - a.y, target.x - a.x);
+  const want = Math.atan2(aim.y - a.y, aim.x - a.x);
   const diff = angleDiff(want, a.turret);
   a.turret += clamp(diff, -TURRET_TRACK * dt, TURRET_TRACK * dt);
-  if (a.cd > 0 || Math.abs(diff) > 0.15) return;
+  if (!target || a.cd > 0 || Math.abs(diff) > 0.15) return;
 
   if (a.wpn === 'cannon') {
     SFX.boom(false);
@@ -4318,8 +4331,7 @@ function updateTankCombat(a, dt) {
     scheduleShell(target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
       0.7, 45, a.t.shellDmg * (1 + (a.rank || 0) * 0.06), false, a);
     a.wpn = 'mg';
-    // a veteran crew works the reload faster
-    a.cd = 1.5 * (1 - (a.rank || 0) * 0.08) * rand(0.85, 1.15);
+    a.cd = tankReload(a);
   } else {
     a.burstLeft = mgSpec.burst;
     a.burstTimer = 0;

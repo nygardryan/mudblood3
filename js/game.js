@@ -19,6 +19,10 @@ const OFFICER_AURA = 130;
 const WATCHTOWER_AURA = 30;
 const WATCHTOWER_RANGE_MULT = 1.25;
 const WATCHTOWER_RANGE_MULT_UPGRADED = 1.35;
+const CAMONEST_ZONE = 36;               // same footprint as a bunker's cover radius
+const CAMONEST_REVEAL = 4;              // seconds targetable after a shot, unfortified
+const CAMONEST_REVEAL_FORTIFIED = 2;
+const CAMONEST_EXPLOSIVE_MULT = 1.2;    // weak to explosives — no reduction like a bunker's concrete
 
 const UNIT_TYPES = {
   rifleman: {
@@ -71,7 +75,7 @@ const UNIT_TYPES = {
     name: 'Medic', hp: 90, range: 140, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, speed: 46,
     color: '#60744f', gun: 5, sfx: 'pistol',
-    desc: 'Patches up nearby wounded. Carries a sidearm.',
+    desc: 'Patches up the most wounded man in range, faster with rank. Carries a sidearm.',
   },
   engineer: {
     name: 'Engineer', hp: 95, range: 110, dmg: 7, acc: 0.45,
@@ -83,7 +87,7 @@ const UNIT_TYPES = {
     name: 'Officer', hp: 95, range: 150, dmg: 9, acc: 0.5,
     rof: 0.9, burst: 1, burstGap: 0, speed: 44,
     color: '#6b6d44', gun: 5, sfx: 'pistol',
-    desc: 'Nearby men fire faster and straighter. Earns +1 TP / 30 s.',
+    desc: 'Nearby men fire faster and straighter, more so as he ranks up. Earns +1 TP / 30 s.',
   },
   flamer: {
     name: 'Flamethrower', hp: 130, range: 117, dmg: 0, acc: 0,
@@ -100,10 +104,10 @@ const UNIT_TYPES = {
     desc: 'Willys jeep, pintle-mounted .50 cal. Fast and hard-hitting, but unarmored.',
   },
   sherman: {
-    name: 'Sherman', hp: 1000, range: 600, dmg: 0, acc: 0,
+    name: 'Sherman', hp: 1000, range: 340, dmg: 0, acc: 0,
     rof: 4.0, burst: 1, burstGap: 0, speed: 14, shellDmg: 80,
     color: '#4a5a3f', gun: 0, sfx: 'boom', tank: true,
-    fireCone: { arc: 0.25 },
+    fireCone: { arc: 0.275 },
     mg: { range: 240, dmg: 8, acc: 0.45, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
     desc: 'M4 Sherman. 75mm cannon on a rotating turret and thick armor. Medics can\'t fix steel.',
   },
@@ -300,11 +304,11 @@ const PLACEABLES = [
   { key: 'sniper', label: 'SNIPER', cost: 10, kind: 'unit', hotkey: '4',
     desc: 'Sees the whole field. Hunts officers, snipers and MGs.' },
   { key: 'medic', label: 'MEDIC', cost: 12, kind: 'unit', hotkey: '5',
-    desc: 'Heals nearby soldiers over time.' },
+    desc: 'Sidearm only, no real firepower. Automatically treats the most wounded man within 95px, and heals faster the more rank he earns. Can\'t patch vehicles, guns, or fortifications — and enemy snipers hunt him first.' },
   { key: 'engineer', label: 'ENGINEER', cost: 14, kind: 'unit', hotkey: 'E',
     desc: 'Repairs fortifications; fortifies nearby emplacements (better stats). SMG for close range only.' },
   { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
-    desc: 'Buffs nearby men. Generates +1 TP every 30 s.' },
+    desc: 'Sidearm only. Every soldier within 130px fires faster and straighter, and the bonus sharpens further as the officer himself ranks up. Generates +1 TP every 30 s while alive — a high-value target enemy snipers will prioritize.' },
   { key: 'flamer', label: 'FLAMER', cost: 7, kind: 'unit', hotkey: 'F',
     desc: 'M2 flamethrower and flak vest. Devastating cone of fire that burns friend and foe alike.' },
   { key: 'jeep', label: 'JEEP', cost: 30, kind: 'unit', hotkey: 'J',
@@ -321,6 +325,8 @@ const PLACEABLES = [
     desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },
   { key: 'watchtower', label: 'WATCH TOWER', cost: 12, kind: 'defense', hotkey: 'W',
     desc: 'Wooden lookout post. Extends the range of nearby soldiers by 25%, or 35% once an engineer fortifies it. Mortars ignore it — they already fire blind. Frail; falls fast under fire.' },
+  { key: 'camonest', label: 'CAMO NEST', cost: 8, kind: 'defense', hotkey: 'C',
+    desc: 'Concealed position, same footprint as a bunker. Soldiers inside are invisible to the Germans until they fire, then stay exposed for 4 s after the last shot (2 s once an engineer fortifies it, which also doubles its HP). No dodge bonus, and weak to explosives — 2 grenades will crack it open.' },
   { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
     desc: 'Cluster of 3 anti-personnel mines. Hurts tanks too. Germans can\'t see them.' },
   { key: 'mortar', label: 'MORTAR STRIKE', cost: 8, kind: 'support', hotkey: '0',
@@ -455,6 +461,7 @@ function axisWavePayout(level, wave) {
 const SANDBAG_HP = 660;
 const BUNKER_HP = 2040;
 const WATCHTOWER_HP = 500;
+const CAMONEST_HP = 140;
 function usBag(G, x, y, hp = SANDBAG_HP)    { G.sandbags.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 function usBunker(G, x, y, hp = BUNKER_HP){ G.bunkers.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 function usWire(G, x, y, hp = 3750)  { G.wires.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
@@ -1285,6 +1292,7 @@ function newGame(level, difficulty) {
     wires: [],
     mines: [],
     watchtowers: [],
+    camoNests: [],
     shells: [],      // incoming ordnance {x,y,timer,r,dmg,big}
     grenades: [],    // thrown grenades in flight
     rockets: [],     // bazooka rockets in flight
@@ -2021,6 +2029,10 @@ function explode(x, y, r, dmg, big, by) {
   for (const wt of G.watchtowers) {
     if (dist(wt, { x, y }) < r) wt.hp -= dmg * 0.8;
   }
+  for (const cn of G.camoNests) {
+    // no concrete to absorb it — brush and dugout timber crack fast
+    if (dist(cn, { x, y }) < r) cn.hp -= dmg * CAMONEST_EXPLOSIVE_MULT;
+  }
   for (const wr of G.wires) {
     if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;
   }
@@ -2402,10 +2414,33 @@ function coverBlock(target) {
   return false;
 }
 
+// camo nest: allied infantry standing in its zone are invisible to enemy
+// targeting until they open fire, then stay exposed for a few seconds after
+// their last shot. Vehicles and fixed guns are too big to hide in one.
+function camoNestAt(u) {
+  for (const cn of G.camoNests) {
+    if (cn.hp > 0 && dist(cn, u) < CAMONEST_ZONE) return cn;
+  }
+  return null;
+}
+
+function isCamouflaged(u) {
+  if (u.side !== 'us' || u.dead || u.t.tank || u.t.vehicle || u.t.apc || u.t.bike || u.t.atgun) return false;
+  if (u.camoExposed > 0) return false;
+  return !!camoNestAt(u);
+}
+
+function markCamoFired(u) {
+  if (u.side !== 'us') return;
+  const cn = camoNestAt(u);
+  if (cn) u.camoExposed = cn.up ? CAMONEST_REVEAL_FORTIFIED : CAMONEST_REVEAL;
+}
+
 function fireShot(shooter, target, opts) {
   // opts.weapon substitutes different gun stats (e.g. a tank's coaxial MG)
   const t = (opts && opts.weapon) || shooter.t;
   shooter.face = Math.atan2(target.y - shooter.y, target.x - shooter.x);
+  markCamoFired(shooter);
   const mx = shooter.x + Math.cos(shooter.face) * (t.gun + 3);
   const my = shooter.y + Math.sin(shooter.face) * (t.gun + 3);
   SFX[t.sfx]();
@@ -3055,9 +3090,9 @@ function drawSpecialistRange(a) {
 // dashed area-of-effect indicator for defense-kind placement ghosts —
 // cover radius for bunker/sandbags, blast radius for mines, slow zone for wire
 function drawDefenseRangeIndicator(key, x, y) {
-  if (key === 'bunker' || key === 'sandbags') {
-    const r = key === 'bunker' ? 36 : 32;
-    ctx.strokeStyle = 'rgba(120,175,235,0.5)';
+  if (key === 'bunker' || key === 'sandbags' || key === 'camonest') {
+    const r = key === 'sandbags' ? 32 : CAMONEST_ZONE;
+    ctx.strokeStyle = key === 'camonest' ? 'rgba(150,190,110,0.5)' : 'rgba(120,175,235,0.5)';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 4]);
     ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
@@ -3086,6 +3121,7 @@ function flameSpray(actor, dt) {
   const range = unitRange(actor, fl.range);
 
   actor.flameT = 0.15;
+  markCamoFired(actor);
   actor.flameSfx = (actor.flameSfx || 0) - dt;
   if (actor.flameSfx <= 0) { actor.flameSfx = 0.4; SFX.flame(); }
 
@@ -3149,6 +3185,7 @@ function fireShotgun(actor, buffs) {
   const my = actor.y + Math.sin(actor.face) * (actor.t.gun + 2);
 
   SFX.shotgun();
+  markCamoFired(actor);
   actor.shotgunBlastT = 0.12;
   G.flashes.push({ x: mx, y: my, r: 10, ttl: 0.08, max: 0.08 });
   const spreadMult = Math.max(0.4, 1 - (actor.rank || 0) * 0.08);
@@ -3181,7 +3218,7 @@ function fireShotgun(actor, buffs) {
   // attackers (side 'de') hose defenders in G.units; friendlies hose G.enemies
   const foes = actor.side === 'de' ? G.units : G.enemies;
   for (const e of foes) {
-    if (e.dead || e.y < 0 || e.chute > 0) continue;
+    if (e.dead || e.y < 0 || e.chute > 0 || isCamouflaged(e)) continue;
     const d = dist(actor, e);
     if (d > range + 8) continue;
     const ang = Math.atan2(e.y - actor.y, e.x - actor.x);
@@ -3218,7 +3255,7 @@ function friendlyNearPoint(x, y, r, except) {
 function nearestUnitInRange(e, range, pred) {
   let best = null, bd = range;
   for (const u of G.units) {
-    if (u.dead) continue;
+    if (u.dead || isCamouflaged(u)) continue;
     if (pred && !pred(u)) continue;
     const d = dist(e, u);
     if (d < bd) { bd = d; best = u; }
@@ -3404,6 +3441,7 @@ function updateUnit(u, dt) {
         // Veterans throw more often, tighter and harder.
         u.grenCd = rand(9.6, 13.9) * (1 - u.rank * 0.08);
         u.grenThrowT = 0.35;
+        markCamoFired(u);
         SFX.grenadeToss();
         const sc = 12 * (1 - u.rank * 0.08);
         G.grenades.push({
@@ -3432,6 +3470,7 @@ function updateUnit(u, dt) {
         // a veteran crew reloads faster and walks his shots in
         u.rocketCd = rand(rk.cdMin, rk.cdMax) * (1 - u.rank * 0.08);
         u.face = Math.atan2(rt.y - u.y, rt.x - u.x);
+        markCamoFired(u);
         SFX.rocket();
         // rockets scatter badly with distance; a tank is a big, slow target
         const d = dist(u, rt);
@@ -3460,6 +3499,7 @@ function updateUnit(u, dt) {
         u.mortCd = rand(mt.cdMin, mt.cdMax) * (1 - u.rank * 0.08);
         u.face = Math.atan2(target.y - u.y, target.x - u.x);
         u.mortarFireT = 0.18;
+        markCamoFired(u);
         G.flashes.push({ x: u.x, y: u.y - 6, r: 5, ttl: 0.07, max: 0.07 });
         const sc = mt.scatter * (1 - u.rank * 0.08);
         scheduleShell(target.x + rand(-sc, sc), target.y + rand(-sc, sc),
@@ -3521,7 +3561,7 @@ function updateEngineer(u, dt) {
 
   // 1) restack damaged sandbags / patch bunker concrete / restring damaged wire / brace the watch tower
   let emp = null, empFrac = 1;
-  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires, ...G.watchtowers]) {
+  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires, ...G.watchtowers, ...G.camoNests]) {
     if (s.hp >= s.maxhp || dist(u, s) > R) continue;
     const f = s.hp / s.maxhp;
     if (f < empFrac) { empFrac = f; emp = s; }
@@ -3536,7 +3576,7 @@ function updateEngineer(u, dt) {
 
   // 2) fortify the nearest intact, un-upgraded emplacement (~6 s of work)
   let target = null, td = R;
-  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires, ...G.watchtowers]) {
+  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires, ...G.watchtowers, ...G.camoNests]) {
     if (s.up) continue;
     const d = dist(u, s);
     if (d < td) { td = d; target = s; }
@@ -3546,7 +3586,8 @@ function updateEngineer(u, dt) {
     sparks(target.x, target.y);
     if (target.workProg >= 6) {
       target.up = true;
-      target.maxhp = Math.round(target.maxhp * 1.5);
+      // camo nests get double HP once fortified; everything else gets 1.5x
+      target.maxhp = Math.round(target.maxhp * (target.fortifyMult || 1.5));
       target.hp = target.maxhp;
       gainXP(u); gainXP(u); // a fortification is worth two points of pride
       G.texts.push({ x: target.x, y: target.y - 16, text: 'FORTIFIED', ttl: 2.2 });
@@ -4131,6 +4172,7 @@ function update(dt) {
   for (const u of G.units) if (!u.dead && u.atgunFireT > 0) u.atgunFireT -= dt;
   for (const u of G.units) if (!u.dead && u.mortarFireT > 0) u.mortarFireT -= dt;
   for (const e of G.enemies) if (!e.dead && e.mortarFireT > 0) e.mortarFireT -= dt;
+  for (const u of G.units) if (!u.dead && u.camoExposed > 0) u.camoExposed -= dt;
 
   // mines
   for (const m of G.mines) {
@@ -4218,6 +4260,7 @@ function update(dt) {
   compactDefenses(G.sandbags, stampSandbagRubble);
   compactDefenses(G.bunkers, stampBunkerRubble);
   compactDefenses(G.watchtowers, stampWatchtowerRubble);
+  compactDefenses(G.camoNests, stampCamoNestRubble);
   compactInPlace(G.wires, w => w.hp > 0);
   compactInPlace(G.mines, m => !m.dead);
   compactInPlace(G.shells, s => !s.done);
@@ -4268,6 +4311,20 @@ function stampWatchtowerRubble(t) {
     gctx.moveTo(t.x, t.y);
     gctx.lineTo(t.x + Math.cos(a) * len, t.y + Math.sin(a) * len * 0.5);
     gctx.stroke();
+  }
+}
+
+function stampCamoNestRubble(cn) {
+  // scorched brush and torn netting
+  gctx.fillStyle = 'rgba(45,42,30,0.55)';
+  gctx.beginPath();
+  gctx.ellipse(cn.x, cn.y, 24, 11, 0, 0, 7);
+  gctx.fill();
+  gctx.fillStyle = 'rgba(70,60,40,0.5)';
+  for (let i = 0; i < 5; i++) {
+    gctx.beginPath();
+    gctx.ellipse(cn.x + rand(-18, 18), cn.y + rand(-8, 8), rand(3, 6), rand(2, 4), rand(0, 3), 0, 7);
+    gctx.fill();
   }
 }
 
@@ -8230,11 +8287,74 @@ function drawWatchtower(t) {
   ctx.restore();
 }
 
+function drawCamoNest(cn) {
+  ctx.save();
+  ctx.translate(cn.x, cn.y);
+  // drop shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath(); ctx.ellipse(0, 5, 30, 11, 0, 0, 7); ctx.fill();
+  // dug-in earthwork, same footprint as the bunker slab
+  ctx.fillStyle = '#4a5138';
+  ctx.strokeStyle = '#33392a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-28, 8);
+  ctx.lineTo(-28, -6);
+  ctx.quadraticCurveTo(-28, -14, -18, -14);
+  ctx.lineTo(18, -14);
+  ctx.quadraticCurveTo(28, -14, 28, -6);
+  ctx.lineTo(28, 8);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // scrim netting lattice over the top
+  ctx.strokeStyle = 'rgba(60,68,42,0.7)';
+  ctx.lineWidth = 1;
+  for (let i = -20; i <= 20; i += 8) {
+    ctx.beginPath(); ctx.moveTo(i, -13); ctx.lineTo(i + 10, 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i, 7); ctx.lineTo(i + 10, -13); ctx.stroke();
+  }
+  // foliage tufts break up the outline
+  ctx.fillStyle = '#5c6b42';
+  for (const [fx, fy, fr] of [[-20, -12, 5], [-4, -15, 6], [12, -13, 5], [22, -8, 4], [-24, 2, 4], [24, 3, 4]]) {
+    ctx.beginPath(); ctx.arc(fx, fy, fr, 0, 7); ctx.fill();
+  }
+  // fortified nests dig in deeper: a denser net weave and thicker brush
+  if (cn.up) {
+    ctx.strokeStyle = 'rgba(40,48,28,0.75)';
+    ctx.lineWidth = 1;
+    for (let i = -22; i <= 22; i += 5) {
+      ctx.beginPath(); ctx.moveTo(i, -13); ctx.lineTo(i + 6, 7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(i, 7); ctx.lineTo(i + 6, -13); ctx.stroke();
+    }
+    ctx.fillStyle = '#465a34';
+    for (const [fx, fy, fr] of [[-14, -16, 5], [4, -17, 5], [18, -14, 4], [-26, -4, 4], [26, -3, 4]]) {
+      ctx.beginPath(); ctx.arc(fx, fy, fr, 0, 7); ctx.fill();
+    }
+  }
+  // firing slit, screened by brush
+  ctx.fillStyle = '#161810';
+  ctx.fillRect(-16, -9, 32, 4);
+  // battle damage: the earthworks crack and the brush burns off
+  const f = cn.hp / cn.maxhp;
+  if (f < 0.66) {
+    ctx.strokeStyle = 'rgba(20,18,12,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-12, -14); ctx.lineTo(-8, -4); ctx.lineTo(-11, 4); ctx.stroke();
+  }
+  if (f < 0.33) {
+    ctx.strokeStyle = 'rgba(20,18,12,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(14, -14); ctx.lineTo(10, -2); ctx.lineTo(16, 6); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawDefenses() {
   for (const wr of G.wires) drawWire(wr);
   for (const s of G.sandbags) drawSandbag(s);
   for (const b of G.bunkers) drawBunker(b);
   for (const t of G.watchtowers) drawWatchtower(t);
+  for (const cn of G.camoNests) drawCamoNest(cn);
   for (const m of G.mines) drawMine(m);
 }
 
@@ -8305,10 +8425,13 @@ function draw() {
     else drawSoldier(e);
   }
   for (const u of G.units) {
+    const hidden = isCamouflaged(u);
+    if (hidden) { ctx.save(); ctx.globalAlpha *= 0.4; }
     if (u.t.tank) drawTank(u);
     else if (u.t.atgun) drawATGun(u);
     else if (u.t.vehicle) drawJeep(u);
     else drawSoldier(u);
+    if (hidden) ctx.restore();
   }
 
   for (const e of G.enemies) {
@@ -8523,6 +8646,7 @@ function drawPlacementDefenseGhost(key, x, y, valid) {
     else if (key === 'sandbags') drawSandbag({ x, y, up: false });
     else if (key === 'bunker') drawBunker({ x, y, up: false, hp: BUNKER_HP, maxhp: BUNKER_HP });
     else if (key === 'watchtower') drawWatchtower({ x, y, up: false, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP });
+    else if (key === 'camonest') drawCamoNest({ x, y, up: false, hp: CAMONEST_HP, maxhp: CAMONEST_HP });
     else if (key === 'mine') drawMine({ x, y, dead: false });
   });
 }
@@ -9320,6 +9444,8 @@ function place(p, x, y) {
     G.bunkers.push({ x, y, hp: BUNKER_HP, maxhp: BUNKER_HP, up: false, workProg: 0 });
   } else if (p.key === 'watchtower') {
     G.watchtowers.push({ x, y, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP, up: false, workProg: 0 });
+  } else if (p.key === 'camonest') {
+    G.camoNests.push({ x, y, hp: CAMONEST_HP, maxhp: CAMONEST_HP, up: false, workProg: 0, fortifyMult: 2 });
   } else if (p.key === 'wire') {
     G.wires.push({ x, y, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
   } else if (p.key === 'mine') {
@@ -9928,6 +10054,44 @@ function drawCodexIcon(key) {
     c.fillRect(17, 25, CODEX_PW - 34, 8);
     c.fillStyle = '#1e1c16';
     c.fillRect(20, 28, CODEX_PW - 40, 5);
+  } else if (key === 'camonest') {
+    // dug-in mound, same footprint as the bunker, screened in foliage
+    c.fillStyle = '#4a5138';
+    c.strokeStyle = '#33392a';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(12, 52);
+    c.lineTo(12, 30);
+    c.quadraticCurveTo(12, 20, 22, 20);
+    c.lineTo(CODEX_PW - 22, 20);
+    c.quadraticCurveTo(CODEX_PW - 12, 20, CODEX_PW - 12, 30);
+    c.lineTo(CODEX_PW - 12, 52);
+    c.closePath();
+    c.fill(); c.stroke();
+    c.fillStyle = '#5c6b42';
+    for (const [fx, fy, fr] of [[20, 24, 5], [cx, 20, 6], [CODEX_PW - 20, 25, 5], [16, 40, 4], [CODEX_PW - 16, 40, 4]]) {
+      c.beginPath(); c.arc(fx, fy, fr, 0, 7); c.fill();
+    }
+    c.fillStyle = '#161810';
+    c.fillRect(20, 28, CODEX_PW - 40, 5);
+  } else if (key === 'watchtower') {
+    // wooden lookout post: crossed legs, a small platform, up top
+    c.strokeStyle = '#6b5a3e';
+    c.lineWidth = 2.2;
+    c.beginPath(); c.moveTo(cx - 16, CODEX_PH - 10); c.lineTo(cx - 6, 18); c.stroke();
+    c.beginPath(); c.moveTo(cx + 16, CODEX_PH - 10); c.lineTo(cx + 6, 18); c.stroke();
+    c.lineWidth = 1.4;
+    for (const yy of [26, 38, 50]) {
+      c.beginPath();
+      c.moveTo(cx - 16 + (CODEX_PH - 10 - yy) * 0.2, yy);
+      c.lineTo(cx + 16 - (CODEX_PH - 10 - yy) * 0.2, yy);
+      c.stroke();
+    }
+    c.fillStyle = '#7a684a';
+    c.fillRect(cx - 13, 14, 26, 6);
+    c.strokeStyle = '#4e4230';
+    c.lineWidth = 1.5;
+    c.strokeRect(cx - 13, 4, 26, 10);
   } else if (key === 'mine') {
     c.fillStyle = '#3a3828';
     c.beginPath(); c.arc(cx, cy + 4, 14, 0, 7); c.fill();
@@ -10043,7 +10207,7 @@ function renderPortrait(typeKey, side) {
   ctx = pc.getContext('2d');
   G = { selected: [] };
 
-  const defenseKeys = ['wire', 'sandbags', 'bunker', 'mine', 'mortar', 'artillery'];
+  const defenseKeys = ['wire', 'sandbags', 'bunker', 'watchtower', 'camonest', 'mine', 'mortar', 'artillery'];
   const eventKeys = EVENT_INFO.map(e => e.key);
   const soundKeys = SOUND_INFO.map(s => s.key);
   if (defenseKeys.includes(typeKey) || eventKeys.includes(typeKey) || soundKeys.includes(typeKey)) {

@@ -67,7 +67,7 @@ const UNIT_TYPES = {
     desc: 'M1A1 rocket launcher. The answer to armor.',
   },
   mortarman: {
-    name: 'Mortarman', hp: 90, range: 80, dmg: 8, acc: 0.47,
+    name: 'Mortarman', hp: 90, range: 88, dmg: 8, acc: 0.47,
     rof: 1.0, burst: 1, burstGap: 0, speed: 38,
     color: '#4c5a3f', gun: 5, sfx: 'pistol',
     mortar: { range: 348, min: 118, cdMin: 9, cdMax: 12, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
@@ -124,7 +124,7 @@ const UNIT_TYPES = {
     name: 'AT Gun', hp: 200, range: 519, dmg: 0, acc: 0,
     rof: 8.8, burst: 1, burstGap: 0, speed: 0,
     color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true, gunEmplacement: true,
-    atgun: { arc: 0.338, shellDmg: 403, r: 27, scatterMult: 1.196 },
+    atgun: { arc: 0.338, shellDmg: 403, r: 27, scatterMult: 1.100 },
     desc: '57mm anti-tank gun. Immobile; direct-fire AP shells ruin any vehicle they find.',
   },
   aagun: {
@@ -367,7 +367,7 @@ const PLACEABLES = [
     desc: 'Willys jeep with a .50 cal HMG, firing on the move. Unarmored — medics can\'t touch it, but an engineer can patch it, slowly. Ranking up makes him faster and deadlier, though he needs more kills per promotion than the infantry.' },
   { key: 'sherman', label: 'SHERMAN', cost: 60, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon on a rotating turret; shrugs off small arms. Medics cannot repair it, but an engineer can, slowly. Ranking up takes many kills, but sharpens his aim and speeds up reloads on both the cannon and the coaxial MG.' },
-  { key: 'atgun', label: 'AT GUN', cost: 22, kind: 'unit', hotkey: 'P',
+  { key: 'atgun', label: 'AT GUN', cost: 20, kind: 'unit', hotkey: 'P',
     desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor. An engineer can patch it, slowly. Ranking up widens its firing arc, speeds up reloads, and hits harder.' },
   { key: 'aagun', label: 'AA GUN', cost: 20, kind: 'unit', hotkey: 'V',
     desc: '40mm Bofors flak gun. Cannot move; its barrels only elevate, so it ignores everything on the ground. Shoots down bombers during air raids and kills paratroopers still under canopy. Flak bursts are far from precise. An engineer can patch it, slowly. Ranking up widens its firing arc, speeds up reloads, and tightens its aim.' },

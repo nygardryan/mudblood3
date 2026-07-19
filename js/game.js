@@ -25,7 +25,7 @@ const UNIT_TYPES = {
     desc: 'M1 Garand. The backbone of your line.',
   },
   gunner: {
-    name: 'Gunner', hp: 100, range: 297, dmg: 9, acc: 0.32,
+    name: 'Gunner', hp: 100, range: 267, dmg: 9, acc: 0.32,
     rof: 1.36, burst: 6, burstGap: 0.09, speed: 36,
     color: '#3d5236', gun: 10, sfx: 'mg',
     desc: 'BAR automatic rifle. Suppressive bursts.',
@@ -41,7 +41,7 @@ const UNIT_TYPES = {
     name: 'Shotgunner', hp: 145, range: 0, dmg: 0, acc: 0,
     rof: 1.5, burst: 1, burstGap: 0, speed: 34,
     color: '#424f38', gun: 9, sfx: 'shotgun',
-    shotgun: { range: 130, arc: 0.52, pellets: 8, dmg: 11, spread: 0.45 },
+    shotgun: { range: 143, arc: 0.52, pellets: 8, dmg: 11, spread: 0.45 },
     desc: 'M97 trench gun and steel plate. Buckshot shreds clusters up close.',
   },
   bazooka: {
@@ -106,7 +106,7 @@ const UNIT_TYPES = {
   },
   atgun: {
     // trails are staked into the ground: it traverses inside its cone but never moves
-    name: 'AT Gun', hp: 200, range: 1080, dmg: 0, acc: 0,
+    name: 'AT Gun', hp: 200, range: 918, dmg: 0, acc: 0,
     rof: 8, burst: 1, burstGap: 0, speed: 0,
     color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true,
     atgun: { arc: 0.6, shellDmg: 403, r: 27, scatterMult: 1.3 },
@@ -330,11 +330,11 @@ const PLACEABLES = [
 // costs mirror the closest allied PLACEABLES counterpart (rifleman, gunner,
 // grenadier, shotgunner, sniper, flamer, officer, jeep, sherman, artillery).
 const AXIS_PLACEABLES = [
-  { key: 'erifle', label: 'RIFLEMAN', cost: 3, kind: 'eunit', hotkey: '1',
+  { key: 'erifle', label: 'RIFLEMAN', cost: 4, kind: 'eunit', hotkey: '1',
     desc: 'Wehrmacht rifleman. Slow, steady, expendable.' },
-  { key: 'esmg', label: 'STORMTROOP', cost: 3, kind: 'eunit', hotkey: '2',
+  { key: 'esmg', label: 'STORMTROOP', cost: 4, kind: 'eunit', hotkey: '2',
     desc: 'MP40 assault trooper. Fast mover, deadly up close.' },
-  { key: 'egren', label: 'GRENADIER', cost: 8, kind: 'eunit', hotkey: '3',
+  { key: 'egren', label: 'GRENADIER', cost: 10, kind: 'eunit', hotkey: '3',
     desc: 'Carries stick grenades into the fray. Blast ignores friend and foe.' },
   { key: 'emg', label: 'MG42 TEAM', cost: 9, kind: 'eunit', hotkey: '4',
     desc: 'MG42 gunner. Pins the Americans down from long range.' },
@@ -1175,12 +1175,21 @@ let viewPan = null;     // one-finger camera pan on mobile
 let placeHoldTimer = null;
 let mobileToolbarMinimized = false;
 let lastTap = { t: 0, x: 0, y: 0 };
+let lastUnitClick = { t: 0, type: null };
+let longPressTimer = null;
+let longPressing = false;
 let viewCam = { x: 0, y: 0, zoom: 1 };
 let viewDirty = false;
 let viewGesture = null;   // two-finger pinch/pan snapshot
 const activePointers = new Map();
 const VIEW_ZOOM_MAX_MUL = 2.5;
 let lastCoverZoom = null;
+
+function clearLongPress() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  longPressing = false;
+}
+
 let running = false;
 let paused = false;
 let gameSpeed = 1;
@@ -2925,7 +2934,7 @@ function drawUnitWeaponRange(a, opts) {
     : a.turret != null ? a.turret : a.face;
 
   if (t.atgun) {
-    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, t.atgun.arc, unitRange(a, t.range) * fog, alpha);
+    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, t.atgun.arc + (a.rank || 0) * 0.05236, unitRange(a, t.range) * fog, alpha);
     return;
   }
   if (t.fireCone) {
@@ -2937,7 +2946,7 @@ function drawUnitWeaponRange(a, opts) {
     return;
   }
   if (t.shotgun) {
-    drawBuckshotCone(a.x, a.y, bearing, t.shotgun.arc, unitRange(a, t.shotgun.range) * fog, alpha);
+    drawBuckshotCone(a.x, a.y, bearing, t.shotgun.arc * Math.max(0.4, 1 - (a.rank || 0) * 0.08), unitRange(a, t.shotgun.range) * fog, alpha);
     return;
   }
   if (t.mortar) {
@@ -3082,8 +3091,9 @@ function fireShotgun(actor, buffs) {
   SFX.shotgun();
   actor.shotgunBlastT = 0.12;
   G.flashes.push({ x: mx, y: my, r: 10, ttl: 0.08, max: 0.08 });
+  const spreadMult = Math.max(0.4, 1 - (actor.rank || 0) * 0.08);
   for (let i = 0; i < sg.pellets; i++) {
-    const a = actor.face + rand(-sg.spread, sg.spread);
+    const a = actor.face + rand(-sg.spread * spreadMult, sg.spread * spreadMult);
     const d = rand(25, range);
     G.tracers.push({
       x1: mx, y1: my,
@@ -3092,7 +3102,7 @@ function fireShotgun(actor, buffs) {
     });
   }
   for (let i = 0; i < 5; i++) {
-    const a = actor.face + rand(-sg.spread * 0.6, sg.spread * 0.6);
+    const a = actor.face + rand(-sg.spread * 0.6 * spreadMult, sg.spread * 0.6 * spreadMult);
     const ttl = rand(0.08, 0.2);
     G.particles.push({
       x: mx + Math.cos(a) * rand(4, 14), y: my + Math.sin(a) * rand(4, 14),
@@ -3312,7 +3322,7 @@ function updateUnit(u, dt) {
     u.grenCd -= dt;
     if (u.grenCd <= 0) {
       // never inside his own blast, never onto a danger-close buddy
-      const gt = nearestEnemyInRange(u, 200 * fogMult(), e => dist(u, e) > 60);
+      const gt = nearestEnemyInRange(u, 200 * (1 + (u.rank || 0) * 0.10) * fogMult(), e => dist(u, e) > 60);
       if (gt && !friendlyNearPoint(gt.x, gt.y, 55, u)) {
         // grenades are a rare, heavy punch — the carbine does the daily work.
         // Veterans throw more often, tighter and harder.
@@ -3474,7 +3484,8 @@ function updateATGun(u, dt) {
   const spec = u.t.atgun;
   const range = unitRange(u, u.t.range) * fogMult();
   const HOME = -Math.PI / 2;   // staked facing the German end of the field
-  const inCone = e => inFireCone(u, e, HOME, spec.arc);
+  const arc = spec.arc + (u.rank || 0) * 0.05236;  // +3° per rank
+  const inCone = e => inFireCone(u, e, HOME, arc);
 
   u.cd -= dt;
 
@@ -9213,7 +9224,14 @@ function handleCanvasTap(shiftKey = false) {
       if (si !== -1) G.selected.splice(si, 1);
       else G.selected.push(picked);
     } else {
-      G.selected = [picked];
+      // double-click on same unit type → select all of that type
+      const now = performance.now();
+      if (now - lastUnitClick.t < 400 && lastUnitClick.type === picked.type) {
+        G.selected = commandRoster().filter(u => !u.dead && u.type === picked.type);
+      } else {
+        G.selected = [picked];
+      }
+      lastUnitClick = { t: now, type: picked.type };
     }
     SFX.click();
     mobileVibrate(5);
@@ -9228,6 +9246,7 @@ function handleCanvasTap(shiftKey = false) {
     return;
   }
   G.selected = [];
+  lastUnitClick = { t: 0, type: null };
   syncSelectionMobile();
 }
 
@@ -9269,6 +9288,19 @@ canvas.addEventListener('pointerdown', e => {
 
   if (!isPlaying() || isAssaultMode()) return;
   drag = { x0: mouse.x, y0: mouse.y, x1: mouse.x, y1: mouse.y, active: false };
+
+  // long-press on mobile → clear selection, enter multi-select drag mode
+  if (touchUI() && !placing) {
+    clearLongPress();
+    longPressTimer = setTimeout(() => {
+      if (placing) return;
+      G.selected = [];
+      longPressing = true;
+      clearViewPan();
+      syncSelectionMobile();
+      mobileVibrate(10);
+    }, 350);
+  }
 });
 
 canvas.addEventListener('pointermove', e => {
@@ -9300,14 +9332,17 @@ canvas.addEventListener('pointermove', e => {
   }
 
   if (viewPan && mobileViewActive() && activePointers.size === 1) {
-    if (!viewPan.active) {
-      const moved = Math.hypot(e.clientX - viewPan.clientX0, e.clientY - viewPan.clientY0);
-      if (moved > tapSlop()) {
-        if (!unitAtWorld(viewPan.worldX0, viewPan.worldY0)) {
-          viewPan.active = true;
-          drag = null;
-        } else {
-          clearViewPan();
+    // long-pressing → skip view pan, let drag marquee work instead
+    if (!longPressing) {
+      if (!viewPan.active) {
+        const moved = Math.hypot(e.clientX - viewPan.clientX0, e.clientY - viewPan.clientY0);
+        if (moved > tapSlop()) {
+          if (!unitAtWorld(viewPan.worldX0, viewPan.worldY0)) {
+            viewPan.active = true;
+            drag = null;
+          } else {
+            clearViewPan();
+          }
         }
       }
     }
@@ -9315,6 +9350,11 @@ canvas.addEventListener('pointermove', e => {
       applyViewPan(e.clientX, e.clientY);
       return;
     }
+  }
+
+  // cancel long-press timer if user started dragging before timer fired
+  if (longPressTimer && drag && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > tapSlop()) {
+    clearLongPress();
   }
 
   if (placeTouch?.active) {
@@ -9331,6 +9371,8 @@ canvas.addEventListener('pointerup', e => {
   if (e.button !== 0) return;
   activePointers.delete(e.pointerId);
   clearPlaceHold();
+  // ensure the long-press timer doesn't fire after release
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 
   if (viewGesture?.active) {
     if (activePointers.size < 2) viewGesture = null;
@@ -9393,12 +9435,29 @@ canvas.addEventListener('pointerup', e => {
     drag = null;
   }
 
+  // long-press held without dragging → suppress the tap (already deselected)
+  if (longPressing) {
+    suppressClick = true;
+    longPressing = false;
+  }
+
   if (!suppressClick && isPlaying() && !placing) {
     if (mobileViewActive() && !viewPan?.active && !(drag && drag.active)) {
       const now = performance.now();
       const dt = now - lastTap.t;
       const dd = Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y);
       if (dt < 320 && dd < 28) {
+        // double-tap on a unit → select all of same type instead of zooming
+        const hit = unitAtWorld(mouse.x, mouse.y);
+        if (hit && !hit.dead) {
+          G.selected = commandRoster().filter(u => !u.dead && u.type === hit.type);
+          SFX.click();
+          mobileVibrate(5);
+          syncSelectionMobile();
+          suppressClick = true;
+          lastTap.t = 0;
+          return;
+        }
         toggleZoomAt(mouse.x, mouse.y);
         suppressClick = true;
         lastTap.t = 0;
@@ -9417,6 +9476,7 @@ canvas.addEventListener('pointercancel', e => {
   if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
   clearPlaceHold();
   clearViewPan();
+  clearLongPress();
   placeTouch = null;
   drag = null;
   mouse.inside = false;

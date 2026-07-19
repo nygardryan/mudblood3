@@ -2220,7 +2220,7 @@ function explode(x, y, r, dmg, big, by) {
     let hd = hitArea(u);
     if (hd > 0) {
       if (u.t.tank) {
-        if (blastArmorMult != null) hd *= blastArmorMult;
+        hd *= blastArmorMult != null ? blastArmorMult : 2.2;
       } else if ((u.t.vehicle || u.t.apc) && blastArmorMult != null) {
         hd *= blastArmorMult;
       } else if (u.t.blastResist) hd *= (1 - u.t.blastResist);
@@ -2618,7 +2618,7 @@ function stampWreck(e) {
 
 function damageUnit(u, dmg, from) {
   u.hp -= dmg;
-  if (u.t.tank || u.t.vehicle) {
+  if (u.t.tank || u.t.vehicle || u.t.gunEmplacement) {
     G.particles.push({
       x: u.x + rand(-10, 10), y: u.y + rand(-10, 10), vx: 0, vy: -20,
       ttl: 0.4, grav: 0, size: 2, color: '#c8b872',
@@ -3510,7 +3510,9 @@ function drawDefenseRangeIndicator(key, x, y) {
 // cone regardless of side — that's the deal you make with a flamethrower
 function flameSpray(actor, dt) {
   const fl = actor.t.flame;
-  const range = unitRange(actor, fl.range);
+  // fog shortens the stream the same way it shortens acquisition and the
+  // drawn cone — otherwise men burn out past where the flame is rendered
+  const range = unitRange(actor, fl.range) * fogMult();
 
   actor.flameT = 0.15;
   markCamoFired(actor);
@@ -4399,8 +4401,9 @@ function updateEnemy(e, dt) {
   }
 
   if (e.t.flame) {
-    const ft = nearestUnitInRange(e, unitRange(e, e.t.flame.range));
+    const ft = nearestUnitInRange(e, unitRange(e, e.t.flame.range) * fogMult());
     if (ft) {
+      rollEnemyPushUrge(e, ft, dt, command);
       e.face = Math.atan2(ft.y - e.y, ft.x - e.x);
       flameSpray(e, dt);
     } else if (!command) {
@@ -4412,7 +4415,10 @@ function updateEnemy(e, dt) {
   if (e.t.shotgun) {
     const sg = e.t.shotgun;
     const st = nearestUnitInRange(e, unitRange(e, sg.range) * fogMult());
-    if (st) e.face = Math.atan2(st.y - e.y, st.x - e.x);
+    if (st) {
+      rollEnemyPushUrge(e, st, dt, command);
+      e.face = Math.atan2(st.y - e.y, st.x - e.x);
+    }
     e.cd -= dt;
     if (st && e.cd <= 0) {
       fireShotgun(e, { rofMult: 1, accBonus: 0, dmgMult: 1 });

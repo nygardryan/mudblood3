@@ -395,9 +395,14 @@ const AXIS_PLACEABLES = [
 // confined to the axis campaign's top deploy strip. No hotkeys — this list
 // is merged onto the endless toolbar alongside PLACEABLES, and reusing
 // those hotkeys would just shadow the US units that already claim them.
-const TESTING_GERMAN_PLACEABLES = AXIS_PLACEABLES
-  .filter(p => p.kind === 'eunit')
-  .map(p => ({ ...p, kind: 'egerman', hotkey: '' }));
+const TESTING_GERMAN_PLACEABLES = [
+  ...AXIS_PLACEABLES.filter(p => p.kind === 'eunit').map(p => ({ ...p, kind: 'egerman', hotkey: '' })),
+  // ev2 never appears on the axis campaign roster — it's an endless-only
+  // set piece that otherwise doesn't show up until wave 140. Testing mode
+  // is exactly where you'd want to drop one in on demand.
+  { key: 'ev2', label: 'V2 BATTERY', cost: 100, kind: 'egerman', hotkey: '',
+    desc: 'A20 rocket battery. Normally locked behind wave 140 in endless — testing mode lets you place one immediately.' },
+];
 
 // allied assault toolbar: US attackers deploy in the top strip, then assault south.
 const ASSAULT_PLACEABLES = [

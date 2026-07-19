@@ -3796,7 +3796,7 @@ function updateATGun(u, dt) {
   // armor is the priority; soft vehicles after. Infantry is not this gun's job.
   const target =
     nearestEnemyInRange(u, range, e => e.t.tank && inCone(e)) ||
-    nearestEnemyInRange(u, range, e => (e.t.vehicle || e.t.bike) && inCone(e));
+    nearestEnemyInRange(u, range, e => (e.t.vehicle || e.t.bike || e.t.v2) && inCone(e));
 
   if (!target) {
     // crank the tube back to center

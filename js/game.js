@@ -41,7 +41,7 @@ const UNIT_TYPES = {
     name: 'Shotgunner', hp: 145, range: 0, dmg: 0, acc: 0,
     rof: 1.5, burst: 1, burstGap: 0, speed: 34,
     color: '#424f38', gun: 9, sfx: 'shotgun',
-    shotgun: { range: 130, arc: 0.52, pellets: 8, dmg: 11, spread: 0.45 },
+    shotgun: { range: 143, arc: 0.52, pellets: 8, dmg: 11, spread: 0.45 },
     desc: 'M97 trench gun and steel plate. Buckshot shreds clusters up close.',
   },
   bazooka: {
@@ -2661,8 +2661,9 @@ function fireShotgun(actor, buffs) {
   SFX.shotgun();
   actor.shotgunBlastT = 0.12;
   G.flashes.push({ x: mx, y: my, r: 10, ttl: 0.08, max: 0.08 });
+  const spreadMult = Math.max(0.4, 1 - (actor.rank || 0) * 0.08);
   for (let i = 0; i < sg.pellets; i++) {
-    const a = actor.face + rand(-sg.spread, sg.spread);
+    const a = actor.face + rand(-sg.spread * spreadMult, sg.spread * spreadMult);
     const d = rand(25, range);
     G.tracers.push({
       x1: mx, y1: my,
@@ -2671,7 +2672,7 @@ function fireShotgun(actor, buffs) {
     });
   }
   for (let i = 0; i < 5; i++) {
-    const a = actor.face + rand(-sg.spread * 0.6, sg.spread * 0.6);
+    const a = actor.face + rand(-sg.spread * 0.6 * spreadMult, sg.spread * 0.6 * spreadMult);
     const ttl = rand(0.08, 0.2);
     G.particles.push({
       x: mx + Math.cos(a) * rand(4, 14), y: my + Math.sin(a) * rand(4, 14),

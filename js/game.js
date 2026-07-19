@@ -17,6 +17,7 @@ const MEDIC_RANGE = 95;
 const ENGINEER_RANGE = 95;
 const OFFICER_AURA = 130;
 const WATCHTOWER_AURA = 30;
+const RANKUP_RADIUS = 140;  // testing-mode-only field-promotion ability
 const WATCHTOWER_RANGE_MULT = 1.25;
 const WATCHTOWER_RANGE_MULT_UPGRADED = 1.35;
 const CAMONEST_ZONE = 36;               // same footprint as a bunker's cover radius
@@ -402,6 +403,13 @@ const TESTING_GERMAN_PLACEABLES = [
   // is exactly where you'd want to drop one in on demand.
   { key: 'ev2', label: 'V2 BATTERY', cost: 100, kind: 'egerman', hotkey: '',
     desc: 'A20 rocket battery. Normally locked behind wave 140 in endless — testing mode lets you place one immediately.' },
+];
+
+// testing-mode-only ability: an instant field promotion for every unit —
+// American and German alike — caught inside the blast-style radius.
+const TESTING_ABILITIES = [
+  { key: 'rankup', label: 'RANK UP', cost: 10, kind: 'support', hotkey: '',
+    desc: 'Instantly promotes every unit — American and German alike — within a wide radius by one rank. Testing mode only.' },
 ];
 
 // allied assault toolbar: US attackers deploy in the top strip, then assault south.
@@ -2400,6 +2408,23 @@ function gainXP(u) {
     u.hp = Math.min(u.maxhp, u.hp + heal);   // a promotion is good for morale
     G.texts.push({ x: u.x, y: u.y - 22, text: 'PROMOTED: ' + next.name, ttl: 2.4 });
   }
+}
+
+// testing-mode RANK UP ability: promotes a unit by exactly one grade,
+// regardless of side. Germans are never given xp/rank fields on spawn (they
+// don't earn kills), so those default to 0 the first time one is touched
+// here — same as a fresh US recruit.
+function rankUpUnit(u) {
+  u.rank = u.rank || 0;
+  u.xp = u.xp || 0;
+  const next = RANKS[u.rank + 1];
+  if (!next) return;
+  u.rank++;
+  const rankMult = u.t.tank ? 5 : (u.t.rankMult || 1);
+  u.xp = Math.max(u.xp, next.kills * rankMult);
+  const heal = 15 * (u.t.rankHealMult || 1);
+  u.hp = Math.min(u.maxhp, u.hp + heal);
+  G.texts.push({ x: u.x, y: u.y - 22, text: 'PROMOTED: ' + next.name, ttl: 2.4 });
 }
 
 function creditKill(u) {
@@ -9025,9 +9050,9 @@ function drawPlacementGhost() {
   ctx.globalAlpha = 0.55;
 
   if (p.kind === 'support') {
-    ctx.strokeStyle = valid ? '#ffd94a' : '#d04030';
+    ctx.strokeStyle = valid ? (p.key === 'rankup' ? '#7fe0a0' : '#ffd94a') : '#d04030';
     ctx.lineWidth = 1.5;
-    const r = p.key === 'artillery' ? 95 : p.key === 'ebarrage' ? 85 : 55;
+    const r = p.key === 'artillery' ? 95 : p.key === 'ebarrage' ? 85 : p.key === 'rankup' ? RANKUP_RADIUS : 55;
     ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y);
@@ -9842,6 +9867,11 @@ function place(p, x, y) {
     showBanner('105mm BARRAGE INBOUND');
     for (let i = 0; i < 16; i++) {
       scheduleShell(x + rand(-90, 90), y + rand(-70, 70), 1.6 + i * 0.45, 55, 105, true);
+    }
+  } else if (p.key === 'rankup') {
+    showBanner('FIELD PROMOTIONS');
+    for (const a of [...G.units, ...G.enemies]) {
+      if (!a.dead && dist(a, { x, y }) < RANKUP_RADIUS) rankUpUnit(a);
     }
   }
   // keep placing defenses if affordable; supports are one-shot
@@ -11514,7 +11544,9 @@ function startGame(levelId, difficultyId) {
   const placeables = level.mode === 'axis'
     ? axisPlaceablesForResearch()
     : (level.mode === 'assault' ? (level.placeables || ASSAULT_PLACEABLES)
-      : (difficulty && difficulty.testing ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES] : level.placeables));
+      : (difficulty && difficulty.testing
+        ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES, ...TESTING_ABILITIES]
+        : level.placeables));
   buildToolbar(placeables);
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');

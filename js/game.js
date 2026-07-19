@@ -10063,6 +10063,11 @@ function syncSelectionMobile() {
   } else if (!G?.selected.length && !placing) {
     mobileToolbarMinimized = false;
   }
+  // the collapsed-for-selection bar has different contents, so it needs a
+  // rebuild rather than just a visibility pass
+  if (toolbarSelectionCollapsed() !== toolbarCollapsedForSelection) {
+    renderToolbar();
+  }
   syncMobileChrome();
   syncToolbarVisibility();
 }
@@ -10330,13 +10335,18 @@ function syncToolbarLayout() {
     bar.style.bottom = '0';
     bar.style.left = '0';
     bar.style.right = '0';
+    bar.style.maxHeight = '';
     return;
   }
-  bar.style.bottom = touchUI() ? '22px' : '28px';
   bar.style.left = touchUI() ? '3px' : '4px';
   bar.style.right = 'auto';
   // #hud is offset 6px from the stage top; keep a small gap below the wrapped HUD rows
-  bar.style.top = (6 + hudEl.offsetHeight + 6) + 'px';
+  const top = 6 + hudEl.offsetHeight + 6;
+  bar.style.top = top + 'px';
+  // shrink-wrap to the buttons instead of spanning to the bottom edge — the empty
+  // column below the last button would otherwise swallow clicks meant for the map
+  bar.style.bottom = 'auto';
+  bar.style.maxHeight = `calc(100% - ${top + (touchUI() ? 22 : 28)}px)`;
 }
 
 const hud = { tp: el('tp'), waveBox: el('wavebox'), kills: el('kills'), breachBox: el('breachbox') };
@@ -10364,6 +10374,11 @@ function updateHUD() {
     hud.waveBox.textContent = 'WAVE ' + G.wave;
     hud.breachBox.textContent = 'BREACH ' + G.breaches + '/' + G.level.breachLimit;
   }
+
+  // selection also empties without a click — a selected man dying splices
+  // himself out — so reconcile the collapsed bar here rather than only in the
+  // input handlers
+  if (toolbarSelectionCollapsed() !== toolbarCollapsedForSelection) syncSelectionMobile();
 
   el('sandbox-wave-skip').classList.toggle('hidden', !(isSandbox() && !isTestingMode() && isPlaying()));
   el('speed-btn').classList.toggle('hidden', !(running && G && !G.over));
@@ -10405,6 +10420,7 @@ const TOOLBAR_CATEGORIES = [
 let toolButtons = [];
 let toolbarPlaceables = [];
 let toolbarView = 'categories';
+let toolbarCollapsedForSelection = false;
 
 function placeablesForCategory(categoryId) {
   const cat = TOOLBAR_CATEGORIES.find(c => c.id === categoryId);
@@ -10441,18 +10457,48 @@ function syncToolbarVisibility() {
   bar.classList.toggle('hidden', !show);
 }
 
+// with units selected the bar is only in the way — collapse it to a single
+// button that drops the selection. Touch hides the bar outright instead and
+// offers deselect in #mobile-actions.
+function toolbarSelectionCollapsed() {
+  return !touchUI() && isPlaying() && !placing && !!G?.selected.length;
+}
+
 function renderToolbar() {
   const bar = el('toolbar');
   bar.innerHTML = '';
   toolButtons = [];
+  toolbarCollapsedForSelection = toolbarSelectionCollapsed();
 
   if (!toolbarPlaceables.length) {
     bar.classList.add('hidden');
-    bar.classList.remove('toolbar-placing');
+    bar.classList.remove('toolbar-placing', 'toolbar-collapsed');
     return;
   }
 
-  if (touchUI() && placing) {
+  bar.classList.remove('toolbar-collapsed');
+
+  if (toolbarCollapsedForSelection) {
+    bar.classList.remove('toolbar-placing');
+    bar.classList.add('toolbar-collapsed');
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'tool-btn tool-back-btn';
+    back.textContent = '← BACK';
+    back.title = 'Deselect';
+    back.addEventListener('click', () => {
+      G.selected = [];
+      SFX.click();
+      syncSelectionMobile();
+    });
+    bar.appendChild(back);
+
+    syncToolbarVisibility();
+    syncToolbarLayout();
+    return;
+  }
+
+  if (placing) {
     bar.classList.add('toolbar-placing');
     const active = placing;
     const back = document.createElement('button');
@@ -10584,7 +10630,7 @@ function selectPlaceable(p) {
   SFX.click();
   placing = (placing === p) ? null : p;
   if (placing) mobileToolbarMinimized = false;
-  if (placing && touchUI() && toolbarView === 'categories') {
+  if (placing && toolbarView === 'categories') {
     toolbarView = categoryForPlaceable(p);
   }
   G.selected = [];

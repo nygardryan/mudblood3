@@ -286,6 +286,10 @@ body {
 }
 #toolbar::-webkit-scrollbar { display: none; }
 #toolbar.hidden { display: none; }
+/* while placing, the bar collapses to BACK + the unit being built, so it keeps
+   the left edge of the map clear */
+#toolbar.toolbar-placing,
+#toolbar.toolbar-collapsed { width: calc(66px * var(--tool-scale)); }
 .tool-btn {
   background: rgba(38, 36, 23, .92);
   border: 2px solid #4a4836;

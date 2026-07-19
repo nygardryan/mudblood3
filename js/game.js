@@ -226,14 +226,14 @@ const ENEMY_TYPES = {
   // artillery, a bazooka that gets lucky) before its next launch window
   // comes up.
   ev2: {
-    name: 'V2 Rocket Battery', hp: 800, speed: 18, range: 0, dmg: 0, acc: 0,
+    name: 'V2 Rocket Battery', hp: 536, speed: 18, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 60,
     color: '#42463c', gun: 0, sfx: 'boom', priority: 5, fixed: true,
     // r halved from its original 130 — still levels anything close, but no
     // longer wipes out a whole line at once. dmg is 95% of a rifleman's 100
     // hp, so a near-direct hit maims rather than instantly kills, and
     // armorMult makes it brutal against anything on wheels or tracks.
-    v2: { range: W * 0.75, min: 250, cdMin: 42, cdMax: 60, r: 65, dmg: 95, flight: 3.4, scatter: 70, armorMult: 6 },
+    v2: { range: W * 0.75, min: 250, cdMin: 21, cdMax: 30, r: 65, dmg: 95, flight: 3.4, scatter: 70, armorMult: 6 },
   },
 };
 

@@ -17,7 +17,8 @@ const MEDIC_RANGE = 95;
 const ENGINEER_RANGE = 95;
 const OFFICER_AURA = 130;
 const WATCHTOWER_AURA = 30;
-const WATCHTOWER_RANGE_MULT = 1.33;
+const WATCHTOWER_RANGE_MULT = 1.25;
+const WATCHTOWER_RANGE_MULT_UPGRADED = 1.35;
 
 const UNIT_TYPES = {
   rifleman: {
@@ -94,7 +95,7 @@ const UNIT_TYPES = {
   },
   jeep: {
     name: 'Jeep', hp: 250, range: 300, dmg: 13, acc: 0.42,
-    rof: 2.1, burst: 8, burstGap: 0.07, speed: 55,
+    rof: 2.1, burst: 16, burstGap: 0.07, speed: 110,
     color: '#4a5a3f', gun: 14, sfx: 'hmg', vehicle: true, rankMult: 3,
     desc: 'Willys jeep, pintle-mounted .50 cal. Fast and hard-hitting, but unarmored.',
   },
@@ -318,8 +319,8 @@ const PLACEABLES = [
     desc: 'Cover. Soldiers behind it dodge half of incoming fire.' },
   { key: 'bunker', label: 'BUNKER', cost: 15, kind: 'defense', hotkey: 'K',
     desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },
-  { key: 'watchtower', label: 'WATCH TOWER', cost: 20, kind: 'defense', hotkey: 'W',
-    desc: 'Wooden lookout post. Extends the range of nearby soldiers by 33%. Mortars ignore it — they already fire blind. Frail; falls fast under fire.' },
+  { key: 'watchtower', label: 'WATCH TOWER', cost: 12, kind: 'defense', hotkey: 'W',
+    desc: 'Wooden lookout post. Extends the range of nearby soldiers by 25%, or 35% once an engineer fortifies it. Mortars ignore it — they already fire blind. Frail; falls fast under fire.' },
   { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
     desc: 'Cluster of 3 anti-personnel mines. Hurts tanks too. Germans can\'t see them.' },
   { key: 'mortar', label: 'MORTAR STRIKE', cost: 8, kind: 'support', hotkey: '0',
@@ -3260,19 +3261,24 @@ function unitRangeRankRate(type) {
 }
 
 // a watch tower's raised vantage extends the sightline of nearby riflemen —
-// but a mortar crew fires indirect and blind, so the tower does nothing for them
-function nearWatchtower(u) {
-  if (u.side !== 'us' || u.t.mortar || !G.watchtowers.length) return false;
+// but a mortar crew fires indirect and blind, so the tower does nothing for them.
+// an engineer-fortified tower (t.up) sees further and boosts the effect further.
+function watchtowerRangeMult(u) {
+  if (u.side !== 'us' || u.t.mortar || !G.watchtowers.length) return 1;
+  let mult = 1;
   for (const wt of G.watchtowers) {
-    if (dist(wt, u) < WATCHTOWER_AURA) return true;
+    if (dist(wt, u) < WATCHTOWER_AURA) {
+      const wtMult = wt.up ? WATCHTOWER_RANGE_MULT_UPGRADED : WATCHTOWER_RANGE_MULT;
+      if (wtMult > mult) mult = wtMult;
+    }
   }
-  return false;
+  return mult;
 }
 
 function unitRangeMult(u) {
   const rank = u.rank || 0;
   let mult = rank <= 0 ? 1 : 1 + rank * unitRangeRankRate(u.type);
-  if (nearWatchtower(u)) mult *= WATCHTOWER_RANGE_MULT;
+  mult *= watchtowerRangeMult(u);
   return mult;
 }
 

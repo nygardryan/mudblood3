@@ -124,7 +124,7 @@ const UNIT_TYPES = {
     name: 'AT Gun', hp: 200, range: 519, dmg: 0, acc: 0,
     rof: 8.8, burst: 1, burstGap: 0, speed: 0,
     color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true, gunEmplacement: true,
-    atgun: { arc: 0.338, shellDmg: 403, r: 27, scatterMult: 1.3 },
+    atgun: { arc: 0.338, shellDmg: 403, r: 27, scatterMult: 1.196 },
     desc: '57mm anti-tank gun. Immobile; direct-fire AP shells ruin any vehicle they find.',
   },
   aagun: {
@@ -1289,6 +1289,8 @@ const officerCount = () => {
   return G ? G.units.filter(u => !u.dead && u.type === 'officer').length : 0;
 };
 
+const officerLimit = () => (G && G.cardsOwned && G.cardsOwned.has('officercorps')) ? 15 : MAX_OFFICERS;
+
 // ============================================================ state
 
 let G = null;         // game state
@@ -1423,7 +1425,7 @@ function newGame(level, difficulty) {
     spawnTimer: level.mode === 'allied' ? level.waves[0].delay : 6,
     tpTrickle: 6,
     catchupDebt: 0,   // endless: fractional TP-value of allied units lost, not yet refunded
-    officerTick: 30,
+    officerTick: (level.id === 'endless' && equippedEndlessCards().includes('rushorder')) ? 15 : 30,
     eventTimer: rand(40, 60),
     fog: 0,
     banner: null,
@@ -1440,6 +1442,7 @@ function newGame(level, difficulty) {
   // roguelite cards apply to every true endless run (any difficulty —
   // sandbox/testing double as the card test bed), never to campaigns
   G.cardHooks = level.id === 'endless' ? buildCardHooks() : null;
+  G.cardsOwned = level.id === 'endless' ? new Set(equippedEndlessCards()) : null;
   paintGround(level);
   level.setup(G);
   if (level.landingCraft) initLandingCraft(G);
@@ -1542,17 +1545,24 @@ function makeDefender(nation, type, x, y) {
 // the backbone of the endless economy: it pays full rate so the player can
 // always save toward big-ticket AT purchases, scaled only by difficulty.
 // Kill bounties are pocket change by design — they carry the war-economy
-// attrition (each wave pays ~1% less than the one before, hard 10% floor from
-// wave 90 on) plus the endless-wide 75% cut from the unit-count reduction
-// pass. Campaign levels pay full rate either way. G.tp holds fractions; the
-// HUD floors it.
+// attrition (a smooth decay that reaches the 10% floor by wave 200) plus
+// the endless-wide 75% cut from the unit-count reduction pass. Campaign
+// levels pay full rate either way. G.tp holds fractions; the HUD floors it.
 const KILL_TP_MULT = 1.15;   // small across-the-board bump to kill bounties
+const KILL_DECAY_FLOOR_WAVE = 200;
+const KILL_DECAY_RATE = Math.pow(0.1, 1 / KILL_DECAY_FLOOR_WAVE);
+// War Bonds stretches the same curve out to wave 400 instead of 200
+const KILL_DECAY_FLOOR_WAVE_WARBONDS = 400;
+const KILL_DECAY_RATE_WARBONDS = Math.pow(0.1, 1 / KILL_DECAY_FLOOR_WAVE_WARBONDS);
 function earnTP(amount, kind = 'kill') {
   let mult = kind === 'kill' ? KILL_TP_MULT : 1;
   if (G.mode === 'endless') {
     if (G.difficulty) mult *= G.difficulty.incomeMult;
     if (kind === 'kill') {
-      mult *= G.wave >= 90 ? 0.1 : Math.max(0.1, Math.pow(0.99, G.wave));
+      const warBonds = G.cardsOwned && G.cardsOwned.has('warbonds');
+      const floorWave = warBonds ? KILL_DECAY_FLOOR_WAVE_WARBONDS : KILL_DECAY_FLOOR_WAVE;
+      const rate = warBonds ? KILL_DECAY_RATE_WARBONDS : KILL_DECAY_RATE;
+      mult *= G.wave >= floorWave ? 0.1 : Math.max(0.1, Math.pow(rate, G.wave));
       mult *= 0.25;
     }
   }
@@ -1575,11 +1585,20 @@ function spendTP(cost) {
   if (!isSandbox()) G.tp -= cost;
 }
 
+// War Surplus: the 25% cut is rounded up, so even a 3 TP rifleman still
+// nets a real discount (ceil(3 * 0.25) = 1, not a wash from rounding the
+// 75%-of-cost figure itself up to the original price)
+function warSurplusCost(base) {
+  return base - Math.ceil(base * 0.25);
+}
+
 // campaign levels can override toolbar costs so no single purchase type
 // can cheese the mission; endless uses the base PLACEABLES prices.
 function placeableCost(p) {
   const ov = G && G.level && G.level.costOverrides;
-  return (ov && ov[p.key] != null) ? ov[p.key] : p.cost;
+  const base = (ov && ov[p.key] != null) ? ov[p.key] : p.cost;
+  if (G && G.cardsOwned && G.cardsOwned.has('costcut_' + p.key)) return warSurplusCost(base);
+  return base;
 }
 
 // endless catch-up mechanic: every 5 TP worth of allied units lost refunds
@@ -2231,6 +2250,7 @@ function explode(x, y, r, dmg, big, by) {
       } else if ((u.t.vehicle || u.t.apc) && blastArmorMult != null) {
         hd *= blastArmorMult;
       } else if (u.t.blastResist) hd *= (1 - u.t.blastResist);
+      if (G.cardsOwned && G.cardsOwned.has('flakarmor_' + u.type)) hd *= 0.7;
       damageUnit(u, hd, { x, y });
     }
   }
@@ -2634,27 +2654,31 @@ function damageUnit(u, dmg, from) {
     bloodSplat(u.x, u.y, 3);
   }
   if (u.hp <= 0 && !u.dead) {
-    u.dead = true;
-    // when the player fights as the Germans, downed US defenders are his kills
-    if (isAssaultMode() || G.mode === 'hitsquad') {
-      G.kills++;
+    const hooks = G.cardHooks && G.cardHooks[u.type];
+    const saved = hooks && hooks.beforeDeath.length && hooks.beforeDeath.some(fn => fn(u));
+    if (!saved) {
+      u.dead = true;
+      // when the player fights as the Germans, downed US defenders are his kills
+      if (isAssaultMode() || G.mode === 'hitsquad') {
+        G.kills++;
+      }
+      trackAlliedLoss(u);
+      if (u.t.tank) {
+        stampWreck(u);
+        explode(u.x, u.y, 50, 60, true);
+      } else if (u.t.vehicle) {
+        stampJeepWreck(u);
+        explode(u.x, u.y, 30, 45, false);
+      } else if (u.t.gunEmplacement) {
+        stampATGunWreck(u);
+        explode(u.x, u.y, 26, 35, false);
+      } else {
+        spawnCorpse(u);
+        bloodSplat(u.x, u.y, 8);
+      }
+      const si = G.selected.indexOf(u);
+      if (si !== -1) G.selected.splice(si, 1);
     }
-    trackAlliedLoss(u);
-    if (u.t.tank) {
-      stampWreck(u);
-      explode(u.x, u.y, 50, 60, true);
-    } else if (u.t.vehicle) {
-      stampJeepWreck(u);
-      explode(u.x, u.y, 30, 45, false);
-    } else if (u.t.gunEmplacement) {
-      stampATGunWreck(u);
-      explode(u.x, u.y, 26, 35, false);
-    } else {
-      spawnCorpse(u);
-      bloodSplat(u.x, u.y, 8);
-    }
-    const si = G.selected.indexOf(u);
-    if (si !== -1) G.selected.splice(si, 1);
   }
   // taking real fire (bullets, shells) sends a man diving; flame's tiny
   // per-tick damage is handled in flameSpray with a time-scaled roll
@@ -3854,7 +3878,14 @@ function updateUnit(u, dt) {
     u.cd -= dt;
     if (st && u.cd <= 0) {
       fireShotgun(u, buffs);
-      u.cd = u.t.rof * buffs.rofMult * rand(0.85, 1.15);
+      const cycle = u.t.rof * buffs.rofMult * rand(0.85, 1.15);
+      if (G.cardsOwned && G.cardsOwned.has('extendedtube')) {
+        u.shellsLeft = (u.shellsLeft == null ? EXTENDED_TUBE_SHELLS : u.shellsLeft) - 1;
+        if (u.shellsLeft <= 0) { u.cd = cycle * 3; u.shellsLeft = EXTENDED_TUBE_SHELLS; }
+        else u.cd = cycle * 0.25;
+      } else {
+        u.cd = cycle;
+      }
     }
     return;
   }
@@ -4003,6 +4034,7 @@ function updateEngineer(u, dt) {
   if (u.healTick > 0) return;
   u.healTick = 0.4;
   const R = ENGINEER_RANGE;
+  const repairMult = (G.cardsOwned && G.cardsOwned.has('greasemonkey')) ? 2 : 1;
 
   const sparks = (x, y) => {
     if (Math.random() < 0.5) SFX.hammer();
@@ -4027,7 +4059,7 @@ function updateEngineer(u, dt) {
     if (f < empFrac) { empFrac = f; emp = s; }
   }
   if (emp) {
-    const amt = Math.min(emp.maxhp - emp.hp, 8 + u.rank * 2.7);
+    const amt = Math.min(emp.maxhp - emp.hp, (8 + u.rank * 2.7) * repairMult);
     emp.hp += amt;
     credit(amt * 0.5);
     sparks(emp.x, emp.y);
@@ -4046,7 +4078,7 @@ function updateEngineer(u, dt) {
     if (f < vehFrac) { vehFrac = f; veh = a; }
   }
   if (veh) {
-    const amt = Math.min(veh.maxhp - veh.hp, (0.25 + u.rank * 0.075) * 1.5);
+    const amt = Math.min(veh.maxhp - veh.hp, (0.25 + u.rank * 0.075) * 1.5 * repairMult);
     veh.hp += amt;
     credit(amt * 0.15);
     sparks(veh.x, veh.y);
@@ -4975,7 +5007,7 @@ function update(dt) {
     // officer TP bonus
     G.officerTick -= dt;
     if (G.officerTick <= 0) {
-      G.officerTick = 30;
+      G.officerTick = (G.cardsOwned && G.cardsOwned.has('rushorder')) ? 15 : 30;
       // rank pays: a MSG officer brings in 3 TP where a green one brings 1
       for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3, 'steady');
     }
@@ -5107,11 +5139,18 @@ function update(dt) {
     if (f >= 1) { r.done = true; explode(r.tx, r.ty, r.r, r.dmg, false, r.by); }
   }
 
-  // grenades in flight, then a 3-second fuse once they hit the ground
+  // grenades in flight, then a 3-second fuse once they hit the ground —
+  // unless the grenadier's thrown ones (self- or catch-and-return) carry
+  // Impact Fuze, in which case they go off the instant they land
   for (const g of G.grenades) {
     if (!g.landed) {
       g.t += dt;
-      if (g.t >= g.dur) { g.landed = true; g.fuse = 3; }
+      if (g.t >= g.dur) {
+        g.landed = true;
+        const impactFuze = g.by && g.by.type === 'grenadier' && G.cardsOwned && G.cardsOwned.has('impactfuze');
+        if (impactFuze) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); }
+        else g.fuse = 3;
+      }
     } else {
       g.fuse -= dt;
       if (g.fuse <= 0) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); }
@@ -10615,7 +10654,7 @@ function updateHUD() {
   }
 
   for (const btn of toolButtons) {
-    const capped = btn.p.key === 'officer' && officerCount() >= MAX_OFFICERS;
+    const capped = btn.p.key === 'officer' && officerCount() >= officerLimit();
     btn.el.disabled = !canAffordTP(placeableCost(btn.p)) || capped;
     btn.el.classList.toggle('active', placing === btn.p);
   }
@@ -10851,7 +10890,7 @@ function selectPlaceable(p) {
     return;
   }
   if (!canAffordTP(placeableCost(p))) { SFX.error(); mobileVibrate(12); return; }
-  if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); mobileVibrate(12); return; }
+  if (p.key === 'officer' && officerCount() >= officerLimit()) { SFX.error(); mobileVibrate(12); return; }
   SFX.click();
   placing = (placing === p) ? null : p;
   if (placing) mobileToolbarMinimized = false;
@@ -10989,7 +11028,7 @@ function place(p, x, y) {
   }
   const cost = placeableCost(p);
   if (!canAffordTP(cost)) { SFX.error(); clearPlacing(); return; }
-  if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); clearPlacing(); return; }
+  if (p.key === 'officer' && officerCount() >= officerLimit()) { SFX.error(); clearPlacing(); return; }
   spendTP(cost);
   SFX.click();
   mobileVibrate(8);
@@ -11052,7 +11091,7 @@ function place(p, x, y) {
     purgeRadius(x, y, PURGE_RADIUS);
   }
   // keep placing defenses if affordable; supports are one-shot
-  if (p.kind === 'support' || !canAffordTP(placeableCost(p)) || (p.key === 'officer' && officerCount() >= MAX_OFFICERS)) clearPlacing();
+  if (p.kind === 'support' || !canAffordTP(placeableCost(p)) || (p.key === 'officer' && officerCount() >= officerLimit())) clearPlacing();
 }
 
 function updatePointer(e) {
@@ -11991,17 +12030,31 @@ for (const btn of document.querySelectorAll('.codex-tab')) {
 
 // Roguelite meta-progression for Endless: reaching wave 10·N banks N ribbons
 // (so a run to wave 46 earns 1+2+3+4). Between runs the card shop sells
-// permanent per-unit-type upgrades. Card effects run through per-type hook
-// tables built once per run in newGame() — the hot combat paths pay a single
-// property lookup, and only for cards actually owned.
+// permanent per-unit-type upgrades into a collection, and the battle-plan
+// screen decides which of them actually deploy. Card effects run through
+// per-type hook tables built once per run in newGame() — the hot combat paths
+// pay a single property lookup, and only for cards actually equipped.
 
 const ENDLESS_CARDS_KEY = 'endlessCards';
-const ENDLESS_CARDS_VERSION = 1;
+const ENDLESS_CARDS_VERSION = 2;
 const CARD_SHOP_SLOTS = 3;
+
+// Battle plans: owning a card banks it in the collection, but only cards
+// slotted into the active plan deploy. Every card weighs 1-6 command by how
+// hard it warps a run; the player's command capacity starts at 6 and can be
+// raised a point at a time for ribbons (5, then +20% compounding, rounded up).
+const PLAN_SLOTS = 3;
+const PLAN_NAMES = ['PLAN A', 'PLAN B', 'PLAN C'];
+const BASE_COMMAND_CAP = 6;
+const COMMAND_UPGRADE_BASE_COST = 5;
 
 // frenzy resets whichever cooldown gates each type's killing weapon — the
 // specialists reload the tube or the frag pouch, not just the sidearm
 const FRENZY_EXTRA_CD = { bazooka: 'rocketCd', mortarman: 'mortCd', grenadier: 'grenCd' };
+
+// Extended Tube: shots within the magazine cycle fast, then the tube runs
+// dry and the shotgunner eats a long reload
+const EXTENDED_TUBE_SHELLS = 7;
 
 function frenzyReload(type) {
   const extra = FRENZY_EXTRA_CD[type];
@@ -12011,20 +12064,75 @@ function frenzyReload(type) {
   };
 }
 
+// Busted Down: called from damageUnit right as a unit would die. A unit with
+// no rank left to lose has nothing to bust down to, so it dies normally.
+function cheatDeath(u) {
+  if (!u.rank) return false;
+  const rankMult = u.t.tank ? 2.5 : (u.t.rankMult || 1);
+  u.rank = Math.max(0, u.rank - 2);
+  u.xp = Math.min(u.xp, RANKS[u.rank].kills * rankMult);
+  u.hp = u.maxhp;
+  G.texts.push({ x: u.x, y: u.y - 22, text: 'BUSTED DOWN — SURVIVED', ttl: 2.4 });
+  return true;
+}
+
+// base TP cost of every buyable US unit, keyed by PLACEABLES key — used by
+// War Surplus to compute both its own ribbon price and its discounted result
+const PLACEABLE_COST_BY_TYPE = {};
+for (const p of PLACEABLES) if (p.kind === 'unit') PLACEABLE_COST_BY_TYPE[p.key] = p.cost;
+
+// an instant reload is worth whatever the cooldown it erases is worth:
+// near-nothing on fast-cycling rifles, a run-warping 6 on the bazooka, whose
+// long rocket cooldown vanishes entirely against massed waves
+const FRENZY_WEIGHTS = {
+  shotgunner: 2, sniper: 3, jeep: 2, aagun: 2, sherman: 4, atgun: 4,
+  mortarman: 5, bazooka: 6,
+};
+
 // commons: stamped out once per eligible unit type. `excludes` drops types
 // the effect can't touch (the flamethrower has no cooldown to reset).
+// `weight` is the card's command weight, 1-6 by impact.
 const CARD_COMMON_TEMPLATES = {
   frenzy: {
-    name: 'Frenzy', cost: 3, excludes: ['flamer'],
+    name: 'Frenzy', cost: 5, excludes: ['flamer'],
+    weight: type => FRENZY_WEIGHTS[type] || 1,
     desc: t => `A kill instantly reloads the ${t.name.toLowerCase()}'s weapon.`,
     hooks: type => ({ onKill: frenzyReload(type) }),
+  },
+  busteddown: {
+    name: 'Busted Down', cost: 6,
+    // cheating death matters most on the units a run can't afford to replace
+    weight: type => ({ jeep: 3, atgun: 3, aagun: 3, sherman: 5 }[type] || 2),
+    desc: t => `Instead of dying, the ${t.name.toLowerCase()} is busted two ranks and patched up to full health.`,
+    hooks: type => ({ beforeDeath: cheatDeath }),
+  },
+  flakarmor: {
+    name: 'Flak Armor', cost: 6, excludes: ['jeep', 'sherman', 'atgun', 'aagun'],
+    // the flamer already halves blast damage on his own vest
+    weight: type => type === 'flamer' ? 1 : 2,
+    desc: t => `${t.name} takes 30% less damage from explosions.`,
+    hooks: type => ({}),
+  },
+  // ribbon price runs opposite the unit's TP cost: a discount on a 3 TP
+  // rifleman is worth far more over a run than one on a 60 TP Sherman
+  costcut: {
+    name: 'War Surplus', excludes: ['erifle', 'esmg', 'egren', 'emg', 'eoff', 'esniper', 'eflame'],
+    cost: type => clamp(Math.round(60 / PLACEABLE_COST_BY_TYPE[type]), 5, 20),
+    // command weight follows the same curve as the price: discounts on the
+    // cheap units you spam all run weigh the most
+    weight: type => clamp(Math.round(15 / PLACEABLE_COST_BY_TYPE[type]), 1, 5),
+    desc: (t, type) => {
+      const tp = PLACEABLE_COST_BY_TYPE[type];
+      return `Cuts the ${t.name.toLowerCase()}'s TP cost by 25%, from ${tp} to ${warSurplusCost(tp)}.`;
+    },
+    hooks: type => ({}),
   },
 };
 
 // uniques: one-off cards tied to a single unit type
 const CARD_UNIQUES = {
   crackshot: {
-    unit: 'sniper', name: 'Crack Shot', cost: 8,
+    unit: 'sniper', name: 'Crack Shot', cost: 8, weight: 3,
     desc: 'Every miss guarantees the sniper\'s next shot connects.',
     hooks: {
       // beforeShot may return true to force the shot to hit; afterShot sees
@@ -12033,25 +12141,68 @@ const CARD_UNIQUES = {
       afterShot: (u, hit) => { if (!hit) u.sureShot = true; },
     },
   },
+  // these three don't gate on a per-shot/per-kill event, so they carry no
+  // hooks — updateEngineer, the officer TP tick, and officerLimit() check
+  // G.cardsOwned directly instead
+  greasemonkey: {
+    unit: 'engineer', name: 'Grease Monkey', cost: 8, weight: 2,
+    desc: 'Engineers repair everything — emplacements and vehicles alike — twice as fast.',
+    hooks: {},
+  },
+  rushorder: {
+    unit: 'officer', name: 'Rush Order', cost: 10, weight: 4,
+    desc: 'Officers draw TP every 15 seconds instead of 30.',
+    hooks: {},
+  },
+  officercorps: {
+    unit: 'officer', name: 'Officer Corps', cost: 12, weight: 5,
+    desc: 'Raises the officer limit from 5 to 15.',
+    hooks: {},
+  },
+  impactfuze: {
+    unit: 'grenadier', name: 'Impact Fuze', cost: 10, weight: 3,
+    desc: 'Grenadier frags detonate the instant they land instead of cooking off after a fuse.',
+    hooks: {},
+  },
+  extendedtube: {
+    unit: 'shotgunner', name: 'Extended Tube', cost: 9, weight: 3,
+    desc: `The trench gun holds ${EXTENDED_TUBE_SHELLS} shells before running dry — but reloading afterward takes three times as long.`,
+    hooks: {},
+  },
+  warbonds: {
+    unit: 'officer', name: 'War Bonds', cost: 14, weight: 5,
+    desc: 'Kill bounty income decays toward its 10% floor over 400 waves instead of 200.',
+    hooks: {},
+  },
 };
 
-// flat catalog: id → { id, name, unitType, unique, desc, cost, hooks }
+// flat catalog: id → { id, name, unitType, unique, desc, cost, weight, hooks }
 const CARDS = {};
 {
   for (const [tid, tpl] of Object.entries(CARD_COMMON_TEMPLATES)) {
     for (const [type, t] of Object.entries(UNIT_TYPES)) {
       if (tpl.excludes && tpl.excludes.includes(type)) continue;
       const id = tid + '_' + type;
-      CARDS[id] = { id, name: tpl.name, unitType: type, unique: false, desc: tpl.desc(t), cost: tpl.cost, hooks: tpl.hooks(type) };
+      const cost = typeof tpl.cost === 'function' ? tpl.cost(type) : tpl.cost;
+      const weight = typeof tpl.weight === 'function' ? tpl.weight(type) : tpl.weight;
+      CARDS[id] = { id, name: tpl.name, unitType: type, unique: false, desc: tpl.desc(t, type), cost, weight, hooks: tpl.hooks(type) };
     }
   }
   for (const [id, c] of Object.entries(CARD_UNIQUES)) {
-    CARDS[id] = { id, name: c.name, unitType: c.unit, unique: true, desc: c.desc, cost: c.cost, hooks: c.hooks };
+    CARDS[id] = { id, name: c.name, unitType: c.unit, unique: true, desc: c.desc, cost: c.cost, weight: c.weight, hooks: c.hooks };
   }
 }
 
 function defaultEndlessCards() {
-  return { version: ENDLESS_CARDS_VERSION, ribbons: 0, owned: [], offer: [] };
+  return {
+    version: ENDLESS_CARDS_VERSION, ribbons: 0, owned: [], offer: [],
+    capacity: BASE_COMMAND_CAP, plans: [[], [], []], activePlan: 0,
+  };
+}
+
+// total command weight a plan's cards occupy
+function planCommandUsed(plan) {
+  return plan.reduce((sum, id) => sum + CARDS[id].weight, 0);
 }
 
 function loadEndlessCards() {
@@ -12060,6 +12211,10 @@ function loadEndlessCards() {
     const raw = localStorage.getItem(ENDLESS_CARDS_KEY);
     if (raw) data = JSON.parse(raw);
   } catch { data = null; }
+  // v1 predates battle plans (every owned card was always live) — carry the
+  // collection forward rather than wiping it
+  const fromV1 = !!data && typeof data === 'object' && data.version === 1;
+  if (fromV1) data.version = ENDLESS_CARDS_VERSION;
   if (!data || typeof data !== 'object' || data.version !== ENDLESS_CARDS_VERSION) {
     data = defaultEndlessCards();
   }
@@ -12067,6 +12222,27 @@ function loadEndlessCards() {
   data.owned = Array.isArray(data.owned) ? data.owned.filter(id => CARDS[id]) : [];
   const offer = Array.isArray(data.offer) ? data.offer : [];
   data.offer = offer.filter(id => CARDS[id] && !data.owned.includes(id));
+  data.capacity = Number.isFinite(data.capacity)
+    ? Math.max(BASE_COMMAND_CAP, Math.floor(data.capacity)) : BASE_COMMAND_CAP;
+  data.activePlan = Number.isInteger(data.activePlan)
+    ? clamp(data.activePlan, 0, PLAN_SLOTS - 1) : 0;
+  const rawPlans = Array.isArray(data.plans) ? data.plans : [];
+  data.plans = [];
+  for (let i = 0; i < PLAN_SLOTS; i++) {
+    const seen = new Set();
+    const plan = (Array.isArray(rawPlans[i]) ? rawPlans[i] : [])
+      .filter(id => CARDS[id] && data.owned.includes(id) && !seen.has(id) && !!seen.add(id));
+    // a tampered save could pack a plan past capacity — shed from the back
+    while (planCommandUsed(plan) > data.capacity) plan.pop();
+    data.plans.push(plan);
+  }
+  if (fromV1) {
+    // slot as much of the old always-on collection into Plan A as fits
+    const plan = data.plans[0];
+    for (const id of data.owned) {
+      if (planCommandUsed(plan) + CARDS[id].weight <= data.capacity) plan.push(id);
+    }
+  }
   // keep the shop stocked; the offer lives in the save so a reload never
   // rerolls it — slots only change when a card is bought
   const before = data.offer.join();
@@ -12075,7 +12251,7 @@ function loadEndlessCards() {
     if (!pick) break;
     data.offer.push(pick);
   }
-  if (data.offer.join() !== before) saveEndlessCards(data);
+  if (data.offer.join() !== before || fromV1) saveEndlessCards(data);
   return data;
 }
 
@@ -12097,6 +12273,9 @@ function buyCard(id) {
   if (!card || slot === -1 || data.owned.includes(id) || card.cost > data.ribbons) return false;
   data.ribbons -= card.cost;
   data.owned.push(id);
+  // a fresh purchase slots straight into the active plan when the command fits
+  const plan = data.plans[data.activePlan];
+  if (planCommandUsed(plan) + card.weight <= data.capacity) plan.push(id);
   data.offer.splice(slot, 1);
   const repl = drawUnofferedCard(data);
   if (repl) data.offer.splice(slot, 0, repl);   // replacement takes the same slot
@@ -12104,16 +12283,62 @@ function buyCard(id) {
   return true;
 }
 
-// per-run hook table: { unitType: { onKill: [fns], beforeShot: [fns], afterShot: [fns] } }
-// Built once in newGame(); null when no cards are owned or outside endless.
+// ribbon price of the next +1 command point: 5 for the first, then each
+// subsequent point costs 20% more than the last, rounded up
+// (5, 6, 8, 10, 12, 15, 18, 22, ...)
+function commandUpgradeCost(capacity) {
+  let cost = COMMAND_UPGRADE_BASE_COST;
+  for (let c = BASE_COMMAND_CAP; c < capacity; c++) cost = Math.ceil(cost * 1.2);
+  return cost;
+}
+
+function buyCommandCapacity() {
+  const data = loadEndlessCards();
+  const cost = commandUpgradeCost(data.capacity);
+  if (cost > data.ribbons) return false;
+  data.ribbons -= cost;
+  data.capacity += 1;
+  saveEndlessCards(data);
+  return true;
+}
+
+// equip/unequip an owned card in the active plan; equipping fails when the
+// plan lacks the command room for the card's weight
+function togglePlanCard(id) {
+  const data = loadEndlessCards();
+  const card = CARDS[id];
+  if (!card || !data.owned.includes(id)) return false;
+  const plan = data.plans[data.activePlan];
+  const at = plan.indexOf(id);
+  if (at !== -1) plan.splice(at, 1);
+  else if (planCommandUsed(plan) + card.weight <= data.capacity) plan.push(id);
+  else return false;
+  saveEndlessCards(data);
+  return true;
+}
+
+function setActivePlan(i) {
+  const data = loadEndlessCards();
+  data.activePlan = clamp(i, 0, PLAN_SLOTS - 1);
+  saveEndlessCards(data);
+}
+
+// the cards that actually deploy: the active battle plan, not the collection
+function equippedEndlessCards() {
+  const data = loadEndlessCards();
+  return data.plans[data.activePlan];
+}
+
+// per-run hook table: { unitType: { onKill: [fns], beforeShot: [fns], afterShot: [fns], beforeDeath: [fns] } }
+// Built once in newGame(); null when no cards are equipped or outside endless.
 function buildCardHooks() {
-  const { owned } = loadEndlessCards();
+  const owned = equippedEndlessCards();
   if (!owned.length) return null;
   const table = {};
   for (const id of owned) {
     const card = CARDS[id];
     const slot = table[card.unitType] ||
-      (table[card.unitType] = { onKill: [], beforeShot: [], afterShot: [] });
+      (table[card.unitType] = { onKill: [], beforeShot: [], afterShot: [], beforeDeath: [] });
     for (const [ev, fn] of Object.entries(card.hooks)) slot[ev].push(fn);
   }
   return table;
@@ -12191,10 +12416,13 @@ function buildCardShopUI() {
     const desc = document.createElement('span');
     desc.className = 'shop-card-desc';
     desc.textContent = card.desc;
+    const cmd = document.createElement('span');
+    cmd.className = 'shop-card-command';
+    cmd.textContent = 'COMMAND ' + card.weight;
     const cost = document.createElement('span');
     cost.className = 'shop-card-cost';
     cost.textContent = ribbonLabel(card.cost);
-    btn.append(unit, name, desc, cost);
+    btn.append(unit, name, desc, cmd, cost);
     btn.addEventListener('click', () => {
       if (buyCard(card.id)) {
         SFX.click();
@@ -12203,7 +12431,73 @@ function buildCardShopUI() {
     });
     row.appendChild(btn);
   }
+  buildBattlePlanUI();
   syncCardShopButton();
+}
+
+// ---- battle plan UI: the collection grid + plan tabs under the shop row
+
+function buildBattlePlanUI() {
+  const data = loadEndlessCards();
+  const tabs = el('plan-tabs');
+  tabs.replaceChildren();
+  for (let i = 0; i < PLAN_SLOTS; i++) {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'codex-tab plan-tab' + (i === data.activePlan ? ' active' : '');
+    tab.textContent = `${PLAN_NAMES[i]} · ${planCommandUsed(data.plans[i])}/${data.capacity}`;
+    tab.addEventListener('click', () => {
+      if (i === data.activePlan) return;
+      setActivePlan(i);
+      SFX.click();
+      buildBattlePlanUI();
+    });
+    tabs.appendChild(tab);
+  }
+  const plan = data.plans[data.activePlan];
+  const used = planCommandUsed(plan);
+  el('plan-command').textContent = `${used} / ${data.capacity} COMMAND`;
+  const upBtn = el('plan-upgrade');
+  const upCost = commandUpgradeCost(data.capacity);
+  upBtn.textContent = `+1 COMMAND — ${ribbonLabel(upCost)}`;
+  upBtn.disabled = upCost > data.ribbons;
+  const grid = el('plan-collection');
+  grid.replaceChildren();
+  if (!data.owned.length) {
+    const none = document.createElement('div');
+    none.className = 'plan-empty';
+    none.textContent = 'NO CARDS IN THE COLLECTION YET — BUY SOME ABOVE.';
+    grid.appendChild(none);
+    return;
+  }
+  for (const id of data.owned) {
+    const card = CARDS[id];
+    const equipped = plan.includes(id);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'plan-card' + (equipped ? ' plan-card-equipped' : '')
+      + (card.unique ? ' plan-card-unique' : '');
+    // a reserve card that can't fit the remaining command stays visible but dead
+    btn.disabled = !equipped && used + card.weight > data.capacity;
+    btn.title = card.desc;
+    const unit = document.createElement('span');
+    unit.className = 'shop-card-unit';
+    unit.textContent = UNIT_TYPES[card.unitType].name.toUpperCase();
+    const name = document.createElement('span');
+    name.className = 'plan-card-name';
+    name.textContent = card.name.toUpperCase();
+    const state = document.createElement('span');
+    state.className = 'plan-card-state';
+    state.textContent = (equipped ? 'DEPLOYED' : 'RESERVE') + ' · ' + card.weight + ' CMD';
+    btn.append(unit, name, state);
+    btn.addEventListener('click', () => {
+      if (togglePlanCard(id)) {
+        SFX.click();
+        buildBattlePlanUI();
+      }
+    });
+    grid.appendChild(btn);
+  }
 }
 
 // ============================================================ axis research
@@ -13188,6 +13482,14 @@ for (const btn of document.querySelectorAll('[data-endless-diff]')) {
 el('endless-leaderboard-btn').addEventListener('click', () => openLeaderboardSelect('endless-select', 'easy'));
 el('card-shop-btn').addEventListener('click', () => openCardShop('endless-select'));
 el('card-shop-back').addEventListener('click', closeCardShop);
+// spending ribbons on capacity changes what the shop row can afford too,
+// so rebuild the whole screen, not just the plan section
+el('plan-upgrade').addEventListener('click', () => {
+  if (buyCommandCapacity()) {
+    SFX.click();
+    buildCardShopUI();
+  }
+});
 el('leaderboard-back-btn').addEventListener('click', closeLeaderboardSelect);
 for (const btn of document.querySelectorAll('.lb-tab')) {
   btn.addEventListener('click', () => { leaderboardActiveDiff = btn.dataset.lbDiff; buildLeaderboardSelect(); });

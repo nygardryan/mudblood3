@@ -392,7 +392,7 @@ body {
 }
 .overlay.hidden { display: none; }
 /* many campaign buttons — anchor to the top so they all scroll into reach */
-#axis-select, #commando-select { justify-content: flex-start; }
+#axis-select, #commando-select, #card-shop { justify-content: flex-start; }
 .overlay h1 {
   font-size: clamp(24px, 8vw, 52px);
   letter-spacing: clamp(2px, 2vw, 10px);
@@ -625,6 +625,124 @@ body {
   border-color: #3a3620;
   background: rgba(20, 18, 12, 0.6);
   box-shadow: none;
+}
+.shop-card-command {
+  margin-top: 6px;
+  font-size: clamp(9px, 2.4vw, 11px);
+  letter-spacing: 1px;
+  color: #8a8668;
+}
+
+/* ---- Battle plans: the loadout section under the shop row ---- */
+.plan-title {
+  font-size: clamp(16px, 5vw, 28px);
+  letter-spacing: clamp(2px, 1.5vw, 6px);
+  color: #b8352b;
+  margin: 14px 0 4px;
+}
+#plan-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 6px 0 2px;
+}
+/* the id prefix outranks the `.overlay button` base rule, same fight the
+   shop cards win with their #card-shop-row prefix */
+#plan-tabs .plan-tab {
+  background: #262417;
+  border: 1px solid #4a4836;
+  color: #8a8668;
+  font-size: clamp(9px, 2.5vw, 10px);
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding: 8px 10px;
+  min-height: 36px;
+}
+#plan-tabs .plan-tab:hover { border-color: #8a8668; color: #c9c19a; }
+#plan-tabs .plan-tab.active {
+  border-color: #ffd94a;
+  color: #ffd94a;
+}
+.overlay button.plan-upgrade-btn {
+  font-size: clamp(10px, 2.8vw, 12px);
+  letter-spacing: 1px;
+  padding: 6px 12px;
+  margin-left: 10px;
+  min-height: 32px;
+}
+.overlay button.plan-upgrade-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+#plan-collection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 640px;
+  margin: 10px 0 20px;
+}
+/* compact card chits: same printed-card face as the shop, minus the blurb —
+   the full description lives in the hover title */
+#plan-collection .plan-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 10px 8px;
+  background: rgba(30, 28, 18, 0.95);
+  border: 2px solid #4a4326;
+  border-radius: 8px;
+  color: #8a8668;
+  font-weight: normal;
+  font-size: clamp(10px, 2.8vw, 12px);
+  letter-spacing: 0;
+  text-transform: none;
+}
+#plan-collection .plan-card:hover:not(:disabled) {
+  background: #3a3418;
+  border-color: #8a7c30;
+  transform: translateY(-2px);
+}
+#plan-collection .plan-card:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+#plan-collection .plan-card-unique { border-style: double; }
+#plan-collection .plan-card-equipped {
+  border-color: #8fbf5a;
+  color: #c9c19a;
+  background: rgba(38, 44, 24, 0.95);
+}
+.plan-card-name {
+  font-size: clamp(11px, 3vw, 14px);
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: #c9c19a;
+  margin-top: 2px;
+}
+.plan-card-equipped .plan-card-name { color: #ffd94a; }
+.plan-card-state {
+  margin-top: 6px;
+  padding: 2px 8px;
+  border: 1px solid #4a4326;
+  border-radius: 10px;
+  font-size: clamp(8px, 2.2vw, 10px);
+  letter-spacing: 1px;
+}
+.plan-card-equipped .plan-card-state {
+  color: #8fbf5a;
+  border-color: #4a5a30;
+}
+.plan-empty {
+  grid-column: 1 / -1;
+  padding: 18px;
+  border: 2px dashed #3a3620;
+  border-radius: 8px;
+  color: #6a6650;
+  letter-spacing: 2px;
+  font-size: clamp(10px, 2.8vw, 12px);
 }
 
 .overlay button {

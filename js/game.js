@@ -2018,6 +2018,9 @@ function explode(x, y, r, dmg, big, by) {
     // reinforced concrete: blast does far less than it would to sandbags
     if (dist(b, { x, y }) < r) b.hp -= dmg * 0.4;
   }
+  for (const wt of G.watchtowers) {
+    if (dist(wt, { x, y }) < r) wt.hp -= dmg * 0.8;
+  }
   for (const wr of G.wires) {
     if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;
   }
@@ -2388,6 +2391,12 @@ function coverBlock(target) {
     // fortified bags stop more and shrug off hits better
     if (s.hp > 0 && dist(s, target) < (s.up ? 36 : 32)) {
       if (Math.random() < (s.up ? 0.65 : 0.5)) { s.hp -= s.up ? 3 : 4; return true; }
+    }
+  }
+  // watch tower: spotters call out incoming fire, a flat 10% dodge for anyone under it
+  for (const wt of G.watchtowers) {
+    if (wt.hp > 0 && dist(wt, target) < WATCHTOWER_AURA) {
+      if (Math.random() < 0.1) { wt.hp -= 3; return true; }
     }
   }
   return false;

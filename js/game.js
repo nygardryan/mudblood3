@@ -306,7 +306,7 @@ const EVENT_INFO = [
     key: 'airraid',
     name: 'Air Bombing Raid',
     wave: 4,
-    desc: 'Luftwaffe bombers cross the field from the north, their shadows sweeping ahead of them. Any bomber that passes near your men drops a stick of 2-4 inaccurate bombs, then flies on until it clears the southern edge. Bomber numbers, bomb count, and blast damage all escalate with each wave tier. An AA gun is the only thing that can reach them.',
+    desc: 'Luftwaffe bombers cross the field from the north, their shadows sweeping ahead of them. Any bomber that passes near your men drops a stick of 1-4 inaccurate bombs, then flies on until it clears the southern edge. Bomber numbers, bomb count, and blast damage all escalate with each wave tier. An AA gun is the only thing that can reach them.',
   },
   {
     key: 'paradrop',
@@ -1427,6 +1427,7 @@ function newGame(level, difficulty) {
     fog: 0,
     banner: null,
     selected: [],
+    focusTarget: null,   // an enemy the player clicked: troops in range prefer it
     auraRefresh: 0,
     buffFrame: 0,
     usOfficers: [],
@@ -2065,8 +2066,8 @@ function updateAxisCombat() {
 function raidForWave(w) {
   const t = clamp((w - 4) / 56, 0, 1);
   return {
-    planes: Math.round(2 + t * 2),          // 2 -> 4 bombers
-    bombsMin: 2,
+    planes: Math.round(1 + t * 2),          // 1 -> 3 bombers
+    bombsMin: 1,
     bombsMax: t < 0.5 ? 3 : 4,              // late raids drop the full stick
     r: Math.round(42 + t * 16),             // blast radius
     dmg: Math.round(70 + t * 30),           // bombs bite much harder later
@@ -2893,7 +2894,20 @@ function runWeapon(actor, target, dt, buffs) {
 
 // ============================================================ targeting
 
+// the player can click an enemy to mark it as a focus target: any troop that
+// could otherwise shoot it (in range, matches its own weapon's target filter)
+// prefers it over its default pick, so a whole line concentrates fire on cue.
+function focusPick(u, range, pred) {
+  const f = G && G.focusTarget;
+  if (!f || f.dead || f.y < 0 || f.chute > 0) return null;
+  if (pred && !pred(f)) return null;
+  if (dist(u, f) > range) return null;
+  return f;
+}
+
 function nearestEnemyInRange(u, range, pred) {
+  const f = focusPick(u, range, pred);
+  if (f) return f;
   let best = null, bd = range;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
@@ -2905,6 +2919,8 @@ function nearestEnemyInRange(u, range, pred) {
 }
 
 function firstEnemyInRange(u, range, pred) {
+  const f = focusPick(u, range, pred);
+  if (f) return f;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
     if (pred && !pred(e)) continue;
@@ -2914,6 +2930,8 @@ function firstEnemyInRange(u, range, pred) {
 }
 
 function sniperTarget(u, range) {
+  const f = focusPick(u, range, e => !e.t.tank);
+  if (f) return f;
   let best = null, bp = -1, bd = Infinity;
   for (const e of G.enemies) {
     if (e.dead || e.t.tank || e.y < 0 || e.chute > 0) continue;
@@ -4991,6 +5009,9 @@ function update(dt) {
     }
   }
   if (G.fog > 0) G.fog -= dt;
+
+  // drop a focus-fire mark once its target is dead or off the field
+  if (G.focusTarget && (G.focusTarget.dead || G.focusTarget.y < 0)) G.focusTarget = null;
 
   for (const u of G.units) if (!u.dead) updateUnit(u, dt);
   for (const e of G.enemies) if (!e.dead) updateEnemy(e, dt);
@@ -9603,6 +9624,26 @@ function draw() {
     else if (e.t.v2) drawV2Launcher(e);
     else drawSoldier(e);
   }
+
+  // focus-fire reticle: a spinning red bracket over the marked enemy
+  if (G.focusTarget && !G.focusTarget.dead && G.focusTarget.y >= 0) {
+    const f = G.focusTarget;
+    const r = (f.t.tank || f.t.apc) ? 22 : f.t.vehicle || f.t.v2 ? 18 : 12;
+    const spin = G.time * 1.8;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(spin);
+    ctx.strokeStyle = 'rgba(255,50,40,0.9)';
+    ctx.lineWidth = 1.6;
+    for (let q = 0; q < 4; q++) {
+      const a = q * Math.PI / 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, a + 0.35, a + Math.PI / 2 - 0.35);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   for (const u of G.units) {
     const hidden = isCamouflaged(u);
     if (hidden) { ctx.save(); ctx.globalAlpha *= 0.4; }
@@ -10144,6 +10185,20 @@ function unitAtWorld(x, y) {
     if (dist(u, { x, y }) < touchHitRadius(base)) return u;
   }
   return null;
+}
+
+// nearest live enemy under a tap, for focus-fire orders (normal defense modes)
+function enemyAtWorld(x, y) {
+  if (!G || isAssaultMode()) return null;
+  let best = null, bd = Infinity;
+  for (const e of G.enemies) {
+    if (e.dead || e.y < 0 || e.chute > 0) continue;
+    const base = e.t.tank ? 26 : e.t.apc ? 22 : e.t.vehicle || e.t.bike ? 20
+               : e.t.v2 ? 24 : 14;
+    const d = dist(e, { x, y });
+    if (d < touchHitRadius(base) && d < bd) { bd = d; best = e; }
+  }
+  return best;
 }
 
 function beginViewPan(clientX, clientY, worldX, worldY) {
@@ -11027,6 +11082,18 @@ function handleCanvasTap(shiftKey = false) {
     }
     return;
   }
+  // click an enemy → focus-fire: every troop in range concentrates on it.
+  // (hit squad players command the Germans, whose targeting is separate.)
+  if (G.mode !== 'hitsquad') {
+    const foe = enemyAtWorld(x, y);
+    if (foe) {
+      G.focusTarget = (G.focusTarget === foe) ? null : foe;  // click again to release
+      if (G.focusTarget) G.texts.push({ x: foe.x, y: foe.y - 18, text: 'FOCUS FIRE', ttl: 1.4 });
+      SFX.click();
+      mobileVibrate(5);
+      return;
+    }
+  }
   // move selected soldiers (the hit squad ranges the whole field)
   if (G.selected.length && moveOrderValid(x, y)) {
     issueMoveOrder(G.selected, x, y);
@@ -11333,7 +11400,7 @@ canvas.addEventListener('contextmenu', e => {
   clearPlacing();
   placeTouch = null;
   drag = null;
-  if (G) G.selected = [];
+  if (G) { G.selected = []; G.focusTarget = null; }
   syncSelectionMobile();
 });
 
@@ -11341,6 +11408,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (paused) { resumeGame(); return; }
     if (placing) { clearPlacing(); return; }
+    if (G && G.focusTarget) { G.focusTarget = null; return; }
     if (G && G.selected.length) { G.selected = []; syncSelectionMobile(); return; }
     if (drag) { drag = null; return; }
     if (running && G && !G.over) { pauseGame(); return; }

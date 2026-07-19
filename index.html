@@ -83,7 +83,22 @@
         <button data-endless-diff="hard">HARD
           <span class="mode-desc">33% income. Supply lines are thin.</span></button>
       </div>
-      <button id="endless-back-btn" class="secondary">BACK</button>
+      <div class="intro-btns">
+        <button id="endless-leaderboard-btn" class="secondary">LEADERBOARDS</button>
+        <button id="endless-back-btn" class="secondary">BACK</button>
+      </div>
+    </div>
+
+    <div id="leaderboard-select" class="overlay hidden">
+      <h1>LEADERBOARDS</h1>
+      <p>Furthest wave reached before the line broke. Sandbox and Testing don't count — the supply is unlimited.</p>
+      <div id="leaderboard-tabs">
+        <button type="button" class="codex-tab lb-tab" data-lb-diff="easy">EASY</button>
+        <button type="button" class="codex-tab lb-tab" data-lb-diff="medium">MEDIUM</button>
+        <button type="button" class="codex-tab lb-tab" data-lb-diff="hard">HARD</button>
+      </div>
+      <ul id="leaderboard-select-list" class="leaderboard-list"></ul>
+      <button id="leaderboard-back-btn" class="secondary">BACK</button>
     </div>
 
     <div id="allied-select" class="overlay hidden">
@@ -186,6 +201,17 @@
       <h1 id="go-title">LINE OVERRUN</h1>
       <p id="go-stats"></p>
       <p class="quote">"War is mud, blood, and the man next to you."</p>
+      <div id="go-leaderboard-entry" class="hidden">
+        <p class="go-leaderboard-hint">New leaderboard score! Enter a name if you want one on the board:</p>
+        <div class="go-score-form">
+          <input type="text" id="go-name-input" maxlength="16" placeholder="Anonymous">
+          <button id="go-save-score-btn" class="secondary">SAVE SCORE</button>
+        </div>
+      </div>
+      <div id="go-leaderboard" class="hidden">
+        <h2 id="go-leaderboard-title">LEADERBOARD</h2>
+        <ul id="go-leaderboard-list" class="leaderboard-list"></ul>
+      </div>
       <div class="intro-btns">
         <button id="next-mission-btn" class="hidden">NEXT MISSION</button>
         <button id="restart-btn">RE-ENLIST</button>

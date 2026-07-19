@@ -18,6 +18,7 @@ const ENGINEER_RANGE = 95;
 const OFFICER_AURA = 130;
 const WATCHTOWER_AURA = 30;
 const RANKUP_RADIUS = 140;  // testing-mode-only field-promotion ability
+const PURGE_RADIUS = 150;   // testing-mode-only kill-everything ability
 const WATCHTOWER_RANGE_MULT = 1.25;
 const WATCHTOWER_RANGE_MULT_UPGRADED = 1.35;
 const CAMONEST_ZONE = 36;               // same footprint as a bunker's cover radius
@@ -410,6 +411,8 @@ const TESTING_GERMAN_PLACEABLES = [
 const TESTING_ABILITIES = [
   { key: 'rankup', label: 'RANK UP', cost: 10, kind: 'support', hotkey: '',
     desc: 'Instantly promotes every unit — American and German alike — within a wide radius by one rank. Testing mode only.' },
+  { key: 'purge', label: 'PURGE', cost: 5, kind: 'support', hotkey: '',
+    desc: 'Instantly destroys every unit and emplacement — American and German alike — within a wide radius. Testing mode only.' },
 ];
 
 // allied assault toolbar: US attackers deploy in the top strip, then assault south.
@@ -2425,6 +2428,24 @@ function rankUpUnit(u) {
   const heal = 15 * (u.t.rankHealMult || 1);
   u.hp = Math.min(u.maxhp, u.hp + heal);
   G.texts.push({ x: u.x, y: u.y - 22, text: 'PROMOTED: ' + next.name, ttl: 2.4 });
+}
+
+// testing-mode PURGE ability: instantly destroys every unit and emplacement
+// — American and German alike — inside the radius. Routes kills through
+// damageUnit/damageEnemy so tanks and vehicles still leave their proper
+// wreck and secondary blast instead of just vanishing; emplacements and
+// mines are dropped straight to 0/dead and swept up by the normal cleanup
+// pass in update().
+function purgeRadius(x, y, r) {
+  const at = { x, y };
+  for (const u of G.units) if (!u.dead && dist(u, at) < r) damageUnit(u, 99999, at);
+  for (const e of G.enemies) if (!e.dead && dist(e, at) < r) damageEnemy(e, 99999, at);
+  for (const s of G.sandbags) if (dist(s, at) < r) s.hp = 0;
+  for (const b of G.bunkers) if (dist(b, at) < r) b.hp = 0;
+  for (const wt of G.watchtowers) if (dist(wt, at) < r) wt.hp = 0;
+  for (const cn of G.camoNests) if (dist(cn, at) < r) cn.hp = 0;
+  for (const wr of G.wires) if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp = 0;
+  for (const m of G.mines) if (!m.dead && dist(m, at) < r) m.dead = true;
 }
 
 function creditKill(u) {
@@ -4563,6 +4584,7 @@ function endRun(won, title, stats) {
   }
   document.getElementById('gameover').classList.remove('hidden');
   el('pause').classList.add('hidden');
+  updateGameOverLeaderboard(won);
   refreshHUD();
 }
 
@@ -9050,9 +9072,12 @@ function drawPlacementGhost() {
   ctx.globalAlpha = 0.55;
 
   if (p.kind === 'support') {
-    ctx.strokeStyle = valid ? (p.key === 'rankup' ? '#7fe0a0' : '#ffd94a') : '#d04030';
+    ctx.strokeStyle = valid
+      ? (p.key === 'rankup' ? '#7fe0a0' : p.key === 'purge' ? '#ff3b3b' : '#ffd94a')
+      : '#d04030';
     ctx.lineWidth = 1.5;
-    const r = p.key === 'artillery' ? 95 : p.key === 'ebarrage' ? 85 : p.key === 'rankup' ? RANKUP_RADIUS : 55;
+    const r = p.key === 'artillery' ? 95 : p.key === 'ebarrage' ? 85
+      : p.key === 'rankup' ? RANKUP_RADIUS : p.key === 'purge' ? PURGE_RADIUS : 55;
     ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y);
@@ -9810,9 +9835,29 @@ function placementMinY(p) {
   return (p.key === 'mine' || p.key === 'wire') ? FORWARD_Y : DEPLOY_Y + 12;
 }
 
+// units search outward in expanding rings for the closest open spot in any direction
+function findNearestValidRadial(p, x, y) {
+  const maxR = 240, rStep = 6;
+  for (let r = rStep; r <= maxR; r += rStep) {
+    const steps = Math.max(8, Math.round(r / 2));
+    for (let i = 0; i < steps; i++) {
+      const a = (i / steps) * Math.PI * 2;
+      const px = x + Math.cos(a) * r;
+      const py = y + Math.sin(a) * r;
+      if (placementValid(p, px, py)) return { x: px, y: py };
+    }
+  }
+  return null;
+}
+
 function place(p, x, y) {
   if (isAssaultMode() && G.phase !== 'build') { SFX.error(); mobileVibrate(14); return; }
-  if (!placementValid(p, x, y)) { SFX.error(); mobileVibrate(14); return; }
+  if (!placementValid(p, x, y)) {
+    const fallback = p.kind === 'unit' ? findNearestValidRadial(p, x, y) : null;
+    if (!fallback) { SFX.error(); mobileVibrate(14); return; }
+    x = fallback.x;
+    y = fallback.y;
+  }
   const cost = placeableCost(p);
   if (!canAffordTP(cost)) { SFX.error(); clearPlacing(); return; }
   if (p.key === 'officer' && officerCount() >= MAX_OFFICERS) { SFX.error(); clearPlacing(); return; }
@@ -9873,6 +9918,9 @@ function place(p, x, y) {
     for (const a of [...G.units, ...G.enemies]) {
       if (!a.dead && dist(a, { x, y }) < RANKUP_RADIUS) rankUpUnit(a);
     }
+  } else if (p.key === 'purge') {
+    showBanner('AREA CLEARED');
+    purgeRadius(x, y, PURGE_RADIUS);
   }
   // keep placing defenses if affordable; supports are one-shot
   if (p.kind === 'support' || !canAffordTP(placeableCost(p)) || (p.key === 'officer' && officerCount() >= MAX_OFFICERS)) clearPlacing();
@@ -11086,6 +11134,154 @@ function isLevelUnlocked(id, campaign) {
   return isLevelComplete(campaign[idx - 1]);
 }
 
+// ============================================================ endless leaderboards
+// one board per real difficulty (sandbox/testing have unlimited TP and
+// sandbox can jump straight to any wave, so they're excluded — "wave died
+// at" wouldn't mean anything there). Stored as furthest-wave-reached, top 10.
+
+const LEADERBOARD_KEY = 'endlessLeaderboard';
+const LEADERBOARD_VERSION = 1;
+const LEADERBOARD_MAX = 10;
+const LEADERBOARD_DIFFICULTIES = ['easy', 'medium', 'hard'];
+
+function defaultLeaderboards() {
+  const boards = {};
+  for (const id of LEADERBOARD_DIFFICULTIES) boards[id] = [];
+  return { version: LEADERBOARD_VERSION, boards };
+}
+
+function loadLeaderboards() {
+  try {
+    const raw = localStorage.getItem(LEADERBOARD_KEY);
+    if (!raw) return defaultLeaderboards();
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object' || data.version !== LEADERBOARD_VERSION || !data.boards) {
+      return defaultLeaderboards();
+    }
+    const boards = {};
+    for (const id of LEADERBOARD_DIFFICULTIES) {
+      boards[id] = Array.isArray(data.boards[id]) ? data.boards[id] : [];
+    }
+    return { version: LEADERBOARD_VERSION, boards };
+  } catch {
+    return defaultLeaderboards();
+  }
+}
+
+function saveLeaderboards(data) {
+  localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(data));
+}
+
+function leaderboardBoard(diffId) {
+  return loadLeaderboards().boards[diffId] || [];
+}
+
+function leaderboardQualifies(diffId, wave) {
+  if (!LEADERBOARD_DIFFICULTIES.includes(diffId) || !(wave > 0)) return false;
+  const board = leaderboardBoard(diffId);
+  if (board.length < LEADERBOARD_MAX) return true;
+  return wave > board[board.length - 1].wave;
+}
+
+function addLeaderboardEntry(diffId, name, wave) {
+  if (!LEADERBOARD_DIFFICULTIES.includes(diffId)) return;
+  const data = loadLeaderboards();
+  const board = data.boards[diffId];
+  board.push({ name: (name || 'Anonymous').slice(0, 16), wave, date: Date.now() });
+  board.sort((a, b) => b.wave - a.wave || a.date - b.date);
+  board.length = Math.min(board.length, LEADERBOARD_MAX);
+  saveLeaderboards(data);
+}
+
+function renderLeaderboardList(listEl, diffId) {
+  const board = leaderboardBoard(diffId);
+  listEl.innerHTML = '';
+  if (!board.length) {
+    const li = document.createElement('li');
+    li.className = 'leaderboard-empty';
+    li.textContent = 'No scores yet.';
+    listEl.appendChild(li);
+    return;
+  }
+  board.forEach((entry, i) => {
+    const li = document.createElement('li');
+    li.className = 'leaderboard-row';
+    if (i < 3) li.classList.add('lb-top' + (i + 1));
+    const rank = document.createElement('span');
+    rank.className = 'lb-rank';
+    rank.textContent = '#' + (i + 1);
+    const name = document.createElement('span');
+    name.className = 'lb-name';
+    name.textContent = entry.name;
+    const wave = document.createElement('span');
+    wave.className = 'lb-wave';
+    wave.textContent = 'WAVE ' + entry.wave;
+    li.appendChild(rank);
+    li.appendChild(name);
+    li.appendChild(wave);
+    listEl.appendChild(li);
+  });
+}
+
+let leaderboardActiveDiff = 'easy';
+let leaderboardReturnScreen = 'endless-select';
+
+function openLeaderboardSelect(fromScreen, diffId) {
+  leaderboardReturnScreen = fromScreen;
+  el(fromScreen).classList.add('hidden');
+  leaderboardActiveDiff = diffId || leaderboardActiveDiff;
+  buildLeaderboardSelect();
+  el('leaderboard-select').classList.remove('hidden');
+}
+
+function closeLeaderboardSelect() {
+  el('leaderboard-select').classList.add('hidden');
+  el(leaderboardReturnScreen).classList.remove('hidden');
+}
+
+function buildLeaderboardSelect() {
+  for (const btn of document.querySelectorAll('.lb-tab')) {
+    btn.classList.toggle('active', btn.dataset.lbDiff === leaderboardActiveDiff);
+  }
+  renderLeaderboardList(el('leaderboard-select-list'), leaderboardActiveDiff);
+}
+
+// called from endRun() after an endless defeat: shows the board for the
+// difficulty just played, and a name-entry form if the run cracked the top 10
+function updateGameOverLeaderboard(won) {
+  const entryBox = el('go-leaderboard-entry');
+  const boardBox = el('go-leaderboard');
+  const diffId = G && G.mode === 'endless' && G.difficulty ? G.difficulty.id : null;
+  if (won || !diffId || !LEADERBOARD_DIFFICULTIES.includes(diffId)) {
+    entryBox.classList.add('hidden');
+    boardBox.classList.add('hidden');
+    return;
+  }
+  const wave = G.wave;
+  boardBox.classList.remove('hidden');
+  el('go-leaderboard-title').textContent = G.difficulty.name + ' LEADERBOARD';
+  renderLeaderboardList(el('go-leaderboard-list'), diffId);
+  if (leaderboardQualifies(diffId, wave)) {
+    entryBox.classList.remove('hidden');
+    entryBox.dataset.diff = diffId;
+    entryBox.dataset.wave = String(wave);
+    el('go-name-input').value = '';
+  } else {
+    entryBox.classList.add('hidden');
+  }
+}
+
+function saveGoLeaderboardScore() {
+  const entryBox = el('go-leaderboard-entry');
+  const diffId = entryBox.dataset.diff;
+  const wave = parseInt(entryBox.dataset.wave, 10);
+  if (!diffId || !Number.isFinite(wave)) return;
+  const name = el('go-name-input').value.trim();
+  addLeaderboardEntry(diffId, name, wave);
+  entryBox.classList.add('hidden');
+  renderLeaderboardList(el('go-leaderboard-list'), diffId);
+}
+
 // ============================================================ settings
 
 const TOOLBAR_SIZE_KEY = 'toolbarSize';
@@ -11245,6 +11441,7 @@ function returnToMenu() {
   el('codex').classList.add('hidden');
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
+  el('leaderboard-select').classList.add('hidden');
   el('allied-select').classList.add('hidden');
   el('allied-briefing').classList.add('hidden');
   el('axis-select').classList.add('hidden');
@@ -11553,6 +11750,7 @@ function startGame(levelId, difficultyId) {
   el('codex').classList.add('hidden');
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
+  el('leaderboard-select').classList.add('hidden');
   el('allied-select').classList.add('hidden');
   el('allied-briefing').classList.add('hidden');
   el('axis-select').classList.add('hidden');
@@ -11599,6 +11797,15 @@ el('endless-back-btn').addEventListener('click', closeEndlessSelect);
 for (const btn of document.querySelectorAll('[data-endless-diff]')) {
   btn.addEventListener('click', () => startGame('endless', btn.dataset.endlessDiff));
 }
+el('endless-leaderboard-btn').addEventListener('click', () => openLeaderboardSelect('endless-select', 'easy'));
+el('leaderboard-back-btn').addEventListener('click', closeLeaderboardSelect);
+for (const btn of document.querySelectorAll('.lb-tab')) {
+  btn.addEventListener('click', () => { leaderboardActiveDiff = btn.dataset.lbDiff; buildLeaderboardSelect(); });
+}
+el('go-save-score-btn').addEventListener('click', saveGoLeaderboardScore);
+el('go-name-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') saveGoLeaderboardScore();
+});
 el('start-allied').addEventListener('click', openAlliedSelect);
 el('allied-back-btn').addEventListener('click', closeAlliedSelect);
 el('allied-briefing-deploy').addEventListener('click', deployAlliedBriefing);

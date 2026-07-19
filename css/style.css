@@ -688,6 +688,121 @@ body {
 }
 #codex-list::-webkit-scrollbar { width: 6px; }
 #codex-list::-webkit-scrollbar-thumb { background: #4a4836; border-radius: 3px; }
+
+/* ---- Leaderboards ---- */
+#leaderboard-tabs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 18px;
+  flex-shrink: 0;
+}
+.leaderboard-list {
+  list-style: none;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto 20px;
+  padding: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.leaderboard-list li::marker { content: none; }
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  background: rgba(20, 20, 12, 0.55);
+  border: 1px solid #3a3828;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  font-size: clamp(12px, 3.2vw, 14px);
+}
+.leaderboard-row.lb-top1 { border-color: #ffd94a; background: rgba(61, 56, 25, 0.55); }
+.leaderboard-row.lb-top2 { border-color: #a8a080; }
+.leaderboard-row.lb-top3 { border-color: #8a6a3a; }
+.lb-rank {
+  color: #8a8668;
+  font-weight: bold;
+  text-align: left;
+}
+.lb-top1 .lb-rank { color: #ffd94a; }
+.lb-top2 .lb-rank { color: #c9c19a; }
+.lb-top3 .lb-rank { color: #c08a4a; }
+.lb-name {
+  color: #c9c19a;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lb-wave {
+  color: #ffd94a;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+.leaderboard-empty {
+  color: #8a8668;
+  font-style: italic;
+  padding: 14px;
+  text-align: center;
+}
+#go-leaderboard {
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 20px;
+  border-top: 1px solid #3a3828;
+}
+#go-leaderboard-title {
+  font-size: clamp(13px, 3.5vw, 15px);
+  letter-spacing: 2px;
+  color: #ffd94a;
+  margin-bottom: 14px;
+}
+#go-leaderboard-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+  margin: 4px auto 22px;
+  padding: 16px 18px;
+  background: rgba(30, 28, 18, 0.65);
+  border: 1px solid #5a5322;
+}
+#go-leaderboard-entry.hidden, #go-leaderboard.hidden { display: none; }
+.go-leaderboard-hint {
+  color: #8fbf5a;
+  font-size: clamp(12px, 3.2vw, 14px);
+  margin-bottom: 0 !important;
+  line-height: 1.4;
+}
+.go-score-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+#go-name-input {
+  background: #1a1810;
+  border: 2px solid #5a5322;
+  color: #ffd94a;
+  font-family: inherit;
+  font-size: clamp(13px, 3.5vw, 15px);
+  letter-spacing: 1px;
+  padding: 10px 14px;
+  text-align: center;
+  min-height: 44px;
+  width: 220px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+#go-name-input::placeholder { color: #6a684e; }
+#go-name-input:focus { outline: none; border-color: #ffd94a; background: #221f12; }
+#go-save-score-btn { flex-shrink: 0; }
 .codex-entry {
   display: flex;
   gap: 14px;

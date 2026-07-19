@@ -2388,13 +2388,13 @@ function dropBombStick(p, victim) {
   const heading = Math.atan2(p.vy, p.vx);
   const fx = Math.cos(heading), fy = Math.sin(heading);
   // aim error: the whole stick is displaced, so a miss misses as a group
-  const aimX = victim.x + rand(-40, 40);
-  const aimY = victim.y + rand(-40, 40);
+  const aimX = victim.x + rand(-100, 100);
+  const aimY = victim.y + rand(-100, 100);
   const spacing = rand(30, 42);
 
   for (let i = 0; i < count; i++) {
-    const bx = clamp(aimX + fx * (i - (count - 1) / 2) * spacing + rand(-11, 11), 14, W - 14);
-    const by = clamp(aimY + fy * (i - (count - 1) / 2) * spacing + rand(-11, 11), 14, H - 14);
+    const bx = clamp(aimX + fx * (i - (count - 1) / 2) * spacing + rand(-35, 35), 14, W - 14);
+    const by = clamp(aimY + fy * (i - (count - 1) / 2) * spacing + rand(-35, 35), 14, H - 14);
     // release-to-impact, staggered so the stick walks rather than landing flat
     scheduleShell(bx, by, rand(1.15, 1.45) + i * 0.14, p.bombR, p.bombDmg, p.bombBig);
   }

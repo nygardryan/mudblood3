@@ -24,6 +24,7 @@ const CAMONEST_REVEAL = 4;              // seconds targetable after a shot, unfo
 const CAMONEST_REVEAL_FORTIFIED = 2;
 const CAMONEST_EXPLOSIVE_MULT = 1.2;    // weak to explosives — no reduction like a bunker's concrete
 const GRENADE_CATCH_RANGE = 34;         // how close a grenadier must be to a landed enemy grenade to heave it back
+const V2_ROCKET_ARC = 90;               // peak height of the V2 warhead's visible flight arc
 
 const UNIT_TYPES = {
   rifleman: {
@@ -219,14 +220,20 @@ const ENEMY_TYPES = {
     mg: { range: 240, dmg: 8, acc: 0.42, burst: 6, burstGap: 0.08, gun: 26, sfx: 'mg' },
   },
   // A20 "V2" battery — a rear-echelon siege weapon, not a soldier. It stakes
-  // itself out near the top of the field the instant it spawns and never
-  // marches; the only counter is to reach out and kill it (AT gun, artillery,
-  // a bazooka that gets lucky) before its next launch window comes up.
+  // itself out near the top of the field the instant it spawns and mostly
+  // holds position, but pushes forward on the same discipline-break urge as
+  // any German infantry; the counter is to reach out and kill it (AT gun,
+  // artillery, a bazooka that gets lucky) before its next launch window
+  // comes up.
   ev2: {
-    name: 'V2 Rocket Battery', hp: 800, speed: 0, range: 0, dmg: 0, acc: 0,
+    name: 'V2 Rocket Battery', hp: 800, speed: 18, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 60,
     color: '#42463c', gun: 0, sfx: 'boom', priority: 5, fixed: true,
-    v2: { range: W * 0.75, min: 250, cdMin: 42, cdMax: 60, r: 130, dmg: 380, flight: 3.4, scatter: 70 },
+    // r halved from its original 130 — still levels anything close, but no
+    // longer wipes out a whole line at once. dmg is 95% of a rifleman's 100
+    // hp, so a near-direct hit maims rather than instantly kills, and
+    // armorMult makes it brutal against anything on wheels or tracks.
+    v2: { range: W * 0.75, min: 250, cdMin: 42, cdMax: 60, r: 65, dmg: 95, flight: 3.4, scatter: 70, armorMult: 6 },
   },
 };
 
@@ -246,7 +253,7 @@ const ENEMY_INFO = {
   panzer: 'Panzer IV. Thick armor and a 75mm cannon. Your line\'s worst nightmare.',
   estug: 'StuG III assault gun. Low-profile casemate mount; hunts bunkers and armor from range.',
   etiger: 'Tiger I heavy tank. Nearly impenetrable frontal armor and a devastating 88mm.',
-  ev2: 'A20 rocket battery. Never advances, covers most of the map, and levels anything near where it lands — wildly inaccurate, but it hunts vehicles first. Doesn\'t show up until the fighting gets desperate.',
+  ev2: 'A20 rocket battery. Mostly holds position but pushes forward under fire like any infantry, covers most of the map, and hits hard where it lands — wildly inaccurate, but it hunts vehicles first and wrecks them fast. Doesn\'t show up until the fighting gets desperate.',
 };
 
 const EVENT_INFO = [
@@ -383,6 +390,15 @@ const AXIS_PLACEABLES = [
     desc: 'German 105mm barrage: 10 heavy shells on target. Indiscriminate.' },
 ];
 
+// endless testing mode: the same German roster as the axis toolbar, but
+// dropped in freely anywhere on the field (kind 'egerman') instead of being
+// confined to the axis campaign's top deploy strip. No hotkeys — this list
+// is merged onto the endless toolbar alongside PLACEABLES, and reusing
+// those hotkeys would just shadow the US units that already claim them.
+const TESTING_GERMAN_PLACEABLES = AXIS_PLACEABLES
+  .filter(p => p.kind === 'eunit')
+  .map(p => ({ ...p, kind: 'egerman', hotkey: '' }));
+
 // allied assault toolbar: US attackers deploy in the top strip, then assault south.
 const ASSAULT_PLACEABLES = [
   { key: 'rifleman', label: 'RIFLEMAN', cost: 3, kind: 'aunit', hotkey: '1',
@@ -451,6 +467,8 @@ const AXIS_RESEARCH_LABELS = {
 const ENDLESS_DIFFICULTIES = {
   sandbox: { id: 'sandbox', name: 'SANDBOX', incomeMult: 1, sandbox: true,
     desc: 'Unlimited TP. Experiment with any loadout.' },
+  testing: { id: 'testing', name: 'TESTING', incomeMult: 1, sandbox: true, testing: true,
+    desc: 'Unlimited TP. No Germans spawn on their own — build them yourself with the GERMANS button.' },
   easy: { id: 'easy', name: 'EASY', incomeMult: 1, sandbox: false,
     desc: 'Full supply rate. The classic experience.' },
   medium: { id: 'medium', name: 'MEDIUM', incomeMult: 0.66, sandbox: false,
@@ -1446,6 +1464,10 @@ function isSandbox() {
   return G && G.mode === 'endless' && G.difficulty && G.difficulty.sandbox;
 }
 
+function isTestingMode() {
+  return G && G.mode === 'endless' && G.difficulty && G.difficulty.testing;
+}
+
 function canAffordTP(cost) {
   return isSandbox() || G.tp >= cost;
 }
@@ -1510,8 +1532,11 @@ function waveComposition(w) {
   // an armored halftrack hauls a full squad to the front
   if (w >= 18 && Math.random() < vehChance) out.push('ehalftrack');
   if (w >= 25 && Math.random() < vehChance) out.push('panzer');
-  // V2 battery: rare, one at a time, and only once the fighting is desperate
-  const v2Chance = Math.min(0.22, 0.05 + late * 0.002) * mult;
+  // V2 battery: one at a time, and only once the fighting is desperate. Not
+  // scaled by `mult` — that's a general enemy-volume knob and was crushing
+  // this down to a ~3% roll per wave even deep past 140; it's a rare
+  // set-piece threat, not a regular trooper, so it gets its own odds.
+  const v2Chance = Math.min(0.35, 0.10 + late * 0.004);
   if (w >= 140 && !G.enemies.some(e => !e.dead && e.type === 'ev2') && Math.random() < v2Chance) {
     out.push('ev2');
   }
@@ -1651,8 +1676,8 @@ function launchWave(w) {
   const cx = rand(100, W - 100);
   for (const type of comp) {
     const x = clamp(cx + rand(-90, 90), 30, W - 30);
-    // the V2 battery never marches, so it has to be staked out in view from
-    // the start instead of off the top edge with the rest of the wave
+    // the V2 battery holds position by default, so it's staked out in view
+    // from the start instead of off the top edge with the rest of the wave
     const y = type === 'ev2' ? rand(30, 85) : rand(-70, -20);
     G.enemies.push(makeEnemy(type, x, y));
   }
@@ -1665,9 +1690,11 @@ function spawnWave() {
   if (G.wave === 1) showBanner('HERE THEY COME');
 }
 
-// sandbox only: skip ahead and spawn that wave's assault immediately
+// sandbox only: skip ahead and spawn that wave's assault immediately. Not
+// available in testing mode — that mode's whole point is that Germans never
+// spawn on their own.
 function jumpSandboxWave(steps) {
-  if (!isSandbox() || !running || !G || G.over || steps <= 0) return;
+  if (!isSandbox() || isTestingMode() || !running || !G || G.over || steps <= 0) return;
   const target = Math.min(G.wave + steps, 999);
   if (target <= G.wave) return;
   G.wave = target;
@@ -1996,7 +2023,9 @@ function showBanner(text) {
 // ============================================================ ordnance
 
 function scheduleShell(x, y, delay, r, dmg, big, by, kind) {
-  G.shells.push({ x, y, timer: delay, r, dmg, big, by, kind });
+  const s = { x, y, timer: delay, dur: delay, r, dmg, big, by, kind };
+  G.shells.push(s);
+  return s;
 }
 
 function explode(x, y, r, dmg, big, by) {
@@ -2019,15 +2048,18 @@ function explode(x, y, r, dmg, big, by) {
     if (e.prone > 0) hd *= 0.5;   // flat on the ground, under most of the blast
     return hd;
   };
+  // HE vs armor: anything that carries its own armorMult (bazooka rockets,
+  // the V2 warhead) hits armored/wheeled targets far harder than it hits flesh
+  const blastArmorMult = by && by.t && (by.t.rocket || by.t.v2) && (by.t.rocket || by.t.v2).armorMult;
   for (const e of G.enemies) {
     if (e.chute > 0) continue;   // blast passes under the descending stick
     let hd = hitArea(e);
     if (hd > 0) {
       if (e.t.tank) {
-        const am = by && by.t && by.t.rocket && by.t.rocket.armorMult;
-        hd *= am != null ? am : 2.2;              // HE vs armor: bazooka rockets hit harder
-      }
-      else if (e.t.blastResist) hd *= (1 - e.t.blastResist);
+        hd *= blastArmorMult != null ? blastArmorMult : 2.2;
+      } else if ((e.t.vehicle || e.t.apc) && blastArmorMult != null) {
+        hd *= blastArmorMult;
+      } else if (e.t.blastResist) hd *= (1 - e.t.blastResist);
       damageEnemy(e, hd, by || { x, y });
     }
   }
@@ -2035,8 +2067,9 @@ function explode(x, y, r, dmg, big, by) {
     let hd = hitArea(u);
     if (hd > 0) {
       if (u.t.tank) {
-        const am = by && by.t && by.t.rocket && by.t.rocket.armorMult;
-        if (am != null) hd *= am;
+        if (blastArmorMult != null) hd *= blastArmorMult;
+      } else if ((u.t.vehicle || u.t.apc) && blastArmorMult != null) {
+        hd *= blastArmorMult;
       } else if (u.t.blastResist) hd *= (1 - u.t.blastResist);
       damageUnit(u, hd, { x, y });
     }
@@ -4048,7 +4081,8 @@ function fireV2Rocket(e, target, vk) {
   else if (target.t.vehicle || target.t.atgun) scatter *= 0.8;
   const tx = clamp(target.x + rand(-scatter, scatter), 20, W - 20);
   const ty = clamp(target.y + rand(-scatter, scatter), 20, H - 20);
-  scheduleShell(tx, ty, vk.flight, vk.r, vk.dmg, true, e, 'v2');
+  const s = scheduleShell(tx, ty, vk.flight, vk.r, vk.dmg, true, e, 'v2');
+  s.sx = e.x; s.sy = e.y;   // launch point, so the warhead can be drawn flying in
 }
 
 // discipline only goes so far: periodically stop shooting and push upfield
@@ -4276,7 +4310,7 @@ function update(dt) {
     if (!G.units.some(u => !u.dead && u.vip)) { victory(); return; }
     if (G.time >= G.level.timeLimit) { gameOver(); return; }
     if (!G.enemies.some(e => !e.dead)) { gameOver(); return; }
-  } else {
+  } else if (!isTestingMode()) {
     G.spawnTimer -= dt;
     if (G.spawnTimer <= 0) spawnWave();
   }
@@ -4322,6 +4356,18 @@ function update(dt) {
   // incoming shells
   for (const s of G.shells) {
     s.timer -= dt;
+    // the V2 warhead is visibly in flight the whole way down — trail smoke
+    // off its exhaust so it reads as a rocket, not a teleporting reticle
+    if (s.kind === 'v2' && s.sx != null && s.timer > 0 && Math.random() < 0.75) {
+      const f = clamp(1 - s.timer / s.dur, 0, 1);
+      const gx = s.sx + (s.x - s.sx) * f, gy = s.sy + (s.y - s.sy) * f;
+      const alt = Math.sin(f * Math.PI) * V2_ROCKET_ARC;
+      G.particles.push({
+        x: gx, y: gy - alt, vx: rand(-6, 6), vy: rand(-6, 6),
+        ttl: rand(0.3, 0.6), grav: -8, size: rand(1.6, 3.2),
+        color: pick(['#cfc6b0', '#a89f8a', '#8a8272']),
+      });
+    }
     if (s.timer <= 0) {
       s.done = true;
       if (s.kind === 'v2') explodeV2(s.x, s.y, s.r, s.dmg, s.by);
@@ -8226,6 +8272,50 @@ function drawV2Launcher(a) {
   }
 }
 
+// the V2 warhead in flight: climbs away from the battery, arcs over, then
+// dives on the target — visibly closing the distance the whole time instead
+// of just teleporting a warning reticle onto the impact point
+function drawV2RocketInFlight(s) {
+  const c = ctx;
+  const f = clamp(1 - s.timer / s.dur, 0, 1);
+  const gx = s.sx + (s.x - s.sx) * f, gy = s.sy + (s.y - s.sy) * f;
+  const vertPhase = Math.cos(f * Math.PI);      // +1 climbing off the pad, 0 at apex, -1 diving in
+  const alt = Math.sin(f * Math.PI) * V2_ROCKET_ARC;
+  const rx = gx, ry = gy - alt;
+  const groundAngle = Math.atan2(s.y - s.sy, s.x - s.sx);
+  const nose = groundAngle - vertPhase * 0.8;
+
+  // ground shadow tracks straight beneath it, sharpest at launch and impact
+  c.fillStyle = `rgba(0,0,0,${0.05 + (1 - alt / V2_ROCKET_ARC) * 0.12})`;
+  c.beginPath(); c.ellipse(gx, gy, 3 + (1 - alt / V2_ROCKET_ARC) * 3, 2, 0, 0, 7); c.fill();
+
+  c.save();
+  c.translate(rx, ry);
+  c.rotate(nose);
+
+  // exhaust flame trailing the tail
+  c.shadowColor = '#ff9040';
+  c.shadowBlur = 8;
+  c.fillStyle = 'rgba(255,160,70,0.85)';
+  c.beginPath(); c.moveTo(-6.5, -2); c.lineTo(-12 - Math.random() * 4, 0); c.lineTo(-6.5, 2); c.closePath(); c.fill();
+  c.shadowBlur = 0;
+
+  // body, nose cone, fins — same palette as the launcher's payload
+  c.fillStyle = '#3a3a30';
+  c.fillRect(-6.5, -2, 11, 4);
+  c.fillStyle = '#8a2a20';
+  c.fillRect(-1, -2, 3, 1.6);
+  c.fillStyle = '#d8d0c0';
+  c.fillRect(-1, 0.4, 3, 1.6);
+  c.fillStyle = '#2a2a22';
+  c.beginPath(); c.moveTo(4.5, -2); c.lineTo(9.5, 0); c.lineTo(4.5, 2); c.closePath(); c.fill();
+  c.fillStyle = '#242420';
+  c.beginPath(); c.moveTo(-6.5, -2); c.lineTo(-10.5, -4.5); c.lineTo(-6.5, -0.8); c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(-6.5, 2); c.lineTo(-10.5, 4.5); c.lineTo(-6.5, 0.8); c.closePath(); c.fill();
+
+  c.restore();
+}
+
 function drawHalftrack(e) {
   const c = ctx;
   c.save();
@@ -8632,6 +8722,7 @@ function draw() {
   // shell target markers
   for (const s of G.shells) {
     if (s.kind === 'v2') {
+      if (s.sx != null) drawV2RocketInFlight(s);
       // a much bigger, angrier telegraph for the V2's warhead — long flight
       // time means the player has a real chance to clear vehicles off the mark
       const pulse = 16 + Math.sin(G.time * 6) * 6;
@@ -9405,7 +9496,7 @@ function updateHUD() {
     hud.breachBox.textContent = 'BREACH ' + G.breaches + '/' + G.level.breachLimit;
   }
 
-  el('sandbox-wave-skip').classList.toggle('hidden', !(isSandbox() && isPlaying()));
+  el('sandbox-wave-skip').classList.toggle('hidden', !(isSandbox() && !isTestingMode() && isPlaying()));
   el('speed-btn').classList.toggle('hidden', !(running && G && !G.over));
   el('pause-btn').classList.toggle('hidden', !(running && G && !G.over));
   const startBtn = el('start-wave-btn');
@@ -9437,6 +9528,7 @@ const TOOLBAR_CATEGORIES = [
   { id: 'units', label: 'UNITS', filter: p => p.kind === 'unit' || p.kind === 'eunit' || p.kind === 'aunit' || p.kind === 'eparadrop' },
   { id: 'abilities', label: 'ABILITIES', filter: p => p.kind === 'support' },
   { id: 'emplacements', label: 'EMPLACEMENTS', filter: p => p.kind === 'defense' },
+  { id: 'germans', label: 'GERMANS', filter: p => p.kind === 'egerman' },
 ];
 
 let toolButtons = [];
@@ -9509,7 +9601,8 @@ function renderToolbar() {
     b.type = 'button';
     b.className = 'tool-btn active';
     b.title = active.desc;
-    b.innerHTML = `<span class="key">[${active.hotkey}]</span>${active.label}<span class="cost">${cost} TP</span>`;
+    const activeKey = active.hotkey ? `<span class="key">[${active.hotkey}]</span>` : '';
+    b.innerHTML = `${activeKey}${active.label}<span class="cost">${cost} TP</span>`;
     b.addEventListener('click', () => selectPlaceable(active));
     bar.appendChild(b);
     toolButtons.push({ p: active, el: b });
@@ -9555,7 +9648,8 @@ function renderToolbar() {
       b.type = 'button';
       b.className = 'tool-btn';
       b.title = p.desc;
-      b.innerHTML = `<span class="key">[${p.hotkey}]</span>${p.label}<span class="cost">${cost} TP</span>`;
+      const key = p.hotkey ? `<span class="key">[${p.hotkey}]</span>` : '';
+      b.innerHTML = `${key}${p.label}<span class="cost">${cost} TP</span>`;
       b.addEventListener('click', () => selectPlaceable(p));
       bar.appendChild(b);
       toolButtons.push({ p, el: b });
@@ -9629,6 +9723,18 @@ function attackerTypeStats(p) {
 
 function placementValid(p, x, y) {
   if (p.kind === 'support') return y > 20 && y < H - 10;
+  if (p.kind === 'egerman') {
+    // testing mode: German units go anywhere on the field, not confined to
+    // the axis campaign's top deploy strip
+    if (x < 16 || x > W - 16 || y < 14 || y > H - 14) return false;
+    const t = attackerTypeStats(p);
+    const bulk = t.heavy ? 40 : t.tank ? 34 : t.apc ? 30 : t.vehicle || t.bike ? 26 : 16;
+    for (const e of G.enemies) {
+      const gap = Math.max(bulk, e.t.heavy ? 40 : e.t.tank ? 34 : e.t.vehicle ? 26 : 16);
+      if (dist(e, { x, y }) < gap) return false;
+    }
+    return true;
+  }
   if (p.kind === 'aunit' || p.kind === 'eunit' || p.kind === 'eparadrop') {
     if (G.level && G.level.landingCraft) {
       const craft = landingCraftAt(x, y);
@@ -9701,7 +9807,7 @@ function place(p, x, y) {
       }
     }
     G.enemies.push(u);
-  } else if (p.kind === 'eunit') {
+  } else if (p.kind === 'eunit' || p.kind === 'egerman') {
     G.enemies.push(makeEnemy(p.key, x, y));
   } else if (p.key === 'ebarrage') {
     showBanner('DEUTSCHE ARTILLERIE!');
@@ -11402,7 +11508,8 @@ function startGame(levelId, difficultyId) {
   syncSpeedButton();
   const placeables = level.mode === 'axis'
     ? axisPlaceablesForResearch()
-    : (level.mode === 'assault' ? (level.placeables || ASSAULT_PLACEABLES) : level.placeables);
+    : (level.mode === 'assault' ? (level.placeables || ASSAULT_PLACEABLES)
+      : (difficulty && difficulty.testing ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES] : level.placeables));
   buildToolbar(placeables);
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');
@@ -11433,6 +11540,10 @@ function startGame(levelId, difficultyId) {
       ? touchUI()
         ? 'Tap or drag to select your men, tap ground to move. Kill the marked officer.'
         : 'Click or drag-select your men, click ground to move them. Kill the marked officer. Right-click / Esc deselects.'
+    : difficulty && difficulty.testing
+      ? touchUI()
+        ? 'Testing: unlimited TP, no Germans spawn on their own. Open GERMANS to build them for the enemy side.'
+        : 'Testing: unlimited TP, no Germans spawn on their own. Open GERMANS to build them for the enemy side; right-click / Esc cancels placement.'
     : difficulty && difficulty.sandbox
       ? touchUI()
         ? 'Sandbox: unlimited TP. Use +1 / +5 / +10 in the HUD to jump ahead in waves.'

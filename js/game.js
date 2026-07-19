@@ -218,6 +218,16 @@ const ENEMY_TYPES = {
     fireCone: { arc: 0.22 },
     mg: { range: 240, dmg: 8, acc: 0.42, burst: 6, burstGap: 0.08, gun: 26, sfx: 'mg' },
   },
+  // A20 "V2" battery — a rear-echelon siege weapon, not a soldier. It stakes
+  // itself out near the top of the field the instant it spawns and never
+  // marches; the only counter is to reach out and kill it (AT gun, artillery,
+  // a bazooka that gets lucky) before its next launch window comes up.
+  ev2: {
+    name: 'V2 Rocket Battery', hp: 800, speed: 0, range: 0, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 60,
+    color: '#42463c', gun: 0, sfx: 'boom', priority: 5, fixed: true,
+    v2: { range: W * 0.75, min: 250, cdMin: 42, cdMax: 60, r: 130, dmg: 380, flight: 3.4, scatter: 70 },
+  },
 };
 
 const ENEMY_INFO = {
@@ -236,6 +246,7 @@ const ENEMY_INFO = {
   panzer: 'Panzer IV. Thick armor and a 75mm cannon. Your line\'s worst nightmare.',
   estug: 'StuG III assault gun. Low-profile casemate mount; hunts bunkers and armor from range.',
   etiger: 'Tiger I heavy tank. Nearly impenetrable frontal armor and a devastating 88mm.',
+  ev2: 'A20 rocket battery. Never advances, covers most of the map, and levels anything near where it lands — wildly inaccurate, but it hunts vehicles first. Doesn\'t show up until the fighting gets desperate.',
 };
 
 const EVENT_INFO = [
@@ -1359,6 +1370,8 @@ function makeEnemy(type, x, y, nation = 'de') {
     moveTo: null,   // hit-squad mode: player-issued destination
     rocketCd: rand(1, 2),
     mortCd: rand(4, 8),
+    v2Cd: rand(8, 16),
+    v2FireT: 0,
   };
 }
 
@@ -1497,6 +1510,11 @@ function waveComposition(w) {
   // an armored halftrack hauls a full squad to the front
   if (w >= 18 && Math.random() < vehChance) out.push('ehalftrack');
   if (w >= 25 && Math.random() < vehChance) out.push('panzer');
+  // V2 battery: rare, one at a time, and only once the fighting is desperate
+  const v2Chance = Math.min(0.22, 0.05 + late * 0.002) * mult;
+  if (w >= 140 && !G.enemies.some(e => !e.dead && e.type === 'ev2') && Math.random() < v2Chance) {
+    out.push('ev2');
+  }
   return out;
 }
 
@@ -1633,7 +1651,10 @@ function launchWave(w) {
   const cx = rand(100, W - 100);
   for (const type of comp) {
     const x = clamp(cx + rand(-90, 90), 30, W - 30);
-    G.enemies.push(makeEnemy(type, x, rand(-70, -20)));
+    // the V2 battery never marches, so it has to be staked out in view from
+    // the start instead of off the top edge with the rest of the wave
+    const y = type === 'ev2' ? rand(30, 85) : rand(-70, -20);
+    G.enemies.push(makeEnemy(type, x, y));
   }
   G.spawnTimer = spawnIntervalForWave(w);
 }
@@ -1974,8 +1995,8 @@ function showBanner(text) {
 
 // ============================================================ ordnance
 
-function scheduleShell(x, y, delay, r, dmg, big, by) {
-  G.shells.push({ x, y, timer: delay, r, dmg, big, by });
+function scheduleShell(x, y, delay, r, dmg, big, by, kind) {
+  G.shells.push({ x, y, timer: delay, r, dmg, big, by, kind });
 }
 
 function explode(x, y, r, dmg, big, by) {
@@ -2042,6 +2063,23 @@ function explode(x, y, r, dmg, big, by) {
       m.dead = true;
       explode(m.x, m.y, 42, 120, false);
     }
+  }
+}
+
+// the V2's warhead lands like any other shell, but it's a much bigger event:
+// a second, wider flash ring and a churning debris column on top of the
+// normal blast so it reads as something far worse than a mortar round
+function explodeV2(x, y, r, dmg, by) {
+  explode(x, y, r, dmg, true, by);
+  G.flashes.push({ x, y, r: r * 1.7, ttl: 0.4, max: 0.4 });
+  G.flashes.push({ x, y, r: r * 0.9, ttl: 0.55, max: 0.55 });
+  for (let i = 0; i < 50; i++) {
+    const ang = rand(0, Math.PI * 2);
+    G.particles.push({
+      x, y, vx: Math.cos(ang) * rand(40, 200), vy: Math.sin(ang) * rand(40, 200) - 40,
+      ttl: rand(0.7, 1.6), grav: 160, size: rand(2, 5),
+      color: pick(['#2a2318', '#4a3d28', '#6e6046', '#948564', '#1a1712']),
+    });
   }
 }
 
@@ -2335,7 +2373,7 @@ function creditKill(u) {
 function damageEnemy(e, dmg, from) {
   if (e.chute > 0) return; // untouchable while the canopy is up
   e.hp -= dmg;
-  if (e.t.tank || e.t.vehicle) {
+  if (e.t.tank || e.t.vehicle || e.t.v2) {
     G.particles.push({
       x: e.x + rand(-10, 10), y: e.y + rand(-10, 10), vx: 0, vy: -20,
       ttl: 0.4, grav: 0, size: 2, color: '#c8b872',
@@ -2365,6 +2403,11 @@ function damageEnemy(e, dmg, from) {
     } else if (e.t.vehicle) {
       stampJeepWreck(e);
       explode(e.x, e.y, 30, 45, false);
+    } else if (e.t.v2) {
+      // the battery itself going up is a big secondary explosion — the
+      // warhead and fuel still on the pad don't go quietly
+      stampV2Wreck(e);
+      explode(e.x, e.y, 65, 100, true);
     } else {
       spawnCorpse(e);
       bloodSplat(e.x, e.y, 8);
@@ -3949,7 +3992,27 @@ function updateEnemy(e, dt) {
     }
   }
 
-  const engageTarget = target || rocketTarget || mortarTarget;
+  let v2Target = null;
+  if (e.t.v2) {
+    e.v2Cd -= dt;
+    const vk = e.t.v2;
+    const vr = vk.range * fogMult();
+    // tanks first, then anything else on wheels, then whatever's left beyond
+    // minimum range — a V2 battery has no reason to spare infantry, it's
+    // just less interested in them than in armor
+    const safe = u => dist(e, u) > vk.r + 60;
+    v2Target = nearestUnitInRange(e, vr, u => u.t.tank && safe(u)) ||
+               nearestUnitInRange(e, vr, u => (u.t.vehicle || u.t.atgun) && safe(u)) ||
+               nearestUnitInRange(e, vr, u => dist(e, u) > vk.min && safe(u));
+    if (e.v2Cd <= 0 && v2Target) {
+      e.v2Cd = rand(vk.cdMin, vk.cdMax);
+      e.face = Math.atan2(v2Target.y - e.y, v2Target.x - e.x);
+      e.v2FireT = 1.1;
+      fireV2Rocket(e, v2Target, vk);
+    }
+  }
+
+  const engageTarget = target || rocketTarget || mortarTarget || v2Target;
 
   if (target) {
     rollEnemyPushUrge(e, engageTarget, dt, command);
@@ -3961,14 +4024,36 @@ function updateEnemy(e, dt) {
   } else if (engageTarget) {
     // rocket/mortar range but outside the sidearm — hold and engage, push only on urge
     rollEnemyPushUrge(e, engageTarget, dt, command);
-  } else if (!command) {
+  } else if (!command && e.t.speed > 0) {
     advance(e, dt, buffed);
   }
 }
 
+// the V2's launch: a big ignition plume at the pad, then a long, wildly
+// scattered flight before the warhead comes down (see explodeV2)
+function fireV2Rocket(e, target, vk) {
+  SFX.rocket();
+  G.flashes.push({ x: e.x, y: e.y + 10, r: 30, ttl: 0.4, max: 0.4 });
+  for (let i = 0; i < 30; i++) {
+    G.particles.push({
+      x: e.x + rand(-6, 6), y: e.y + rand(4, 12),
+      vx: rand(-40, 40), vy: rand(-140, -30),
+      ttl: rand(0.6, 1.3), grav: 40, size: rand(2, 4.5),
+      color: pick(['#d8d0c0', '#b8b0a0', '#e8e4d8', '#8a8478']),
+    });
+  }
+  const d = dist(e, target);
+  let scatter = vk.scatter + d * 0.14;
+  if (target.t.tank) scatter *= 0.6;
+  else if (target.t.vehicle || target.t.atgun) scatter *= 0.8;
+  const tx = clamp(target.x + rand(-scatter, scatter), 20, W - 20);
+  const ty = clamp(target.y + rand(-scatter, scatter), 20, H - 20);
+  scheduleShell(tx, ty, vk.flight, vk.r, vk.dmg, true, e, 'v2');
+}
+
 // discipline only goes so far: periodically stop shooting and push upfield
 function rollEnemyPushUrge(e, target, dt, command) {
-  if (command || !target) return;
+  if (command || !target || e.t.speed === 0) return;   // fixed emplacements never push
   e.pushCd -= dt;
   if (e.pushCd <= 0) {
     e.pushCd = rand(3, 6);
@@ -4217,6 +4302,7 @@ function update(dt) {
   for (const u of G.units) if (!u.dead && u.atgunFireT > 0) u.atgunFireT -= dt;
   for (const u of G.units) if (!u.dead && u.mortarFireT > 0) u.mortarFireT -= dt;
   for (const e of G.enemies) if (!e.dead && e.mortarFireT > 0) e.mortarFireT -= dt;
+  for (const e of G.enemies) if (!e.dead && e.v2FireT > 0) e.v2FireT -= dt;
   for (const u of G.units) if (!u.dead && u.camoExposed > 0) u.camoExposed -= dt;
 
   // mines
@@ -4236,7 +4322,11 @@ function update(dt) {
   // incoming shells
   for (const s of G.shells) {
     s.timer -= dt;
-    if (s.timer <= 0) { s.done = true; explode(s.x, s.y, s.r, s.dmg, s.big, s.by); }
+    if (s.timer <= 0) {
+      s.done = true;
+      if (s.kind === 'v2') explodeV2(s.x, s.y, s.r, s.dmg, s.by);
+      else explode(s.x, s.y, s.r, s.dmg, s.big, s.by);
+    }
   }
 
   // friendly aircraft on strafing passes
@@ -4957,64 +5047,59 @@ function drawProneSoldier(a) {
   c.restore();
 }
 
-// a Fallschirmjäger under canopy: shadow on the deck, man swinging below
-// the silk, descending from altitude as the chute timer burns down
+// a Fallschirmjäger under canopy, seen from directly above: a paneled
+// disc overhead that shrinks and fades as the chute timer burns down,
+// revealing the jumper beneath as he nears touchdown
 function drawParatrooper(e) {
   const c = ctx;
   const p = clamp(e.chute / (e.chuteMax || 3), 0, 1);   // 1 = high, 0 = touchdown
-  const alt = p * 130;
-  const sway = Math.sin(e.sway || 0) * (3 + p * 5);
+  const wob = e.sway || 0;
+  const wobX = Math.cos(wob) * p * 2.2;
+  const wobY = Math.sin(wob * 1.3) * p * 1.4;
 
-  // ground shadow sharpens and grows as he comes down
+  // ground shadow sharpens and locks onto the touchdown point as he comes down
   c.fillStyle = `rgba(0,0,0,${0.08 + (1 - p) * 0.17})`;
-  c.beginPath(); c.ellipse(e.x, e.y + 2, 4 + (1 - p) * 5, 2 + (1 - p) * 2.5, 0, 0, 7); c.fill();
-
-  const mx = e.x + sway;          // man, pendulum under the canopy
-  const my = e.y - alt;
-  const cx = e.x + sway * 0.35;   // canopy lags the swing
-  const cy = my - 22;
+  c.beginPath(); c.ellipse(e.x, e.y + 1, 4 + (1 - p) * 5, 3 + (1 - p) * 4, 0, 0, 7); c.fill();
 
   c.save();
+  c.translate(e.x + wobX, e.y + wobY);
 
-  // shroud lines
-  c.strokeStyle = 'rgba(60,58,48,0.85)';
-  c.lineWidth = 0.7;
-  for (const off of [-13, -6, 6, 13]) {
+  const canopyR = 4.5 + p * 10.5;
+  const canopyA = 0.3 + p * 0.6;
+  const n = 8;
+
+  // shroud lines: spokes from the jumper up to the canopy skirt
+  c.strokeStyle = `rgba(60,58,48,${0.15 + canopyA * 0.4})`;
+  c.lineWidth = 0.6;
+  for (let i = 0; i < n; i++) {
+    const ang = (i / n) * Math.PI * 2 + wob * 0.15;
     c.beginPath();
-    c.moveTo(cx + off, cy + 3);
-    c.lineTo(mx, my - 4);
+    c.moveTo(0, 0);
+    c.lineTo(Math.cos(ang) * canopyR, Math.sin(ang) * canopyR);
     c.stroke();
   }
 
-  // canopy dome with gore seams
-  c.fillStyle = '#8b8570';
-  c.beginPath();
-  c.moveTo(cx - 15, cy + 3);
-  c.quadraticCurveTo(cx, cy - 14, cx + 15, cy + 3);
-  c.quadraticCurveTo(cx, cy + 7, cx - 15, cy + 3);
-  c.fill();
-  c.strokeStyle = 'rgba(50,48,38,0.6)';
+  // canopy: a paneled disc directly overhead
+  c.fillStyle = `rgba(139,133,112,${canopyA})`;
+  c.beginPath(); c.arc(0, 0, canopyR, 0, 7); c.fill();
+  c.strokeStyle = `rgba(50,48,38,${canopyA * 0.6})`;
   c.lineWidth = 0.8;
-  for (const gx of [-7.5, 0, 7.5]) {
+  c.beginPath(); c.arc(0, 0, canopyR, 0, 7); c.stroke();
+  for (let i = 0; i < n; i++) {
+    const ang = (i / n) * Math.PI * 2 + wob * 0.15;
     c.beginPath();
-    c.moveTo(cx + gx, cy + (Math.abs(gx) > 5 ? 3.6 : 4.8));
-    c.quadraticCurveTo(cx + gx * 0.4, cy - 8, cx, cy - 12);
+    c.moveTo(Math.cos(ang) * canopyR * 0.3, Math.sin(ang) * canopyR * 0.3);
+    c.lineTo(Math.cos(ang) * canopyR, Math.sin(ang) * canopyR);
     c.stroke();
   }
 
-  // the jumper: body, dangling legs, helmet
-  c.strokeStyle = '#4a4a40';
-  c.lineWidth = 1.6;
-  for (const lx of [-1.6, 1.6]) {
-    c.beginPath();
-    c.moveTo(mx + lx, my + 1);
-    c.lineTo(mx + lx + sway * 0.15, my + 6);
-    c.stroke();
-  }
+  // the jumper below, seen from above: shoulders and helmet sharpening into focus as he drops
+  c.globalAlpha = 0.35 + (1 - p) * 0.65;
   c.fillStyle = e.t.color;
-  c.beginPath(); c.ellipse(mx, my - 1, 3.4, 4.6, 0, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(0, 0.5, 3.3, 4, 0, 0, 7); c.fill();
   c.fillStyle = '#5a5a4c';
-  c.beginPath(); c.arc(mx, my - 6, 2.6, 0, 7); c.fill();
+  c.beginPath(); c.arc(0, -0.5, 2.6, 0, 7); c.fill();
+  c.globalAlpha = 1;
 
   c.restore();
 }
@@ -7596,6 +7681,26 @@ function stampATGunWreck(a) {
   gctx.restore();
 }
 
+function stampV2Wreck(a) {
+  gctx.save();
+  gctx.translate(a.x, a.y);
+  gctx.fillStyle = '#2e2c26';
+  gctx.fillRect(-22, -10, 44, 22);
+  gctx.strokeStyle = '#1c1c16';
+  gctx.lineWidth = 1.2;
+  gctx.strokeRect(-22, -10, 44, 22);
+  // snapped, scorched missile body lying across the wreckage
+  gctx.strokeStyle = '#3a3830';
+  gctx.lineWidth = 5;
+  gctx.beginPath(); gctx.moveTo(-24, 6); gctx.lineTo(20, -8); gctx.stroke();
+  gctx.strokeStyle = '#1c1c16';
+  gctx.lineWidth = 1.4;
+  gctx.beginPath(); gctx.moveTo(-24, 6); gctx.lineTo(20, -8); gctx.stroke();
+  gctx.fillStyle = '#211f1a';
+  gctx.beginPath(); gctx.arc(-6, 0, 9, 0, 7); gctx.fill();
+  gctx.restore();
+}
+
 function drawJeepWheel(c, x, y) {
   c.fillStyle = '#26261e';
   c.beginPath(); c.ellipse(x, y, 3.2, 5.8, 0, 0, 7); c.fill();
@@ -8020,6 +8125,107 @@ function drawATGun(a) {
   }
 }
 
+// Meillerwagen-style erector trailer: a flatbed truck (cab, chassis, six
+// wheels) with the A20 raised upright on its cradle at the back — dark olive
+// body, red/white recognition checker under the nose, four tail fins. During
+// the ~1.1s launch window the missile itself vanishes into an ignition glow.
+function drawV2Launcher(a) {
+  const c = ctx;
+  const fireT = a.v2FireT || 0;
+  const launching = fireT > 0.55;
+  c.save();
+  c.translate(a.x, a.y);
+
+  c.fillStyle = 'rgba(0,0,0,0.32)';
+  c.beginPath(); c.ellipse(0, 14, 26, 16, 0, 0, 7); c.fill();
+
+  // truck wheels — three pairs down the chassis
+  c.fillStyle = '#201f1a';
+  for (const wy of [-16, 4, 20]) {
+    c.beginPath(); c.ellipse(-11, wy, 4, 5.5, 0, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(11, wy, 4, 5.5, 0, 0, 7); c.fill();
+  }
+  c.fillStyle = '#3a3830';
+  for (const wy of [-16, 4, 20]) {
+    c.beginPath(); c.arc(-11, wy, 1.8, 0, 7); c.fill();
+    c.beginPath(); c.arc(11, wy, 1.8, 0, 7); c.fill();
+  }
+
+  // flatbed chassis
+  c.fillStyle = '#3a3a30';
+  c.fillRect(-9, -6, 18, 32);
+  c.strokeStyle = '#20201a';
+  c.lineWidth = 1.2;
+  c.strokeRect(-9, -6, 18, 32);
+  // cradle bracing the missile against the bed
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 2.2;
+  c.beginPath(); c.moveTo(-7, 20); c.lineTo(-5, -30); c.stroke();
+  c.beginPath(); c.moveTo(7, 20); c.lineTo(5, -30); c.stroke();
+
+  // cab up front, ahead of the bed
+  c.fillStyle = a.t.color;
+  c.fillRect(-8, -22, 16, 17);
+  c.strokeStyle = '#2a2a22';
+  c.lineWidth = 1;
+  c.strokeRect(-8, -22, 16, 17);
+  c.fillStyle = 'rgba(150,170,180,0.55)';
+  c.fillRect(-6, -19, 12, 5);
+  c.fillStyle = '#242018';
+  c.fillRect(-8, -7, 16, 2.5);
+
+  if (!launching) {
+    const bodyTop = -58, bodyBot = 20, bw = 6.4;
+    c.fillStyle = a.t.color;
+    c.fillRect(-bw, bodyTop + 8, bw * 2, bodyBot - bodyTop - 8);
+    c.strokeStyle = '#1c1c16';
+    c.lineWidth = 1;
+    c.strokeRect(-bw, bodyTop + 8, bw * 2, bodyBot - bodyTop - 8);
+    // recognition checker band
+    c.fillStyle = '#8a2a20';
+    c.fillRect(-bw, bodyTop + 8, bw, 7);
+    c.fillRect(0, bodyTop + 15, bw, 7);
+    c.fillStyle = '#d8d0c0';
+    c.fillRect(0, bodyTop + 8, bw, 7);
+    c.fillRect(-bw, bodyTop + 15, bw, 7);
+    // nose cone
+    c.fillStyle = '#2a2a22';
+    c.beginPath();
+    c.moveTo(-bw, bodyTop + 8);
+    c.lineTo(0, bodyTop - 10);
+    c.lineTo(bw, bodyTop + 8);
+    c.closePath();
+    c.fill();
+    c.stroke();
+    // tail fins, resting just above the cradle base
+    c.fillStyle = '#242420';
+    c.beginPath(); c.moveTo(-bw, bodyBot - 6); c.lineTo(-bw - 8, bodyBot + 2); c.lineTo(-bw, bodyBot - 2); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(bw, bodyBot - 6); c.lineTo(bw + 8, bodyBot + 2); c.lineTo(bw, bodyBot - 2); c.closePath(); c.fill();
+  }
+
+  // ignition glow through the launch window
+  if (fireT > 0) {
+    const a2 = clamp(fireT / 1.1, 0, 1);
+    c.shadowColor = '#ff9040';
+    c.shadowBlur = 16;
+    c.fillStyle = `rgba(255,200,110,${0.85 * a2})`;
+    c.beginPath(); c.arc(0, 18, 6 + a2 * 10, 0, 7); c.fill();
+    c.fillStyle = `rgba(255,120,40,${0.5 * a2})`;
+    c.beginPath(); c.arc(0, 18, 12 + a2 * 16, 0, 7); c.fill();
+    c.shadowBlur = 0;
+  }
+
+  c.restore();
+
+  if (a.hp < a.maxhp) {
+    const f = clamp(a.hp / a.maxhp, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(a.x - 24, a.y - 72, 48, 4.5);
+    ctx.fillStyle = f > 0.5 ? '#c0562e' : '#8a2a20';
+    ctx.fillRect(a.x - 24, a.y - 72, 48 * f, 4.5);
+  }
+}
+
 function drawHalftrack(e) {
   const c = ctx;
   c.save();
@@ -8425,13 +8631,31 @@ function draw() {
 
   // shell target markers
   for (const s of G.shells) {
-    ctx.strokeStyle = 'rgba(200,60,40,0.5)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(s.x, s.y, 6 + Math.sin(G.time * 10) * 2, 0, 7); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(s.x - 9, s.y); ctx.lineTo(s.x + 9, s.y);
-    ctx.moveTo(s.x, s.y - 9); ctx.lineTo(s.x, s.y + 9);
-    ctx.stroke();
+    if (s.kind === 'v2') {
+      // a much bigger, angrier telegraph for the V2's warhead — long flight
+      // time means the player has a real chance to clear vehicles off the mark
+      const pulse = 16 + Math.sin(G.time * 6) * 6;
+      ctx.strokeStyle = 'rgba(255,40,20,0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(s.x, s.y, pulse, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(s.x, s.y, pulse * 0.55, 0, 7); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(s.x - pulse - 7, s.y); ctx.lineTo(s.x + pulse + 7, s.y);
+      ctx.moveTo(s.x, s.y - pulse - 7); ctx.lineTo(s.x, s.y + pulse + 7);
+      ctx.stroke();
+      ctx.font = 'bold 9px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,60,40,0.85)';
+      ctx.fillText('INCOMING', s.x, s.y - pulse - 9);
+    } else {
+      ctx.strokeStyle = 'rgba(200,60,40,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(s.x, s.y, 6 + Math.sin(G.time * 10) * 2, 0, 7); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(s.x - 9, s.y); ctx.lineTo(s.x + 9, s.y);
+      ctx.moveTo(s.x, s.y - 9); ctx.lineTo(s.x, s.y + 9);
+      ctx.stroke();
+    }
   }
 
   // rockets in flight
@@ -8467,6 +8691,7 @@ function draw() {
     else if (e.t.bike) drawBike(e);
     else if (e.t.apc) drawHalftrack(e);
     else if (e.t.vehicle) drawJeep(e);
+    else if (e.t.v2) drawV2Launcher(e);
     else drawSoldier(e);
   }
   for (const u of G.units) {
@@ -10298,6 +10523,16 @@ function renderPortrait(typeKey, side) {
       ctx.translate(-CODEX_PW / 2, -(CODEX_PH / 2 + 2));
       drawATGun(actor);
       ctx.restore();
+    } else if (t.v2) {
+      // the erector trailer is taller than it is wide (missile raised well
+      // above the truck cab), so it needs a smaller scale and a lower pivot
+      // than the other vehicle portraits to avoid clipping the nose
+      ctx.save();
+      ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 19);
+      ctx.scale(0.7, 0.7);
+      ctx.translate(-CODEX_PW / 2, -(CODEX_PH / 2 + 19));
+      drawV2Launcher(actor);
+      ctx.restore();
     } else {
       drawSoldier(actor);
     }
@@ -10350,6 +10585,7 @@ function codexEntries(tab) {
       if (t.range > 0) parts.splice(t.dmg > 0 ? 2 : 1, 0, `${t.range} RNG`);
       if (t.flame) parts.push('FLAME');
       if (t.tank) parts.push('ARMOR');
+      if (t.v2) parts.push('V2 ROCKET', 'HUGE BLAST', 'IMMOBILE');
       return {
         key,
         side: 'de',

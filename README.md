@@ -24,10 +24,18 @@ python3 -m http.server 8000
   **Sandbox** (unlimited TP, free purchases; **+1 / +5 / +10** HUD buttons or **] / Shift+] / Ctrl+]** to jump ahead and spawn later waves), **Easy** (full income — the default),
   **Medium** (66% income from kills, trickle, and officers), or **Hard** (33%
   income). Wave attrition still applies on Easy, Medium, and Hard.
-- **Allied Campaign — Level 1: Hold the Line** — survive **12 scripted waves**,
-  ramping from rifle squads to a halftrack-led final assault. Wipe out the last
-  wave and the sector is yours. 7 breaches still lose it. No income attrition and
-  no random events — the assault plan is fixed.
+- **Allied Campaign — 6 levels** — American battles from Normandy to the Bulge.
+  Levels unlock in order; progress is saved in your browser.
+  - **Omaha Beach → Carentan → Operation Cobra → Nijmegen → Hürtgen → Bastogne**
+  - Assault missions (levels 1–5): spend **TP** each wave to deploy US troops in
+    the top strip (or on **landing craft** at Omaha), hit **START WAVE**, and
+    push south. Win by getting enough men **past the bottom edge** or wiping
+    every German defender; lose if you run out of waves. Unused TP does **not**
+    carry over.
+  - **D-Day (Omaha):** deploy only on Higgins-boat decks. On START the craft
+    motor ashore, drop their ramps, and German beach defenses open fire.
+  - **Bastogne (finale):** defend against **12 scripted German waves**. 7
+    breaches and the crossroads falls.
 - **Axis Campaign — 13 levels** — a tour of famous German offensives from Poland
   1939 to the Ardennes 1944. Levels unlock in order; progress is saved in your
   browser. Between battles, spend **Research Points (RP)** in the **Research**

@@ -56,7 +56,7 @@
         <button id="start-endless">ENDLESS
           <span class="mode-desc">Hold the line against waves without end. There is no winning — only lasting one more wave.</span></button>
         <button id="start-allied">ALLIED CAMPAIGN
-          <span class="mode-desc">Level 1: Hold the Line. Survive 12 scripted German waves. 7 breaches and the sector falls.</span></button>
+          <span class="mode-desc">Six battles from Omaha Beach to Bastogne. Assault with landing craft and per-wave TP, then hold the Bulge.</span></button>
         <button id="start-axis">AXIS CAMPAIGN
           <span class="mode-desc">Thirteen historical offensives across Europe. Research units between battles, then assault with per-wave TP.</span></button>
         <button id="start-commando">COMMANDO CAMPAIGN
@@ -82,6 +82,24 @@
           <span class="mode-desc">33% income. Supply lines are thin.</span></button>
       </div>
       <button id="endless-back-btn" class="secondary">BACK</button>
+    </div>
+
+    <div id="allied-select" class="overlay hidden">
+      <h1>ALLIED CAMPAIGN</h1>
+      <p>A tour of American battles from Normandy to the Ardennes. Beat each battle to unlock the next. Assault missions spend <b>TP</b> each wave to deploy; the finale is a defense of Bastogne. Progress is saved in your browser.</p>
+      <div id="allied-list" class="intro-btns modes"></div>
+      <button id="allied-back-btn" class="secondary">BACK</button>
+    </div>
+
+    <div id="allied-briefing" class="overlay hidden">
+      <h1 id="allied-briefing-title"></h1>
+      <p id="allied-briefing-history"></p>
+      <p id="allied-briefing-text"></p>
+      <ul id="allied-briefing-objectives" class="briefing-objectives"></ul>
+      <div class="intro-btns">
+        <button id="allied-briefing-deploy">DEPLOY</button>
+        <button id="allied-briefing-back" class="secondary">BACK</button>
+      </div>
     </div>
 
     <div id="axis-select" class="overlay hidden">

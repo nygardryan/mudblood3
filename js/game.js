@@ -10644,11 +10644,19 @@ function visibleToolbarCategories() {
   return TOOLBAR_CATEGORIES.filter(c => placeablesForCategory(c.id).length > 0);
 }
 
+// while the user is dragging the marquee box to pick units, keep the toolbar out
+// of the way. toolbarView is left untouched, so if the drag ends with nothing
+// selected the same menu simply reappears.
+function marqueeSelecting() {
+  return !!(drag && drag.active) && isPlaying();
+}
+
 function syncToolbarVisibility() {
   const bar = el('toolbar');
   if (!bar) return;
   const hideForSelection = touchUI() && mobileToolbarMinimized && G?.selected.length && !placing;
   const show = toolbarPlaceables.length > 0 && isPlaying() && !hideForSelection
+    && !marqueeSelecting()
     && !(isAssaultMode() && G.phase !== 'build');
   bar.classList.toggle('hidden', !show);
 }
@@ -11219,7 +11227,10 @@ canvas.addEventListener('pointermove', e => {
   if (drag) {
     drag.x1 = mouse.x;
     drag.y1 = mouse.y;
-    if (!drag.active && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > tapSlop()) drag.active = true;
+    if (!drag.active && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > tapSlop()) {
+      drag.active = true;
+      syncToolbarVisibility();
+    }
   }
 });
 
@@ -11288,7 +11299,10 @@ canvas.addEventListener('pointerup', e => {
         // empty marquee: keep current selection and treat release as a tap
       }
     }
+    const wasActive = drag.active;
     drag = null;
+    // drag over: bring the menu back to whatever view it was on
+    if (wasActive) syncToolbarVisibility();
   }
 
   // long-press held without dragging → suppress the tap (already deselected)
@@ -11334,7 +11348,9 @@ canvas.addEventListener('pointercancel', e => {
   clearViewPan();
   clearLongPress();
   placeTouch = null;
+  const wasActive = drag && drag.active;
   drag = null;
+  if (wasActive) syncToolbarVisibility();
   mouse.inside = false;
 });
 

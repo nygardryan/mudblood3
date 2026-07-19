@@ -5,7 +5,7 @@
     {
       "name": "static-server",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "python3 -m http.server ${PORT:-8144}"],
+      "runtimeArgs": ["-c", "python3 -m http.server $PORT"],
       "port": 8144
     }
   ]

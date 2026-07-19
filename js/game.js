@@ -20,12 +20,12 @@ const MAX_OFFICERS = 5;
 const MEDIC_RANGE = 95;
 const ENGINEER_RANGE = 95;
 const OFFICER_AURA = 78;
-const WATCHTOWER_AURA = 30;
+const WATCHTOWER_AURA = 22;
 const RANKUP_RADIUS = 140;  // testing-mode-only field-promotion ability
 const PURGE_RADIUS = 150;   // testing-mode-only kill-everything ability
 const WATCHTOWER_RANGE_MULT = 1.25;
 const WATCHTOWER_RANGE_MULT_UPGRADED = 1.35;
-const CAMONEST_ZONE = 36;               // same footprint as a bunker's cover radius
+const CAMONEST_ZONE = 30;               // same footprint as a bunker's cover radius
 const CAMONEST_REVEAL = 4;              // seconds targetable after a shot, unfortified
 const CAMONEST_REVEAL_FORTIFIED = 2;
 const CAMONEST_EXPLOSIVE_MULT = 1.2;    // weak to explosives — no reduction like a bunker's concrete
@@ -559,7 +559,7 @@ function axisWavePayout(level, wave) {
 const SANDBAG_HP = 660;
 const BUNKER_HP = 2040;
 const WATCHTOWER_HP = 500;
-const CAMONEST_HP = 140;
+const CAMONEST_HP = 280;
 function usBag(G, x, y, hp = SANDBAG_HP)    { G.sandbags.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 function usBunker(G, x, y, hp = BUNKER_HP){ G.bunkers.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 function usWire(G, x, y, hp = 3750)  { G.wires.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
@@ -1405,6 +1405,7 @@ function newGame(level, difficulty) {
 
     spawnTimer: level.mode === 'allied' ? level.waves[0].delay : 6,
     tpTrickle: 6,
+    catchupDebt: 0,   // endless: fractional TP-value of allied units lost, not yet refunded
     officerTick: 30,
     eventTimer: rand(40, 60),
     fog: 0,
@@ -1557,6 +1558,23 @@ function spendTP(cost) {
 function placeableCost(p) {
   const ov = G && G.level && G.level.costOverrides;
   return (ov && ov[p.key] != null) ? ov[p.key] : p.cost;
+}
+
+// endless catch-up mechanic: every 5 TP worth of allied units lost refunds
+// 1 TP, so a rough wave doesn't snowball into a run-ending spiral. Tracks
+// fractional TP lost in G.catchupDebt across deaths.
+function unitTPValue(u) {
+  const p = PLACEABLES.find(pl => pl.key === u.type);
+  return p ? placeableCost(p) : 0;
+}
+
+function trackAlliedLoss(u) {
+  if (G.mode !== 'endless' || u.side !== 'us') return;
+  G.catchupDebt += unitTPValue(u);
+  while (G.catchupDebt >= 5) {
+    G.catchupDebt -= 5;
+    earnTP(1, 'catchup');
+  }
 }
 
 // ============================================================ waves & spawning
@@ -2351,7 +2369,7 @@ function updateBomber(p, dt) {
   if (p.bombCd <= 0 && p.y > -20 && p.y < H - 20) {
     let victim = null, best = p.attackR;
     for (const u of G.units) {
-      if (u.dead) continue;
+      if (u.dead || isCamouflaged(u)) continue;
       const d = dist(u, p);
       if (d < best) { best = d; victim = u; }
     }
@@ -2598,6 +2616,7 @@ function damageUnit(u, dmg, from) {
     if (isAssaultMode() || G.mode === 'hitsquad') {
       G.kills++;
     }
+    trackAlliedLoss(u);
     if (u.t.tank) {
       stampWreck(u);
       explode(u.x, u.y, 50, 60, true);
@@ -2742,13 +2761,13 @@ function coverBlock(target) {
   if (target.side !== 'us' || target.t.tank || target.t.vehicle) return false;
   // bunker walls first: they stop more fire and barely notice small arms
   for (const b of G.bunkers) {
-    if (b.hp > 0 && dist(b, target) < (b.up ? 40 : 36)) {
+    if (b.hp > 0 && dist(b, target) < (b.up ? 34 : 30)) {
       if (Math.random() < (b.up ? 0.85 : 0.75)) { b.hp -= b.up ? 1 : 2; return true; }
     }
   }
   for (const s of G.sandbags) {
     // fortified bags stop more and shrug off hits better
-    if (s.hp > 0 && dist(s, target) < (s.up ? 36 : 32)) {
+    if (s.hp > 0 && dist(s, target) < (s.up ? 30 : 26)) {
       if (Math.random() < (s.up ? 0.65 : 0.5)) { s.hp -= s.up ? 3 : 4; return true; }
     }
   }
@@ -3448,7 +3467,7 @@ function drawSpecialistRange(a) {
 // cover radius for bunker/sandbags, blast radius for mines, slow zone for wire
 function drawDefenseRangeIndicator(key, x, y) {
   if (key === 'bunker' || key === 'sandbags' || key === 'camonest') {
-    const r = key === 'sandbags' ? 32 : CAMONEST_ZONE;
+    const r = key === 'sandbags' ? 26 : CAMONEST_ZONE;
     ctx.strokeStyle = key === 'camonest' ? 'rgba(150,190,110,0.5)' : 'rgba(120,175,235,0.5)';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 4]);

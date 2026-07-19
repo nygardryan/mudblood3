@@ -522,7 +522,7 @@ const LEVELS = {
     breachLimit: MAX_BREACH,
     events: true,
     placeables: PLACEABLES,
-    startTP: 15,
+    startTP: 25,
     setup(G) {
       // you start with two riflemen already dug in
       G.units.push(makeUnit('rifleman', W / 2 - 70, 470));
@@ -1403,11 +1403,13 @@ function makeDefender(nation, type, x, y) {
 // war economy attrition (endless only): each wave pays ~1% less than the one
 // before, dropping to a hard 10% floor from wave 90 on. Campaign levels pay
 // full rate. G.tp holds fractions; the HUD floors it.
+// endless TP income is also cut 75% across the board (unit-count reduction pass).
 function earnTP(amount) {
   let mult = G.mode === 'endless'
     ? (G.wave >= 90 ? 0.1 : Math.max(0.1, Math.pow(0.99, G.wave)))
     : 1;
   if (G.mode === 'endless' && G.difficulty) mult *= G.difficulty.incomeMult;
+  if (G.mode === 'endless') mult *= 0.25;
   G.tp += amount * mult;
 }
 
@@ -1441,12 +1443,21 @@ function spawnIntervalForWave(w) {
   return clamp(6 - wavesPast99(w) * 0.06, 3, 16);
 }
 
+// enemy volume is cut 75% across the board (unit-count reduction pass), but
+// the first 20 waves felt too quiet at that rate, so they're bumped back up
+// 50% off that floor (0.25 * 1.5 = 0.375) — still a net cut, just a smaller one early.
+function enemySpawnMult(w) {
+  return w <= 20 ? 0.375 : 0.25;
+}
+
 function waveComposition(w) {
   const late = wavesPast99(w);
-  const size = Math.min(
+  const mult = enemySpawnMult(w);
+  const baseSize = Math.min(
     2 + Math.floor(w / 4) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 5),
     7 + Math.floor(late / 10),
   );
+  const size = Math.max(1, Math.round(baseSize * mult));
   const pool = ['erifle', 'erifle', 'erifle'];
   if (w >= 4) pool.push('esmg', 'esmg');
   if (w >= 7) pool.push('egren');
@@ -1457,14 +1468,14 @@ function waveComposition(w) {
   if (w >= 80) pool.push('ebazooka');
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
-  if (w >= 12 && Math.random() < 0.30 + late * 0.004) out.push('eoff');
+  if (w >= 12 && Math.random() < (0.30 + late * 0.004) * mult) out.push('eoff');
   // a motorcycle team races ahead of some waves; as German logistics spin
   // up, bikes ramp from 20% at wave 9 to a 90% cap at wave 99, then keep climbing
-  const bikeChance = late > 0
+  const bikeChance = (late > 0
     ? Math.min(1, 0.9 + late * 0.006)
-    : Math.min(0.9, w >= 9 ? 0.2 + (w - 9) * (0.7 / 90) : 0);
+    : Math.min(0.9, w >= 9 ? 0.2 + (w - 9) * (0.7 / 90) : 0)) * mult;
   if (w >= 9 && Math.random() < bikeChance) out.push('ebike');
-  const vehChance = 0.11 * (1 + late * 0.04);
+  const vehChance = 0.11 * (1 + late * 0.04) * mult;
   // a Kübelwagen gun car rolls in occasionally — not until mid-game
   if (w >= 16 && Math.random() < vehChance) out.push('ejeep');
   // an armored halftrack hauls a full squad to the front
@@ -1483,17 +1494,23 @@ function spawnEnemyAt(type, x, y) {
   return e;
 }
 
+// special-wave tier t corresponds to wave t*10; reuses the same early-wave
+// bump as waveComposition (1.3 base scale * enemySpawnMult).
+function specialWaveMult(t) {
+  return 1.3 * enemySpawnMult(t * 10);
+}
+
 const SPECIAL_WAVES = [
   {
     key: 'blitz',
     banner: 'BLITZKRIEG! KRADSCHÜTZEN SWARM!',
     // a torrent of motorcycles racing for your line, gun cars in the second echelon
     spawn(t) {
-      const bikes = Math.floor(1.3 * (3 + t));
+      const bikes = Math.floor(specialWaveMult(t) * (3 + t));
       for (let i = 0; i < bikes; i++) {
         spawnEnemyAt('ebike', rand(60, W - 60), -20 - i * rand(30, 70));
       }
-      for (let i = 0; i < Math.floor(1.3 * t / 2); i++) {
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * t / 2); i++) {
         spawnEnemyAt('ejeep', rand(100, W - 100), -80 - i * 100);
       }
     },
@@ -1506,7 +1523,7 @@ const SPECIAL_WAVES = [
       spawnTransportFlyby();
       const pool = ['erifle', 'esmg', 'esmg', 'egren'];
       if (t >= 3) pool.push('emg');
-      const count = Math.floor(1.3 * (6 + 2 * t));
+      const count = Math.floor(specialWaveMult(t) * (6 + 2 * t));
       for (let i = 0; i < count; i++) {
         const e = spawnEnemyAt(pick(pool), rand(40, W - 40), rand(40, H * (2 / 3) - 10));
         e.chute = rand(2.8, 4.0) + i * 0.15;
@@ -1517,7 +1534,7 @@ const SPECIAL_WAVES = [
         o.chute = rand(3, 4);
         o.chuteMax = o.chute;
       }
-      for (let i = 0; i < Math.floor(1.3 * (3 + t / 2)); i++) {
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (3 + t / 2)); i++) {
         spawnEnemyAt(pick(['erifle', 'esmg']), rand(80, W - 80), rand(-70, -20));
       }
     },
@@ -1527,14 +1544,14 @@ const SPECIAL_WAVES = [
     banner: 'STURMANGRIFF! HUMAN WAVE!',
     // a shoulder-to-shoulder line of shock infantry across the whole field
     spawn(t) {
-      const count = Math.floor(1.3 * (8 + 2 * t));
+      const count = Math.floor(specialWaveMult(t) * (8 + 2 * t));
       for (let i = 0; i < count; i++) {
         const x = (W / (count + 1)) * (i + 1) + rand(-25, 25);
         const roll = Math.random();
         const type = roll < 0.5 ? 'esmg' : roll < 0.65 && t >= 3 ? 'eflame' : 'erifle';
         spawnEnemyAt(type, x, rand(-90, -20));
       }
-      const officers = Math.floor(1.3 * (1 + t / 5));
+      const officers = Math.floor(specialWaveMult(t) * (1 + t / 5));
       for (let i = 0; i < officers; i++) {
         spawnEnemyAt('eoff', rand(120, W - 120), rand(-130, -90));
       }
@@ -1546,19 +1563,19 @@ const SPECIAL_WAVES = [
     // tanks and halftracks in column with an infantry screen out front
     spawn(t) {
       const cx = rand(180, W - 180);
-      const panzers = t < 6 ? 1 : Math.max(1, Math.floor(1.3 * t / 3));
+      const panzers = t < 6 ? 1 : Math.max(1, Math.floor(specialWaveMult(t) * t / 3));
       for (let i = 0; i < panzers; i++) {
         spawnEnemyAt('panzer', cx + rand(-120, 120), -40 - i * 150);
       }
-      const tracks = t < 6 ? 0 : Math.floor(1.3 * (1 + (t - 6) / 5));
+      const tracks = t < 6 ? 0 : Math.floor(specialWaveMult(t) * (1 + (t - 6) / 5));
       for (let i = 0; i < tracks; i++) {
         spawnEnemyAt('ehalftrack', cx + rand(-160, 160), -110 - i * 130);
       }
-      const jeeps = t < 5 ? 0 : Math.floor(1.3 * (t - 4) / 3);
+      const jeeps = t < 5 ? 0 : Math.floor(specialWaveMult(t) * (t - 4) / 3);
       for (let i = 0; i < jeeps; i++) {
         spawnEnemyAt('ejeep', cx + rand(-200, 200), -70 - i * 100);
       }
-      for (let i = 0; i < Math.floor(1.3 * (4 + t / 2)); i++) {
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (4 + t / 2)); i++) {
         spawnEnemyAt(pick(['erifle', 'esmg', 'egren']), cx + rand(-200, 200), rand(-60, -20));
       }
     },
@@ -1569,13 +1586,13 @@ const SPECIAL_WAVES = [
     // fog blankets the field while marksmen and MGs creep in behind the infantry
     spawn(t) {
       G.fog = Math.max(G.fog, Math.round((24 + t) * 1.15));
-      for (let i = 0; i < Math.floor(1.3 * (2 + t / 4)); i++) {
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 4)); i++) {
         spawnEnemyAt('esniper', rand(60, W - 60), rand(-140, -60));
       }
-      for (let i = 0; i < Math.floor(1.3 * (1 + t / 4)); i++) {
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (1 + t / 4)); i++) {
         spawnEnemyAt('emg', rand(80, W - 80), rand(-110, -40));
       }
-      for (let i = 0; i < Math.floor(1.3 * (6 + t)); i++) {
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (6 + t)); i++) {
         spawnEnemyAt(pick(['erifle', 'erifle', 'esmg']), rand(50, W - 50), rand(-90, -20));
       }
     },
@@ -1876,9 +1893,9 @@ function barrageForWave(w) {
 }
 
 // paratroopers drop into the top 2/3 of the field: 4 men minimum,
-// growing steadily with the wave count
+// growing steadily with the wave count (cut 75% as part of the unit-count reduction pass)
 function paradropCount(w) {
-  return Math.round(Math.min(4 + Math.floor(w / 6), 12 + Math.floor(wavesPast99(w) / 10)) * 1.35);
+  return Math.max(1, Math.round(Math.min(4 + Math.floor(w / 6), 12 + Math.floor(wavesPast99(w) / 10)) * 1.35 * enemySpawnMult(w)));
 }
 
 const PARA_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];

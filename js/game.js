@@ -23,6 +23,7 @@ const CAMONEST_ZONE = 36;               // same footprint as a bunker's cover ra
 const CAMONEST_REVEAL = 4;              // seconds targetable after a shot, unfortified
 const CAMONEST_REVEAL_FORTIFIED = 2;
 const CAMONEST_EXPLOSIVE_MULT = 1.2;    // weak to explosives — no reduction like a bunker's concrete
+const GRENADE_CATCH_RANGE = 34;         // how close a grenadier must be to a landed enemy grenade to heave it back
 
 const UNIT_TYPES = {
   rifleman: {
@@ -42,7 +43,7 @@ const UNIT_TYPES = {
     name: 'Grenadier', hp: 100, range: 345, dmg: 10, acc: 0.55,
     rof: 1.2, burst: 1, burstGap: 0, speed: 42,
     color: '#44583c', gun: 6, sfx: 'rifle', grenade: true,
-    desc: 'Carbine most of the time; a heavy frag now and then.',
+    desc: 'Carbine most of the time; a heavy frag now and then. Quick enough to catch a live German grenade and heave it back.',
   },
   shotgunner: {
     name: 'Shotgunner', hp: 145, range: 0, dmg: 0, acc: 0,
@@ -294,7 +295,7 @@ const PLACEABLES = [
   { key: 'gunner', label: 'GUNNER', cost: 9, kind: 'unit', hotkey: '2',
     desc: 'BAR gunner. Long range automatic fire.' },
   { key: 'grenadier', label: 'GRENADIER', cost: 7, kind: 'unit', hotkey: '3',
-    desc: 'Carbine rifleman who lobs a devastating frag every 11-16 s. Blast can hurt your own men.' },
+    desc: 'Carbine rifleman who lobs a devastating frag every 11-16 s. Blast can hurt your own men. Will also catch a landed German grenade nearby and throw it right back.' },
   { key: 'shotgunner', label: 'SHOTGUN', cost: 5, kind: 'unit', hotkey: 'G',
     desc: 'M97 trench gun and body armor. High HP; each blast can hit every enemy in the cone.' },
   { key: 'bazooka', label: 'BAZOOKA', cost: 12, kind: 'unit', hotkey: 'B',
@@ -378,7 +379,7 @@ const ASSAULT_PLACEABLES = [
   { key: 'gunner', label: 'GUNNER', cost: 9, kind: 'aunit', hotkey: '2',
     desc: 'BAR gunner. Suppressive fire on the advance.' },
   { key: 'grenadier', label: 'GRENADIER', cost: 7, kind: 'aunit', hotkey: '3',
-    desc: 'Carbine and frag grenades. Clears bunkers and wire.' },
+    desc: 'Carbine and frag grenades. Clears bunkers and wire. Throws back live German grenades that land nearby.' },
   { key: 'shotgunner', label: 'SHOTGUN', cost: 5, kind: 'aunit', hotkey: 'G',
     desc: 'Trench gun for close work on the beach and in the bocage.' },
   { key: 'bazooka', label: 'BAZOOKA', cost: 12, kind: 'aunit', hotkey: 'B',
@@ -3432,6 +3433,30 @@ function updateUnit(u, dt) {
   runWeapon(u, target, dt, buffs);
 
   if (u.t.grenade) {
+    // quick reflexes: a live German stick grenade landed close enough to
+    // scoop up and heave back before the fuse runs out. Grenades already
+    // caught, or thrown by a friendly (kind 'frag'), are never eligible.
+    for (const g of G.grenades) {
+      if (g.by || g.caught || !g.landed || g.fuse < 0.6) continue;
+      if (dist(u, { x: g.tx, y: g.ty }) > GRENADE_CATCH_RANGE) continue;
+      g.caught = true;
+      g.by = u;
+      g.landed = false;
+      g.t = 0;
+      g.dur = 0.6;
+      g.sx = u.x; g.sy = u.y;
+      const back = nearestEnemyInRange(u, 260 * fogMult());
+      const rx = back ? back.x : g.tx, ry = back ? back.y : g.ty - 160;
+      const sc = 16;
+      g.tx = rx + rand(-sc, sc);
+      g.ty = ry + rand(-sc, sc);
+      u.grenThrowT = 0.35;
+      markCamoFired(u);
+      SFX.grenadeToss();
+      G.texts.push({ x: u.x, y: u.y - 18, text: 'THROWN BACK!', ttl: 1.6 });
+      break;
+    }
+
     u.grenCd -= dt;
     if (u.grenCd <= 0) {
       // never inside his own blast, never onto a danger-close buddy

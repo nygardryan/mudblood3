@@ -70,7 +70,7 @@ const UNIT_TYPES = {
     name: 'Mortarman', hp: 90, range: 80, dmg: 8, acc: 0.47,
     rof: 1.0, burst: 1, burstGap: 0, speed: 38,
     color: '#4c5a3f', gun: 5, sfx: 'pistol',
-    mortar: { range: 348, min: 118, cdMin: 11, cdMax: 15, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
+    mortar: { range: 348, min: 118, cdMin: 9, cdMax: 12, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
     desc: 'Portable 60mm mortar. Indirect fire at range.',
   },
   sniper: {
@@ -208,7 +208,7 @@ const ENEMY_TYPES = {
     name: 'Granatwerfer', hp: 75, speed: 18, range: 80, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, reward: 5,
     color: '#504e44', gun: 5, sfx: 'pistol', priority: 3,
-    mortar: { range: 348, min: 118, cdMin: 11, cdMax: 15, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
+    mortar: { range: 348, min: 118, cdMin: 9, cdMax: 12, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
   },
   ebazooka: {
     name: 'Panzerfaust', hp: 75, speed: 20, range: 80, dmg: 8, acc: 0.45,
@@ -349,7 +349,7 @@ const PLACEABLES = [
     desc: 'Carbine rifleman who also lobs a frag grenade every 11-16 s (the blast can hit your own men) and can catch a live enemy grenade and throw it back. Ranking up means more frequent, more accurate, and harder-hitting grenades.' },
   { key: 'shotgunner', label: 'SHOTGUN', cost: 5, kind: 'unit', hotkey: 'G',
     desc: 'M97 trench gun and body armor. High HP; each blast can hit every enemy in the cone. Ranking up tightens his spread and extends his range faster than most units.' },
-  { key: 'bazooka', label: 'BAZOOKA', cost: 11, kind: 'unit', hotkey: 'B',
+  { key: 'bazooka', label: 'BAZOOKA', cost: 12, kind: 'unit', hotkey: 'B',
     desc: 'M1A1 rocket launcher. Wildly inaccurate at range, and the splash can hurt nearby friendlies, but armor makes an easy target. Ranking up means faster reloads and tighter, harder-hitting rockets.' },
   { key: 'mortarman', label: 'MORTARMAN', cost: 13, kind: 'unit', hotkey: 'M',
     desc: 'Portable 60mm mortar. Long-range indirect fire; can\'t hit anything close. Ranking up means faster reloads and tighter, harder-hitting shells.' },
@@ -367,7 +367,7 @@ const PLACEABLES = [
     desc: 'Willys jeep with a .50 cal HMG, firing on the move. Unarmored — medics can\'t touch it, but an engineer can patch it, slowly. Ranking up makes him faster and deadlier, though he needs more kills per promotion than the infantry.' },
   { key: 'sherman', label: 'SHERMAN', cost: 60, kind: 'unit', hotkey: 'T',
     desc: 'M4 Sherman tank. 75mm HE cannon on a rotating turret; shrugs off small arms. Medics cannot repair it, but an engineer can, slowly. Ranking up takes many kills, but sharpens his aim and speeds up reloads on both the cannon and the coaxial MG.' },
-  { key: 'atgun', label: 'AT GUN', cost: 25, kind: 'unit', hotkey: 'P',
+  { key: 'atgun', label: 'AT GUN', cost: 22, kind: 'unit', hotkey: 'P',
     desc: '57mm anti-tank gun. Cannot move; only engages vehicles inside its firing cone. AP shells wreck armor. An engineer can patch it, slowly. Ranking up widens its firing arc, speeds up reloads, and hits harder.' },
   { key: 'aagun', label: 'AA GUN', cost: 20, kind: 'unit', hotkey: 'V',
     desc: '40mm Bofors flak gun. Cannot move; its barrels only elevate, so it ignores everything on the ground. Shoots down bombers during air raids and kills paratroopers still under canopy. Flak bursts are far from precise. An engineer can patch it, slowly. Ranking up widens its firing arc, speeds up reloads, and tightens its aim.' },
@@ -2070,7 +2070,7 @@ function raidForWave(w) {
     bombsMin: 1,
     bombsMax: t < 0.5 ? 3 : 4,              // late raids drop the full stick
     r: Math.round(42 + t * 16),             // blast radius
-    dmg: Math.round(70 + t * 30),           // bombs bite much harder later
+    dmg: Math.round(47 + t * 20),           // bombs bite much harder later
     hp: Math.round(65 + t * 65),            // airframe toughness vs. flak
     attackR: Math.round(120 + t * 34),      // how far off the flight path they'll bomb
     big: w >= 36,

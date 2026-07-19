@@ -2657,7 +2657,7 @@ function damageUnit(u, dmg, from) {
 function gainXP(u) {
   u.xp++;
   const next = RANKS[u.rank + 1];
-  const rankMult = u.t.tank ? 5 : (u.t.rankMult || 1);
+  const rankMult = u.t.tank ? 2.5 : (u.t.rankMult || 1);
   const need = next && next.kills * rankMult;
   if (next && u.xp >= need) {
     u.rank++;
@@ -2677,7 +2677,7 @@ function rankUpUnit(u) {
   const next = RANKS[u.rank + 1];
   if (!next) return;
   u.rank++;
-  const rankMult = u.t.tank ? 5 : (u.t.rankMult || 1);
+  const rankMult = u.t.tank ? 2.5 : (u.t.rankMult || 1);
   u.xp = Math.max(u.xp, next.kills * rankMult);
   const heal = 15 * (u.t.rankHealMult || 1);
   u.hp = Math.min(u.maxhp, u.hp + heal);
@@ -4010,7 +4010,7 @@ function updateEngineer(u, dt) {
     if (f < vehFrac) { vehFrac = f; veh = a; }
   }
   if (veh) {
-    const amt = Math.min(veh.maxhp - veh.hp, 0.25 + u.rank * 0.075);
+    const amt = Math.min(veh.maxhp - veh.hp, (0.25 + u.rank * 0.075) * 1.5);
     veh.hp += amt;
     credit(amt * 0.15);
     sparks(veh.x, veh.y);

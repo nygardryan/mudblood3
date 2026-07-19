@@ -535,6 +535,98 @@ body {
   cursor: not-allowed;
 }
 
+/* ---- Endless card shop ---- */
+#card-shop-row {
+  display: flex;
+  flex-wrap: nowrap;   /* the hand always reads left to right, never stacks */
+  justify-content: center;
+  align-items: stretch;
+  gap: clamp(8px, 2vw, 16px);
+  margin-bottom: 22px;
+  width: 100%;
+  max-width: 640px;
+}
+/* playing-card panels: portrait aspect, title block up top, description
+   below, cost pinned to the bottom edge. The #card-shop-row prefix outranks
+   the `.overlay button` base rule. */
+#card-shop-row .shop-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  /* three abreast whatever the stage width — the overlay lives inside the
+     scaled stage, so viewport units can't be trusted here */
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 190px;
+  aspect-ratio: 5 / 7;
+  padding: 14px 12px 12px;
+  background: rgba(30, 28, 18, 0.95);
+  border: 2px solid #5a5322;
+  border-radius: 8px;
+  /* inner pinstripe frame, like a printed card face */
+  box-shadow: inset 0 0 0 4px rgba(30, 28, 18, 0.95), inset 0 0 0 5px #4a4326;
+  color: #c9c19a;
+  font-weight: normal;
+  font-size: clamp(10px, 2.8vw, 12px);
+  letter-spacing: 0;
+  text-transform: none;
+}
+#card-shop-row .shop-card:hover:not(:disabled) {
+  background: #3a3418;
+  border-color: #8a7c30;
+  box-shadow: inset 0 0 0 4px #3a3418, inset 0 0 0 5px #6a5f2e;
+  transform: translateY(-3px);
+}
+#card-shop-row .shop-card:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+#card-shop-row .shop-card-unique { border-color: #a08430; }
+.shop-card-unit {
+  font-size: clamp(8px, 2.2vw, 10px);
+  letter-spacing: 2px;
+  color: #8a8668;
+  margin-top: 4px;
+}
+.shop-card-unique .shop-card-unit { color: #c9a83e; }
+.shop-card-name {
+  font-size: clamp(13px, 3.4vw, 17px);
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: #ffd94a;
+  margin-top: 2px;
+}
+.shop-card-desc {
+  flex: 1;
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #4a4326;
+  font-size: clamp(10px, 2.8vw, 12px);
+  line-height: 1.5;
+}
+.shop-card-cost {
+  margin-top: 8px;
+  padding: 3px 12px;
+  border: 1px solid #4a5a30;
+  border-radius: 10px;
+  font-size: clamp(10px, 2.8vw, 12px);
+  letter-spacing: 1px;
+  color: #8fbf5a;
+}
+.shop-card:disabled .shop-card-cost { color: #b8352b; border-color: #6a3028; }
+#card-shop-row .shop-card-empty {
+  justify-content: center;
+  align-items: center;
+  color: #6a6650;
+  letter-spacing: 3px;
+  border-style: dashed;
+  border-color: #3a3620;
+  background: rgba(20, 18, 12, 0.6);
+  box-shadow: none;
+}
+
 .overlay button {
   background: #3d3819;
   border: 2px solid #ffd94a;
@@ -730,53 +822,86 @@ body {
 .leaderboard-list {
   list-style: none;
   width: 100%;
-  max-width: 420px;
+  max-width: 460px;
   margin: 0 auto 20px;
-  padding: 0;
-  max-height: 40vh;
+  padding: 4px 0;
+  background: rgba(14, 14, 8, 0.6);
+  border: 1px solid #4a4836;
+  max-height: 46vh;
   overflow-y: auto;
 }
+.leaderboard-list::-webkit-scrollbar { width: 6px; }
+.leaderboard-list::-webkit-scrollbar-thumb { background: #4a4836; border-radius: 3px; }
 .leaderboard-list li::marker { content: none; }
 .leaderboard-row {
   display: grid;
-  grid-template-columns: 30px 1fr auto;
+  grid-template-columns: 34px minmax(0, auto) 1fr auto;
   align-items: center;
-  gap: 12px;
-  background: rgba(20, 20, 12, 0.55);
-  border: 1px solid #3a3828;
-  padding: 10px 14px;
-  margin-bottom: 8px;
+  gap: 10px;
+  padding: 8px 14px;
   font-size: clamp(12px, 3.2vw, 14px);
 }
-.leaderboard-row.lb-top1 { border-color: #ffd94a; background: rgba(61, 56, 25, 0.55); }
-.leaderboard-row.lb-top2 { border-color: #a8a080; }
-.leaderboard-row.lb-top3 { border-color: #8a6a3a; }
+.leaderboard-row + .leaderboard-row { border-top: 1px solid rgba(74, 72, 54, 0.4); }
+.leaderboard-row.lb-top1 { background: linear-gradient(90deg, rgba(255, 217, 74, 0.12), rgba(255, 217, 74, 0.02)); }
+.leaderboard-row.lb-top2 { background: linear-gradient(90deg, rgba(200, 195, 170, 0.08), transparent); }
+.leaderboard-row.lb-top3 { background: linear-gradient(90deg, rgba(192, 138, 74, 0.08), transparent); }
+.leaderboard-row.lb-new {
+  background: rgba(143, 191, 90, 0.14);
+  box-shadow: inset 3px 0 0 #8fbf5a;
+}
 .lb-rank {
   color: #8a8668;
   font-weight: bold;
-  text-align: left;
+  text-align: center;
 }
-.lb-top1 .lb-rank { color: #ffd94a; }
-.lb-top2 .lb-rank { color: #c9c19a; }
-.lb-top3 .lb-rank { color: #c08a4a; }
+.lb-top1 .lb-rank, .lb-top2 .lb-rank, .lb-top3 .lb-rank {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #14140c;
+}
+.lb-top1 .lb-rank { background: #ffd94a; box-shadow: 0 0 8px rgba(255, 217, 74, 0.4); }
+.lb-top2 .lb-rank { background: #b8b29a; }
+.lb-top3 .lb-rank { background: #c08a4a; }
 .lb-name {
   color: #c9c19a;
+  letter-spacing: 1px;
+  text-transform: uppercase;
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.lb-top1 .lb-name { color: #ffd94a; font-weight: bold; }
+.lb-dots {
+  border-bottom: 2px dotted rgba(138, 134, 104, 0.45);
+  align-self: center;
+  height: 0.55em;
+  margin: 0 2px;
+}
 .lb-wave {
   color: #ffd94a;
   font-weight: bold;
-  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.leaderboard-empty {
+.lb-wave-label {
   color: #8a8668;
-  font-style: italic;
-  padding: 14px;
-  text-align: center;
+  font-weight: normal;
+  font-size: 0.78em;
+  letter-spacing: 1px;
 }
+.leaderboard-row.lb-empty-row .lb-rank,
+.leaderboard-row.lb-empty-row .lb-name,
+.leaderboard-row.lb-empty-row .lb-wave {
+  color: #55523c;
+  font-weight: normal;
+}
+.leaderboard-row.lb-empty-row .lb-dots { border-bottom-color: rgba(85, 82, 60, 0.35); }
 #go-leaderboard {
   width: 100%;
   margin-top: 6px;

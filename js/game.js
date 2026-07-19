@@ -1395,6 +1395,7 @@ function newGame(level, difficulty) {
     phase: isAssaultModeLevel(level) ? 'build' : 'combat',
     waveIdx: 0,        // allied campaign: next scripted wave
     kills: 0,
+    ribbonsEarned: 0,  // endless: ribbons banked this run (wave-10 milestones)
     breaches: 0,
     time: 0,
     over: false,
@@ -1436,6 +1437,9 @@ function newGame(level, difficulty) {
     landingCraft: [],
     landingFire: true,
   };
+  // roguelite cards apply to every true endless run (any difficulty —
+  // sandbox/testing double as the card test bed), never to campaigns
+  G.cardHooks = level.id === 'endless' ? buildCardHooks() : null;
   paintGround(level);
   level.setup(G);
   if (level.landingCraft) initLandingCraft(G);
@@ -1802,6 +1806,7 @@ function launchWave(w) {
 
 function spawnWave() {
   G.wave++;
+  awardWaveRibbons();
   launchWave(G.wave);
   if (G.wave === 1) showBanner('HERE THEY COME');
 }
@@ -2708,6 +2713,10 @@ function creditKill(u) {
   // only living friendly soldiers earn XP (explosions pass a plain {x,y})
   if (!u || u.side !== 'us' || u.dead) return;
   gainXP(u);
+  // every kill in the game funnels through here with the true shooter, so
+  // this is the one dispatch point for on-kill card effects
+  const hooks = G.cardHooks && G.cardHooks[u.type];
+  if (hooks) for (const fn of hooks.onKill) fn(u);
 }
 
 function damageEnemy(e, dmg, from) {
@@ -2835,7 +2844,15 @@ function fireShot(shooter, target, opts) {
   acc *= clamp(1.15 - d / (unitRange(shooter, t.range) * 1.6), 0.35, 1);
 
   let hx = target.x, hy = target.y;
-  const hit = Math.random() < acc;
+  let hit = Math.random() < acc;
+  // card hooks (US shooters in endless only): beforeShot may force a hit,
+  // afterShot sees the final result. The forced hit still rolls prone-dodge
+  // and cover below — those model the target, not the shooter's aim.
+  const cardHooks = shooter.side === 'us' && G.cardHooks ? G.cardHooks[shooter.type] : null;
+  if (cardHooks) {
+    for (const fn of cardHooks.beforeShot) if (fn(shooter)) hit = true;
+    for (const fn of cardHooks.afterShot) fn(shooter, hit);
+  }
   if (!hit) { hx += rand(-22, 22); hy += rand(-16, 22); }
 
   G.tracers.push({
@@ -5251,9 +5268,13 @@ function gameOver() {
         : `Time ran out after ${t} seconds. The target lives. ${G.kills} Americans down for nothing.`);
   } else {
     const diffPrefix = G.mode === 'endless' && G.difficulty ? `${G.difficulty.name} — ` : '';
-    endRun(false, 'LINE OVERRUN',
-      `${diffPrefix}You held for ${G.wave} waves and ${t} seconds. ` +
-      `${G.kills} Germans will not go home.`);
+    let stats = `${diffPrefix}You held for ${G.wave} waves and ${t} seconds. ` +
+      `${G.kills} Germans will not go home.`;
+    if (G.ribbonsEarned > 0) {
+      stats += ` +${G.ribbonsEarned} ribbon${G.ribbonsEarned === 1 ? '' : 's'} earned — ` +
+        `${loadEndlessCards().ribbons} banked for the card shop.`;
+    }
+    endRun(false, 'LINE OVERRUN', stats);
   }
 }
 
@@ -11966,6 +11987,225 @@ for (const btn of document.querySelectorAll('.codex-tab')) {
   btn.addEventListener('click', () => buildCodex(btn.dataset.tab));
 }
 
+// ============================================================ endless cards
+
+// Roguelite meta-progression for Endless: reaching wave 10·N banks N ribbons
+// (so a run to wave 46 earns 1+2+3+4). Between runs the card shop sells
+// permanent per-unit-type upgrades. Card effects run through per-type hook
+// tables built once per run in newGame() — the hot combat paths pay a single
+// property lookup, and only for cards actually owned.
+
+const ENDLESS_CARDS_KEY = 'endlessCards';
+const ENDLESS_CARDS_VERSION = 1;
+const CARD_SHOP_SLOTS = 3;
+
+// frenzy resets whichever cooldown gates each type's killing weapon — the
+// specialists reload the tube or the frag pouch, not just the sidearm
+const FRENZY_EXTRA_CD = { bazooka: 'rocketCd', mortarman: 'mortCd', grenadier: 'grenCd' };
+
+function frenzyReload(type) {
+  const extra = FRENZY_EXTRA_CD[type];
+  return u => {
+    u.cd = 0;
+    if (extra) u[extra] = 0;
+  };
+}
+
+// commons: stamped out once per eligible unit type. `excludes` drops types
+// the effect can't touch (the flamethrower has no cooldown to reset).
+const CARD_COMMON_TEMPLATES = {
+  frenzy: {
+    name: 'Frenzy', cost: 3, excludes: ['flamer'],
+    desc: t => `A kill instantly reloads the ${t.name.toLowerCase()}'s weapon.`,
+    hooks: type => ({ onKill: frenzyReload(type) }),
+  },
+};
+
+// uniques: one-off cards tied to a single unit type
+const CARD_UNIQUES = {
+  crackshot: {
+    unit: 'sniper', name: 'Crack Shot', cost: 8,
+    desc: 'Every miss guarantees the sniper\'s next shot connects.',
+    hooks: {
+      // beforeShot may return true to force the shot to hit; afterShot sees
+      // the final result and is where the card arms itself on a miss
+      beforeShot: u => { if (u.sureShot) { u.sureShot = false; return true; } return false; },
+      afterShot: (u, hit) => { if (!hit) u.sureShot = true; },
+    },
+  },
+};
+
+// flat catalog: id → { id, name, unitType, unique, desc, cost, hooks }
+const CARDS = {};
+{
+  for (const [tid, tpl] of Object.entries(CARD_COMMON_TEMPLATES)) {
+    for (const [type, t] of Object.entries(UNIT_TYPES)) {
+      if (tpl.excludes && tpl.excludes.includes(type)) continue;
+      const id = tid + '_' + type;
+      CARDS[id] = { id, name: tpl.name, unitType: type, unique: false, desc: tpl.desc(t), cost: tpl.cost, hooks: tpl.hooks(type) };
+    }
+  }
+  for (const [id, c] of Object.entries(CARD_UNIQUES)) {
+    CARDS[id] = { id, name: c.name, unitType: c.unit, unique: true, desc: c.desc, cost: c.cost, hooks: c.hooks };
+  }
+}
+
+function defaultEndlessCards() {
+  return { version: ENDLESS_CARDS_VERSION, ribbons: 0, owned: [], offer: [] };
+}
+
+function loadEndlessCards() {
+  let data = null;
+  try {
+    const raw = localStorage.getItem(ENDLESS_CARDS_KEY);
+    if (raw) data = JSON.parse(raw);
+  } catch { data = null; }
+  if (!data || typeof data !== 'object' || data.version !== ENDLESS_CARDS_VERSION) {
+    data = defaultEndlessCards();
+  }
+  data.ribbons = Number.isFinite(data.ribbons) ? Math.max(0, Math.floor(data.ribbons)) : 0;
+  data.owned = Array.isArray(data.owned) ? data.owned.filter(id => CARDS[id]) : [];
+  const offer = Array.isArray(data.offer) ? data.offer : [];
+  data.offer = offer.filter(id => CARDS[id] && !data.owned.includes(id));
+  // keep the shop stocked; the offer lives in the save so a reload never
+  // rerolls it — slots only change when a card is bought
+  const before = data.offer.join();
+  while (data.offer.length < CARD_SHOP_SLOTS) {
+    const pick = drawUnofferedCard(data);
+    if (!pick) break;
+    data.offer.push(pick);
+  }
+  if (data.offer.join() !== before) saveEndlessCards(data);
+  return data;
+}
+
+function saveEndlessCards(data) {
+  localStorage.setItem(ENDLESS_CARDS_KEY, JSON.stringify(data));
+}
+
+// a random card the player neither owns nor is currently being offered
+function drawUnofferedCard(data) {
+  const taken = new Set([...data.owned, ...data.offer]);
+  const pool = Object.keys(CARDS).filter(id => !taken.has(id));
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+}
+
+function buyCard(id) {
+  const data = loadEndlessCards();
+  const card = CARDS[id];
+  const slot = data.offer.indexOf(id);
+  if (!card || slot === -1 || data.owned.includes(id) || card.cost > data.ribbons) return false;
+  data.ribbons -= card.cost;
+  data.owned.push(id);
+  data.offer.splice(slot, 1);
+  const repl = drawUnofferedCard(data);
+  if (repl) data.offer.splice(slot, 0, repl);   // replacement takes the same slot
+  saveEndlessCards(data);
+  return true;
+}
+
+// per-run hook table: { unitType: { onKill: [fns], beforeShot: [fns], afterShot: [fns] } }
+// Built once in newGame(); null when no cards are owned or outside endless.
+function buildCardHooks() {
+  const { owned } = loadEndlessCards();
+  if (!owned.length) return null;
+  const table = {};
+  for (const id of owned) {
+    const card = CARDS[id];
+    const slot = table[card.unitType] ||
+      (table[card.unitType] = { onKill: [], beforeShot: [], afterShot: [] });
+    for (const [ev, fn] of Object.entries(card.hooks)) slot[ev].push(fn);
+  }
+  return table;
+}
+
+// ribbons only accrue where the leaderboard counts: real endless runs on
+// easy/medium/hard. Sandbox and testing (unlimited TP) and the tutorial pay
+// nothing, so wave-jumping can't farm the shop.
+function ribbonsEligible() {
+  return G && G.level.id === 'endless' && G.difficulty && !G.difficulty.sandbox;
+}
+
+function awardWaveRibbons() {
+  if (!ribbonsEligible() || G.wave % 10 !== 0) return;
+  const n = G.wave / 10;
+  const data = loadEndlessCards();
+  data.ribbons += n;
+  saveEndlessCards(data);
+  G.ribbonsEarned += n;
+  // floating notice instead of a banner: every 10th wave is a themed
+  // set-piece whose banner must not be stomped
+  G.texts.push({ x: W / 2, y: H * 0.62, text: `+${n} RIBBON${n === 1 ? '' : 'S'} EARNED`, ttl: 3.2 });
+}
+
+// ---- card shop UI
+
+let cardShopReturnScreen = 'endless-select';
+
+function openCardShop(fromScreen) {
+  cardShopReturnScreen = fromScreen || 'endless-select';
+  el(cardShopReturnScreen).classList.add('hidden');
+  buildCardShopUI();
+  el('card-shop').classList.remove('hidden');
+}
+
+function closeCardShop() {
+  el('card-shop').classList.add('hidden');
+  el(cardShopReturnScreen).classList.remove('hidden');
+}
+
+function ribbonLabel(n) {
+  return n + (n === 1 ? ' RIBBON' : ' RIBBONS');
+}
+
+function syncCardShopButton() {
+  const btn = el('card-shop-btn');
+  if (btn) btn.textContent = 'CARDS — ' + ribbonLabel(loadEndlessCards().ribbons);
+}
+
+function buildCardShopUI() {
+  const data = loadEndlessCards();
+  el('card-shop-ribbons').textContent = ribbonLabel(data.ribbons);
+  el('card-shop-owned').textContent = data.owned.length + ' / ' + Object.keys(CARDS).length + ' COLLECTED';
+  const row = el('card-shop-row');
+  row.innerHTML = '';
+  for (let i = 0; i < CARD_SHOP_SLOTS; i++) {
+    const card = CARDS[data.offer[i]];
+    if (!card) {
+      const empty = document.createElement('div');
+      empty.className = 'shop-card shop-card-empty';
+      empty.textContent = 'SOLD OUT';
+      row.appendChild(empty);
+      continue;
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'shop-card' + (card.unique ? ' shop-card-unique' : '');
+    btn.disabled = card.cost > data.ribbons;
+    const unit = document.createElement('span');
+    unit.className = 'shop-card-unit';
+    unit.textContent = UNIT_TYPES[card.unitType].name.toUpperCase() + (card.unique ? ' · UNIQUE' : '');
+    const name = document.createElement('span');
+    name.className = 'shop-card-name';
+    name.textContent = card.name.toUpperCase();
+    const desc = document.createElement('span');
+    desc.className = 'shop-card-desc';
+    desc.textContent = card.desc;
+    const cost = document.createElement('span');
+    cost.className = 'shop-card-cost';
+    cost.textContent = ribbonLabel(card.cost);
+    btn.append(unit, name, desc, cost);
+    btn.addEventListener('click', () => {
+      if (buyCard(card.id)) {
+        SFX.click();
+        buildCardShopUI();
+      }
+    });
+    row.appendChild(btn);
+  }
+  syncCardShopButton();
+}
+
 // ============================================================ axis research
 
 const RESEARCH_KEY = 'axisResearch';
@@ -12276,43 +12516,53 @@ function leaderboardQualifies(diffId, wave) {
 }
 
 function addLeaderboardEntry(diffId, name, wave) {
-  if (!LEADERBOARD_DIFFICULTIES.includes(diffId)) return;
+  if (!LEADERBOARD_DIFFICULTIES.includes(diffId)) return -1;
   const data = loadLeaderboards();
   const board = data.boards[diffId];
-  board.push({ name: (name || 'Anonymous').slice(0, 16), wave, date: Date.now() });
+  const entry = { name: (name || 'Anonymous').slice(0, 16), wave, date: Date.now() };
+  board.push(entry);
   board.sort((a, b) => b.wave - a.wave || a.date - b.date);
   board.length = Math.min(board.length, LEADERBOARD_MAX);
   saveLeaderboards(data);
+  return board.indexOf(entry);
 }
 
-function renderLeaderboardList(listEl, diffId) {
+// always renders LEADERBOARD_MAX slots; unfilled ranks show as dim placeholders
+function renderLeaderboardList(listEl, diffId, highlightIndex = -1) {
   const board = leaderboardBoard(diffId);
   listEl.innerHTML = '';
-  if (!board.length) {
-    const li = document.createElement('li');
-    li.className = 'leaderboard-empty';
-    li.textContent = 'No scores yet.';
-    listEl.appendChild(li);
-    return;
-  }
-  board.forEach((entry, i) => {
+  for (let i = 0; i < LEADERBOARD_MAX; i++) {
+    const entry = board[i];
     const li = document.createElement('li');
     li.className = 'leaderboard-row';
-    if (i < 3) li.classList.add('lb-top' + (i + 1));
+    if (!entry) li.classList.add('lb-empty-row');
+    else if (i < 3) li.classList.add('lb-top' + (i + 1));
+    if (entry && i === highlightIndex) li.classList.add('lb-new');
     const rank = document.createElement('span');
     rank.className = 'lb-rank';
-    rank.textContent = '#' + (i + 1);
+    rank.textContent = String(i + 1);
     const name = document.createElement('span');
     name.className = 'lb-name';
-    name.textContent = entry.name;
+    name.textContent = entry ? entry.name : '—';
+    const dots = document.createElement('span');
+    dots.className = 'lb-dots';
     const wave = document.createElement('span');
     wave.className = 'lb-wave';
-    wave.textContent = 'WAVE ' + entry.wave;
+    if (entry) {
+      const label = document.createElement('span');
+      label.className = 'lb-wave-label';
+      label.textContent = 'WAVE ';
+      wave.appendChild(label);
+      wave.appendChild(document.createTextNode(String(entry.wave)));
+    } else {
+      wave.textContent = '—';
+    }
     li.appendChild(rank);
     li.appendChild(name);
+    li.appendChild(dots);
     li.appendChild(wave);
     listEl.appendChild(li);
-  });
+  }
 }
 
 let leaderboardActiveDiff = 'easy';
@@ -12369,9 +12619,9 @@ function saveGoLeaderboardScore() {
   const wave = parseInt(entryBox.dataset.wave, 10);
   if (!diffId || !Number.isFinite(wave)) return;
   const name = el('go-name-input').value.trim();
-  addLeaderboardEntry(diffId, name, wave);
+  const rank = addLeaderboardEntry(diffId, name, wave);
   entryBox.classList.add('hidden');
-  renderLeaderboardList(el('go-leaderboard-list'), diffId);
+  renderLeaderboardList(el('go-leaderboard-list'), diffId, rank);
 }
 
 // ============================================================ settings
@@ -12534,6 +12784,7 @@ function returnToMenu() {
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
   el('leaderboard-select').classList.add('hidden');
+  el('card-shop').classList.add('hidden');
   el('allied-select').classList.add('hidden');
   el('allied-briefing').classList.add('hidden');
   el('axis-select').classList.add('hidden');
@@ -12549,6 +12800,7 @@ function returnToMenu() {
 
 function openEndlessSelect() {
   el('intro').classList.add('hidden');
+  syncCardShopButton();
   el('endless-select').classList.remove('hidden');
 }
 
@@ -12882,6 +13134,7 @@ function startGame(levelId, difficultyId) {
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
   el('leaderboard-select').classList.add('hidden');
+  el('card-shop').classList.add('hidden');
   el('allied-select').classList.add('hidden');
   el('allied-briefing').classList.add('hidden');
   el('axis-select').classList.add('hidden');
@@ -12933,6 +13186,8 @@ for (const btn of document.querySelectorAll('[data-endless-diff]')) {
   btn.addEventListener('click', () => startGame('endless', btn.dataset.endlessDiff));
 }
 el('endless-leaderboard-btn').addEventListener('click', () => openLeaderboardSelect('endless-select', 'easy'));
+el('card-shop-btn').addEventListener('click', () => openCardShop('endless-select'));
+el('card-shop-back').addEventListener('click', closeCardShop);
 el('leaderboard-back-btn').addEventListener('click', closeLeaderboardSelect);
 for (const btn of document.querySelectorAll('.lb-tab')) {
   btn.addEventListener('click', () => { leaderboardActiveDiff = btn.dataset.lbDiff; buildLeaderboardSelect(); });

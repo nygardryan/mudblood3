@@ -2516,7 +2516,7 @@ function drawUnitWeaponRange(a, opts) {
     return;
   }
   if (t.shotgun) {
-    drawBuckshotCone(a.x, a.y, bearing, t.shotgun.arc, unitRange(a, t.shotgun.range) * fog, alpha);
+    drawBuckshotCone(a.x, a.y, bearing, t.shotgun.arc * Math.max(0.4, 1 - (a.rank || 0) * 0.08), unitRange(a, t.shotgun.range) * fog, alpha);
     return;
   }
   if (t.mortar) {

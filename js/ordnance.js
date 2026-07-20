@@ -55,8 +55,10 @@ function explode(x, y, r, dmg, big, by) {
       damageUnit(u, hd, { x, y });
     }
   }
-  // Blast Shelter: overhead cover shrugs the whole blast off every emplacement —
-  // no HP lost, and mines never chain off a neighbouring detonation
+  // Mines are immune to explosives — they only ever detonate when something
+  // steps on them (see update.js), so a nearby blast never chains the field.
+  // Blast Shelter: overhead cover shrugs the whole blast off every other
+  // emplacement too — no HP lost.
   const blastShelter = G.cardsOwned && G.cardsOwned.has('blastshelter');
   if (!blastShelter) {
     for (const s of G.sandbags) {
@@ -75,12 +77,6 @@ function explode(x, y, r, dmg, big, by) {
     }
     for (const wr of G.wires) {
       if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;
-    }
-    for (const m of G.mines) {
-      if (!m.dead && dist(m, { x, y }) < r * 0.8) {
-        m.dead = true;
-        explode(m.x, m.y, 42, 120, false);
-      }
     }
   }
 }

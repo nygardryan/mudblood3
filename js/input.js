@@ -3,11 +3,14 @@
 'use strict';
 
 function minefieldPositions(cx, cy) {
-  // keep mines beyond explode() chain radius (r * 0.8 ≈ 35 for mine blasts)
+  // Tight X pattern: center mine plus one on each diagonal. Mines are immune
+  // to explosives now, so there's no chain radius to space them around.
   return [
     { x: cx, y: cy },
-    { x: cx + 48, y: cy - 14 },
-    { x: cx - 48, y: cy + 14 },
+    { x: cx + 26, y: cy - 22 },
+    { x: cx - 26, y: cy - 22 },
+    { x: cx + 26, y: cy + 22 },
+    { x: cx - 26, y: cy + 22 },
   ];
 }
 

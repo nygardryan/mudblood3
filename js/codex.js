@@ -194,8 +194,8 @@ function drawCodexIcon(key) {
     codexStamp(2.1, 0, 0, () =>
       drawWatchtower({ x: 0, y: 0, up: false, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP }));
   } else if (key === 'mine') {
-    // the three-mine scatter a single minefield drop actually lays down
-    for (const [mx, my] of [[0, 2], [21, -12], [-21, 16]]) {
+    // the five-mine X scatter a single minefield drop actually lays down
+    for (const [mx, my] of [[0, 2], [20, -16], [-20, -16], [20, 20], [-20, 20]]) {
       c.fillStyle = 'rgba(50,46,34,0.55)';
       c.beginPath(); c.arc(cx + mx, cy + my, 12, 0, 7); c.fill();
       codexStamp(2.2, mx, my, () => drawMine({ x: 0, y: 0, dead: false }));

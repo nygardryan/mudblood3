@@ -705,7 +705,7 @@ function fireShotgun(actor, buffs) {
   // it lines up on.
   const slug = actor.side === 'us' && G.cardsOwned && G.cardsOwned.has('rifledslugs');
   const range = unitRange(actor, sg.range) * fogMult() * (slug ? 1.6 : 1);
-  const baseArc = slug ? sg.arc * 0.28 : sg.arc;
+  const baseArc = slug ? sg.arc * 0.55 : sg.arc;
   const arc = baseArc * (1 + (buffs && buffs.accBonus ? buffs.accBonus * 0.25 : 0));
   const mx = actor.x + Math.cos(actor.face) * (actor.t.gun + 2);
   const my = actor.y + Math.sin(actor.face) * (actor.t.gun + 2);

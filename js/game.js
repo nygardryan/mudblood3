@@ -1443,6 +1443,8 @@ function newGame(level, difficulty) {
   // sandbox/testing double as the card test bed), never to campaigns
   G.cardHooks = level.id === 'endless' ? buildCardHooks() : null;
   G.cardsOwned = level.id === 'endless' ? new Set(equippedEndlessCards()) : null;
+  // starting an endless run refreshes the shop's reroll price back to base
+  if (level.id === 'endless') resetRerollCost();
   paintGround(level);
   level.setup(G);
   if (level.landingCraft) initLandingCraft(G);
@@ -12038,6 +12040,9 @@ for (const btn of document.querySelectorAll('.codex-tab')) {
 const ENDLESS_CARDS_KEY = 'endlessCards';
 const ENDLESS_CARDS_VERSION = 2;
 const CARD_SHOP_SLOTS = 3;
+// rerolling the shop offer costs ribbons and doubles each time (1, 2, 4, ...);
+// the price resets to the base whenever the player starts another endless run
+const REROLL_BASE_COST = 1;
 
 // Battle plans: owning a card banks it in the collection, but only cards
 // slotted into the active plan deploy. Every card weighs 1-6 command by how
@@ -12197,6 +12202,7 @@ function defaultEndlessCards() {
   return {
     version: ENDLESS_CARDS_VERSION, ribbons: 0, owned: [], offer: [],
     capacity: BASE_COMMAND_CAP, plans: [[], [], []], activePlan: 0,
+    rerollCost: REROLL_BASE_COST,
   };
 }
 
@@ -12226,6 +12232,10 @@ function loadEndlessCards() {
     ? Math.max(BASE_COMMAND_CAP, Math.floor(data.capacity)) : BASE_COMMAND_CAP;
   data.activePlan = Number.isInteger(data.activePlan)
     ? clamp(data.activePlan, 0, PLAN_SLOTS - 1) : 0;
+  // reroll price is always a power-of-two multiple of the base; a missing or
+  // tampered value falls back to the base cost
+  data.rerollCost = Number.isFinite(data.rerollCost)
+    ? Math.max(REROLL_BASE_COST, Math.floor(data.rerollCost)) : REROLL_BASE_COST;
   const rawPlans = Array.isArray(data.plans) ? data.plans : [];
   data.plans = [];
   for (let i = 0; i < PLAN_SLOTS; i++) {
@@ -12300,6 +12310,37 @@ function buyCommandCapacity() {
   data.capacity += 1;
   saveEndlessCards(data);
   return true;
+}
+
+// draw a fresh shop offer for ribbons; each reroll costs twice the last
+// (2, 4, 8, ...), and the new cards avoid both the collection and the ones
+// currently on display so a reroll always turns the slots over
+function rerollShop() {
+  const data = loadEndlessCards();
+  if (data.rerollCost > data.ribbons) return false;
+  data.ribbons -= data.rerollCost;
+  const avoid = new Set([...data.owned, ...data.offer]);
+  data.offer = [];
+  for (let i = 0; i < CARD_SHOP_SLOTS; i++) {
+    let pool = Object.keys(CARDS).filter(id => !avoid.has(id) && !data.offer.includes(id));
+    // if the deck is too thin to fill every slot with brand-new cards, allow
+    // the just-replaced ones back in rather than leaving a slot empty
+    if (!pool.length) pool = Object.keys(CARDS).filter(id => !data.owned.includes(id) && !data.offer.includes(id));
+    if (!pool.length) break;
+    data.offer.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+  data.rerollCost *= 2;
+  saveEndlessCards(data);
+  return true;
+}
+
+// the reroll price returns to the base every time a new endless run begins
+function resetRerollCost() {
+  const data = loadEndlessCards();
+  if (data.rerollCost !== REROLL_BASE_COST) {
+    data.rerollCost = REROLL_BASE_COST;
+    saveEndlessCards(data);
+  }
 }
 
 // equip/unequip an owned card in the active plan; equipping fails when the
@@ -12430,6 +12471,11 @@ function buildCardShopUI() {
       }
     });
     row.appendChild(btn);
+  }
+  const reroll = el('card-shop-reroll');
+  if (reroll) {
+    reroll.textContent = 'REROLL — ' + ribbonLabel(data.rerollCost);
+    reroll.disabled = data.rerollCost > data.ribbons;
   }
   buildBattlePlanUI();
   syncCardShopButton();
@@ -13486,6 +13532,12 @@ el('card-shop-back').addEventListener('click', closeCardShop);
 // so rebuild the whole screen, not just the plan section
 el('plan-upgrade').addEventListener('click', () => {
   if (buyCommandCapacity()) {
+    SFX.click();
+    buildCardShopUI();
+  }
+});
+el('card-shop-reroll').addEventListener('click', () => {
+  if (rerollShop()) {
     SFX.click();
     buildCardShopUI();
   }

@@ -6,6 +6,8 @@ function draw() {
   hoverActor = findHoverActor();
   ctx.save();
   if (viewTransformActive()) {
+    // any part of the view outside the world would otherwise keep last frame's pixels
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     const s = viewScale();
     ctx.scale(s, s);
     ctx.translate(-viewCam.x, -viewCam.y);

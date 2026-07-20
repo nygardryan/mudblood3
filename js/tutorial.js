@@ -64,12 +64,10 @@ function tutRightUnitCount() {
 // otherwise tutCamLerp eases toward it each frame
 function tutSetCam(zoom, cx, cy, snap) {
   const c = G.tutorial.cam;
-  const { viewW, viewH } = viewSize(zoom);
-  c.tzoom = zoom;
-  c.tx = clamp(cx - viewW / 2, 0, Math.max(0, W - viewW));
-  c.ty = clamp(cy - viewH / 2, 0, Math.max(0, H - viewH));
+  c.zoomReq = zoom; c.cx = cx; c.cy = cy;
+  tutCamRetarget();
   if (snap) {
-    viewCam.zoom = zoom;
+    viewCam.zoom = c.tzoom;
     viewCam.x = c.tx;
     viewCam.y = c.ty;
     clampCamera();
@@ -77,8 +75,21 @@ function tutSetCam(zoom, cx, cy, snap) {
   }
 }
 
+// scripted zooms are authored for the desktop canvas; on phones the world never
+// fits below coverZoom, so hold the target to the same limits player pinch gets
+function tutCamRetarget() {
+  const c = G.tutorial.cam;
+  let zoom = c.zoomReq;
+  if (mobileViewActive()) zoom = clamp(zoom, viewZoomMin(), viewZoomMax());
+  const { viewW, viewH } = viewSize(zoom);
+  c.tzoom = zoom;
+  c.tx = clamp(c.cx - viewW / 2, 0, Math.max(0, W - viewW));
+  c.ty = clamp(c.cy - viewH / 2, 0, Math.max(0, H - viewH));
+}
+
 function tutCamLerp(dt) {
   const c = G.tutorial.cam;
+  tutCamRetarget();   // screen size may have changed since the step began
   const k = Math.min(1, dt * 2.5);
   viewCam.zoom += (c.tzoom - viewCam.zoom) * k;
   viewCam.x += (c.tx - viewCam.x) * k;

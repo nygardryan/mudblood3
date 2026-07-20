@@ -5147,6 +5147,18 @@ function tut3HasBazooka() {
 }
 
 const TUT3_ZONE = { x0: 70, y0: 400, x1: 470, y1: 566 };
+// the bazooka's own AP damage is left completely real — the lesson is that
+// explosives punch through armor. The tutorial tanks carry a little over half a
+// real Panzer's HP so a couple of real rockets finish them (they still shrug off
+// the first — no paper one-shot), keeping the exchange winnable for a small line
+// instead of a full-strength Panzer that out-trades it. They're also pinned on
+// this line once they arrive: they menace and shell, but never breach.
+const TUT3_TANK_HP = 660;
+// hold the tank here once it arrives. Chosen so a bazooka placed at the back of
+// the build zone (y ~560) sits just outside the Panzer's 228px cannon reach but
+// still inside the bazooka's 243px rocket range: the player can safely stand off
+// and answer armor with explosives, exactly the lesson we're teaching.
+const TUT3_TANK_HOLD_Y = 330;
 
 function tutEnterStep3(T, step) {
   switch (step) {
@@ -5189,28 +5201,32 @@ function tutEnterStep3(T, step) {
       setTutorialMsg('Rebuild your line — spend your requisition on any men you choose. Post at least two, then brace for the next attack.');
       break;
     case 'tank':
-      // a Panzer rolls the center: reduced HP and quicker for tutorial pacing,
-      // but it still shells the men below it as it comes
+      // a Panzer rolls the center, shelling the men below it as it comes. A mild
+      // speed bump keeps the approach watchable; it takes real bazooka rockets
+      // (a couple) to kill — see TUT3_TANK_HP for why it isn't the full 1200.
       T.tank = makeEnemy('panzer', TUT3_BX, 30);
-      T.tank.t = Object.assign({}, T.tank.t, { hp: 300, speed: 24 });
-      T.tank.hp = T.tank.maxhp = 300;
+      T.tank.t = Object.assign({}, T.tank.t, { hp: TUT3_TANK_HP, speed: 16 });
+      T.tank.hp = T.tank.maxhp = TUT3_TANK_HP;
       G.enemies.push(T.tank);
       T.ringTargets = [T.tank];
       tutSetCam(1.0, W / 2, H / 2);
       setTutorialMsg('Armor! A Panzer is rolling up the center — throw everything you have at it!');
       break;
     case 'armorLesson':
-      if (G.tp < 14) G.tp = 14;               // enough for a bazooka
+      if (G.tp < 36) G.tp = 36;               // enough to field a few bazookas
       T.allowBuy = ['bazooka'];
       T.pulseCat = 'units'; T.pulseKey = 'bazooka';
       T.placeZone = TUT3_ZONE;
       T.ringTargets = [T.tank];
-      setTutorialMsg('Bullets are useless against armor — they just bounce off. Explosives do bonus damage to armor. Buy a bazooka.');
+      setTutorialMsg('Bullets just bounce off armor. Explosives do bonus damage — buy bazookas, post them at the back, and pour rockets into that tank.');
       break;
     case 'armorFight':
+      if (G.tp < 12) G.tp = 12;               // never leave the player unable to answer armor
       T.allowBuy = ['bazooka'];
+      T.pulseCat = 'units'; T.pulseKey = 'bazooka';
+      T.placeZone = TUT3_ZONE;
       T.ringTargets = [T.tank];
-      setTutorialMsg('There it is — an armor-piercing rocket punches clean through. Let him work.');
+      setTutorialMsg('Armor-piercing rockets chew through even a Panzer — keep them coming until it burns. Add another bazooka if you have the men.');
       break;
     case 'mixIntro':
       T.timer = 4.5;
@@ -5227,8 +5243,8 @@ function tutEnterStep3(T, step) {
       ];
       for (const e of T.mixFoes) { e.hp = e.maxhp = 30; e.tutHold = true; G.enemies.push(e); }
       const tank = makeEnemy('panzer', TUT3_BX, 24);
-      tank.t = Object.assign({}, tank.t, { hp: 300, speed: 22 });
-      tank.hp = tank.maxhp = 300;
+      tank.t = Object.assign({}, tank.t, { hp: TUT3_TANK_HP, speed: 16 });
+      tank.hp = tank.maxhp = TUT3_TANK_HP;
       tank.tutHold = true;
       G.enemies.push(tank);
       T.mixFoes.push(tank);
@@ -5260,6 +5276,12 @@ function tutEnterStep3(T, step) {
 }
 
 function updateTutorial3(dt, T) {
+  // pin any live tutorial tank on the hold line: it still traverses and shells
+  // from there, but can never roll off the bottom and breach, so the player has
+  // all the time they need to bring explosives to bear (no HP nerf required)
+  for (const e of G.enemies) {
+    if (!e.dead && e.t.tank && e.y > TUT3_TANK_HOLD_Y) e.y = TUT3_TANK_HOLD_Y;
+  }
   switch (T.step) {
     case 'intro':
       T.timer -= dt;

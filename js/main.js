@@ -24,6 +24,14 @@ el('card-shop-reroll').addEventListener('click', () => {
     buildCardShopUI();
   }
 });
+// widening the shop adds a card slot and can change what's affordable, so
+// rebuild the whole screen
+el('card-shop-slot').addEventListener('click', () => {
+  if (buyShopSlot()) {
+    SFX.click();
+    buildCardShopUI();
+  }
+});
 el('leaderboard-back-btn').addEventListener('click', closeLeaderboardSelect);
 for (const btn of document.querySelectorAll('.lb-tab')) {
   btn.addEventListener('click', () => { leaderboardActiveDiff = btn.dataset.lbDiff; buildLeaderboardSelect(); });

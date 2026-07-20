@@ -11,7 +11,12 @@
 
 const ENDLESS_CARDS_KEY = 'endlessCards';
 const ENDLESS_CARDS_VERSION = 2;
-const CARD_SHOP_SLOTS = 3;
+// the shop starts offering three cards at once and can be widened a slot at a
+// time up to six (two rows of three); each extra slot costs 10 ribbons, then
+// doubles (10, 20, 40). The current width lives in the save as data.shopSlots.
+const BASE_SHOP_SLOTS = 3;
+const MAX_SHOP_SLOTS = 6;
+const SHOP_SLOT_BASE_COST = 10;
 // rerolling the shop offer costs ribbons and doubles each time (1, 2, 4, ...);
 // the price resets to the base whenever the player starts another endless run
 const REROLL_BASE_COST = 1;
@@ -242,7 +247,7 @@ function defaultEndlessCards() {
   return {
     version: ENDLESS_CARDS_VERSION, ribbons: 0, owned: [], offer: [],
     capacity: BASE_COMMAND_CAP, plans: [[], [], []], activePlan: 0,
-    rerollCost: REROLL_BASE_COST,
+    rerollCost: REROLL_BASE_COST, shopSlots: BASE_SHOP_SLOTS,
   };
 }
 
@@ -276,6 +281,9 @@ function loadEndlessCards() {
   // tampered value falls back to the base cost
   data.rerollCost = Number.isFinite(data.rerollCost)
     ? Math.max(REROLL_BASE_COST, Math.floor(data.rerollCost)) : REROLL_BASE_COST;
+  // shop width is clamped to its buyable range; older saves default to three
+  data.shopSlots = Number.isFinite(data.shopSlots)
+    ? clamp(Math.floor(data.shopSlots), BASE_SHOP_SLOTS, MAX_SHOP_SLOTS) : BASE_SHOP_SLOTS;
   const rawPlans = Array.isArray(data.plans) ? data.plans : [];
   data.plans = [];
   for (let i = 0; i < PLAN_SLOTS; i++) {
@@ -296,7 +304,7 @@ function loadEndlessCards() {
   // keep the shop stocked; the offer lives in the save so a reload never
   // rerolls it — slots only change when a card is bought
   const before = data.offer.join();
-  while (data.offer.length < CARD_SHOP_SLOTS) {
+  while (data.offer.length < data.shopSlots) {
     const pick = drawUnofferedCard(data);
     if (!pick) break;
     data.offer.push(pick);
@@ -352,6 +360,26 @@ function buyCommandCapacity() {
   return true;
 }
 
+// ribbon price of the next card slot: 10 for the fourth, doubling for each
+// after (10, 20, 40). Null once the shop is already at its six-slot maximum.
+function shopSlotUpgradeCost(shopSlots) {
+  if (shopSlots >= MAX_SHOP_SLOTS) return null;
+  return SHOP_SLOT_BASE_COST * Math.pow(2, shopSlots - BASE_SHOP_SLOTS);
+}
+
+function buyShopSlot() {
+  const data = loadEndlessCards();
+  const cost = shopSlotUpgradeCost(data.shopSlots);
+  if (cost === null || cost > data.ribbons) return false;
+  data.ribbons -= cost;
+  data.shopSlots += 1;
+  // stock the freshly opened slot so it isn't a "SOLD OUT" placeholder
+  const pick = drawUnofferedCard(data);
+  if (pick) data.offer.push(pick);
+  saveEndlessCards(data);
+  return true;
+}
+
 // draw a fresh shop offer for ribbons; each reroll costs twice the last
 // (2, 4, 8, ...), and the new cards avoid both the collection and the ones
 // currently on display so a reroll always turns the slots over
@@ -361,7 +389,7 @@ function rerollShop() {
   data.ribbons -= data.rerollCost;
   const avoid = new Set([...data.owned, ...data.offer]);
   data.offer = [];
-  for (let i = 0; i < CARD_SHOP_SLOTS; i++) {
+  for (let i = 0; i < data.shopSlots; i++) {
     let pool = Object.keys(CARDS).filter(id => !avoid.has(id) && !data.offer.includes(id));
     // if the deck is too thin to fill every slot with brand-new cards, allow
     // the just-replaced ones back in rather than leaving a slot empty
@@ -481,7 +509,7 @@ function buildCardShopUI() {
   el('card-shop-owned').textContent = data.owned.length + ' / ' + Object.keys(CARDS).length + ' COLLECTED';
   const row = el('card-shop-row');
   row.innerHTML = '';
-  for (let i = 0; i < CARD_SHOP_SLOTS; i++) {
+  for (let i = 0; i < data.shopSlots; i++) {
     const card = CARDS[data.offer[i]];
     if (!card) {
       const empty = document.createElement('div');
@@ -522,6 +550,17 @@ function buildCardShopUI() {
   if (reroll) {
     reroll.textContent = 'REROLL — ' + ribbonLabel(data.rerollCost);
     reroll.disabled = data.rerollCost > data.ribbons;
+  }
+  const slotBtn = el('card-shop-slot');
+  if (slotBtn) {
+    const slotCost = shopSlotUpgradeCost(data.shopSlots);
+    if (slotCost === null) {
+      slotBtn.textContent = 'CARD SLOTS — MAX (6)';
+      slotBtn.disabled = true;
+    } else {
+      slotBtn.textContent = '+1 CARD SLOT — ' + ribbonLabel(slotCost);
+      slotBtn.disabled = slotCost > data.ribbons;
+    }
   }
   buildBattlePlanUI();
   syncCardShopButton();

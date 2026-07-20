@@ -538,7 +538,7 @@ body {
 /* ---- Endless card shop ---- */
 #card-shop-row {
   display: flex;
-  flex-wrap: nowrap;   /* the hand always reads left to right, never stacks */
+  flex-wrap: wrap;   /* three abreast; a widened shop spills onto a second row */
   justify-content: center;
   align-items: stretch;
   gap: clamp(8px, 2vw, 16px);
@@ -555,8 +555,10 @@ body {
   align-items: center;
   text-align: center;
   /* three abreast whatever the stage width — the overlay lives inside the
-     scaled stage, so viewport units can't be trusted here */
-  flex: 1 1 0;
+     scaled stage, so viewport units can't be trusted here. A one-third basis
+     (minus the two 16px gaps, plus a rounding hair) keeps exactly three per
+     row at any container width, so a fourth/fifth/sixth card wraps below. */
+  flex: 1 1 calc((100% - 34px) / 3);
   min-width: 0;
   max-width: 190px;
   aspect-ratio: 5 / 7;

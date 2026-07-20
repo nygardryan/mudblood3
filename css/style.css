@@ -1180,7 +1180,7 @@ body {
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0));
+    padding: 4px 6px calc(20px + env(safe-area-inset-bottom, 0));
     gap: 4px;
     -webkit-overflow-scrolling: touch;
   }

@@ -208,6 +208,14 @@ const CARD_UNIQUES = {
     desc: 'Kill bounty income decays toward its 10% floor over 400 waves instead of 200.',
     hooks: {},
   },
+  // not tied to a unit type: carries a `label` so its chip reads EMPLACEMENTS
+  // rather than a UNIT_TYPES name. Flag-only, like Flak Armor — explode() reads
+  // G.cardsOwned directly and skips every defense structure's blast damage.
+  blastshelter: {
+    unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Blast Shelter', cost: 16, weight: 6,
+    desc: 'Overhead cover makes every emplacement immune to explosions — sandbags, bunkers, watch towers, camo nests, wire and mines take no blast damage.',
+    hooks: {},
+  },
 };
 
 // War Surplus also covers the things the player buys off the toolbar that
@@ -242,7 +250,7 @@ const CARDS = {};
     CARDS[id] = { id, name: 'War Surplus', unitType: p.key, label: p.label, unique: false, desc, cost, weight, hooks: {} };
   }
   for (const [id, c] of Object.entries(CARD_UNIQUES)) {
-    CARDS[id] = { id, name: c.name, unitType: c.unit, unique: true, desc: c.desc, cost: c.cost, weight: c.weight, hooks: c.hooks };
+    CARDS[id] = { id, name: c.name, unitType: c.unit, label: c.label, unique: true, desc: c.desc, cost: c.cost, weight: c.weight, hooks: c.hooks };
   }
 }
 

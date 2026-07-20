@@ -55,27 +55,32 @@ function explode(x, y, r, dmg, big, by) {
       damageUnit(u, hd, { x, y });
     }
   }
-  for (const s of G.sandbags) {
-    if (dist(s, { x, y }) < r) s.hp -= dmg * 0.8;
-  }
-  for (const b of G.bunkers) {
-    // reinforced concrete: blast does far less than it would to sandbags
-    if (dist(b, { x, y }) < r) b.hp -= dmg * 0.4;
-  }
-  for (const wt of G.watchtowers) {
-    if (dist(wt, { x, y }) < r) wt.hp -= dmg * 0.8;
-  }
-  for (const cn of G.camoNests) {
-    // no concrete to absorb it — brush and dugout timber crack fast
-    if (dist(cn, { x, y }) < r) cn.hp -= dmg * CAMONEST_EXPLOSIVE_MULT;
-  }
-  for (const wr of G.wires) {
-    if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;
-  }
-  for (const m of G.mines) {
-    if (!m.dead && dist(m, { x, y }) < r * 0.8) {
-      m.dead = true;
-      explode(m.x, m.y, 42, 120, false);
+  // Blast Shelter: overhead cover shrugs the whole blast off every emplacement —
+  // no HP lost, and mines never chain off a neighbouring detonation
+  const blastShelter = G.cardsOwned && G.cardsOwned.has('blastshelter');
+  if (!blastShelter) {
+    for (const s of G.sandbags) {
+      if (dist(s, { x, y }) < r) s.hp -= dmg * 0.8;
+    }
+    for (const b of G.bunkers) {
+      // reinforced concrete: blast does far less than it would to sandbags
+      if (dist(b, { x, y }) < r) b.hp -= dmg * 0.4;
+    }
+    for (const wt of G.watchtowers) {
+      if (dist(wt, { x, y }) < r) wt.hp -= dmg * 0.8;
+    }
+    for (const cn of G.camoNests) {
+      // no concrete to absorb it — brush and dugout timber crack fast
+      if (dist(cn, { x, y }) < r) cn.hp -= dmg * CAMONEST_EXPLOSIVE_MULT;
+    }
+    for (const wr of G.wires) {
+      if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;
+    }
+    for (const m of G.mines) {
+      if (!m.dead && dist(m, { x, y }) < r * 0.8) {
+        m.dead = true;
+        explode(m.x, m.y, 42, 120, false);
+      }
     }
   }
 }

@@ -216,6 +216,13 @@ const CARD_UNIQUES = {
     desc: 'Overhead cover makes every emplacement immune to explosions — sandbags, bunkers, watch towers, camo nests, wire and mines take no blast damage.',
     hooks: {},
   },
+  // like Blast Shelter, an emplacement card with no per-unit hook: the enemy
+  // movers in update-enemies read G.cardsOwned directly to bite men in the wire.
+  razorwire: {
+    unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Razor Wire', cost: 10, weight: 3,
+    desc: 'Barbed wire is strung with razor tape — enemy infantry dragging through it have a chance to take light cuts every moment they struggle.',
+    hooks: {},
+  },
 };
 
 // War Surplus also covers the things the player buys off the toolbar that

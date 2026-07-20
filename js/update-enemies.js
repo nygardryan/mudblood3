@@ -2,6 +2,23 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
+// Razor Wire card: while a foot soldier is snagged in a strand of barbed wire,
+// each frame has a small chance to tear light damage into him. Flag-only, read
+// straight from G.cardsOwned like Blast Shelter. Applied wherever infantry drag
+// through wire (the standard advance and the commando move path).
+const RAZOR_WIRE_BITE_RATE = 1.6;   // expected bites per second in the wire
+const RAZOR_WIRE_DMG = [3, 8];      // damage per bite (min, max)
+const RAZOR_WIRE_MIN_HP_FRAC = 0.25; // barbs stop biting at/below this HP fraction
+function wireBite(e, dt) {
+  if (e.dead || !(G.cardsOwned && G.cardsOwned.has('razorwire'))) return;
+  // the barbs only soften a man up — they can't finish him. Below a quarter
+  // HP the cuts stop biting, so the wire alone can never cheese a kill.
+  if (e.hp <= e.maxhp * RAZOR_WIRE_MIN_HP_FRAC) return;
+  if (Math.random() < RAZOR_WIRE_BITE_RATE * dt) {
+    damageEnemy(e, rand(RAZOR_WIRE_DMG[0], RAZOR_WIRE_DMG[1]), null);
+  }
+}
+
 function enemyOfficerNear(e) {
   const officers = G.deOfficers || G.enemies;
   for (const o of officers) {
@@ -58,6 +75,7 @@ function updateEnemy(e, dt) {
           if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
             speed *= wr.up ? 0.05 : 0.12;
             wr.hp -= (wr.up ? 3 : 5) * dt;
+            wireBite(e, dt);
             break;
           }
         }
@@ -261,6 +279,7 @@ function advance(e, dt, buffed) {
     if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
       speed *= wr.up2 ? 0.02 : wr.up ? 0.05 : 0.12;
       wr.hp -= (wr.up2 ? 2 : wr.up ? 3 : 5) * dt;
+      wireBite(e, dt);
       break;
     }
   }

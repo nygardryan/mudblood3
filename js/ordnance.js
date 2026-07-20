@@ -1,0 +1,364 @@
+/* Mud & Blood — shells, grenades, rockets & bombs.
+   Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
+'use strict';
+
+function scheduleShell(x, y, delay, r, dmg, big, by, kind) {
+  const s = { x, y, timer: delay, dur: delay, r, dmg, big, by, kind };
+  G.shells.push(s);
+  return s;
+}
+
+function explode(x, y, r, dmg, big, by) {
+  SFX.boom(big);
+  addGroundMark({ type: 'crater', x, y, r, rot1: rand(0, 3), rot2: rand(0, 3) });
+
+  G.flashes.push({ x, y, r: r * 1.15, ttl: 0.22, max: 0.22 });
+  for (let i = 0; i < 26; i++) {
+    G.particles.push({
+      x, y, vx: rand(-90, 90), vy: rand(-160, -20),
+      ttl: rand(0.4, 1.1), grav: 220, size: rand(1.5, 3.5),
+      color: pick(['#3c3325', '#57492f', '#6e6046', '#2a2318']),
+    });
+  }
+
+  const hitArea = (e) => {
+    const d = dist(e, { x, y });
+    if (d > r) return 0;
+    let hd = dmg * (1 - (d / r) * 0.7) * rand(0.8, 1.2);
+    if (e.prone > 0) hd *= 0.5;   // flat on the ground, under most of the blast
+    return hd;
+  };
+  // HE vs armor: anything that carries its own armorMult (bazooka rockets,
+  // the V2 warhead) hits armored/wheeled targets far harder than it hits flesh
+  const blastArmorMult = by && by.t && (by.t.rocket || by.t.v2) && (by.t.rocket || by.t.v2).armorMult;
+  for (const e of G.enemies) {
+    if (e.chute > 0) continue;   // blast passes under the descending stick
+    let hd = hitArea(e);
+    if (hd > 0) {
+      if (e.t.tank) {
+        hd *= blastArmorMult != null ? blastArmorMult : 2.2;
+      } else if ((e.t.vehicle || e.t.apc) && blastArmorMult != null) {
+        hd *= blastArmorMult;
+      } else if (e.t.blastResist) hd *= (1 - e.t.blastResist);
+      damageEnemy(e, hd, by || { x, y });
+    }
+  }
+  for (const u of G.units) {
+    let hd = hitArea(u);
+    if (hd > 0) {
+      if (u.t.tank) {
+        hd *= blastArmorMult != null ? blastArmorMult : 2.2;
+      } else if ((u.t.vehicle || u.t.apc) && blastArmorMult != null) {
+        hd *= blastArmorMult;
+      } else if (u.t.blastResist) hd *= (1 - u.t.blastResist);
+      if (G.cardsOwned && G.cardsOwned.has('flakarmor_' + u.type)) hd *= 0.7;
+      damageUnit(u, hd, { x, y });
+    }
+  }
+  for (const s of G.sandbags) {
+    if (dist(s, { x, y }) < r) s.hp -= dmg * 0.8;
+  }
+  for (const b of G.bunkers) {
+    // reinforced concrete: blast does far less than it would to sandbags
+    if (dist(b, { x, y }) < r) b.hp -= dmg * 0.4;
+  }
+  for (const wt of G.watchtowers) {
+    if (dist(wt, { x, y }) < r) wt.hp -= dmg * 0.8;
+  }
+  for (const cn of G.camoNests) {
+    // no concrete to absorb it — brush and dugout timber crack fast
+    if (dist(cn, { x, y }) < r) cn.hp -= dmg * CAMONEST_EXPLOSIVE_MULT;
+  }
+  for (const wr of G.wires) {
+    if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;
+  }
+  for (const m of G.mines) {
+    if (!m.dead && dist(m, { x, y }) < r * 0.8) {
+      m.dead = true;
+      explode(m.x, m.y, 42, 120, false);
+    }
+  }
+}
+
+// the V2's warhead lands like any other shell, but it's a much bigger event:
+// a second, wider flash ring and a churning debris column on top of the
+// normal blast so it reads as something far worse than a mortar round
+function explodeV2(x, y, r, dmg, by) {
+  explode(x, y, r, dmg, true, by);
+  G.flashes.push({ x, y, r: r * 1.7, ttl: 0.4, max: 0.4 });
+  G.flashes.push({ x, y, r: r * 0.9, ttl: 0.55, max: 0.55 });
+  for (let i = 0; i < 50; i++) {
+    const ang = rand(0, Math.PI * 2);
+    G.particles.push({
+      x, y, vx: Math.cos(ang) * rand(40, 200), vy: Math.sin(ang) * rand(40, 200) - 40,
+      ttl: rand(0.7, 1.6), grav: 160, size: rand(2, 5),
+      color: pick(['#2a2318', '#4a3d28', '#6e6046', '#948564', '#1a1712']),
+    });
+  }
+}
+
+// P-47 pass: roars in from behind the friendly line and hoses the field
+// with eight .50 cals on its way out, walking fire up its flight path
+
+function spawnTransportFlyby() {
+  const dir = Math.random() < 0.5 ? 1 : -1;
+  G.planes.push({
+    role: 'flyby',
+    transport: true,
+    x: dir > 0 ? -90 : W + 90,
+    y: rand(70, H * 0.45),
+    vx: dir * rand(240, 320),
+    vy: rand(-12, 12),
+    sfxT: 0,
+    flybyPlayed: false,
+    done: false,
+  });
+}
+
+function spawnStrafeRun(x) {
+  const speed = 380;
+  const startY = H + 70;
+  SFX.planeFlyby();
+  G.planes.push({
+    role: 'strafe',
+    x, y: startY, speed,
+    drift: rand(-10, 10),
+    gunT: 0.4, sfxT: 0, gunSfxT: 0,
+    flybyPlayed: true,
+    done: false,
+  });
+  // a stick of bombs timed to burst right as the plane passes overhead
+  for (let i = 0; i < 2; i++) {
+    const by = 90 + i * 95;
+    scheduleShell(x + rand(-22, 22), by, (startY - by) / speed + 0.12, 42, 90, false);
+  }
+}
+
+function updatePlane(p, dt) {
+  if (p.role === 'flyby') {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    if (!p.flybyPlayed) {
+      p.flybyPlayed = true;
+      SFX.planeFlyby();
+    }
+    p.sfxT -= dt;
+    if (p.sfxT <= 0) { p.sfxT = 0.14; SFX.plane(); }
+    if (p.vx > 0 && p.x > W + 100) p.done = true;
+    if (p.vx < 0 && p.x < -100) p.done = true;
+    return;
+  }
+
+  if (p.role === 'bomber') {
+    updateBomber(p, dt);
+    return;
+  }
+
+  p.y -= p.speed * dt;
+  p.x += p.drift * dt;
+
+  p.sfxT -= dt;
+  if (p.sfxT <= 0) { p.sfxT = 0.09; SFX.plane(); }
+
+  // guns hold fire until the nose is past the trench line
+  if (p.y < DEPLOY_Y + 40 && p.y > 40) {
+    p.gunT -= dt;
+    while (p.gunT <= 0) {
+      p.gunT += 0.035;
+      // rounds strike well ahead of the aircraft
+      const ix = p.x + rand(-16, 16);
+      const iy = p.y - rand(70, 150);
+      if (iy < 0) continue;
+
+      G.tracers.push({ x1: p.x + rand(-4, 4), y1: p.y - 20, x2: ix, y2: iy, ttl: 0.07 });
+      G.particles.push({
+        x: ix, y: iy, vx: rand(-25, 25), vy: rand(-70, -20),
+        ttl: rand(0.2, 0.45), grav: 260, size: rand(1.2, 2.2),
+        color: pick(['#6e6046', '#57492f', '#8a7a5a']),
+      });
+
+      p.gunSfxT = (p.gunSfxT || 0) - 0.035;
+      if (p.gunSfxT <= 0) { p.gunSfxT = 0.09; SFX.hmg(); }
+
+      for (const e of G.enemies) {
+        if (e.dead) continue;
+        if (dist(e, { x: ix, y: iy }) < 13) {
+          let dmg = rand(14, 26);
+          if (e.t.tank) dmg *= 0.15; // even .50 cal only chips a Panzer
+          damageEnemy(e, dmg, { x: ix, y: iy });
+        }
+      }
+    }
+  }
+
+  if (p.y < -90) p.done = true;
+}
+
+// a bomber holds its heading and does not react to what's shooting at it: it
+// flies the line it was given, bombs whatever it happens to pass over, and
+// leaves. Everything interesting happens in the AA gun's arc, not up here.
+function updateBomber(p, dt) {
+  p.x += p.vx * dt;
+  p.y += p.vy * dt;
+
+  // engine drone only while it's actually over the field
+  if (p.y > -60) {
+    p.sfxT -= dt;
+    if (p.sfxT <= 0) { p.sfxT = 0.11; SFX.plane(); }
+  }
+
+  if (p.bombCd > 0) p.bombCd -= dt;
+
+  // bays stay shut until it's actually over the field and something is under it
+  if (p.bombCd <= 0 && p.y > -20 && p.y < H - 20) {
+    let victim = null, best = p.attackR;
+    for (const u of G.units) {
+      if (u.dead || isCamouflaged(u)) continue;
+      const d = dist(u, p);
+      if (d < best) { best = d; victim = u; }
+    }
+    if (victim) dropBombStick(p, victim);
+  }
+
+  if (p.y > H + 90) p.done = true;
+}
+
+// the stick walks along the flight path from a badly-judged release point —
+// they're aiming at your men, but a bomb sight at this altitude is a suggestion
+function dropBombStick(p, victim) {
+  const count = randi(p.bombsMin, p.bombsMax);
+  p.bombCd = rand(2.6, 3.6);
+
+  const heading = Math.atan2(p.vy, p.vx);
+  const fx = Math.cos(heading), fy = Math.sin(heading);
+  // aim error: the whole stick is displaced, so a miss misses as a group
+  const aimX = victim.x + rand(-100, 100);
+  const aimY = victim.y + rand(-100, 100);
+  const spacing = rand(30, 42);
+
+  for (let i = 0; i < count; i++) {
+    const bx = clamp(aimX + fx * (i - (count - 1) / 2) * spacing + rand(-35, 35), 14, W - 14);
+    const by = clamp(aimY + fy * (i - (count - 1) / 2) * spacing + rand(-35, 35), 14, H - 14);
+    // release-to-impact, staggered so the stick walks rather than landing flat
+    scheduleShell(bx, by, rand(1.15, 1.45) + i * 0.14, p.bombR, p.bombDmg, p.bombBig);
+  }
+}
+
+// flak finds the airframe: it comes apart in the air and what's left of it
+// hits the ground still carrying whatever was in the bomb bay
+function killBomber(p, by) {
+  if (p.done) return;
+  p.done = true;
+  creditKill(by);
+  SFX.boom(true);
+  G.flashes.push({ x: p.x, y: p.y, r: 26, ttl: 0.25, max: 0.25 });
+  for (let i = 0; i < 34; i++) {
+    const ang = rand(0, Math.PI * 2);
+    G.particles.push({
+      x: p.x, y: p.y,
+      vx: Math.cos(ang) * rand(30, 150), vy: Math.sin(ang) * rand(30, 150) + 40,
+      ttl: rand(0.6, 1.5), grav: 190, size: rand(1.6, 4),
+      color: pick(['#2a2318', '#4a3d28', '#6e6046', '#8a7a5a', '#1a1712']),
+    });
+  }
+  // the wreck comes down south of where it was hit, still travelling
+  const cx = clamp(p.x + p.vx * 0.5, 20, W - 20);
+  const cy = clamp(p.y + p.vy * 0.55, 20, H - 20);
+  explode(cx, cy, 46, 70, true);
+}
+
+// bombers are never seen, only their shadows: a twin-engine silhouette
+// sweeping south across the ground, with the attack radius it will bomb inside
+function drawBomberShadow(p) {
+  const c = ctx;
+  if (p.y < -55) return;
+
+  c.save();
+  c.translate(p.x, p.y);
+  c.rotate(Math.atan2(p.vy, p.vx) - Math.PI / 2);
+
+  // the radius it's hunting inside — faint, so it reads as a threat envelope
+  // rather than a UI element
+  c.strokeStyle = 'rgba(0,0,0,0.13)';
+  c.lineWidth = 1;
+  c.setLineDash([5, 7]);
+  c.beginPath(); c.arc(0, 0, p.attackR, 0, 7); c.stroke();
+  c.setLineDash([]);
+
+  c.fillStyle = 'rgba(0,0,0,0.3)';
+  // fuselage
+  c.beginPath(); c.ellipse(0, 0, 7, 30, 0, 0, 7); c.fill();
+  // wing
+  c.beginPath(); c.ellipse(0, -3, 46, 9, 0, 0, 7); c.fill();
+  // tailplane and fin
+  c.beginPath(); c.ellipse(0, 24, 18, 5, 0, 0, 7); c.fill();
+  // engine nacelles slung under the wing
+  for (const ex of [-20, 20]) {
+    c.beginPath(); c.ellipse(ex, -5, 5, 13, 0, 0, 7); c.fill();
+  }
+  // prop discs
+  c.fillStyle = 'rgba(0,0,0,0.16)';
+  for (const ex of [-20, 20]) {
+    c.beginPath(); c.ellipse(ex, -17, 10, 2.5, 0, 0, 7); c.fill();
+  }
+  c.restore();
+}
+
+function drawPlane(p) {
+  const c = ctx;
+  if (p.role === 'bomber') { drawBomberShadow(p); return; }
+  const flyby = p.role === 'flyby';
+  const facing = flyby ? (p.vx > 0 ? 1 : -1) : 0;
+
+  // shadow racing along the ground
+  c.fillStyle = 'rgba(0,0,0,0.22)';
+  c.save();
+  if (flyby) {
+    c.translate(p.x, p.y + 28);
+    c.beginPath(); c.ellipse(0, 0, 26, 8, 0, 0, 7); c.fill();
+  } else {
+    c.translate(p.x + 26, p.y + 34);
+    c.beginPath(); c.ellipse(0, 0, 9, 20, 0, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(0, -2, 22, 5, 0, 0, 7); c.fill();
+  }
+  c.restore();
+
+  c.save();
+  c.translate(p.x, p.y);
+  if (flyby) c.rotate(facing > 0 ? Math.PI / 2 : -Math.PI / 2);
+
+  const body = p.transport ? '#4a4840' : '#3f4a3a';
+  const wing = p.transport ? '#535048' : '#46523f';
+
+  // fuselage, nose pointed up-field (or along flyby heading after rotate)
+  c.fillStyle = body;
+  c.beginPath(); c.ellipse(0, 0, 6, 21, 0, 0, 7); c.fill();
+  // wings
+  c.fillStyle = wing;
+  c.beginPath(); c.ellipse(0, -2, 30, 7, 0, 0, 7); c.fill();
+  // tailplane
+  c.beginPath(); c.ellipse(0, 16, 12, 4, 0, 0, 7); c.fill();
+  // canopy
+  c.fillStyle = '#20261e';
+  c.beginPath(); c.ellipse(0, 2, 3, 6, 0, 0, 7); c.fill();
+  // spinning prop disc
+  c.fillStyle = 'rgba(200,200,180,0.25)';
+  c.beginPath(); c.ellipse(0, -21, 11, 2.5, 0, 0, 7); c.fill();
+  // US roundels on fighter strafers only
+  if (!p.transport) {
+    c.fillStyle = 'rgba(230,230,220,0.9)';
+    c.beginPath(); c.arc(-20, -2, 3, 0, 7); c.fill();
+    c.beginPath(); c.arc(20, -2, 3, 0, 7); c.fill();
+  }
+
+  // wing gun muzzle flashes while firing
+  if (!flyby && p.y < DEPLOY_Y + 40 && p.y > 40) {
+    c.fillStyle = 'rgba(255,220,120,0.9)';
+    for (const gx of [-14, -8, 8, 14]) {
+      if (Math.random() < 0.6) {
+        c.beginPath(); c.arc(gx, -8 - rand(0, 3), rand(1, 2.2), 0, 7); c.fill();
+      }
+    }
+  }
+  c.restore();
+}

@@ -189,5 +189,37 @@ an item, then the field. Hold on the field to cancel placement.
 - `css/style.css` — styling
 - `assets/sounds/` — open-licensed OGG sound effects (+ `ATTRIBUTION.md`)
 - `js/audio.js` — sample playback with WebAudio synthesis fallback
-- `js/game.js` — all game logic and rendering
 - `docs/axis-units.md` — design notes for tuning German unit stats and AI
+
+The game code lives in `js/` as plain scripts sharing one global scope; they
+load in dependency order via `index.html` (definitions first, `main.js` last):
+
+- `js/constants.js` — tuning constants & placeable catalog
+- `js/levels.js` — level definitions
+- `js/helpers.js` — small shared helpers
+- `js/state.js` — canvas setup & global game state
+- `js/economy.js` — TP economy
+- `js/waves.js` — waves & spawning
+- `js/events.js` — random events
+- `js/ordnance.js` — shells, grenades, rockets & bombs
+- `js/damage.js` — damage & death
+- `js/shooting.js` — shooting
+- `js/targeting.js` — target selection
+- `js/update-friendlies.js` — per-frame friendly unit logic
+- `js/update-enemies.js` — per-frame enemy unit logic
+- `js/tutorial.js` — tutorial scripts
+- `js/update.js` — main update loop
+- `js/render-units.js` — soldier, kit & weapon drawing
+- `js/render-world.js` — vehicle, emplacement & defense drawing
+- `js/render.js` — scene composition (main draw)
+- `js/inspector.js` — hover inspector
+- `js/hud.js` — HUD / DOM panels
+- `js/input.js` — placement & pointer/keyboard input
+- `js/codex.js` — codex
+- `js/cards.js` — endless cards & battle plans
+- `js/research.js` — axis research
+- `js/campaign.js` — campaign progress
+- `js/leaderboards.js` — endless leaderboards
+- `js/settings.js` — settings
+- `js/flow.js` — menus, briefings & game flow
+- `js/main.js` — event wiring, frame loop & bootstrap

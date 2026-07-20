@@ -51,7 +51,8 @@ function watchtowerRangeMult(u) {
   let mult = 1;
   for (const wt of G.watchtowers) {
     if (dist(wt, u) < WATCHTOWER_AURA) {
-      const wtMult = wt.up ? WATCHTOWER_RANGE_MULT_UPGRADED : WATCHTOWER_RANGE_MULT;
+      const wtMult = wt.up2 ? WATCHTOWER_RANGE_MULT_HARDENED
+        : wt.up ? WATCHTOWER_RANGE_MULT_UPGRADED : WATCHTOWER_RANGE_MULT;
       if (wtMult > mult) mult = wtMult;
     }
   }
@@ -368,10 +369,13 @@ function updateEngineer(u, dt) {
     return;
   }
 
-  // 2) fortify the nearest intact, un-upgraded emplacement (~6 s of work)
+  // 2) fortify the nearest emplacement that still has work left (~6 s per tier).
+  // Every intact piece earns a first fortification; with Hardened Works an
+  // already-fortified piece can be pushed to a second, tougher tier.
+  const hardened = G.cardsOwned && G.cardsOwned.has('hardenedworks');
   let target = null, td = R;
   for (const s of [...G.sandbags, ...G.bunkers, ...G.wires, ...G.watchtowers, ...G.camoNests]) {
-    if (s.up) continue;
+    if (s.up2 || (s.up && !hardened)) continue;
     const d = dist(u, s);
     if (d < td) { td = d; target = s; }
   }
@@ -379,12 +383,18 @@ function updateEngineer(u, dt) {
     target.workProg += 0.4 * (1 + u.rank * 0.35);
     sparks(target.x, target.y);
     if (target.workProg >= 6) {
-      target.up = true;
-      // camo nests get double HP once fortified; everything else gets 1.5x
+      target.workProg = 0;   // reset so a hardened second tier accrues fresh
+      // camo nests get double HP per tier; everything else gets 1.5x
       target.maxhp = Math.round(target.maxhp * (target.fortifyMult || 1.5));
       target.hp = target.maxhp;
       gainXP(u); gainXP(u); // a fortification is worth two points of pride
-      G.texts.push({ x: target.x, y: target.y - 16, text: 'FORTIFIED', ttl: 2.2 });
+      if (!target.up) {
+        target.up = true;
+        G.texts.push({ x: target.x, y: target.y - 16, text: 'FORTIFIED', ttl: 2.2 });
+      } else {
+        target.up2 = true;
+        G.texts.push({ x: target.x, y: target.y - 16, text: 'HARDENED', ttl: 2.2 });
+      }
     }
   }
 }

@@ -159,6 +159,14 @@ const CARD_UNIQUES = {
     desc: 'Engineers repair everything — emplacements and vehicles alike — twice as fast.',
     hooks: {},
   },
+  hardenedworks: {
+    unit: 'engineer', name: 'Hardened Works', cost: 12, weight: 4,
+    // flag-only: updateEngineer reads G.cardsOwned directly, like Grease Monkey.
+    // Lets an engineer push an already-fortified emplacement to a second tier —
+    // tougher, deeper cover, longer range, harder wire.
+    desc: 'Engineers push fortifications to a second tier: hardened emplacements with even more HP, cover, and range.',
+    hooks: {},
+  },
   rushorder: {
     unit: 'officer', name: 'Rush Order', cost: 10, weight: 4,
     desc: 'Officers draw TP every 15 seconds instead of 30.',

@@ -20,14 +20,14 @@ function coverBlock(target) {
   if (target.side !== 'us' || target.t.tank || target.t.vehicle) return false;
   // bunker walls first: they stop more fire and barely notice small arms
   for (const b of G.bunkers) {
-    if (b.hp > 0 && dist(b, target) < (b.up ? 34 : 30)) {
-      if (Math.random() < (b.up ? 0.85 : 0.75)) { b.hp -= b.up ? 1 : 2; return true; }
+    if (b.hp > 0 && dist(b, target) < (b.up2 ? 38 : b.up ? 34 : 30)) {
+      if (Math.random() < (b.up2 ? 0.92 : b.up ? 0.85 : 0.75)) { b.hp -= b.up ? 1 : 2; return true; }
     }
   }
   for (const s of G.sandbags) {
-    // fortified bags stop more and shrug off hits better
-    if (s.hp > 0 && dist(s, target) < (s.up ? 30 : 26)) {
-      if (Math.random() < (s.up ? 0.65 : 0.5)) { s.hp -= s.up ? 3 : 4; return true; }
+    // fortified bags stop more and shrug off hits better; hardened, more still
+    if (s.hp > 0 && dist(s, target) < (s.up2 ? 33 : s.up ? 30 : 26)) {
+      if (Math.random() < (s.up2 ? 0.78 : s.up ? 0.65 : 0.5)) { s.hp -= s.up2 ? 2 : s.up ? 3 : 4; return true; }
     }
   }
   // watch tower: spotters call out incoming fire, a flat 10% dodge for anyone under it
@@ -58,7 +58,8 @@ function isCamouflaged(u) {
 function markCamoFired(u) {
   if (u.side !== 'us') return;
   const cn = camoNestAt(u);
-  if (cn) u.camoExposed = cn.up ? CAMONEST_REVEAL_FORTIFIED : CAMONEST_REVEAL;
+  if (cn) u.camoExposed = cn.up2 ? CAMONEST_REVEAL_HARDENED
+    : cn.up ? CAMONEST_REVEAL_FORTIFIED : CAMONEST_REVEAL;
 }
 
 function fireShot(shooter, target, opts) {

@@ -256,11 +256,11 @@ function rollEnemyPushUrge(e, target, dt, command) {
 function advance(e, dt, buffed) {
   e.wobble += dt * 3;
   let speed = e.t.speed * (buffed ? 1.25 : 1);
-  // barbed wire drag; fortified wire grips harder and wears slower
+  // barbed wire drag; fortified wire grips harder and wears slower, hardened more still
   for (const wr of G.wires) {
     if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-      speed *= wr.up ? 0.05 : 0.12;
-      wr.hp -= (wr.up ? 3 : 5) * dt;
+      speed *= wr.up2 ? 0.02 : wr.up ? 0.05 : 0.12;
+      wr.hp -= (wr.up2 ? 2 : wr.up ? 3 : 5) * dt;
       break;
     }
   }

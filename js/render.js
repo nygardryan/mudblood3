@@ -12,7 +12,8 @@ function draw() {
     ctx.scale(s, s);
     ctx.translate(-viewCam.x, -viewCam.y);
   }
-  ctx.drawImage(groundCanvas, 0, 0);
+  // the bitmap is backed at groundRenderScale× density; map it into W×H world space
+  ctx.drawImage(groundCanvas, 0, 0, W, H);
   for (const m of G.groundMarks) drawGroundMark(m, ctx);
 
   drawForwardLine();

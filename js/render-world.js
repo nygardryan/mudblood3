@@ -1065,8 +1065,8 @@ function drawWire(wr) {
   ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(0, -7); ctx.stroke();
   ctx.strokeStyle = 'rgba(60,58,50,0.9)';
   ctx.lineWidth = 1;
-  // fortified wire carries an extra strand
-  const strands = wr.up ? [-8, -5, -1, 3] : [-5, -1, 3];
+  // fortified wire carries an extra strand; hardened wire another still
+  const strands = wr.up2 ? [-10, -8, -5, -1, 3] : wr.up ? [-8, -5, -1, 3] : [-5, -1, 3];
   for (const yy of strands) {
     ctx.beginPath();
     ctx.moveTo(-32, yy);
@@ -1094,6 +1094,15 @@ function drawSandbag(s) {
       ctx.ellipse(bx, by, 7, 4, 0, 0, 7);
       ctx.fill(); ctx.stroke();
     }
+  }
+  // hardened bags gain a plank-and-stake revetment holding the wall
+  if (s.up2) {
+    ctx.strokeStyle = '#5a4a30';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-22, 6); ctx.lineTo(-22, -14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(22, 6); ctx.lineTo(22, -14); ctx.stroke();
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-22, -12); ctx.lineTo(22, -12); ctx.stroke();
   }
   ctx.restore();
 }
@@ -1160,6 +1169,13 @@ function drawBunker(b) {
     ctx.fillRect(-20, -10, 5, 6);
     ctx.fillRect(15, -10, 5, 6);
   }
+  // hardened bunkers add a full steel lintel band above the slit
+  if (b.up2) {
+    ctx.fillStyle = '#6d6b62';
+    ctx.fillRect(-20, -13, 40, 3);
+    ctx.fillStyle = '#48463f';
+    for (let rx = -18; rx <= 16; rx += 8) ctx.fillRect(rx, -13, 2, 3);
+  }
   // battle damage: cracks appear as the concrete wears down
   const f = b.hp / b.maxhp;
   if (f < 0.66) {
@@ -1199,11 +1215,16 @@ function drawWatchtower(t) {
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(-12, -12); ctx.lineTo(12, 12); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(12, -12); ctx.lineTo(-12, 12); ctx.stroke();
-  // fortified towers get a braced perimeter
+  // fortified towers get a braced perimeter; hardened towers a second outer ring
   if (t.up) {
     ctx.strokeStyle = '#6b5636';
     ctx.lineWidth = 2;
     ctx.strokeRect(-12, -12, 24, 24);
+  }
+  if (t.up2) {
+    ctx.strokeStyle = '#7d6640';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-15, -15, 30, 30);
   }
   // square lookout platform roof, viewed straight down
   ctx.fillStyle = '#6b5636';
@@ -1273,6 +1294,13 @@ function drawCamoNest(cn) {
     }
     ctx.fillStyle = '#465a34';
     for (const [fx, fy, fr] of [[-14, -16, 5], [4, -17, 5], [18, -14, 4], [-26, -4, 4], [26, -3, 4]]) {
+      ctx.beginPath(); ctx.arc(fx, fy, fr, 0, 7); ctx.fill();
+    }
+  }
+  // hardened nests pile on a darker overgrowth crown
+  if (cn.up2) {
+    ctx.fillStyle = '#3a4a2a';
+    for (const [fx, fy, fr] of [[-20, -18, 5], [-6, -20, 5], [10, -19, 5], [22, -16, 4]]) {
       ctx.beginPath(); ctx.arc(fx, fy, fr, 0, 7); ctx.fill();
     }
   }

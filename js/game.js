@@ -4860,7 +4860,7 @@ function tutEnterStep(step) {
   T.step = step;
   switch (step) {
     case 'welcome':
-      T.timer = 3;
+      T.timer = 6;
       setTutorialMsg('Welcome to the war, soldier!');
       break;
     case 'select':
@@ -4875,7 +4875,7 @@ function tutEnterStep(step) {
       setTutorialMsg(null);
       break;
     case 'rankup':
-      T.timer = 5.5;
+      T.timer = 8.5;
       // the duel usually leaves him unscathed behind bunker cover — make sure
       // he carries a wound so the medic lesson has something to heal
       T.rifle.hp = Math.min(T.rifle.hp, T.rifle.maxhp - 35);
@@ -4910,7 +4910,7 @@ function tutEnterStep(step) {
       markLevelComplete(G.level.id);
       T.done = true;
       T.cam.active = false;
-      T.timer = 6;
+      T.timer = 9;
       break;
   }
 }
@@ -4938,18 +4938,16 @@ function updateTutorial(dt) {
       if (G.selected.includes(T.rifle)) tutEnterStep('moveToBunker');
       break;
     case 'moveToBunker':
+      // spawn the enemy the instant the move-to-bunker order is issued, so he's
+      // already closing in by the time our rifleman reaches cover — no dead air
+      if (!T.foe && T.rifle.moveTo && dist(T.rifle.moveTo, T.bunker) < 40) {
+        T.foe = makeEnemy('erifle', 165, -30);
+        G.enemies.push(T.foe);
+      }
       if (dist(T.rifle, T.bunker) < 26 && !T.rifle.moveTo) tutEnterStep('fight');
       break;
     case 'fight':
-      if (!T.foe) {
-        T.timer -= dt;
-        if (T.timer <= 0) {
-          T.foe = makeEnemy('erifle', 165, -30);
-          G.enemies.push(T.foe);
-        }
-      } else if (T.foe.dead) {
-        tutEnterStep('rankup');
-      }
+      if (T.foe && T.foe.dead) tutEnterStep('rankup');
       break;
     case 'rankup':
       T.timer -= dt;

@@ -10527,6 +10527,14 @@ function framePadY() {
   return (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
 }
 
+function safeAreaInset() {
+  const cs = getComputedStyle(document.body);
+  return {
+    top: parseFloat(cs.paddingTop) || 0,
+    bottom: parseFloat(cs.paddingBottom) || 0,
+  };
+}
+
 function fitLayout() {
   const wrap = el('wrap');
   const stage = el('stage');
@@ -10538,8 +10546,9 @@ function fitLayout() {
 
   let w, h;
   if (mobile) {
+    const safe = safeAreaInset();
     w = maxW;
-    h = maxH;
+    h = Math.max(1, maxH - safe.top - safe.bottom);
   } else {
     w = maxW;
     h = w / ratio;

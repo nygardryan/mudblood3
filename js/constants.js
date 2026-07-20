@@ -383,9 +383,9 @@ const PLACEABLES = [
     desc: 'Concealed position. Hidden until firing; exposed 4 s after last shot (2 s fortified). No dodge bonus. Weak to explosives.' },
   { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
     desc: 'Cluster of 3 anti-personnel mines. Hurts tanks too. Germans can\'t see them.' },
-  { key: 'mortar', label: 'MORTAR STRIKE', cost: 8, kind: 'support', hotkey: '0',
+  { key: 'mortar', label: 'MORTAR STRIKE', cost: 5, kind: 'support', hotkey: '0',
     desc: '6 mortar shells on target. DANGER CLOSE — friendly fire is real.' },
-  { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 16, kind: 'support', hotkey: 'A',
+  { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 12, kind: 'support', hotkey: 'A',
     desc: '105mm barrage: 16 heavy shells, wide spread. Devastating. Indiscriminate.' },
 ];
 
@@ -489,9 +489,9 @@ const ASSAULT_PLACEABLES = [
     desc: 'Willys jeep with a .50 cal. Fast breakthrough vehicle.' },
   { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'aunit', hotkey: 'T',
     desc: 'M4 Sherman. Breaks the West Wall and German armor.' },
-  { key: 'mortar', label: 'MORTAR STRIKE', cost: 8, kind: 'support', hotkey: '0',
+  { key: 'mortar', label: 'MORTAR STRIKE', cost: 5, kind: 'support', hotkey: '0',
     desc: '6 mortar shells on target. Danger close — watch your own men.' },
-  { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 16, kind: 'support', hotkey: 'A',
+  { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 12, kind: 'support', hotkey: 'A',
     desc: '105mm barrage: 16 heavy shells. Indiscriminate.' },
 ];
 

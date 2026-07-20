@@ -2708,6 +2708,8 @@ function damageUnit(u, dmg, from) {
       }
       const si = G.selected.indexOf(u);
       if (si !== -1) G.selected.splice(si, 1);
+      // last acts: cards that fire when the man goes down (Dead Man's Switch)
+      if (hooks && hooks.onDeath.length) for (const fn of hooks.onDeath) fn(u);
     }
   }
   // taking real fire (bullets, shells) sends a man diving; flame's tiny
@@ -2897,12 +2899,15 @@ function fireShot(shooter, target, opts) {
   const d = dist(shooter, target);
   acc *= clamp(1.15 - d / (unitRange(shooter, t.range) * 1.6), 0.35, 1);
 
+  // card hooks (US shooters in endless only): Zeroed In lifts the base to-hit
+  // before the roll; beforeShot may force a hit; afterShot sees the final
+  // result. Forced/lifted hits still roll prone-dodge and cover below — those
+  // model the target, not the shooter's aim.
+  const cardHooks = shooter.side === 'us' && G.cardHooks ? G.cardHooks[shooter.type] : null;
+  if (cardHooks && cardHooks.accMult !== 1) acc = Math.min(0.98, acc * cardHooks.accMult);
+
   let hx = target.x, hy = target.y;
   let hit = Math.random() < acc;
-  // card hooks (US shooters in endless only): beforeShot may force a hit,
-  // afterShot sees the final result. The forced hit still rolls prone-dodge
-  // and cover below — those model the target, not the shooter's aim.
-  const cardHooks = shooter.side === 'us' && G.cardHooks ? G.cardHooks[shooter.type] : null;
   if (cardHooks) {
     for (const fn of cardHooks.beforeShot) if (fn(shooter)) hit = true;
     for (const fn of cardHooks.afterShot) fn(shooter, hit);
@@ -3663,8 +3668,13 @@ function flameSpray(actor, dt) {
 // pellet damage scaled by distance and how centered they are in the spread
 function fireShotgun(actor, buffs) {
   const sg = actor.t.shotgun;
-  const range = unitRange(actor, sg.range) * fogMult();
-  const arc = sg.arc * (1 + (buffs && buffs.accBonus ? buffs.accBonus * 0.25 : 0));
+  // Rifled Slugs: one solid slug instead of a buckshot pattern — far greater
+  // reach, almost no spread, and it drives the full pellet count into whatever
+  // it lines up on.
+  const slug = actor.side === 'us' && G.cardsOwned && G.cardsOwned.has('rifledslugs');
+  const range = unitRange(actor, sg.range) * fogMult() * (slug ? 1.6 : 1);
+  const baseArc = slug ? sg.arc * 0.28 : sg.arc;
+  const arc = baseArc * (1 + (buffs && buffs.accBonus ? buffs.accBonus * 0.25 : 0));
   const mx = actor.x + Math.cos(actor.face) * (actor.t.gun + 2);
   const my = actor.y + Math.sin(actor.face) * (actor.t.gun + 2);
 
@@ -3673,14 +3683,23 @@ function fireShotgun(actor, buffs) {
   actor.shotgunBlastT = 0.12;
   G.flashes.push({ x: mx, y: my, r: 10, ttl: 0.08, max: 0.08 });
   const spreadMult = Math.max(0.4, 1 - (actor.rank || 0) * 0.08);
-  for (let i = 0; i < sg.pellets; i++) {
-    const a = actor.face + rand(-sg.spread * spreadMult, sg.spread * spreadMult);
-    const d = rand(25, range);
+  if (slug) {
+    // a single tight tracer punching out to full range
     G.tracers.push({
       x1: mx, y1: my,
-      x2: actor.x + Math.cos(a) * d, y2: actor.y + Math.sin(a) * d,
-      ttl: 0.05, kind: 'buckshot',
+      x2: actor.x + Math.cos(actor.face) * range, y2: actor.y + Math.sin(actor.face) * range,
+      ttl: 0.06, kind: 'buckshot',
     });
+  } else {
+    for (let i = 0; i < sg.pellets; i++) {
+      const a = actor.face + rand(-sg.spread * spreadMult, sg.spread * spreadMult);
+      const d = rand(25, range);
+      G.tracers.push({
+        x1: mx, y1: my,
+        x2: actor.x + Math.cos(a) * d, y2: actor.y + Math.sin(a) * d,
+        ttl: 0.05, kind: 'buckshot',
+      });
+    }
   }
   for (let i = 0; i < 5; i++) {
     const a = actor.face + rand(-sg.spread * 0.6 * spreadMult, sg.spread * 0.6 * spreadMult);
@@ -3719,8 +3738,10 @@ function fireShotgun(actor, buffs) {
     }
 
     const centered = 1 - off / arc;
-    const falloff = 1 - (d / range) * 0.5;
-    const pelletsHit = Math.max(1, Math.round(centered * 2.5 + rand(0, sg.pellets * 0.35)));
+    // a slug barely bleeds off over distance and lands its whole mass on target;
+    // buckshot loses half its punch at max range and only a few pellets connect
+    const falloff = 1 - (d / range) * (slug ? 0.15 : 0.5);
+    const pelletsHit = slug ? sg.pellets * 1.5 : Math.max(1, Math.round(centered * 2.5 + rand(0, sg.pellets * 0.35)));
     let dmg = sg.dmg * pelletsHit * falloff * (1 + rank * 0.09) * rand(0.9, 1.1);
     if (e.t.tank) dmg *= 0.06;
     else if (e.t.apc) dmg *= 0.2;
@@ -4917,11 +4938,50 @@ function tutCamArrived() {
          Math.hypot(viewCam.x - c.tx, viewCam.y - c.ty) < 3;
 }
 
-function setTutorialMsg(text) {
+// ---- Tutorial message box with a minimum on-screen time ----------------------
+// A step that is entered and then quickly superseded used to have its message
+// flash by. Messages are now queued: the flush (run every tutorial frame) only
+// swaps in the next one once the current box has been up for TUT_MSG_MIN seconds,
+// so every box reads before the next replaces it.
+const TUT_MSG_MIN = 3;
+let tutMsgCurrent = null;   // text in the box right now (null = hidden)
+let tutMsgShownAt = 0;      // G.time when it went up
+let tutMsgQueue = [];       // pending texts, in order
+
+function applyTutorialMsg(text) {
   const m = el('tutorial-msg');
   if (!m) return;
   m.textContent = text || '';
   m.classList.toggle('hidden', !text);
+}
+
+// queue a message (or null to blank the box), deduped against whatever is
+// already showing / last queued so re-entering a step won't restart the timer
+function setTutorialMsg(text) {
+  text = text || null;
+  const last = tutMsgQueue.length ? tutMsgQueue[tutMsgQueue.length - 1] : tutMsgCurrent;
+  if (text === last) return;
+  tutMsgQueue.push(text);
+}
+
+// advance the queue once the current box has had its minimum time; a blank box
+// has no minimum, so the next message can appear immediately after a clear
+function flushTutorialMsg() {
+  if (!tutMsgQueue.length) return;
+  const ready = tutMsgCurrent == null || (G.time - tutMsgShownAt) >= TUT_MSG_MIN;
+  if (!ready) return;
+  tutMsgCurrent = tutMsgQueue.shift();
+  tutMsgShownAt = G.time;
+  applyTutorialMsg(tutMsgCurrent);
+}
+
+// hard reset: clear the box now and drop anything queued. Used at teardown and
+// game start, where the min-time gate must not hold a stale message on screen.
+function hideTutorialMsg() {
+  tutMsgQueue.length = 0;
+  tutMsgCurrent = null;
+  tutMsgShownAt = 0;
+  applyTutorialMsg(null);
 }
 
 function tutEnterStep(step) {
@@ -5327,6 +5387,7 @@ function updateTutorial3(dt, T) {
 
 function updateTutorial(dt) {
   const T = G.tutorial;
+  flushTutorialMsg();   // honor each box's minimum on-screen time before the next
   if (T.cam.active) tutCamLerp(dt);
   if (T.done) {
     if (T.step === 'handoff') {
@@ -5679,7 +5740,7 @@ function endRun(won, title, stats) {
   G.over = true;
   running = false;
   paused = false;
-  setTutorialMsg(null);
+  hideTutorialMsg();
   const titleEl = document.getElementById('go-title');
   titleEl.textContent = title;
   titleEl.classList.toggle('victory', won);
@@ -12568,6 +12629,14 @@ const CARD_COMMON_TEMPLATES = {
     desc: t => `instead of dying your ${t.name.toLowerCase()} loses 2 ranks`,
     hooks: type => ({ beforeDeath: cheatDeath }),
   },
+  // small-arms accuracy only — the units whose to-hit runs through fireShot.
+  // shotgun/flamer spray and the vehicle/emplacement main guns don't roll it.
+  zeroedin: {
+    name: 'Zeroed In', cost: 6, excludes: ['shotgunner', 'flamer', 'sherman', 'atgun', 'aagun'],
+    weight: type => ({ sniper: 3 }[type] || 2),
+    desc: t => `${t.name} lands 25% more of their shots.`,
+    hooks: type => ({ accMult: 1.25 }),
+  },
   flakarmor: {
     name: 'Flak Armor', cost: 6, excludes: ['jeep', 'sherman', 'atgun', 'aagun'],
     // the flamer already halves blast damage on his own vest
@@ -12593,6 +12662,31 @@ const CARD_COMMON_TEMPLATES = {
 
 // uniques: one-off cards tied to a single unit type
 const CARD_UNIQUES = {
+  deadmansswitch: {
+    unit: 'rifleman', name: "Dead Man's Switch", cost: 9, weight: 3,
+    desc: 'A dying rifleman pulls the pin — a live frag drops on the nearest enemy.',
+    hooks: {
+      // fires from the death block after the man is down; the corpse still
+      // gets credited as the thrower so grenadiers won't scoop it back
+      onDeath: u => {
+        const gt = nearestEnemyInRange(u, 220 * fogMult());
+        if (!gt) return;
+        SFX.grenadeToss();
+        G.grenades.push({
+          x: u.x, y: u.y,
+          tx: gt.x + rand(-14, 14), ty: gt.y + rand(-14, 14),
+          t: 0, dur: 0.85, sx: u.x, sy: u.y, by: u,
+          kind: 'frag', r: 44, dmg: 110,
+        });
+      },
+    },
+  },
+  rifledslugs: {
+    unit: 'shotgunner', name: 'Rifled Slugs', cost: 9, weight: 3,
+    // flag-only: fireShotgun reads G.cardsOwned directly, like Extended Tube
+    desc: 'Load slugs, not buckshot: one hard, long-range round with almost no spread.',
+    hooks: {},
+  },
   crackshot: {
     unit: 'sniper', name: 'Crack Shot', cost: 8, weight: 3,
     desc: 'Every miss guarantees the sniper\'s next shot connects.',
@@ -12827,8 +12921,11 @@ function equippedEndlessCards() {
   return data.plans[data.activePlan];
 }
 
-// per-run hook table: { unitType: { onKill: [fns], beforeShot: [fns], afterShot: [fns], beforeDeath: [fns] } }
+// per-run hook table: { unitType: { onKill: [fns], beforeShot: [fns], afterShot: [fns],
+// beforeDeath: [fns], onDeath: [fns], accMult: number } }
 // Built once in newGame(); null when no cards are equipped or outside endless.
+// `accMult` is a scalar the shot roll multiplies by; every other key is a list
+// of hook fns. A card supplies accMult as a plain number in its hooks object.
 function buildCardHooks() {
   const owned = equippedEndlessCards();
   if (!owned.length) return null;
@@ -12836,8 +12933,11 @@ function buildCardHooks() {
   for (const id of owned) {
     const card = CARDS[id];
     const slot = table[card.unitType] ||
-      (table[card.unitType] = { onKill: [], beforeShot: [], afterShot: [], beforeDeath: [] });
-    for (const [ev, fn] of Object.entries(card.hooks)) slot[ev].push(fn);
+      (table[card.unitType] = { onKill: [], beforeShot: [], afterShot: [], beforeDeath: [], onDeath: [], accMult: 1 });
+    for (const [ev, fn] of Object.entries(card.hooks)) {
+      if (ev === 'accMult') slot.accMult *= fn;
+      else slot[ev].push(fn);
+    }
   }
   return table;
 }
@@ -13590,7 +13690,7 @@ function returnToMenu() {
   el('commando-select').classList.add('hidden');
   el('tutorial-select').classList.add('hidden');
   el('intro').classList.remove('hidden');
-  setTutorialMsg(null);
+  hideTutorialMsg();
   syncMobileViewUI();
   syncMobileChrome();
 }
@@ -13895,7 +13995,7 @@ function finishTutorial() {
   running = false;
   paused = false;
   placing = null;
-  setTutorialMsg(null);
+  hideTutorialMsg();
   const nextId = G ? getNextMissionId(G.level.id) : null;
   const nextLevel = nextId ? LEVELS[nextId] : null;
   const textEl = el('tutorial-complete-text');
@@ -13919,7 +14019,7 @@ function backToTutorialSelect() {
   mobileToolbarMinimized = false;
   activePointers.clear();
   el('tutorial-complete').classList.add('hidden');
-  setTutorialMsg(null);
+  hideTutorialMsg();
   syncToolbarVisibility();
   syncMobileChrome();
   openTutorialSelect();
@@ -13966,8 +14066,8 @@ function startGame(levelId, difficultyId) {
   el('commando-select').classList.add('hidden');
   el('tutorial-select').classList.add('hidden');
   el('pause').classList.add('hidden');
+  hideTutorialMsg();   // clear any queued messages from a previous run
   if (G.tutorial) tutEnterStep(G.tutorial.step);   // enter each script's opening step
-  else setTutorialMsg(null);
   syncMobileViewUI();
   syncMobileChrome();
   const viewHint = mobileViewActive()

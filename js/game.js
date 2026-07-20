@@ -12108,7 +12108,7 @@ const CARD_COMMON_TEMPLATES = {
     name: 'Busted Down', cost: 6,
     // cheating death matters most on the units a run can't afford to replace
     weight: type => ({ jeep: 3, atgun: 3, aagun: 3, sherman: 5 }[type] || 2),
-    desc: t => `${t.name}: survive lethal hit, busted -2 ranks, full HP restored.`,
+    desc: t => `instead of dying your ${t.name.toLowerCase()} loses 2 ranks`,
     hooks: type => ({ beforeDeath: cheatDeath }),
   },
   flakarmor: {
@@ -12171,7 +12171,7 @@ const CARD_UNIQUES = {
   },
   extendedtube: {
     unit: 'shotgunner', name: 'Extended Tube', cost: 9, weight: 3,
-    desc: `The trench gun holds ${EXTENDED_TUBE_SHELLS} shells before running dry — but reloading afterward takes three times as long.`,
+    desc: `${EXTENDED_TUBE_SHELLS} shells per clip; reload takes 3x after emptying.`,
     hooks: {},
   },
   warbonds: {

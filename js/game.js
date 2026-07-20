@@ -656,6 +656,20 @@ const LEVELS = {
     setup(G) { setupTutorial1(G); },
   },
 
+  tutorial2: {
+    id: 'tutorial2',
+    name: 'TUTORIAL 2: UNDER ATTACK',
+    menuName: 'LESSON 2 — UNDER ATTACK',
+    menuDesc: 'Wire, sandbags, and picking the right man — fortify a weak flank under fire.',
+    mode: 'endless',
+    tutorial: true,
+    breachLimit: MAX_BREACH,
+    events: true,
+    placeables: PLACEABLES,
+    startTP: 0,
+    setup(G) { setupTutorial2(G); },
+  },
+
   // ---- Allied campaign: US assaults across Western Europe, then a defense finale.
   allied_dday: {
     id: 'allied_dday',
@@ -4428,6 +4442,7 @@ function updateEnemy(e, dt) {
     return;
   }
   if (e.onCraft) return;
+  if (e.tutHold) return;   // tutorial: frozen in place until the script releases him
 
   if (e.proneCd > 0) e.proneCd -= dt;
   if (e.prone > 0) {
@@ -4804,6 +4819,7 @@ function setupTutorial1(G) {
   usBunker(G, 150, 435);
   G.spawnTimer = 9999;   // no waves until the script hands off
   G.tutorial = {
+    script: 't1',
     step: 'welcome',
     timer: 3,
     rifle,
@@ -4811,8 +4827,47 @@ function setupTutorial1(G) {
     foe: null,
     done: false,
     cam: { active: true, tx: 0, ty: 0, tzoom: 1 },
+    // per-step interaction gating (shared by both tutorial scripts)
+    allowBuy: [], placeZone: null, pulseCat: null, pulseKey: null, ringTargets: null,
   };
   tutSetCam(2.6, rifle.x, rifle.y, true);
+}
+
+// ---- Tutorial 2: a two-front crisis that teaches wire, sandbags, and unit choice.
+// The scene picks up where Tutorial 1 left off — one bunker, a PFC rifleman, and
+// a medic behind. A flamethrower charges the center; the player wires the lane to
+// win the duel, then fortifies an open right flank against a fresh squad.
+function setupTutorial2(G) {
+  const BX = 150, BY = 435;
+  const rifle = makeUnit('rifleman', BX, BY + 2);
+  rifle.rank = 1;                 // the PFC he earned in Lesson 1
+  G.units.push(rifle);
+  const medic = makeUnit('medic', BX, BY + 62);   // dug in behind the bunker
+  G.units.push(medic);
+  usBunker(G, BX, BY);
+  G.spawnTimer = 9999;            // no endless waves until the script hands off
+  G.tutorial = {
+    script: 't2',
+    step: 'intro',
+    timer: 3.5,
+    rifle,
+    medic,
+    bunker: G.bunkers[0],
+    foe: null,                    // the center flamethrower
+    flankFoes: [],                // the right-flank squad
+    baseWires: 0, baseBags: 0,
+    wiresWanted: 2, bagsWanted: 1, unitsWanted: 2,
+    done: false,
+    cam: { active: true, tx: 0, ty: 0, tzoom: 1 },
+    allowBuy: [], placeZone: null, pulseCat: null, pulseKey: null, ringTargets: null,
+  };
+  tutSetCam(2.0, BX, BY, true);
+}
+
+// how many fighting men the player has posted on the right flank (x > 300)
+function tutRightUnitCount() {
+  if (!G) return 0;
+  return G.units.filter(u => !u.dead && u.x > 300).length;
 }
 
 // aim the tutorial camera at a world point; snap jumps there instantly,
@@ -4858,9 +4913,12 @@ function setTutorialMsg(text) {
 function tutEnterStep(step) {
   const T = G.tutorial;
   T.step = step;
+  // reset per-step interaction gating; each case re-enables only what it needs
+  T.allowBuy = []; T.placeZone = null; T.pulseCat = null; T.pulseKey = null; T.ringTargets = null;
+  if (T.script === 't2') { tutEnterStep2(T, step); return; }
   switch (step) {
     case 'welcome':
-      T.timer = 6;
+      T.timer = 8;
       setTutorialMsg('Welcome to the war, soldier!');
       break;
     case 'select':
@@ -4875,7 +4933,7 @@ function tutEnterStep(step) {
       setTutorialMsg(null);
       break;
     case 'rankup':
-      T.timer = 8.5;
+      T.timer = 10.5;
       // the duel usually leaves him unscathed behind bunker cover — make sure
       // he carries a wound so the medic lesson has something to heal
       T.rifle.hp = Math.min(T.rifle.hp, T.rifle.maxhp - 35);
@@ -4883,9 +4941,11 @@ function tutEnterStep(step) {
       break;
     case 'buyMedic':
       if (G.tp < 12) G.tp = 12;   // exactly enough for the medic
+      T.allowBuy = ['medic']; T.pulseCat = 'units'; T.pulseKey = 'medic';
       setTutorialMsg('Purchase a medic to heal your wounded soldier.');
       break;
     case 'placeMedic':
+      T.allowBuy = ['medic']; T.pulseCat = 'units'; T.pulseKey = 'medic';
       setTutorialMsg('After selecting the medic, place him down near your soldier to heal him.');
       break;
     case 'breather':
@@ -4903,14 +4963,124 @@ function tutEnterStep(step) {
       }
       break;
     case 'handoff':
-      setTutorialMsg('The Germans are coming. Build up your defences and defend for as long as you can.');
-      showBanner('DEFEND THE LINE');
-      G.tp += 25;            // normal endless starting allowance
-      G.spawnTimer = 6;
+      setTutorialMsg('That\'s basic training, soldier — select, move, and reinforce your line. Well done.');
+      showBanner('TUTORIAL COMPLETE');
       markLevelComplete(G.level.id);
       T.done = true;
       T.cam.active = false;
-      T.timer = 9;
+      T.timer = 4.5;        // let the message breathe before showing the completion screen
+      break;
+  }
+}
+
+// ---- Tutorial 2 step machine -------------------------------------------------
+
+function tutEnterStep2(T, step) {
+  switch (step) {
+    case 'intro':
+      T.timer = 5.5;
+      setTutorialMsg("Dawn on the line, Sergeant. You held the bunker through the night — but the Germans aren't finished with you.");
+      break;
+    case 'spot':
+      // reveal the threat: a flamethrower frozen at the top of the center lane
+      T.timer = 6.5;
+      T.foe = makeEnemy('eflame', 150, 44);
+      T.foe.hp = T.foe.maxhp = 60;   // scripted duel: the wire + rifleman must win reliably
+      T.foe.tutHold = true;
+      G.enemies.push(T.foe);
+      T.ringTargets = [T.foe];
+      tutSetCam(1.0, W / 2, H / 2);
+      setTutorialMsg("Contact — Flammenwerfer up the center! He closes fast and burns through everything. Your rifleman can't trade blows with that.");
+      break;
+    case 'wire':
+      if (G.tp < 8) G.tp = 8;               // two wire, with a little to spare
+      T.baseWires = G.wires.length;
+      T.allowBuy = ['wire']; T.pulseCat = 'emplacements'; T.pulseKey = 'wire';
+      T.placeZone = { x0: 95, y0: 270, x1: 210, y1: 362 };
+      T.ringTargets = [T.foe];
+      tutSetCam(1.0, W / 2, H / 2);
+      setTutorialMsg("Barbed wire bogs down a charge. Lay two lines across his path in the marked zone — buy your rifleman time to shoot.");
+      break;
+    case 'charge':
+      if (T.foe) T.foe.tutHold = false;     // release him; the wire does the rest
+      setTutorialMsg("Here he comes — let the wire do its work.");
+      break;
+    case 'flankwarn':
+      // a fresh squad masses on the undefended right flank
+      T.timer = 6.5;
+      T.flankFoes = [
+        makeEnemy('erifle', 432, 205),
+        makeEnemy('erifle', 476, 195),
+      ];
+      // scripted assault: they mass close to the line and carry trimmed HP, so a
+      // single BAR gunner clears them at a snappy tutorial pace — no long grind
+      for (const e of T.flankFoes) { e.hp = e.maxhp = 45; e.tutHold = true; G.enemies.push(e); }
+      T.ringTargets = T.flankFoes.slice();
+      tutSetCam(1.15, 410, 320);
+      setTutorialMsg("More of them — massing on your right flank, and you've got nothing over there!");
+      break;
+    case 'sandbag':
+      if (G.tp < 10) G.tp = 10;             // two sandbags, with a little to spare
+      T.baseBags = G.sandbags.length;
+      T.allowBuy = ['sandbags']; T.pulseCat = 'emplacements'; T.pulseKey = 'sandbags';
+      T.placeZone = { x0: 345, y0: 408, x1: 508, y1: 532 };
+      T.ringTargets = T.flankFoes.slice();
+      tutSetCam(1.2, 400, 430);
+      setTutorialMsg("Sandbags go up fast — not a bunker, but the men behind them dodge half the incoming fire. Throw one up on the right.");
+      break;
+    case 'buyunits':
+      if (G.tp < 12) G.tp = 12;             // a couple of riflemen, or a gunner and a rifleman
+      T.allowBuy = ['rifleman', 'gunner']; T.pulseCat = 'units'; T.pulseKey = 'rifleman';
+      T.placeZone = { x0: 330, y0: 404, x1: 516, y1: 544 };
+      T.ringTargets = T.flankFoes.slice();
+      tutSetCam(1.2, 400, 430);
+      setTutorialMsg("One man can't hold two fronts. Buy two men — a couple of riflemen will do — and post them both behind that sandbag.");
+      break;
+    case 'flankcharge':
+      for (const e of T.flankFoes) e.tutHold = false;   // send them in
+      setTutorialMsg("Hold them! Don't let them break through!");
+      break;
+    case 'handoff':
+      setTutorialMsg("Good work, Sergeant. Fortify your weak points, stack your defenses, and pick the right man for the job.");
+      showBanner('TUTORIAL COMPLETE');
+      markLevelComplete(G.level.id);
+      T.done = true;
+      T.cam.active = false;
+      resetViewCam(G.mode);
+      T.timer = 4.5;        // let the message breathe before showing the completion screen
+      break;
+  }
+}
+
+function updateTutorial2(dt, T) {
+  if (T.rifle.dead) { gameOver(); return; }   // the flamethrower got through
+  switch (T.step) {
+    case 'intro':
+      T.timer -= dt;
+      if (T.timer <= 0) tutEnterStep('spot');
+      break;
+    case 'spot':
+      T.timer -= dt;
+      if (T.timer <= 0) tutEnterStep('wire');
+      break;
+    case 'wire':
+      if (G.wires.length - T.baseWires >= T.wiresWanted) tutEnterStep('charge');
+      break;
+    case 'charge':
+      if (T.foe && T.foe.dead) tutEnterStep('flankwarn');
+      break;
+    case 'flankwarn':
+      T.timer -= dt;
+      if (T.timer <= 0) tutEnterStep('sandbag');
+      break;
+    case 'sandbag':
+      if (G.sandbags.length - T.baseBags >= T.bagsWanted) tutEnterStep('buyunits');
+      break;
+    case 'buyunits':
+      if (tutRightUnitCount() >= T.unitsWanted) tutEnterStep('flankcharge');
+      break;
+    case 'flankcharge':
+      if (T.flankFoes.every(e => e.dead)) tutEnterStep('handoff');
       break;
   }
 }
@@ -4924,10 +5094,12 @@ function updateTutorial(dt) {
       if (T.timer <= 0) {
         T.step = 'over';
         setTutorialMsg(null);
+        finishTutorial();      // stop the game, show the completion screen
       }
     }
     return;
   }
+  if (T.script === 't2') { updateTutorial2(dt, T); return; }
   if (T.rifle.dead) { gameOver(); return; }   // trainee lost the scripted duel
   switch (T.step) {
     case 'welcome':
@@ -9834,16 +10006,48 @@ function draw() {
 function drawTutorialHighlights() {
   const T = G && G.tutorial;
   if (!T || T.done) return;
+  // build guide: the highlighted zone a step wants the player to place inside
+  if (T.placeZone) {
+    const z = T.placeZone;
+    const a = 0.12 + Math.sin(G.time * 4) * 0.05;
+    ctx.fillStyle = `rgba(255,217,74,${a})`;
+    ctx.fillRect(z.x0, z.y0, z.x1 - z.x0, z.y1 - z.y0);
+    ctx.strokeStyle = 'rgba(255,217,74,0.85)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(z.x0, z.y0, z.x1 - z.x0, z.y1 - z.y0);
+    ctx.setLineDash([]);
+  }
+  // threat call-outs: red crosshair rings around the enemies to watch
+  if (T.ringTargets) {
+    const r = 18 + Math.sin(G.time * 5) * 3;
+    ctx.strokeStyle = 'rgba(255,90,70,0.95)';
+    ctx.lineWidth = 2.5;
+    for (const e of T.ringTargets) {
+      if (!e || e.dead) continue;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, r, 0, 7);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(e.x - r - 4, e.y); ctx.lineTo(e.x - r + 2, e.y);
+      ctx.moveTo(e.x + r - 2, e.y); ctx.lineTo(e.x + r + 4, e.y);
+      ctx.moveTo(e.x, e.y - r - 4); ctx.lineTo(e.x, e.y - r + 2);
+      ctx.moveTo(e.x, e.y + r - 2); ctx.lineTo(e.x, e.y + r + 4);
+      ctx.stroke();
+    }
+  }
+  // Tutorial 1's yellow "click here" ring for the select/move lessons
   let target = null, r0 = 0;
-  if (T.step === 'select' && !T.rifle.dead) { target = T.rifle; r0 = 16; }
+  if (T.step === 'select' && T.rifle && !T.rifle.dead) { target = T.rifle; r0 = 16; }
   else if (T.step === 'moveToBunker') { target = T.bunker; r0 = 30; }
-  if (!target) return;
-  const pulse = r0 + Math.sin(G.time * 5) * 3;
-  ctx.strokeStyle = 'rgba(255,217,74,0.9)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(target.x, target.y, pulse, 0, 7);
-  ctx.stroke();
+  if (target) {
+    const pulse = r0 + Math.sin(G.time * 5) * 3;
+    ctx.strokeStyle = 'rgba(255,217,74,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, pulse, 0, 7);
+    ctx.stroke();
+  }
 }
 
 // ============================================================ hover inspector
@@ -10852,13 +11056,17 @@ function syncTutorialPulse() {
   for (const b of bar.querySelectorAll('.tut-pulse')) b.classList.remove('tut-pulse');
   const T = G && G.tutorial;
   if (!T || T.done || placing) return;
-  if (T.step !== 'buyMedic' && T.step !== 'placeMedic') return;
+  if (!T.pulseCat && !T.pulseKey) return;
   if (toolbarView === 'categories') {
-    const catBtn = bar.querySelector('[data-cat-id="units"]');
-    if (catBtn) catBtn.classList.add('tut-pulse');
-  } else if (toolbarView === 'units') {
-    const medic = toolButtons.find(t => t.p.key === 'medic');
-    if (medic) medic.el.classList.add('tut-pulse');
+    if (T.pulseCat) {
+      const catBtn = bar.querySelector(`[data-cat-id="${T.pulseCat}"]`);
+      if (catBtn) catBtn.classList.add('tut-pulse');
+    }
+  } else if (toolbarView === T.pulseCat) {
+    if (T.pulseKey) {
+      const item = toolButtons.find(t => t.p.key === T.pulseKey);
+      if (item) item.el.classList.add('tut-pulse');
+    }
   }
 }
 
@@ -10876,11 +11084,11 @@ function activePlaceables() {
 function selectPlaceable(p) {
   if (!isPlaying()) return;
   if (isAssaultMode() && G.phase !== 'build') { SFX.error(); mobileVibrate(12); return; }
-  // during the tutorial script only the medic buy is allowed (covers hotkeys too)
+  // during the tutorial script only the currently-taught items are buyable
+  // (covers hotkeys too) — each step publishes its own allow-list
   if (tutorialScriptActive()) {
-    const T = G.tutorial;
-    const ok = (T.step === 'buyMedic' || T.step === 'placeMedic') && p.key === 'medic';
-    if (!ok) { SFX.error(); mobileVibrate(12); return; }
+    const allow = G.tutorial.allowBuy || [];
+    if (!allow.includes(p.key)) { SFX.error(); mobileVibrate(12); return; }
   }
   // events have no placement step — they fire where they fire, right away
   if (p.kind === 'event') {
@@ -11025,6 +11233,16 @@ function place(p, x, y) {
     mobileVibrate(14);
     G.texts.push({ x, y: y - 12, text: 'CLOSER TO YOUR MAN', ttl: 1.6 });
     return;
+  }
+  // tutorial script: some steps confine placement to a highlighted zone
+  if (tutorialScriptActive() && G.tutorial.placeZone) {
+    const z = G.tutorial.placeZone;
+    if (x < z.x0 || x > z.x1 || y < z.y0 || y > z.y1) {
+      SFX.error();
+      mobileVibrate(14);
+      G.texts.push({ x, y: y - 12, text: 'PLACE IN THE ZONE', ttl: 1.6 });
+      return;
+    }
   }
   const cost = placeableCost(p);
   if (!canAffordTP(cost)) { SFX.error(); clearPlacing(); return; }
@@ -13160,7 +13378,7 @@ const ALLIED_CAMPAIGN = [
 
 const COMMANDO_CAMPAIGN = ['hitsquad'];
 
-const TUTORIAL_CAMPAIGN = ['tutorial1'];
+const TUTORIAL_CAMPAIGN = ['tutorial1', 'tutorial2'];
 
 let pendingAxisLevelId = null;
 let pendingAlliedLevelId = null;
@@ -13374,7 +13592,7 @@ function buildTutorialSelect() {
   btn.classList.add('locked');
   const title = document.createElement('span');
   title.className = 'mode-title';
-  title.textContent = 'LESSON 2 — COMING SOON';
+  title.textContent = 'LESSON 3 — COMING SOON';
   const desc = document.createElement('span');
   desc.className = 'mode-desc';
   desc.textContent = 'More lessons are on the way.';
@@ -13444,6 +13662,42 @@ function closeTutorialSelect() {
   el('intro').classList.remove('hidden');
 }
 
+// a lesson is cleared: stop the game and show the completion screen instead of
+// rolling into an endless defense
+function finishTutorial() {
+  running = false;
+  paused = false;
+  placing = null;
+  setTutorialMsg(null);
+  const nextId = G ? getNextMissionId(G.level.id) : null;
+  const nextLevel = nextId ? LEVELS[nextId] : null;
+  const textEl = el('tutorial-complete-text');
+  if (textEl) {
+    textEl.textContent = nextLevel
+      ? `Lesson cleared. ${nextLevel.menuName || nextLevel.name} is now unlocked.`
+      : "Lesson cleared. You've finished every lesson available — you're ready for the real thing.";
+  }
+  el('pause').classList.add('hidden');
+  el('gameover').classList.add('hidden');
+  el('tutorial-complete').classList.remove('hidden');
+  syncToolbarVisibility();
+  syncMobileChrome();
+}
+
+// the completion screen's button: drop straight back into the lesson picker
+function backToTutorialSelect() {
+  running = false;
+  paused = false;
+  placing = null;
+  mobileToolbarMinimized = false;
+  activePointers.clear();
+  el('tutorial-complete').classList.add('hidden');
+  setTutorialMsg(null);
+  syncToolbarVisibility();
+  syncMobileChrome();
+  openTutorialSelect();
+}
+
 function startGame(levelId, difficultyId) {
   const level = LEVELS[levelId] || LEVELS.endless;
   const difficulty = level.mode === 'endless'
@@ -13481,7 +13735,7 @@ function startGame(levelId, difficultyId) {
   el('commando-select').classList.add('hidden');
   el('tutorial-select').classList.add('hidden');
   el('pause').classList.add('hidden');
-  if (G.tutorial) tutEnterStep('welcome');
+  if (G.tutorial) tutEnterStep(G.tutorial.step);   // enter each script's opening step
   else setTutorialMsg(null);
   syncMobileViewUI();
   syncMobileChrome();
@@ -13576,6 +13830,7 @@ el('next-mission-btn').addEventListener('click', () => {
   else startGame(id);
 });
 el('menu-btn').addEventListener('click', returnToMenu);
+el('tutorial-complete-btn').addEventListener('click', backToTutorialSelect);
 el('speed-btn').addEventListener('click', cycleSpeed);
 el('pause-btn').addEventListener('click', pauseGame);
 el('start-wave-btn').addEventListener('click', startAxisCombat);

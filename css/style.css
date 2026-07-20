@@ -1137,6 +1137,11 @@ body {
     --frame-pad-y: 0;
   }
 
+  body {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
   #hud {
     top: 4px;
     left: 4px;

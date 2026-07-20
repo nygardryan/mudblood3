@@ -204,17 +204,31 @@ function updateEnemy(e, dt) {
   }
 }
 
-// the V2's launch: a big ignition plume at the pad, then a long, wildly
+// the V2's launch: ignition flash at the rail, a smoke ring rolling out flat
+// across the ground, and a scorched pad left behind — then the long, wildly
 // scattered flight before the warhead comes down (see explodeV2)
 function fireV2Rocket(e, target, vk) {
   SFX.rocket();
-  G.flashes.push({ x: e.x, y: e.y + 10, r: 30, ttl: 0.4, max: 0.4 });
-  for (let i = 0; i < 30; i++) {
+  G.flashes.push({ x: e.x, y: e.y + 6, r: 26, ttl: 0.35, max: 0.35 });
+  addGroundMark({ type: 'crater', x: e.x, y: e.y + 8, r: 30, rot1: rand(0, 3), rot2: rand(0, 3) });
+  // exhaust slams off the deflector and rolls outward along the ground
+  for (let i = 0; i < 24; i++) {
+    const ang = rand(0, Math.PI * 2), sp = rand(50, 150);
+    const ttl = rand(0.5, 1.1);
     G.particles.push({
-      x: e.x + rand(-6, 6), y: e.y + rand(4, 12),
-      vx: rand(-40, 40), vy: rand(-140, -30),
-      ttl: rand(0.6, 1.3), grav: 40, size: rand(2, 4.5),
-      color: pick(['#d8d0c0', '#b8b0a0', '#e8e4d8', '#8a8478']),
+      x: e.x + rand(-4, 4), y: e.y + 6 + rand(-3, 3),
+      vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp * 0.55,
+      ttl, maxTtl: ttl, grav: -4, size: rand(3, 6),
+      kind: 'smoke', color: pick(['#e8e2d2', '#cfc6b0', '#a89f8a', '#8a8478']),
+    });
+  }
+  // a few hot embers kicked up in the flame
+  for (let i = 0; i < 8; i++) {
+    G.particles.push({
+      x: e.x + rand(-5, 5), y: e.y + rand(0, 10),
+      vx: rand(-30, 30), vy: rand(-70, -20),
+      ttl: rand(0.2, 0.45), grav: 60, size: rand(1.5, 3),
+      color: pick(['#ffdf8a', '#ff9c3c', '#fff2c0']),
     });
   }
   const d = dist(e, target);

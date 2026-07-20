@@ -28,7 +28,7 @@ const CAMONEST_REVEAL = 4;              // seconds targetable after a shot, unfo
 const CAMONEST_REVEAL_FORTIFIED = 2;
 const CAMONEST_EXPLOSIVE_MULT = 1.2;    // weak to explosives — no reduction like a bunker's concrete
 const GRENADE_CATCH_RANGE = 34;         // how close a grenadier must be to a landed enemy grenade to heave it back
-const V2_ROCKET_ARC = 90;               // peak height of the V2 warhead's visible flight arc
+const V2_ROCKET_ARC = 130;              // cruise altitude of the V2 warhead between boost and terminal dive
 
 const UNIT_TYPES = {
   rifleman: {

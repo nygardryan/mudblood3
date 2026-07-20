@@ -26,22 +26,23 @@ function draw() {
   // shell target markers
   for (const s of G.shells) {
     if (s.kind === 'v2') {
-      if (s.sx != null) drawV2RocketInFlight(s);
-      // a much bigger, angrier telegraph for the V2's warhead — long flight
-      // time means the player has a real chance to clear vehicles off the mark
-      const pulse = 16 + Math.sin(G.time * 6) * 6;
-      ctx.strokeStyle = 'rgba(255,40,20,0.8)';
+      // the V2's telegraph: its blast footprint drawn faint on the ground,
+      // with a bright ring contracting onto it — the warhead hits the moment
+      // the rings meet, so the long flight reads as time to clear the area
+      const f = clamp(1 - s.timer / s.dur, 0, 1);
+      ctx.strokeStyle = 'rgba(190,45,25,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(190,45,25,0.07)';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
+      const cr = s.r + (1 - f) * s.r * 1.8;
+      ctx.strokeStyle = `rgba(255,120,40,${0.35 + f * 0.55})`;
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(s.x, s.y, pulse, 0, 7); ctx.stroke();
-      ctx.beginPath(); ctx.arc(s.x, s.y, pulse * 0.55, 0, 7); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(s.x - pulse - 7, s.y); ctx.lineTo(s.x + pulse + 7, s.y);
-      ctx.moveTo(s.x, s.y - pulse - 7); ctx.lineTo(s.x, s.y + pulse + 7);
-      ctx.stroke();
-      ctx.font = 'bold 9px "Courier New", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(255,60,40,0.85)';
-      ctx.fillText('INCOMING', s.x, s.y - pulse - 9);
+      ctx.beginPath(); ctx.arc(s.x, s.y, cr, 0, 7); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,120,40,0.9)';
+      ctx.beginPath(); ctx.arc(s.x, s.y, 2.2, 0, 7); ctx.fill();
     } else {
       ctx.strokeStyle = 'rgba(200,60,40,0.5)';
       ctx.lineWidth = 1;
@@ -185,6 +186,11 @@ function draw() {
     ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.fill();
   }
   ctx.globalAlpha = 1;
+
+  // V2 warheads in flight — airborne, so drawn above every ground effect
+  for (const s of G.shells) {
+    if (s.kind === 'v2' && s.sx != null) drawV2RocketInFlight(s);
+  }
 
   // AA shells climbing toward their fuse point
   for (const f of G.flak) {

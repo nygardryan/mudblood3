@@ -356,13 +356,12 @@ function renderPortrait(typeKey, side) {
       drawAAGun(actor);
       ctx.restore();
     } else if (t.v2) {
-      // the erector trailer is taller than it is wide (missile raised well
-      // above the truck cab), so it needs a smaller scale and a lower pivot
-      // than the other vehicle portraits to avoid clipping the nose
+      // show the crawler with a round on the rail, not mid-reload
+      actor.v2Cd = 0;
       ctx.save();
-      ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 19);
-      ctx.scale(0.7, 0.7);
-      ctx.translate(-CODEX_PW / 2, -(CODEX_PH / 2 + 19));
+      ctx.translate(CODEX_PW / 2, CODEX_PH / 2 - 2);
+      ctx.scale(1.1, 1.1);
+      ctx.translate(-CODEX_PW / 2, -(CODEX_PH / 2 - 2));
       drawV2Launcher(actor);
       ctx.restore();
     } else {

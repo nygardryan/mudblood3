@@ -80,19 +80,67 @@ function explode(x, y, r, dmg, big, by) {
   }
 }
 
+// the V2 warhead's flight profile, shared by the renderer and the trail
+// spawner: a hard boost climb off the pad, a high coast leg crossing most of
+// the map, then a terminal dive that accelerates into the impact point.
+// Returns ground track position, screen position, normalized altitude, an
+// apparent scale (smaller at altitude), the heading of the on-screen motion,
+// and which phase of flight it's in.
+function v2FlightState(s) {
+  const f = clamp(1 - s.timer / s.dur, 0, 1);
+  const at = ff => {
+    const gx = s.sx + (s.x - s.sx) * ff, gy = s.sy + (s.y - s.sy) * ff;
+    let altN;
+    if (ff < 0.35) altN = Math.pow(ff / 0.35, 1.8);            // boost: slow off the rail, accelerating climb
+    else if (ff < 0.65) altN = 1;                              // coast: high and level
+    else altN = Math.pow((1 - ff) / 0.35, 0.6);                // dive: free-fall, fastest right at impact
+    return { gx, gy, altN, x: gx, y: gy - altN * V2_ROCKET_ARC };
+  };
+  const p = at(f);
+  const q = at(Math.min(f + 0.01, 1));
+  const phase = f < 0.35 ? 'boost' : f < 0.65 ? 'coast' : 'dive';
+  return {
+    f, phase, gx: p.gx, gy: p.gy, altN: p.altN, x: p.x, y: p.y,
+    scale: 1.05 - p.altN * 0.5,
+    heading: Math.atan2(q.y - p.y, q.x - p.x),
+  };
+}
+
 // the V2's warhead lands like any other shell, but it's a much bigger event:
-// a second, wider flash ring and a churning debris column on top of the
-// normal blast so it reads as something far worse than a mortar round
+// a white-hot core, a dust shockwave slamming outward at ground level, and a
+// tall churning smoke column climbing off the crater afterward
 function explodeV2(x, y, r, dmg, by) {
   explode(x, y, r, dmg, true, by);
-  G.flashes.push({ x, y, r: r * 1.7, ttl: 0.4, max: 0.4 });
-  G.flashes.push({ x, y, r: r * 0.9, ttl: 0.55, max: 0.55 });
-  for (let i = 0; i < 50; i++) {
-    const ang = rand(0, Math.PI * 2);
+  G.flashes.push({ x, y, r: r * 1.9, ttl: 0.3, max: 0.3 });
+  G.flashes.push({ x, y, r: r * 0.8, ttl: 0.6, max: 0.6 });
+  addGroundMark({ type: 'crater', x, y, r: r * 1.4, rot1: rand(0, 3), rot2: rand(0, 3) });
+  // ground-level dust shockwave — fast, flat, short-lived
+  for (let i = 0; i < 36; i++) {
+    const ang = rand(0, Math.PI * 2), sp = rand(240, 420);
+    const ttl = rand(0.22, 0.42);
     G.particles.push({
-      x, y, vx: Math.cos(ang) * rand(40, 200), vy: Math.sin(ang) * rand(40, 200) - 40,
-      ttl: rand(0.7, 1.6), grav: 160, size: rand(2, 5),
-      color: pick(['#2a2318', '#4a3d28', '#6e6046', '#948564', '#1a1712']),
+      x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp * 0.6,
+      ttl, maxTtl: ttl, grav: 0, size: rand(2.5, 5),
+      kind: 'smoke', color: pick(['#cabfa4', '#a89a7e', '#8a7d64']),
+    });
+  }
+  // fire core licking up out of the crater
+  for (let i = 0; i < 14; i++) {
+    G.particles.push({
+      x: x + rand(-r * 0.2, r * 0.2), y: y + rand(-r * 0.15, r * 0.15),
+      vx: rand(-30, 30), vy: rand(-90, -20),
+      ttl: rand(0.2, 0.45), grav: -40, size: rand(2, 4.5),
+      color: pick(['#ffdf8a', '#ff9c3c', '#ff6a1e', '#fff2c0']),
+    });
+  }
+  // smoke column, rising slow and dark long after the flash is gone
+  for (let i = 0; i < 30; i++) {
+    const ttl = rand(1.1, 2.4);
+    G.particles.push({
+      x: x + rand(-r * 0.3, r * 0.3), y: y + rand(-r * 0.2, r * 0.2),
+      vx: rand(-14, 14), vy: rand(-80, -25),
+      ttl, maxTtl: ttl, grav: -12, size: rand(4, 9),
+      kind: 'smoke', color: pick(['#2b261e', '#3d362a', '#4e4536', '#232019']),
     });
   }
 }

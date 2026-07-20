@@ -115,17 +115,34 @@ function update(dt) {
   // incoming shells
   for (const s of G.shells) {
     s.timer -= dt;
-    // the V2 warhead is visibly in flight the whole way down — trail smoke
-    // off its exhaust so it reads as a rocket, not a teleporting reticle
-    if (s.kind === 'v2' && s.sx != null && s.timer > 0 && Math.random() < 0.75) {
-      const f = clamp(1 - s.timer / s.dur, 0, 1);
-      const gx = s.sx + (s.x - s.sx) * f, gy = s.sy + (s.y - s.sy) * f;
-      const alt = Math.sin(f * Math.PI) * V2_ROCKET_ARC;
-      G.particles.push({
-        x: gx, y: gy - alt, vx: rand(-6, 6), vy: rand(-6, 6),
-        ttl: rand(0.3, 0.6), grav: -8, size: rand(1.6, 3.2),
-        color: pick(['#cfc6b0', '#a89f8a', '#8a8272']),
-      });
+    // the V2 warhead trails exhaust its whole flight: a fat billowing column
+    // during the boost climb, a thin high contrail across the coast leg, and
+    // sparse dark streaks once the motor's spent and it's diving in
+    if (s.kind === 'v2' && s.sx != null && s.timer > 0) {
+      const st = v2FlightState(s);
+      if (st.phase === 'boost' && Math.random() < 0.9) {
+        const ttl = rand(0.5, 1.0);
+        G.particles.push({
+          x: st.x + rand(-3, 3), y: st.y + rand(-2, 4),
+          vx: rand(-16, 16), vy: rand(4, 22),
+          ttl, maxTtl: ttl, grav: -6, size: rand(2.5, 5),
+          kind: 'smoke', color: pick(['#e8e2d2', '#cfc6b0', '#a89f8a']),
+        });
+      } else if (st.phase === 'coast' && Math.random() < 0.55) {
+        const ttl = rand(0.6, 1.1);
+        G.particles.push({
+          x: st.x, y: st.y, vx: rand(-4, 4), vy: rand(-3, 3),
+          ttl, maxTtl: ttl, grav: 0, size: rand(1.2, 2.2),
+          kind: 'smoke', color: pick(['#e8e2d2', '#d8d0c0']),
+        });
+      } else if (st.phase === 'dive' && Math.random() < 0.4) {
+        G.particles.push({
+          x: st.x + rand(-2, 2), y: st.y - rand(2, 8),
+          vx: rand(-8, 8), vy: rand(-14, -4),
+          ttl: rand(0.25, 0.5), grav: 0, size: rand(1.4, 2.6),
+          color: pick(['#4e4536', '#6a6152', '#3a342a']),
+        });
+      }
     }
     if (s.timer <= 0) {
       s.done = true;

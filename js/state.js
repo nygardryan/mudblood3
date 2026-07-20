@@ -161,7 +161,7 @@ function newGame(level, difficulty) {
 
 function makeUnit(type, x, y, nation = 'us') {
   const t = UNIT_TYPES[type];
-  return {
+  const u = {
     side: 'us', nation, type, t, x, y,
     hp: t.hp, maxhp: t.hp,
     cd: rand(0.2, 1.0), burstLeft: 0, burstTimer: 0,
@@ -176,6 +176,9 @@ function makeUnit(type, x, y, nation = 'us') {
     xp: 0, rank: 0,
     prone: 0, proneCd: 0,
   };
+  // Standard Issue card: give support units a rifle in place of their sidearm
+  maybeSwapToRifle(u);
+  return u;
 }
 
 function makeEnemy(type, x, y, nation = 'de') {

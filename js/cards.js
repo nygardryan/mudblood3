@@ -98,6 +98,17 @@ const CARD_COMMON_TEMPLATES = {
     desc: t => `${t.name} takes 30% less damage from explosions.`,
     hooks: type => ({}),
   },
+  // support units carry weak short-range sidearms; this trades one for a
+  // full M1 rifle. Restricted to the three support types via `excludes` so
+  // the common stamps out exactly one card each for officer/engineer/medic.
+  // Flag-only, like Flak Armor: makeUnit reads `riflearm_<type>` at spawn.
+  riflearm: {
+    name: 'Standard Issue', cost: 6, weight: 2,
+    excludes: ['rifleman', 'gunner', 'grenadier', 'shotgunner', 'bazooka',
+      'mortarman', 'sniper', 'flamer', 'jeep', 'sherman', 'atgun', 'aagun'],
+    desc: t => `Arms the ${t.name.toLowerCase()} with a full M1 rifle in place of their weak sidearm — longer range, harder hits.`,
+    hooks: type => ({}),
+  },
   // ribbon price runs opposite the unit's TP cost: a discount on a 3 TP
   // rifleman is worth far more over a run than one on a 60 TP Sherman
   costcut: {
@@ -209,6 +220,22 @@ const CARDS = {};
   for (const [id, c] of Object.entries(CARD_UNIQUES)) {
     CARDS[id] = { id, name: c.name, unitType: c.unit, unique: true, desc: c.desc, cost: c.cost, weight: c.weight, hooks: c.hooks };
   }
+}
+
+// Standard Issue: at spawn, a support unit with the card for its type trades
+// its sidearm for the rifleman's M1 weapon profile. The shared UNIT_TYPES
+// entry is cloned so only this man's gun changes — his aura, healing, or
+// repair job and body stats (HP, speed) stay intact.
+const RIFLE_SWAP_TYPES = ['officer', 'engineer', 'medic'];
+function maybeSwapToRifle(u) {
+  if (!G.cardsOwned || !RIFLE_SWAP_TYPES.includes(u.type)) return;
+  if (!G.cardsOwned.has('riflearm_' + u.type)) return;
+  const r = UNIT_TYPES.rifleman;
+  u.t = {
+    ...u.t,
+    range: r.range, dmg: r.dmg, acc: r.acc, rof: r.rof,
+    burst: r.burst, burstGap: r.burstGap, gun: r.gun, sfx: r.sfx,
+  };
 }
 
 function defaultEndlessCards() {

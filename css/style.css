@@ -1173,7 +1173,7 @@ body {
     top: auto;
     left: 0;
     right: 0;
-    bottom: 40px;
+    bottom: 80px;
     width: auto;
     max-height: calc(58px * var(--tool-scale));
     flex-direction: row;

@@ -210,7 +210,15 @@ const CARD_UNIQUES = {
   },
 };
 
-// flat catalog: id → { id, name, unitType, unique, desc, cost, weight, hooks }
+// War Surplus also covers the things the player buys off the toolbar that
+// aren't soldiers: the emplacements (fortifications) and abilities (fire-
+// support strikes). These have no UNIT_TYPES entry, so they get their own
+// generation pass below rather than riding the per-unit-type template loop.
+// A card here carries an explicit `label` for its shop/plan chip; the 25% cut
+// is applied by placeableCost() reading the same costcut_<key> flag.
+const COSTCUT_PLACEABLE_KINDS = ['defense', 'support'];
+
+// flat catalog: id → { id, name, unitType, label?, unique, desc, cost, weight, hooks }
 const CARDS = {};
 {
   for (const [tid, tpl] of Object.entries(CARD_COMMON_TEMPLATES)) {
@@ -221,6 +229,17 @@ const CARDS = {};
       const weight = typeof tpl.weight === 'function' ? tpl.weight(type) : tpl.weight;
       CARDS[id] = { id, name: tpl.name, unitType: type, unique: false, desc: tpl.desc(t, type), cost, weight, hooks: tpl.hooks(type) };
     }
+  }
+  // one War Surplus per emplacement/ability, priced off its TP cost on the
+  // same curves as the unit version (cheap, spammed placeables weigh most)
+  for (const p of PLACEABLES) {
+    if (!COSTCUT_PLACEABLE_KINDS.includes(p.kind)) continue;
+    const id = 'costcut_' + p.key;
+    const cost = clamp(Math.round(60 / p.cost), 5, 20);
+    // emplacement/ability discounts are capped at 2 command regardless of price
+    const weight = clamp(Math.round(15 / p.cost), 1, 2);
+    const desc = `Cuts the ${p.label.toLowerCase()}'s TP cost by 25%, from ${p.cost} to ${warSurplusCost(p.cost)}.`;
+    CARDS[id] = { id, name: 'War Surplus', unitType: p.key, label: p.label, unique: false, desc, cost, weight, hooks: {} };
   }
   for (const [id, c] of Object.entries(CARD_UNIQUES)) {
     CARDS[id] = { id, name: c.name, unitType: c.unit, unique: true, desc: c.desc, cost: c.cost, weight: c.weight, hooks: c.hooks };
@@ -498,6 +517,12 @@ function ribbonLabel(n) {
   return n + (n === 1 ? ' RIBBON' : ' RIBBONS');
 }
 
+// the chip above a card's name: a unit card names its unit type; an
+// emplacement/ability card carries its own label (no UNIT_TYPES entry)
+function cardUnitLabel(card) {
+  return (card.label != null ? card.label : UNIT_TYPES[card.unitType].name).toUpperCase();
+}
+
 function syncCardShopButton() {
   const btn = el('card-shop-btn');
   if (btn) btn.textContent = 'CARDS — ' + ribbonLabel(loadEndlessCards().ribbons);
@@ -524,7 +549,7 @@ function buildCardShopUI() {
     btn.disabled = card.cost > data.ribbons;
     const unit = document.createElement('span');
     unit.className = 'shop-card-unit';
-    unit.textContent = UNIT_TYPES[card.unitType].name.toUpperCase() + (card.unique ? ' · UNIQUE' : '');
+    unit.textContent = cardUnitLabel(card) + (card.unique ? ' · UNIQUE' : '');
     const name = document.createElement('span');
     name.className = 'shop-card-name';
     name.textContent = card.name.toUpperCase();
@@ -613,7 +638,7 @@ function buildBattlePlanUI() {
     btn.title = card.desc;
     const unit = document.createElement('span');
     unit.className = 'shop-card-unit';
-    unit.textContent = UNIT_TYPES[card.unitType].name.toUpperCase();
+    unit.textContent = cardUnitLabel(card);
     const name = document.createElement('span');
     name.className = 'plan-card-name';
     name.textContent = card.name.toUpperCase();

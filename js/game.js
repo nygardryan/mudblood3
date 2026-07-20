@@ -670,6 +670,20 @@ const LEVELS = {
     setup(G) { setupTutorial2(G); },
   },
 
+  tutorial3: {
+    id: 'tutorial3',
+    name: 'TUTORIAL 3: DAMAGE TYPES',
+    menuName: 'LESSON 3 — DAMAGE TYPES',
+    menuDesc: 'Bullets, fire, and explosives — learn which weapon beats cover, infantry, and armor.',
+    mode: 'endless',
+    tutorial: true,
+    breachLimit: MAX_BREACH,
+    events: true,
+    placeables: PLACEABLES,
+    startTP: 0,
+    setup(G) { setupTutorial3(G); },
+  },
+
   // ---- Allied campaign: US assaults across Western Europe, then a defense finale.
   allied_dday: {
     id: 'allied_dday',
@@ -4916,6 +4930,7 @@ function tutEnterStep(step) {
   // reset per-step interaction gating; each case re-enables only what it needs
   T.allowBuy = []; T.placeZone = null; T.pulseCat = null; T.pulseKey = null; T.ringTargets = null;
   if (T.script === 't2') { tutEnterStep2(T, step); return; }
+  if (T.script === 't3') { tutEnterStep3(T, step); return; }
   switch (step) {
     case 'welcome':
       T.timer = 8;
@@ -5085,6 +5100,209 @@ function updateTutorial2(dt, T) {
   }
 }
 
+// ---- Tutorial 3: the three damage types --------------------------------------
+// A gunner easily clears infantry with bullets, then a flamethrower melts him
+// through his bunker (fire ignores cover). The player rebuilds a rifle line —
+// which a tank shrugs off (bullets don't hurt armor) — learns that explosives
+// punish armor, then fights a mixed infantry+armor push with the full toolbox.
+const TUT3_BX = 270, TUT3_BY = 455;   // the center bunker + gunner
+
+function setupTutorial3(G) {
+  const gunner = makeUnit('gunner', TUT3_BX, TUT3_BY);
+  gunner.rank = 2;                 // the veteran the player carried through the lessons
+  G.units.push(gunner);
+  usBunker(G, TUT3_BX, TUT3_BY);
+  G.spawnTimer = 9999;             // no endless waves until the script hands off
+  // the battle is already joined: a green infantry squad walking into his gun
+  const squad = [
+    makeEnemy('erifle', TUT3_BX - 60, 268),
+    makeEnemy('erifle', TUT3_BX, 258),
+    makeEnemy('erifle', TUT3_BX + 60, 268),
+  ];
+  for (const e of squad) { e.hp = e.maxhp = 24; G.enemies.push(e); }
+  G.tutorial = {
+    script: 't3',
+    step: 'intro',
+    timer: 4,
+    gunner,
+    bunker: G.bunkers[0],
+    squad,
+    flame: null,
+    tank: null,
+    mixFoes: [],
+    baseUnits: 0,                  // alive-unit baseline for the build gates
+    done: false,
+    cam: { active: true, tx: 0, ty: 0, tzoom: 1 },
+    allowBuy: [], placeZone: null, pulseCat: null, pulseKey: null, ringTargets: null,
+  };
+  tutSetCam(1.0, W / 2, H / 2, true);
+}
+
+// alive US fighting men the player has posted (the dead scripted gunner excluded)
+function tut3UnitCount() {
+  return G ? G.units.filter(u => !u.dead).length : 0;
+}
+function tut3HasBazooka() {
+  return !!(G && G.units.some(u => u.type === 'bazooka' && !u.dead));
+}
+
+const TUT3_ZONE = { x0: 70, y0: 400, x1: 470, y1: 566 };
+
+function tutEnterStep3(T, step) {
+  switch (step) {
+    case 'intro':
+      T.timer = 4;
+      tutSetCam(1.0, W / 2, H / 2);
+      setTutorialMsg('Hold the line, soldier. Your gunner has the center — watch his rifle work.');
+      break;
+    case 'won':
+      T.timer = 2.6;
+      setTutorialMsg('Bullets tear through infantry in the open — accurate and deadly. Easy work.');
+      break;
+    case 'flame':
+      // a flamethrower charges the gun; heavy HP so he survives the gunner's
+      // fire long enough to close the distance and make his point
+      T.flame = makeEnemy('eflame', TUT3_BX, 40);
+      T.flame.t = Object.assign({}, T.flame.t, { hp: 520 });
+      T.flame.hp = T.flame.maxhp = 520;
+      G.enemies.push(T.flame);
+      T.ringTargets = [T.flame];
+      tutSetCam(1.0, W / 2, H / 2);
+      setTutorialMsg('Flammenwerfer up the center — and he is coming straight for your gun!');
+      break;
+    case 'flameLesson':
+      if (T.flame) { T.flame.dead = true; }   // his point is made; pull him off the field
+      T.ringTargets = null;
+      tutSetCam(1.3, TUT3_BX, TUT3_BY - 30);
+      setTutorialMsg('Bunkers and sandbags do not protect against fire. Nothing does — flame melts men behind cover or not.');
+      T.timer = 5;
+      break;
+    case 'rebuild':
+      G.tp = 30;
+      T.baseUnits = tut3UnitCount();
+      T.allowBuy = ['rifleman', 'gunner', 'grenadier', 'shotgunner', 'sniper', 'flamer'];
+      // free-choice step: guide the player to the UNITS category, but don't
+      // spotlight one man — the whole point is that any of them will do
+      T.pulseCat = 'units'; T.pulseKey = null;
+      T.placeZone = TUT3_ZONE;
+      tutSetCam(1.25, W / 2, 470);
+      setTutorialMsg('Rebuild your line — spend your requisition on any men you choose. Post at least two, then brace for the next attack.');
+      break;
+    case 'tank':
+      // a Panzer rolls the center: reduced HP and quicker for tutorial pacing,
+      // but it still shells the men below it as it comes
+      T.tank = makeEnemy('panzer', TUT3_BX, 30);
+      T.tank.t = Object.assign({}, T.tank.t, { hp: 300, speed: 24 });
+      T.tank.hp = T.tank.maxhp = 300;
+      G.enemies.push(T.tank);
+      T.ringTargets = [T.tank];
+      tutSetCam(1.0, W / 2, H / 2);
+      setTutorialMsg('Armor! A Panzer is rolling up the center — throw everything you have at it!');
+      break;
+    case 'armorLesson':
+      if (G.tp < 14) G.tp = 14;               // enough for a bazooka
+      T.allowBuy = ['bazooka'];
+      T.pulseCat = 'units'; T.pulseKey = 'bazooka';
+      T.placeZone = TUT3_ZONE;
+      T.ringTargets = [T.tank];
+      setTutorialMsg('Bullets are useless against armor — they just bounce off. Explosives do bonus damage to armor. Buy a bazooka.');
+      break;
+    case 'armorFight':
+      T.allowBuy = ['bazooka'];
+      T.ringTargets = [T.tank];
+      setTutorialMsg('There it is — an armor-piercing rocket punches clean through. Let him work.');
+      break;
+    case 'mixIntro':
+      T.timer = 4.5;
+      tutSetCam(1.0, W / 2, H / 2);
+      setTutorialMsg('Last push, soldier — infantry AND armor, together. Full requisition. Buy the right tool for each threat.');
+      break;
+    case 'mix': {
+      G.tp = 60;
+      T.mixFoes = [
+        makeEnemy('erifle', TUT3_BX - 100, 60),
+        makeEnemy('erifle', TUT3_BX - 40, 48),
+        makeEnemy('erifle', TUT3_BX + 40, 48),
+        makeEnemy('erifle', TUT3_BX + 100, 60),
+      ];
+      for (const e of T.mixFoes) { e.hp = e.maxhp = 30; e.tutHold = true; G.enemies.push(e); }
+      const tank = makeEnemy('panzer', TUT3_BX, 24);
+      tank.t = Object.assign({}, tank.t, { hp: 300, speed: 22 });
+      tank.hp = tank.maxhp = 300;
+      tank.tutHold = true;
+      G.enemies.push(tank);
+      T.mixFoes.push(tank);
+      T.baseUnits = tut3UnitCount();
+      T.allowBuy = ['rifleman', 'gunner', 'grenadier', 'shotgunner', 'sniper', 'flamer', 'bazooka'];
+      T.pulseCat = 'units'; T.pulseKey = 'bazooka';
+      T.placeZone = TUT3_ZONE;
+      T.ringTargets = T.mixFoes.slice();
+      tutSetCam(1.0, W / 2, H / 2);
+      setTutorialMsg('Riflemen for the infantry, a bazooka for the tank. Post your mix — a bazooka and at least one more — then hold.');
+      break;
+    }
+    case 'mixCharge':
+      for (const e of T.mixFoes) e.tutHold = false;   // send the whole force in
+      T.allowBuy = ['rifleman', 'gunner', 'grenadier', 'shotgunner', 'sniper', 'flamer', 'bazooka'];
+      T.placeZone = TUT3_ZONE;
+      setTutorialMsg('Here they come — bullets for the infantry, rockets for the tank. Hold the line!');
+      break;
+    case 'handoff':
+      setTutorialMsg('That is the trade, soldier: bullets for infantry, fire to burn out cover, explosives for armor. Choose the right weapon and the line holds.');
+      showBanner('TUTORIAL COMPLETE');
+      markLevelComplete(G.level.id);
+      T.done = true;
+      T.cam.active = false;
+      resetViewCam(G.mode);
+      T.timer = 4.5;        // let the message breathe before the completion screen
+      break;
+  }
+}
+
+function updateTutorial3(dt, T) {
+  switch (T.step) {
+    case 'intro':
+      T.timer -= dt;
+      if (T.timer <= 0 && T.squad.every(e => e.dead)) tutEnterStep('won');
+      break;
+    case 'won':
+      T.timer -= dt;
+      if (T.timer <= 0) tutEnterStep('flame');
+      break;
+    case 'flame':
+      // the flamethrower reaching the gunner and melting him is the whole lesson
+      if (T.gunner.dead) tutEnterStep('flameLesson');
+      break;
+    case 'flameLesson':
+      T.timer -= dt;
+      if (T.timer <= 0) tutEnterStep('rebuild');
+      break;
+    case 'rebuild':
+      if (tut3UnitCount() - T.baseUnits >= 2) tutEnterStep('tank');
+      break;
+    case 'tank':
+      if (T.tank && (T.tank.dead || T.tank.y > H / 2)) tutEnterStep('armorLesson');
+      break;
+    case 'armorLesson':
+      if (T.tank && T.tank.dead) { tutEnterStep('mixIntro'); break; }
+      if (tut3HasBazooka()) tutEnterStep('armorFight');
+      break;
+    case 'armorFight':
+      if (!T.tank || T.tank.dead) tutEnterStep('mixIntro');
+      break;
+    case 'mixIntro':
+      T.timer -= dt;
+      if (T.timer <= 0) tutEnterStep('mix');
+      break;
+    case 'mix':
+      if (tut3HasBazooka() && tut3UnitCount() - T.baseUnits >= 2) tutEnterStep('mixCharge');
+      break;
+    case 'mixCharge':
+      if (T.mixFoes.every(e => e.dead)) tutEnterStep('handoff');
+      break;
+  }
+}
+
 function updateTutorial(dt) {
   const T = G.tutorial;
   if (T.cam.active) tutCamLerp(dt);
@@ -5100,6 +5318,7 @@ function updateTutorial(dt) {
     return;
   }
   if (T.script === 't2') { updateTutorial2(dt, T); return; }
+  if (T.script === 't3') { updateTutorial3(dt, T); return; }
   if (T.rifle.dead) { gameOver(); return; }   // trainee lost the scripted duel
   switch (T.step) {
     case 'welcome':
@@ -13378,7 +13597,7 @@ const ALLIED_CAMPAIGN = [
 
 const COMMANDO_CAMPAIGN = ['hitsquad'];
 
-const TUTORIAL_CAMPAIGN = ['tutorial1', 'tutorial2'];
+const TUTORIAL_CAMPAIGN = ['tutorial1', 'tutorial2', 'tutorial3'];
 
 let pendingAxisLevelId = null;
 let pendingAlliedLevelId = null;
@@ -13585,20 +13804,6 @@ function buildCommandoSelect() {
 
 function buildTutorialSelect() {
   buildCampaignSelect('tutorial-list', TUTORIAL_CAMPAIGN);
-  // placeholder card for the next lesson so the list reads as a campaign
-  const list = el('tutorial-list');
-  const btn = document.createElement('button');
-  btn.disabled = true;
-  btn.classList.add('locked');
-  const title = document.createElement('span');
-  title.className = 'mode-title';
-  title.textContent = 'LESSON 3 — COMING SOON';
-  const desc = document.createElement('span');
-  desc.className = 'mode-desc';
-  desc.textContent = 'More lessons are on the way.';
-  btn.appendChild(title);
-  btn.appendChild(desc);
-  list.appendChild(btn);
 }
 
 function openAlliedSelect() {
@@ -13705,8 +13910,12 @@ function startGame(levelId, difficultyId) {
     : null;
   SFX.resume();
   newGame(level, difficulty);
-  if (G.tutorial) tutSetCam(2.6, G.tutorial.rifle.x, G.tutorial.rifle.y, true);
-  else resetViewCam(level.mode);
+  if (G.tutorial) {
+    // each script names its opening focus differently; setup() already framed
+    // the scene, so just re-snap onto whatever hero unit it exposes
+    const hero = G.tutorial.rifle || G.tutorial.gunner || G.tutorial.bunker;
+    if (hero) tutSetCam(2.6, hero.x, hero.y, true);
+  } else resetViewCam(level.mode);
   placing = null;
   mobileToolbarMinimized = false;
   running = true;

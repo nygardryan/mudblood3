@@ -4,9 +4,13 @@
 const CHANGELOG = [
   {
     date: '2026-07-21',
-    title: 'Loadout & Balance',
+    title: 'Cards & Combat Updates',
     changes: [
-      'Added the pre-battle loadout screen.',
+      'Added pre-battle loadout screen.',
+      'New cards: Grease Monkey, Vampire, Double Time.',
+      'Updated gunfire animation.',
+      'New aircraft design.',
+      'Explosion effects update.',
       'Balance adjustments across units and support.',
     ],
   },

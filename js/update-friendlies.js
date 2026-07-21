@@ -118,16 +118,14 @@ function updateUnit(u, dt) {
   if (u.mortarFireT > 0) u.mortarFireT -= dt;
   if (u.camoExposed > 0) u.camoExposed -= dt;
 
-  // Emergency Repair: check if this unit has the card and trigger regeneration
-  if (u.side === 'us' && u.t.tank && G.cardsOwned && G.cardsOwned.has('emergencyrepair_sherman')) {
+  // Emergency Repair: a vehicle below 30% HP rapidly patches itself back up.
+  // emergencyRepairCd is never pre-initialized in makeUnit, so it starts
+  // undefined — `> 0` guards the countdown and `!(... > 0)` (not `<= 0`) gates
+  // the trigger so a never-yet-set cooldown still reads as "ready".
+  if (u.side === 'us' && (u.t.tank || u.t.vehicle)
+      && G.cardsOwned && G.cardsOwned.has('emergencyrepair_' + u.type)) {
     if (u.emergencyRepairCd > 0) u.emergencyRepairCd -= dt;
-    if (u.hp < u.maxhp * EMERGENCY_REPAIR_HP_THRESHOLD && u.emergencyRepairCd <= 0) {
-      u.hp = Math.min(u.maxhp, u.hp + u.maxhp * EMERGENCY_REPAIR_HP_RESTORE);
-      u.emergencyRepairCd = EMERGENCY_REPAIR_COOLDOWN;
-    }
-  } else if (u.side === 'us' && u.t.vehicle && G.cardsOwned && G.cardsOwned.has('emergencyrepair_jeep')) {
-    if (u.emergencyRepairCd > 0) u.emergencyRepairCd -= dt;
-    if (u.hp < u.maxhp * EMERGENCY_REPAIR_HP_THRESHOLD && u.emergencyRepairCd <= 0) {
+    if (u.hp < u.maxhp * EMERGENCY_REPAIR_HP_THRESHOLD && !(u.emergencyRepairCd > 0)) {
       u.hp = Math.min(u.maxhp, u.hp + u.maxhp * EMERGENCY_REPAIR_HP_RESTORE);
       u.emergencyRepairCd = EMERGENCY_REPAIR_COOLDOWN;
     }

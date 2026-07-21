@@ -78,15 +78,18 @@ function fireShot(shooter, target, opts) {
 
   // card hooks (US shooters in endless only): Zeroed In lifts the base to-hit
   // before the roll; beforeShot may force a hit; afterShot sees the final
-  // result. Forced/lifted hits still roll prone-dodge and cover below — those
-  // model the target, not the shooter's aim.
+  // result. A lifted roll (accMult) still rolls prone-dodge and cover below —
+  // it models the shooter's aim, not a promise. A beforeShot-forced hit is a
+  // called sure shot (Crack Shot): it connects for real, so it skips the
+  // prone-dodge and cover rolls that would otherwise eat the guaranteed round.
   const cardHooks = shooter.side === 'us' && G.cardHooks ? G.cardHooks[shooter.type] : null;
   if (cardHooks && cardHooks.accMult !== 1) acc = Math.min(0.98, acc * cardHooks.accMult);
 
   let hx = target.x, hy = target.y;
   let hit = Math.random() < acc;
+  let forced = false;
   if (cardHooks) {
-    for (const fn of cardHooks.beforeShot) if (fn(shooter)) hit = true;
+    for (const fn of cardHooks.beforeShot) if (fn(shooter)) { hit = true; forced = true; }
     for (const fn of cardHooks.afterShot) fn(shooter, hit);
   }
   if (!hit) { hx += rand(-22, 22); hy += rand(-16, 22); }
@@ -99,11 +102,12 @@ function fireShot(shooter, target, opts) {
   if (hit) {
     // a prone man is a small target: 60% of rounds kick dirt over him.
     // Rolled separately from sandbag cover, so the two stack multiplicatively.
-    if (target.prone > 0 && Math.random() < 0.6) {
+    // A forced sure shot (Crack Shot) ignores both — it is guaranteed to land.
+    if (!forced && target.prone > 0 && Math.random() < 0.6) {
       G.particles.push({ x: hx + rand(-6, 6), y: hy + 4, vx: rand(-25, 25), vy: rand(-55, -20), ttl: 0.3, grav: 200, size: 1.3, color: '#6e6046' });
       return;
     }
-    if (coverBlock(target)) {
+    if (!forced && coverBlock(target)) {
       G.particles.push({ x: hx, y: hy + 6, vx: rand(-20, 20), vy: -40, ttl: 0.3, grav: 150, size: 1.5, color: '#b8a878' });
       return;
     }

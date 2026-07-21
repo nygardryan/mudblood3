@@ -93,7 +93,7 @@ const FRENZY_WEIGHTS = {
 // `weight` is the card's command weight, 1-6 by impact.
 const CARD_COMMON_TEMPLATES = {
   frenzy: {
-    name: 'Frenzy', cost: 5, excludes: ['flamer'],
+    name: 'Frenzy', cost: 5, excludes: ['flamer', 'medic'],
     weight: type => FRENZY_WEIGHTS[type] || 1,
     desc: t => `A kill instantly reloads the ${t.name.toLowerCase()}'s weapon.`,
     hooks: type => ({ onKill: frenzyReload(type) }),
@@ -108,7 +108,7 @@ const CARD_COMMON_TEMPLATES = {
   // small-arms accuracy only — the units whose to-hit runs through fireShot.
   // shotgun/flamer spray and the vehicle/emplacement main guns don't roll it.
   zeroedin: {
-    name: 'Zeroed In', cost: 6, excludes: ['shotgunner', 'flamer', 'sherman', 'atgun', 'aagun'],
+    name: 'Zeroed In', cost: 6, excludes: ['shotgunner', 'flamer', 'sherman', 'atgun', 'aagun', 'medic'],
     weight: type => ({ sniper: 3 }[type] || 2),
     desc: t => `${t.name} lands 25% more of their shots.`,
     hooks: type => ({ accMult: 1.25 }),
@@ -224,7 +224,7 @@ const CARD_UNIQUES = {
   },
   officercorps: {
     unit: 'officer', name: 'Officer Corps', cost: 12, weight: 5,
-    desc: 'Raises the officer limit from 5 to 15.',
+    desc: 'Raises the officer limit from 5 to 10.',
     hooks: {},
   },
   impactfuze: {
@@ -324,6 +324,14 @@ function maybeSwapToRifle(u) {
     range: r.range, dmg: r.dmg, acc: r.acc, rof: r.rof,
     burst: r.burst, burstGap: r.burstGap, gun: r.gun, sfx: r.sfx,
   };
+}
+
+// true when a support type will muster with Standard Issue's M1 in the current
+// run. The placement-time range ring reads this so it previews the longer rifle
+// reach the unit will actually field, not the sidearm the card replaces.
+function riflemanSwapActive(type) {
+  return !!(G && G.cardsOwned && RIFLE_SWAP_TYPES.includes(type)
+    && G.cardsOwned.has('riflearm_' + type));
 }
 
 // Seasoned Veteran: a unit whose type carries the card musters in already

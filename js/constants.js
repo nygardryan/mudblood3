@@ -25,9 +25,9 @@ const WATCHTOWER_RANGE_MULT = 1.25;
 const WATCHTOWER_RANGE_MULT_UPGRADED = 1.35;
 const WATCHTOWER_RANGE_MULT_HARDENED = 1.5;    // second-tier fortification (Hardened Works)
 const CAMONEST_ZONE = 30;               // same footprint as a bunker's cover radius
-const CAMONEST_REVEAL = 4;              // seconds targetable after a shot, unfortified
-const CAMONEST_REVEAL_FORTIFIED = 2;
-const CAMONEST_REVEAL_HARDENED = 1;     // second-tier fortification (Hardened Works)
+const CAMONEST_REVEAL = 3;              // seconds targetable after a shot, unfortified
+const CAMONEST_REVEAL_FORTIFIED = 1.5;
+const CAMONEST_REVEAL_HARDENED = 0.5;   // second-tier fortification (Hardened Works)
 const CAMONEST_EXPLOSIVE_MULT = 1.2;    // weak to explosives — no reduction like a bunker's concrete
 const GRENADE_CATCH_RANGE = 34;         // how close a grenadier must be to a landed enemy grenade to heave it back
 const V2_ROCKET_ARC = 130;              // cruise altitude of the V2 warhead between boost and terminal dive
@@ -77,7 +77,7 @@ const UNIT_TYPES = {
     name: 'Sniper', hp: 85, range: 249, dmg: 46, acc: 0.72,
     rof: 5.2, burst: 1, burstGap: 0, speed: 38,
     color: '#38442e', gun: 12, sfx: 'sniper',
-    desc: 'Springfield scoped rifle. Picks off officers and MGs first.',
+    desc: 'Springfield scoped rifle. Picks off officers, snipers, bazookas, and mortar teams first.',
   },
   medic: {
     name: 'Medic', hp: 90, range: 94, dmg: 8, acc: 0.45,
@@ -124,7 +124,7 @@ const UNIT_TYPES = {
     name: 'AT Gun', hp: 200, range: 519, dmg: 0, acc: 0,
     rof: 8.8, burst: 1, burstGap: 0, speed: 0,
     color: '#4a5a3f', gun: 0, sfx: 'boom', fixed: true, gunEmplacement: true,
-    atgun: { arc: 0.338, shellDmg: 403, r: 27, scatterMult: 1.100 },
+    atgun: { arc: 0.338, shellDmg: 403, r: 27, scatterMult: 0.950 },
     desc: '57mm anti-tank gun. Immobile; direct-fire AP shells ruin any vehicle they find.',
   },
   aagun: {
@@ -207,7 +207,7 @@ const ENEMY_TYPES = {
   emortar: {
     name: 'Granatwerfer', hp: 75, speed: 18, range: 80, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, reward: 5,
-    color: '#504e44', gun: 5, sfx: 'pistol', priority: 3,
+    color: '#504e44', gun: 5, sfx: 'pistol', priority: 4,
     mortar: { range: 348, min: 118, cdMin: 9, cdMax: 12, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
   },
   ebazooka: {
@@ -354,7 +354,7 @@ const PLACEABLES = [
     { key: 'mortarman', label: 'MORTARMAN', cost: 13, kind: 'unit', hotkey: 'M',
       desc: 'Portable 60mm mortar. Long-range indirect fire; useless up close. Rank: faster reloads, tighter shells.' },
     { key: 'sniper', label: 'SNIPER', cost: 10, kind: 'unit', hotkey: '4',
-      desc: 'Springfield scoped rifle. Picks officers, snipers, and gunners first. Rank: faster, straighter, harder.' },
+      desc: 'Springfield scoped rifle. Picks officers, snipers, bazookas, and mortar teams first. Rank: faster, straighter, harder.' },
     { key: 'medic', label: 'MEDIC', cost: 12, kind: 'unit', hotkey: '5',
       desc: 'Unarmed. Heals the most wounded nearby soldier. Faster with rank. Snipers hunt him. Can\'t repair vehicles or fortifications.' },
     { key: 'engineer', label: 'ENGINEER', cost: 14, kind: 'unit', hotkey: 'E',
@@ -363,9 +363,9 @@ const PLACEABLES = [
       desc: 'Sidearm. Aura boosts nearby soldiers\' fire. Bonus grows with rank. Earns bonus TP. Snipers hunt him.' },
     { key: 'flamer', label: 'FLAMER', cost: 7, kind: 'unit', hotkey: 'F',
       desc: 'M2 flamethrower. Burns everything in the cone — friend and foe. Rank: more burn damage, tighter stream.' },
-    { key: 'jeep', label: 'JEEP', cost: 30, kind: 'unit', hotkey: 'J',
+    { key: 'jeep', label: 'JEEP', cost: 26, kind: 'unit', hotkey: 'J',
       desc: 'Willys jeep, .50 cal HMG, fires on the move. Unarmored. Engineer patches slowly. Rank: faster, deadlier.' },
-    { key: 'sherman', label: 'SHERMAN', cost: 60, kind: 'unit', hotkey: 'T',
+    { key: 'sherman', label: 'SHERMAN', cost: 50, kind: 'unit', hotkey: 'T',
       desc: 'M4 Sherman. 75mm turret cannon. Shrugs off small arms. Engineer repairs slowly. Rank: sharper aim, faster reloads.' },
     { key: 'atgun', label: 'AT GUN', cost: 20, kind: 'unit', hotkey: 'P',
       desc: '57mm AT gun. Immobile; fires only at vehicles in its cone. Engineer repairs slowly. Rank: wider arc, faster reloads, more damage.' },
@@ -379,8 +379,8 @@ const PLACEABLES = [
     desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },
   { key: 'watchtower', label: 'WATCH TOWER', cost: 10, kind: 'defense', hotkey: 'W',
     desc: 'Wooden lookout. +25% range for nearby soldiers (+35% fortified). Mortars ignore it. Frail.' },
-  { key: 'camonest', label: 'CAMO NEST', cost: 6, kind: 'defense', hotkey: 'C',
-    desc: 'Concealed position. Hidden until firing; exposed 4 s after last shot (2 s fortified). No dodge bonus. Weak to explosives.' },
+  { key: 'camonest', label: 'CAMO NEST', cost: 4, kind: 'defense', hotkey: 'C',
+    desc: 'Concealed position. Hidden until firing; exposed 3 s after last shot (1.5 s fortified). No dodge bonus. Weak to explosives.' },
   { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
     desc: 'Cluster of 3 anti-personnel mines. Hurts tanks too. Germans can\'t see them.' },
   { key: 'mortar', label: 'MORTAR STRIKE', cost: 5, kind: 'support', hotkey: '0',

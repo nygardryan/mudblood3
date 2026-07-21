@@ -39,6 +39,7 @@ function unitSpeed(u) {
 
 // close-range specialists stretch their reach hardest as they rank up
 function unitRangeRankRate(type) {
+  if (type === 'mortarman') return 0.03;   // mortar crews stretch their reach 3% per rank
   return (type === 'shotgunner' || type === 'engineer' || type === 'officer' || type === 'flamer')
     ? 0.05 : 0.01;
 }
@@ -278,7 +279,10 @@ function updateUnit(u, dt) {
     if (u.mortCd <= 0) {
       const mt = u.t.mortar;
       const mr = unitRange(u, mt.range) * fogMult();
-      const target = firstEnemyInRange(u, mr, e => dist(u, e) > mt.min);
+      const inRange = e => dist(u, e) > mt.min;
+      // counter-battery: friendly mortars drop on enemy mortar teams first
+      let target = firstEnemyInRange(u, mr, e => inRange(e) && e.t.mortar);
+      if (!target) target = firstEnemyInRange(u, mr, inRange);
       if (target && !friendlyNearPoint(target.x, target.y, 55, u)) {
         // veteran crews drop rounds faster, tighter and heavier
         u.mortCd = rand(mt.cdMin, mt.cdMax) * (1 - u.rank * 0.08);

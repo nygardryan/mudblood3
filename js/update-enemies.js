@@ -6,7 +6,7 @@
 // each frame has a small chance to tear light damage into him. Flag-only, read
 // straight from G.cardsOwned like Blast Shelter. Applied wherever infantry drag
 // through wire (the standard advance and the commando move path).
-const RAZOR_WIRE_BITE_RATE = 1.6;   // expected bites per second in the wire
+const RAZOR_WIRE_BITE_RATE = 0.4;   // expected bites per second in the wire
 const RAZOR_WIRE_DMG = [3, 8];      // damage per bite (min, max)
 const RAZOR_WIRE_MIN_HP_FRAC = 0.25; // barbs stop biting at/below this HP fraction
 function wireBite(e, dt) {

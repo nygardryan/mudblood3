@@ -38,4 +38,4 @@ const officerCount = () => {
   return G ? G.units.filter(u => !u.dead && u.type === 'officer').length : 0;
 };
 
-const officerLimit = () => (G && G.cardsOwned && G.cardsOwned.has('officercorps')) ? 15 : MAX_OFFICERS;
+const officerLimit = () => (G && G.cardsOwned && G.cardsOwned.has('officercorps')) ? 10 : MAX_OFFICERS;

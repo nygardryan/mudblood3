@@ -348,6 +348,8 @@ function drawPlacementGhost() {
       let r = ut.range;
       if (ut.rocket) r = ut.rocket.range;
       if (ut.shotgun) r = ut.shotgun.range;
+      // Standard Issue trades a support unit's sidearm for the M1's longer reach
+      if (riflemanSwapActive(p.key)) r = UNIT_TYPES.rifleman.range;
       ctx.strokeStyle = 'rgba(255,255,255,0.35)';
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(x, y, r * fogMult(), 0, 7); ctx.stroke();

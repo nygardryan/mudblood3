@@ -239,7 +239,7 @@ const CARD_UNIQUES = {
   },
   warbonds: {
     unit: 'officer', name: 'War Bonds', cost: 14, weight: 5,
-    desc: 'Kill bounty income decays toward its 10% floor over 400 waves instead of 200.',
+    desc: 'All TP income decays toward its 10% floor over 200 waves instead of 120.',
     hooks: {},
   },
   // not tied to a unit type: carries a `label` so its chip reads EMPLACEMENTS

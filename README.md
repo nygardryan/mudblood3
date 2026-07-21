@@ -77,10 +77,12 @@ python3 -m http.server 8000
 France, 1944. Pick a mode from the main menu.
 
 - **Tactical Points (TP)** are your only currency. You earn them from kills, **+1 TP
-  every 8 s**, and living officers (**+1 TP / 30 s** each — up to **3 TP** for a
+  every 6 s**, and living officers (**+1 TP / 30 s** each — up to **3 TP** for a
   max-rank officer; **5 officers** max on the field). In Endless, supply lines thin
-  out as the battle drags on: all income shrinks ~1% per wave, dropping to a hard
-  10% floor from wave 90 on. Campaign levels pay full rate.
+  out as the battle drags on: **all** income — kills, trickle, and officer pay —
+  decays toward a hard 10% floor by wave 120 (wave 200 with the War Bonds card).
+  No line outlasts its supply; spend while the spending is good. Campaign levels
+  pay full rate.
 - Open **Units**, **Abilities**, or **Emplacements** on the left toolbar, pick an
   item (each shows its hotkey), then click the field to deploy. Right-click or
   **Esc** cancels placement.

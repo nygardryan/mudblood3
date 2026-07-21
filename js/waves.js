@@ -6,18 +6,31 @@ function wavesPast99(w) {
   return Math.max(0, w - 99);
 }
 
+// every enemy type debuts this many waves earlier than its old unlock wave.
+// uw() converts an old debut wave into its shifted one, floored at wave 1 so
+// a type whose shifted debut lands at or below zero is simply in the pool
+// from the start.
+const UNLOCK_SHIFT = 20;
+function uw(baseWave) {
+  return Math.max(1, baseWave - UNLOCK_SHIFT);
+}
+
 function spawnIntervalForWave(w) {
-  if (w <= 99) return clamp(16 - w * 0.2, 6, 16);
+  if (w <= 99) return clamp(16 - w * 0.25, 6, 16);
   return clamp(6 - wavesPast99(w) * 0.06, 3, 16);
 }
 
-// enemy volume is cut 75% across the board (unit-count reduction pass), but
-// the first 10 waves felt too quiet at that rate, so they're bumped back up
-// toward 0.42 and then taper smoothly down to the 0.25 floor by wave 15 —
-// no sudden difficulty step at wave 11.
+// enemy-volume ramp. The opening five waves are held deliberately quiet
+// (0.42) so a player sitting on the fat 40 TP starting bank has time to spend
+// it and set a line without being punished. From wave 6 the multiplier climbs
+// to a 1.0 cap by ~wave 22 — a moderate ramp between a flat plateau and a
+// runaway spike. specialWaveMult rides the same curve, so the every-10th
+// set-pieces scale up in step. Combined with the shared income decay
+// (economy.js), this is the run-killer: volume ramps toward full while the
+// economy is already sliding to its floor.
 function enemySpawnMult(w) {
-  if (w <= 10) return 0.42;
-  return Math.max(0.25, 0.42 - (w - 10) * 0.034);
+  if (w <= 5) return 0.42;
+  return Math.min(1.0, 0.42 + (w - 5) * 0.035);
 }
 
 function waveComposition(w) {
@@ -25,38 +38,43 @@ function waveComposition(w) {
   const mult = enemySpawnMult(w);
   const baseSize = Math.min(
     2 + Math.floor(w / 4) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 5),
-    7 + Math.floor(late / 10),
+    8 + Math.floor(late / 10),
   );
   const size = Math.max(1, Math.round(baseSize * mult));
+  // every enemy type joins the fight UNLOCK_SHIFT waves sooner than its old
+  // debut; uw() floors an unlock at wave 1 so a shift past zero just means
+  // "from the start." The bike ramp reads uw(9) as its origin so its odds
+  // curve slides forward in step with its debut.
   const pool = ['erifle', 'erifle', 'erifle'];
-  if (w >= 4) pool.push('esmg', 'esmg');
-  if (w >= 7) pool.push('egren');
-  if (w >= 10) pool.push('emg');
-  if (w >= 12) pool.push('eflame');
-  if (w >= 14) pool.push('esniper');
-  if (w >= 60) pool.push('emortar');
-  if (w >= 80) pool.push('ebazooka');
+  if (w >= uw(4)) pool.push('esmg', 'esmg');
+  if (w >= uw(7)) pool.push('egren');
+  if (w >= uw(10)) pool.push('emg');
+  if (w >= uw(12)) pool.push('eflame');
+  if (w >= uw(14)) pool.push('esniper');
+  if (w >= uw(60)) pool.push('emortar');
+  if (w >= uw(80)) pool.push('ebazooka');
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
-  if (w >= 12 && Math.random() < (0.30 + late * 0.004) * mult) out.push('eoff');
+  if (w >= uw(12) && Math.random() < (0.30 + late * 0.004) * mult) out.push('eoff');
   // a motorcycle team races ahead of some waves; as German logistics spin
-  // up, bikes ramp from 20% at wave 9 to a 90% cap at wave 99, then keep climbing
+  // up, bikes ramp from 20% at their debut to a 90% cap, then keep climbing
   const bikeChance = (late > 0
     ? Math.min(1, 0.9 + late * 0.006)
-    : Math.min(0.9, w >= 9 ? 0.2 + (w - 9) * (0.7 / 90) : 0)) * mult;
-  if (w >= 9 && Math.random() < bikeChance) out.push('ebike');
+    : Math.min(0.9, w >= uw(9) ? 0.2 + (w - uw(9)) * (0.7 / 90) : 0)) * mult;
+  if (w >= uw(9) && Math.random() < bikeChance) out.push('ebike');
   const vehChance = 0.11 * (1 + late * 0.04) * mult;
-  // a Kübelwagen gun car rolls in occasionally — not until mid-game
-  if (w >= 16 && Math.random() < vehChance) out.push('ejeep');
-  // an armored halftrack hauls a full squad to the front
-  if (w >= 18 && Math.random() < vehChance) out.push('ehalftrack');
-  if (w >= 30 && Math.random() < vehChance) out.push('panzer');
+  // vehicles keep fixed debut waves rather than riding UNLOCK_SHIFT — armor
+  // and gun cars this early are a spike, so each gets its own hard floor:
+  // Kübelwagen at 20, halftrack at 30, Panzer IV at 40.
+  if (w >= 20 && Math.random() < vehChance) out.push('ejeep');
+  if (w >= 30 && Math.random() < vehChance) out.push('ehalftrack');
+  if (w >= 40 && Math.random() < vehChance) out.push('panzer');
   // V2 battery: one at a time, and only once the fighting is desperate. Not
   // scaled by `mult` — that's a general enemy-volume knob and was crushing
   // this down to a ~3% roll per wave even deep past 140; it's a rare
   // set-piece threat, not a regular trooper, so it gets its own odds.
   const v2Chance = Math.min(0.35, 0.10 + late * 0.004);
-  if (w >= 140 && !G.enemies.some(e => !e.dead && e.type === 'ev2') && Math.random() < v2Chance) {
+  if (w >= uw(140) && !G.enemies.some(e => !e.dead && e.type === 'ev2') && Math.random() < v2Chance) {
     out.push('ev2');
   }
   return out;

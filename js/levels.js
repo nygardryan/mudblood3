@@ -106,7 +106,9 @@ const LEVELS = {
     breachLimit: MAX_BREACH,
     events: true,
     placeables: PLACEABLES,
-    startTP: 25,
+    // a fat opening bank: the early game is funded up front so the player can
+    // experiment with builds while income is still near full rate
+    startTP: 40,
     setup(G) {
       // you start with two riflemen already dug in
       G.units.push(makeUnit('rifleman', lx(-70), 470));

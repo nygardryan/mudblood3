@@ -383,27 +383,98 @@ function drawPlane(p) {
   if (flyby) c.rotate(facing > 0 ? Math.PI / 2 : -Math.PI / 2);
 
   const body = p.transport ? '#4a4840' : '#3f4a3a';
+  const bodyLit = p.transport ? '#5c594e' : '#57654e';
+  const bodyDark = p.transport ? '#33322c' : '#2a3227';
   const wing = p.transport ? '#535048' : '#46523f';
+  const wingDark = p.transport ? '#403e37' : '#333c2e';
 
-  // fuselage, nose pointed up-field (or along flyby heading after rotate)
-  c.fillStyle = body;
-  c.beginPath(); c.ellipse(0, 0, 6, 21, 0, 0, 7); c.fill();
-  // wings
+  // wings first, tapered and swept slightly toward the tail so they read as
+  // aerofoils rather than blobs; drawn underneath the fuselage
   c.fillStyle = wing;
-  c.beginPath(); c.ellipse(0, -2, 30, 7, 0, 0, 7); c.fill();
-  // tailplane
-  c.beginPath(); c.ellipse(0, 16, 12, 4, 0, 0, 7); c.fill();
-  // canopy
-  c.fillStyle = '#20261e';
-  c.beginPath(); c.ellipse(0, 2, 3, 6, 0, 0, 7); c.fill();
-  // spinning prop disc
-  c.fillStyle = 'rgba(200,200,180,0.25)';
-  c.beginPath(); c.ellipse(0, -21, 11, 2.5, 0, 0, 7); c.fill();
-  // US roundels on fighter strafers only
+  c.beginPath();
+  c.moveTo(0, -6);
+  c.lineTo(30, 2);
+  c.lineTo(26, 6);
+  c.lineTo(3, 0);
+  c.lineTo(-3, 0);
+  c.lineTo(-26, 6);
+  c.lineTo(-30, 2);
+  c.closePath();
+  c.fill();
+  // trailing-edge shade so the wing has a lit leading edge and a dark rear
+  c.fillStyle = wingDark;
+  c.beginPath();
+  c.moveTo(3, 0); c.lineTo(26, 6); c.lineTo(24, 8); c.lineTo(2, 2); c.closePath(); c.fill();
+  c.beginPath();
+  c.moveTo(-3, 0); c.lineTo(-26, 6); c.lineTo(-24, 8); c.lineTo(-2, 2); c.closePath(); c.fill();
+
+  // fuselage, nose pointed up-field (or along flyby heading after rotate),
+  // tapered to a point at the nose with a fuller aft section
+  c.fillStyle = body;
+  c.beginPath();
+  c.moveTo(0, -22);
+  c.quadraticCurveTo(5.5, -10, 5, 6);
+  c.quadraticCurveTo(4.5, 15, 2, 19);
+  c.lineTo(-2, 19);
+  c.quadraticCurveTo(-4.5, 15, -5, 6);
+  c.quadraticCurveTo(-5.5, -10, 0, -22);
+  c.closePath();
+  c.fill();
+  // sunlit flank down one side of the fuselage
+  c.fillStyle = bodyLit;
+  c.beginPath();
+  c.moveTo(0, -21);
+  c.quadraticCurveTo(4.5, -10, 4, 5);
+  c.quadraticCurveTo(3.6, 12, 1.8, 17);
+  c.lineTo(0, 17);
+  c.lineTo(0, -21);
+  c.closePath();
+  c.fill();
+  // shaded underside
+  c.fillStyle = bodyDark;
+  c.beginPath();
+  c.moveTo(0, 17); c.lineTo(2, 19); c.lineTo(-2, 19); c.closePath(); c.fill();
+
+  // tailplane (horizontal stabilizer)
+  c.fillStyle = wing;
+  c.beginPath(); c.ellipse(0, 15, 11, 3.5, 0, 0, 7); c.fill();
+  // vertical fin, swept back
+  c.fillStyle = bodyDark;
+  c.beginPath();
+  c.moveTo(-1.5, 9);
+  c.lineTo(1.5, 9);
+  c.lineTo(4, 20);
+  c.lineTo(-1, 20);
+  c.closePath();
+  c.fill();
+
+  // engine cowling ring at the nose
+  c.fillStyle = bodyDark;
+  c.beginPath(); c.ellipse(0, -20, 3.6, 2, 0, 0, 7); c.fill();
+
+  // canopy, with a small glint so it doesn't read as a flat dot
+  c.fillStyle = '#161a14';
+  c.beginPath(); c.ellipse(0, 2, 2.8, 6, 0, 0, 7); c.fill();
+  c.fillStyle = 'rgba(190,210,220,0.5)';
+  c.beginPath(); c.ellipse(-0.8, -1, 1, 3, 0, 0, 7); c.fill();
+
+  // spinning prop disc, faint blur
+  c.fillStyle = 'rgba(200,200,180,0.22)';
+  c.beginPath(); c.ellipse(0, -21.5, 11, 2.5, 0, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(200,200,180,0.35)';
+  c.lineWidth = 0.6;
+  c.beginPath(); c.ellipse(0, -21.5, 11, 2.5, 0, 0, 7); c.stroke();
+
+  // US roundels on fighter strafers only — white ring, blue disc, red center
   if (!p.transport) {
-    c.fillStyle = 'rgba(230,230,220,0.9)';
-    c.beginPath(); c.arc(-20, -2, 3, 0, 7); c.fill();
-    c.beginPath(); c.arc(20, -2, 3, 0, 7); c.fill();
+    for (const rx of [-20, 20]) {
+      c.fillStyle = 'rgba(230,230,220,0.95)';
+      c.beginPath(); c.arc(rx, -2, 3.2, 0, 7); c.fill();
+      c.fillStyle = 'rgba(50,70,95,0.9)';
+      c.beginPath(); c.arc(rx, -2, 2.2, 0, 7); c.fill();
+      c.fillStyle = 'rgba(150,60,50,0.85)';
+      c.beginPath(); c.arc(rx, -2, 0.9, 0, 7); c.fill();
+    }
   }
 
   // wing gun muzzle flashes while firing

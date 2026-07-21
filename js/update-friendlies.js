@@ -484,6 +484,15 @@ function updateAAGun(u, dt) {
     }
   }
 
+  // Level the Barrels: with nothing in the sky, the mount can depress onto the
+  // nearest ground infantry that has closed inside its short direct-fire wedge
+  let ground = false;
+  if (!target && aaGroundFireEnabled()) {
+    const gRange = AA_GROUND_RANGE * fogMult();
+    const gt = nearestEnemyInRange(u, gRange, e => inFireCone(u, e, HOME, arc));
+    if (gt) { target = gt; best = dist(u, gt); ground = true; }
+  }
+
   if (!target) {
     // barrels crank back to center
     u.turret += clamp(angleDiff(HOME, u.turret), -0.9 * dt, 0.9 * dt);
@@ -498,8 +507,34 @@ function updateAAGun(u, dt) {
   u.face = u.turret;
   if (u.cd > 0 || Math.abs(diff) > 0.2) return;
 
-  fireFlakBurst(u, target, spec, best);
+  if (ground) fireFlakGround(u, target, best);
+  else fireFlakBurst(u, target, spec, best);
   u.cd = u.t.rof * (1 - (u.rank || 0) * 0.08) * rand(0.85, 1.15);
+}
+
+// Level the Barrels: a leveled 40mm round is a direct-fire HE shell, not a
+// fused airburst — it lands on the ground and cracks a small blast where it
+// hits, shredding the infantry that got too close.
+function fireFlakGround(u, target, d) {
+  SFX.boom(false);
+  u.atgunFireT = 0.16;
+  const mx = u.x + Math.cos(u.turret) * 20, my = u.y + Math.sin(u.turret) * 20;
+  G.flashes.push({ x: mx, y: my, r: 7, ttl: 0.07, max: 0.07 });
+  // recoil dust off the trails, same as the AT gun
+  for (let i = 0; i < 3; i++) {
+    G.particles.push({
+      x: u.x + rand(-6, 6), y: u.y + rand(-4, 6), vx: rand(-24, 24), vy: rand(-34, -8),
+      ttl: rand(0.2, 0.4), grav: 200, size: rand(1.1, 2),
+      color: pick(['#6e6046', '#57492f', '#8a7a5a']),
+    });
+  }
+  // barrel-flat fire is tight but not perfect; a slow-walking man barely leads
+  const scatter = Math.max(6, (10 + d * 0.05) * (1 - (u.rank || 0) * 0.08));
+  const lead = 0.15;
+  scheduleShell(
+    target.x + (target.vx || 0) * lead + rand(-scatter, scatter),
+    target.y + (target.vy || 0) * lead + rand(-scatter, scatter),
+    0.15, AA_GROUND_HITR, AA_GROUND_DMG * (1 + (u.rank || 0) * 0.06), false, u);
 }
 
 function fireFlakBurst(u, target, spec, d) {

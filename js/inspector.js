@@ -329,6 +329,10 @@ function drawPlacementGhost() {
     const ut = UNIT_TYPES[p.key];
     if (ut && emplacementSpec(ut)) {
       drawATGunRangeCone(x, y, -Math.PI / 2, emplacementSpec(ut).arc, ut.range * fogMult(), 0.45);
+      // preview the red ground-fire wedge when Level the Barrels is deployed
+      if (ut.aagun && aaGroundFireEnabled()) {
+        drawAAGroundCone(x, y, -Math.PI / 2, emplacementSpec(ut).arc, AA_GROUND_RANGE * fogMult(), 0.45);
+      }
     } else if (ut && ut.fireCone) {
       drawFireCone(x, y, -Math.PI / 2, ut.fireCone.arc, ut.range * fogMult(), 0.35);
     } else if (ut && ut.flame) {

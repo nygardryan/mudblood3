@@ -152,6 +152,8 @@ function newGame(level, difficulty) {
   // sandbox/testing double as the card test bed), never to campaigns
   G.cardHooks = level.id === 'endless' ? buildCardHooks() : null;
   G.cardsOwned = level.id === 'endless' ? new Set(equippedEndlessCards()) : null;
+  // War Chest front-loads the run's opening TP balance
+  if (G.cardsOwned && G.cardsOwned.has('warchest')) G.tp += WAR_CHEST_TP;
   // starting an endless run refreshes the shop's reroll price back to base
   if (level.id === 'endless') resetRerollCost();
   paintGround(level);

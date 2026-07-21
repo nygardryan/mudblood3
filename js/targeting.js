@@ -122,6 +122,34 @@ function drawATGunRangeCone(x, y, bearing, arc, range, alpha) {
   }
 }
 
+// Level the Barrels: the flak gun's ground-fire slice — a red wedge sharing the
+// traverse but reaching only the short direct-fire range. Drawn over the steel
+// air cone so the near band reads as "this arc also bites the ground."
+function drawAAGroundCone(x, y, bearing, arc, range, alpha) {
+  const a = alpha != null ? alpha : 0.35;
+  const tipX = x + Math.cos(bearing) * range * 0.7;
+  const tipY = y + Math.sin(bearing) * range * 0.7;
+  const grad = ctx.createLinearGradient(x, y, tipX, tipY);
+  grad.addColorStop(0, `rgba(230,70,60,${a * 0.5})`);
+  grad.addColorStop(0.5, `rgba(200,45,40,${a * 0.32})`);
+  grad.addColorStop(1, `rgba(150,25,25,${a * 0.08})`);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.arc(x, y, range, bearing - arc, bearing + arc);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = `rgba(255,90,80,${Math.min(0.9, a * 1.25)})`;
+  ctx.lineWidth = 1.35;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.arc(x, y, range, bearing - arc, bearing + arc);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
 // warm wedge for flamethrower reach — selection overlay and placement ghost
 function drawFlameRangeCone(x, y, bearing, arc, range, alpha) {
   const a = alpha != null ? alpha : 0.35;
@@ -521,7 +549,13 @@ function drawUnitWeaponRange(a, opts) {
 
   const empl = emplacementSpec(t);
   if (empl) {
-    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, empl.arc + (a.rank || 0) * 0.05236, unitRange(a, t.range) * fog, alpha);
+    const arc = empl.arc + (a.rank || 0) * 0.05236;
+    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, arc, unitRange(a, t.range) * fog, alpha);
+    // Level the Barrels: overlay the near wedge in red — that's the slice of
+    // the traverse this flak gun can also drop onto ground infantry
+    if (t.aagun && aaGroundFireEnabled()) {
+      drawAAGroundCone(a.x, a.y, -Math.PI / 2, arc, AA_GROUND_RANGE * fog, alpha);
+    }
     return;
   }
   if (t.fireCone) {

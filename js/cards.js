@@ -38,6 +38,23 @@ const FRENZY_EXTRA_CD = { bazooka: 'rocketCd', mortarman: 'mortCd', grenadier: '
 // dry and the shotgunner eats a long reload
 const EXTENDED_TUBE_SHELLS = 7;
 
+// War Chest: extra TP front-loaded onto the run's starting balance in newGame()
+const WAR_CHEST_TP = 25;
+
+// Level the Barrels: the flak mount learns to depress. It keeps its full air
+// role, but anything that closes inside this range on the ground catches a
+// 40mm HE round. Deliberately short — this is a last-ditch self-defence wedge,
+// not a second AT gun. updateAAGun and the range overlay both read it.
+const AA_GROUND_RANGE = 200;
+const AA_GROUND_HITR = 20;
+const AA_GROUND_DMG = 55;
+
+// flag-only card: true when this run deployed Level the Barrels, so the AA gun
+// may swing its wedge down onto ground infantry inside AA_GROUND_RANGE
+function aaGroundFireEnabled() {
+  return !!(G.cardsOwned && G.cardsOwned.has('leveltbarrels'));
+}
+
 function frenzyReload(type) {
   const extra = FRENZY_EXTRA_CD[type];
   return u => {
@@ -221,6 +238,21 @@ const CARD_UNIQUES = {
   razorwire: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Razor Wire', cost: 10, weight: 3,
     desc: 'Barbed wire is strung with razor tape — enemy infantry dragging through it have a chance to take light cuts every moment they struggle.',
+    hooks: {},
+  },
+  // flag-only, like Rifled Slugs: updateAAGun reads G.cardsOwned directly to
+  // decide it may engage ground infantry, and drawUnitWeaponRange paints the
+  // close-range wedge red to mark the depression zone
+  leveltbarrels: {
+    unit: 'aagun', name: 'Level the Barrels', cost: 11, weight: 4,
+    desc: `The flak mount can depress: enemies on the ground within short range catch a 40mm HE round. It still engages aircraft at full range — the red wedge marks its ground reach.`,
+    hooks: {},
+  },
+  // not tied to a unit type: carries a `label` so its chip reads HQ. Flag-only —
+  // newGame() reads G.cardsOwned once when the run starts and front-loads the TP.
+  warchest: {
+    unit: 'hq', label: 'HQ', name: 'War Chest', cost: 10, weight: 2,
+    desc: `Requisition a reserve of supplies: begin every endless run with ${WAR_CHEST_TP} extra TP.`,
     hooks: {},
   },
 };

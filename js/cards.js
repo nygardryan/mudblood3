@@ -41,6 +41,12 @@ const EXTENDED_TUBE_SHELLS = 7;
 // War Chest: extra TP front-loaded onto the run's starting balance in newGame()
 const WAR_CHEST_TP = 25;
 
+// Cluster Rounds: the mortarman drops a stick of shells per fire order instead
+// of one, but rushing the tube costs precision — every shell in the stick rolls
+// its scatter against the widened spread. The mortar fire block reads both.
+const CLUSTER_ROUNDS_SHELLS = 4;
+const CLUSTER_ROUNDS_SCATTER_MULT = 1.6;
+
 // Level the Barrels: the flak mount learns to depress. It keeps its full air
 // role, but anything that closes inside this range on the ground catches a
 // 40mm HE round. Deliberately short — this is a last-ditch self-defence wedge,
@@ -235,6 +241,13 @@ const CARD_UNIQUES = {
   extendedtube: {
     unit: 'shotgunner', name: 'Extended Tube', cost: 9, weight: 3,
     desc: `${EXTENDED_TUBE_SHELLS} shells per clip; reload takes 3x after emptying.`,
+    hooks: {},
+  },
+  // flag-only, like Rifled Slugs: the mortar fire block in updateFriendly reads
+  // G.cardsOwned directly to swap the single shell for a wider, wilder stick
+  clusterrounds: {
+    unit: 'mortarman', name: 'Cluster Rounds', cost: 12, weight: 5,
+    desc: `The mortarman rushes ${CLUSTER_ROUNDS_SHELLS} shells down the tube per fire order — but hurried crews scatter ${Math.round((CLUSTER_ROUNDS_SCATTER_MULT - 1) * 100)}% wider.`,
     hooks: {},
   },
   warbonds: {

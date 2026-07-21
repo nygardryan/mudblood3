@@ -302,9 +302,15 @@ function updateUnit(u, dt) {
         u.mortarFireT = 0.18;
         markCamoFired(u);
         G.flashes.push({ x: u.x, y: u.y - 6, r: 5, ttl: 0.07, max: 0.07 });
-        const sc = mt.scatter * (1 - u.rank * 0.08);
-        scheduleShell(target.x + rand(-sc, sc), target.y + rand(-sc, sc),
-          mt.flight, mt.r, mt.dmg * (1 + u.rank * 0.05), false, u);
+        // Cluster Rounds: a stick of shells rushed down the tube, each rolling
+        // its own aim against the card's widened scatter and landing in sequence
+        const cluster = u.side === 'us' && G.cardsOwned && G.cardsOwned.has('clusterrounds');
+        const sc = mt.scatter * (1 - u.rank * 0.08) * (cluster ? CLUSTER_ROUNDS_SCATTER_MULT : 1);
+        const shells = cluster ? CLUSTER_ROUNDS_SHELLS : 1;
+        for (let i = 0; i < shells; i++) {
+          scheduleShell(target.x + rand(-sc, sc), target.y + rand(-sc, sc),
+            mt.flight + i * 0.15, mt.r, mt.dmg * (1 + u.rank * 0.05), false, u);
+        }
       }
     }
   }

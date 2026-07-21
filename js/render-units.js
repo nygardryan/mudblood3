@@ -2068,6 +2068,296 @@ function drawEsniperKit(c, fx, fy, face) {
   c.beginPath(); c.moveTo(fy * 4.3, -fx * 4.3); c.lineTo(fy * 5.2, -fx * 5.2 + 0.8); c.stroke();
 }
 
+// muzzle flash while the trench gun fires
+function drawShotgunBlast(actor) {
+  if (!actor.shotgunBlastT || actor.shotgunBlastT <= 0 || !actor.t.shotgun) return;
+  const sg = actor.t.shotgun;
+  const range = unitRange(actor, sg.range) * fogMult() * 0.38;
+  const bearing = actor.face;
+  const fx = Math.cos(bearing), fy = Math.sin(bearing);
+  const nx = actor.x + fx * (actor.t.gun + 2);
+  const ny = actor.y + fy * (actor.t.gun + 2);
+  const alpha = clamp(actor.shotgunBlastT / 0.12, 0, 1);
+  const tipX = nx + fx * range;
+  const tipY = ny + fy * range;
+
+  ctx.save();
+  const grad = ctx.createLinearGradient(nx, ny, tipX, tipY);
+  grad.addColorStop(0, `rgba(255,245,200,${0.7 * alpha})`);
+  grad.addColorStop(0.35, `rgba(230,200,130,${0.45 * alpha})`);
+  grad.addColorStop(1, 'rgba(140,120,90,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(nx, ny);
+  ctx.arc(nx, ny, range, bearing - sg.arc * 0.72, bearing + sg.arc * 0.72);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = `rgba(255,230,160,${0.9 * alpha})`;
+  ctx.beginPath(); ctx.arc(nx, ny, 3.2, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+// 60mm mortar round — body, fuze, tail fins
+function drawMortarRound(c, x, y, scale, rot) {
+  scale = scale || 1;
+  rot = rot != null ? rot : 0;
+  c.save();
+  c.translate(x, y);
+  c.rotate(rot);
+  c.fillStyle = '#3a4034';
+  c.beginPath();
+  c.ellipse(0, 0, 1.1 * scale, 2.4 * scale, 0, 0, 7);
+  c.fill();
+  c.strokeStyle = '#2a2e24';
+  c.lineWidth = 0.55 * scale;
+  c.stroke();
+  c.fillStyle = '#c8a858';
+  c.beginPath(); c.arc(0, -2.1 * scale, 0.75 * scale, 0, 7); c.fill();
+  c.strokeStyle = '#5a5c48';
+  c.lineWidth = 0.65 * scale;
+  for (const off of [-0.55, 0, 0.55]) {
+    c.beginPath();
+    c.moveTo(off * scale, 1.8 * scale);
+    c.lineTo(off * scale * 1.6, 3.4 * scale);
+    c.stroke();
+  }
+  c.restore();
+}
+
+// M2 60mm mortar tube, baseplate, and bipod beside the crewman
+function drawMortarTube(c, face, fx, fy, blastT) {
+  const kick = blastT > 0 ? clamp(blastT / 0.18, 0, 1) : 0;
+  const bx = -fx * 7.2 - fy * 2.8;
+  const by = -fy * 7.2 + fx * 2.8;
+  const tubeAng = face - 0.58 - kick * 0.12;
+  const tubeLen = 10.5;
+  const tx = bx + Math.cos(tubeAng) * tubeLen;
+  const ty = by + Math.sin(tubeAng) * tubeLen;
+
+  c.fillStyle = '#2f3328';
+  c.beginPath(); c.ellipse(bx, by, 4.8, 3.1, face + 0.25, 0, 7); c.fill();
+  c.strokeStyle = '#1e2018';
+  c.lineWidth = 1;
+  c.stroke();
+  c.fillStyle = '#3a3c30';
+  c.beginPath(); c.ellipse(bx, by, 2.8, 1.6, face + 0.25, 0, 7); c.fill();
+
+  c.strokeStyle = '#5a5c42';
+  c.lineWidth = 3.6;
+  c.beginPath(); c.moveTo(bx, by); c.lineTo(tx, ty); c.stroke();
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 1.3;
+  c.beginPath();
+  c.moveTo(bx + Math.cos(tubeAng) * 2, by + Math.sin(tubeAng) * 2);
+  c.lineTo(tx, ty);
+  c.stroke();
+
+  const midX = bx + Math.cos(tubeAng) * 4.2;
+  const midY = by + Math.sin(tubeAng) * 4.2;
+  c.strokeStyle = '#4a4a3e';
+  c.lineWidth = 1.4;
+  c.beginPath(); c.moveTo(midX, midY); c.lineTo(midX - fy * 4.5, midY + fx * 4.5); c.stroke();
+  c.beginPath(); c.moveTo(midX, midY); c.lineTo(midX + fy * 3.5, midY - fx * 3.5); c.stroke();
+
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 2;
+  c.beginPath(); c.arc(tx, ty, 1.9, 0, 7); c.stroke();
+  c.fillStyle = '#1c1c16';
+  c.beginPath(); c.arc(tx, ty, 0.9, 0, 7); c.fill();
+
+  if (blastT > 0) {
+    const alpha = clamp(blastT / 0.18, 0, 1);
+    c.fillStyle = `rgba(255,225,150,${0.8 * alpha})`;
+    c.beginPath(); c.arc(tx, ty, 2.2 + alpha * 2.5, 0, 7); c.fill();
+    c.fillStyle = `rgba(255,160,60,${0.45 * alpha})`;
+    c.beginPath(); c.arc(tx, ty, 4 + alpha * 3, 0, 7); c.fill();
+  }
+  return { tx, ty, bx, by };
+}
+
+// 8.1 cm Granatwerfer 34 — saddle yoke, wide baseplate, heavy bipod
+function drawGranatwerferTube(c, face, fx, fy, blastT) {
+  const kick = blastT > 0 ? clamp(blastT / 0.18, 0, 1) : 0;
+  const bx = -fx * 7.5 - fy * 2.5;
+  const by = -fy * 7.5 + fx * 2.5;
+  const tubeAng = face - 0.55 - kick * 0.1;
+  const tubeLen = 12.2;
+  const tx = bx + Math.cos(tubeAng) * tubeLen;
+  const ty = by + Math.sin(tubeAng) * tubeLen;
+
+  c.fillStyle = '#2a2c24';
+  c.beginPath(); c.ellipse(bx, by, 5.5, 3.4, face + 0.2, 0, 7); c.fill();
+  c.strokeStyle = '#1a1c16';
+  c.lineWidth = 1.1;
+  c.stroke();
+  c.fillStyle = '#3a3c32';
+  c.beginPath(); c.ellipse(bx, by, 3.4, 1.9, face + 0.2, 0, 7); c.fill();
+  c.strokeStyle = '#4a4c40';
+  c.lineWidth = 0.75;
+  c.beginPath();
+  c.moveTo(bx - fy * 3.2, by + fx * 3.2);
+  c.lineTo(bx + fy * 3.2, by - fx * 3.2);
+  c.stroke();
+
+  c.strokeStyle = '#4a4c42';
+  c.lineWidth = 4.2;
+  c.beginPath(); c.moveTo(bx, by); c.lineTo(tx, ty); c.stroke();
+  c.strokeStyle = '#2e3028';
+  c.lineWidth = 1.4;
+  c.beginPath();
+  c.moveTo(bx + Math.cos(tubeAng) * 2.2, by + Math.sin(tubeAng) * 2.2);
+  c.lineTo(tx, ty);
+  c.stroke();
+
+  const midX = bx + Math.cos(tubeAng) * 4.5;
+  const midY = by + Math.sin(tubeAng) * 4.5;
+  c.strokeStyle = '#3a3c34';
+  c.lineWidth = 2.2;
+  c.beginPath(); c.arc(midX, midY, 2.4, 0, 7); c.stroke();
+
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 1.6;
+  c.beginPath(); c.moveTo(midX, midY); c.lineTo(midX - fy * 5.2, midY + fx * 5.2); c.stroke();
+  c.beginPath(); c.moveTo(midX, midY); c.lineTo(midX + fy * 4.2, midY - fx * 4.2); c.stroke();
+  c.fillStyle = '#2a2820';
+  c.beginPath(); c.arc(midX - fy * 5.2, midY + fx * 5.2, 1.1, 0, 7); c.fill();
+  c.beginPath(); c.arc(midX + fy * 4.2, midY - fx * 4.2, 1.1, 0, 7); c.fill();
+
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 2.4;
+  c.beginPath(); c.arc(tx, ty, 2.2, 0, 7); c.stroke();
+  c.fillStyle = '#1c1c16';
+  c.beginPath(); c.arc(tx, ty, 1.05, 0, 7); c.fill();
+
+  c.strokeStyle = '#4a4840';
+  c.lineWidth = 1.3;
+  c.beginPath(); c.arc(bx - fx * 0.8, by - fy * 0.8, 1.4, 0, 7); c.stroke();
+
+  if (blastT > 0) {
+    const alpha = clamp(blastT / 0.18, 0, 1);
+    c.fillStyle = `rgba(255,225,150,${0.85 * alpha})`;
+    c.beginPath(); c.arc(tx, ty, 2.8 + alpha * 3, 0, 7); c.fill();
+    c.fillStyle = `rgba(255,140,50,${0.5 * alpha})`;
+    c.beginPath(); c.arc(tx, ty, 5 + alpha * 3.5, 0, 7); c.fill();
+  }
+  return { tx, ty, bx, by, midX, midY };
+}
+
+// 8.1 cm Wgr round — olive body, four tail fins, booster band
+function drawGrw81Round(c, x, y, scale, rot) {
+  scale = scale || 1;
+  rot = rot != null ? rot : 0;
+  c.save();
+  c.translate(x, y);
+  c.rotate(rot);
+  c.fillStyle = '#4a4e3e';
+  c.beginPath();
+  c.ellipse(0, 0, 1.35 * scale, 2.8 * scale, 0, 0, 7);
+  c.fill();
+  c.strokeStyle = '#2a2e22';
+  c.lineWidth = 0.6 * scale;
+  c.stroke();
+  c.fillStyle = '#6a6a58';
+  c.fillRect(-0.9 * scale, -2.6 * scale, 1.8 * scale, 0.9 * scale);
+  c.fillStyle = '#8a8878';
+  c.beginPath(); c.arc(0, -2.9 * scale, 0.7 * scale, 0, 7); c.fill();
+  c.strokeStyle = '#4a4a40';
+  c.lineWidth = 0.7 * scale;
+  for (let i = 0; i < 4; i++) {
+    const ang = i * Math.PI / 2 + 0.2;
+    c.beginPath();
+    c.moveTo(Math.cos(ang) * 0.5 * scale, 2 * scale + Math.sin(ang) * 0.3 * scale);
+    c.lineTo(Math.cos(ang) * 1.2 * scale, 3.6 * scale + Math.sin(ang) * 0.5 * scale);
+    c.stroke();
+  }
+  c.restore();
+}
+
+function drawEmortarKit(c, fx, fy, face, tube) {
+  c.fillStyle = '#4a4438';
+  c.fillRect(tube.bx - 5, tube.by + 2.2, 6.2, 4.2);
+  c.strokeStyle = '#2a2820';
+  c.lineWidth = 0.85;
+  c.strokeRect(tube.bx - 5, tube.by + 2.2, 6.2, 4.2);
+  c.strokeStyle = '#6a6858';
+  c.lineWidth = 0.55;
+  c.beginPath(); c.moveTo(tube.bx - 4.5, tube.by + 3.8); c.lineTo(tube.bx + 0.5, tube.by + 3.8); c.stroke();
+  c.strokeStyle = 'rgba(200,198,180,0.75)';
+  c.lineWidth = 0.5;
+  c.strokeRect(tube.bx - 4.5, tube.by + 2.7, 2.4, 1.5);
+  drawGrw81Round(c, tube.bx - 3.5, tube.by + 3.4, 0.8, 0.15);
+  drawGrw81Round(c, tube.bx - 1.2, tube.by + 3.6, 0.76, -0.1);
+  drawGrw81Round(c, tube.bx + 0.5, tube.by + 3.2, 0.72, 0.35);
+  c.strokeStyle = '#4a4840';
+  c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(-6.5, -1.5); c.lineTo(-6.5, 3.5); c.lineTo(-4, 3.5); c.stroke();
+  for (const off of [-5.8, -5.1, -4.4]) {
+    drawGrw81Round(c, off, 1.2, 0.55, -0.3);
+  }
+  c.fillStyle = '#3a3c34';
+  c.beginPath(); c.ellipse(fy * 3.2, -fx * 3.2, 2.2, 2.8, face, 0, 7); c.fill();
+  c.strokeStyle = '#2a2c24';
+  c.lineWidth = 0.8;
+  c.stroke();
+  c.fillStyle = '#c8b898';
+  c.beginPath(); c.ellipse(fy * 3.2, -fx * 3.2, 1.2, 1.5, face, 0, 7); c.fill();
+  c.strokeStyle = '#6a5a40';
+  c.lineWidth = 0.45;
+  for (let i = -2; i <= 2; i++) {
+    c.beginPath();
+    c.moveTo(fy * 3.2 + i * 0.4, -fx * 3.2 - 1);
+    c.lineTo(fy * 3.2 + i * 0.4, -fx * 3.2 + 1);
+    c.stroke();
+  }
+  c.strokeStyle = '#5a5a50';
+  c.lineWidth = 1.3;
+  c.beginPath(); c.moveTo(-fy * 4.5, fx * 4.5); c.lineTo(-fy * 5.8, fx * 5.8 + 1.5); c.stroke();
+  c.fillStyle = '#6a5a42';
+  c.fillRect(-0.8, 3.5, 1.5, 1.3);
+}
+
+// live flame jet while a flamethrower is spraying
+function drawFlameStream(actor) {
+  if (!actor.flameT || actor.flameT <= 0 || !actor.t.flame) return;
+  const fl = actor.t.flame;
+  const range = unitRange(actor, fl.range) * fogMult();
+  const bearing = actor.face;
+  const fx = Math.cos(bearing), fy = Math.sin(bearing);
+  const nx = actor.x + fx * (actor.t.gun + 1.2);
+  const ny = actor.y + fy * (actor.t.gun + 1.2);
+  const pulse = 0.82 + Math.sin(G.time * 22) * 0.18;
+  const alpha = clamp(actor.flameT / 0.15, 0, 1) * pulse;
+  const reach = range * (0.68 + Math.sin(G.time * 14) * 0.06);
+
+  ctx.save();
+  const tipX = nx + fx * reach * 0.75;
+  const tipY = ny + fy * reach * 0.75;
+  const grad = ctx.createLinearGradient(nx, ny, tipX, tipY);
+  grad.addColorStop(0, `rgba(255,248,180,${0.72 * alpha})`);
+  grad.addColorStop(0.25, `rgba(255,170,50,${0.55 * alpha})`);
+  grad.addColorStop(0.55, `rgba(240,80,20,${0.35 * alpha})`);
+  grad.addColorStop(1, 'rgba(60,25,10,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(nx, ny);
+  ctx.arc(nx, ny, reach, bearing - fl.arc * 0.88, bearing + fl.arc * 0.88);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = `rgba(255,110,25,${0.14 * alpha})`;
+  ctx.beginPath();
+  ctx.moveTo(nx, ny);
+  ctx.arc(nx, ny, reach * 1.05, bearing - fl.arc, bearing + fl.arc);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.globalAlpha = alpha * 0.9;
+  ctx.fillStyle = '#fff8c8';
+  ctx.beginPath(); ctx.arc(nx, ny, 2.8, 0, 7); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 function drawSoldier(a) {
   if (a.prone > 0) {
     drawProneSoldier(a);

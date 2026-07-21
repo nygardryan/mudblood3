@@ -160,3 +160,154 @@ function runWeapon(actor, target, dt, buffs) {
     }
   }
 }
+
+// one tick of flame from `actor` toward its facing: burns EVERYTHING in the
+// cone regardless of side — that's the deal you make with a flamethrower
+function flameSpray(actor, dt) {
+  const fl = actor.t.flame;
+  // fog shortens the stream the same way it shortens acquisition and the
+  // drawn cone — otherwise men burn out past where the flame is rendered
+  const range = unitRange(actor, fl.range) * fogMult();
+
+  actor.flameT = 0.15;
+  markCamoFired(actor);
+  actor.flameSfx = (actor.flameSfx || 0) - dt;
+  if (actor.flameSfx <= 0) { actor.flameSfx = 0.4; SFX.flame(); }
+
+  const nx = actor.x + Math.cos(actor.face) * (actor.t.gun + 1.5);
+  const ny = actor.y + Math.sin(actor.face) * (actor.t.gun + 1.5);
+  if (Math.random() < 0.35) {
+    G.flashes.push({ x: nx, y: ny, r: rand(5, 9), ttl: 0.06, max: 0.06 });
+  }
+
+  // roiling fire particles along the cone
+  for (let i = 0; i < 9; i++) {
+    const a = actor.face + rand(-fl.arc, fl.arc) * 0.85;
+    const d = rand(8, range * 0.95);
+    const ttl = rand(0.12, 0.42);
+    G.particles.push({
+      x: actor.x + Math.cos(a) * d, y: actor.y + Math.sin(a) * d,
+      vx: Math.cos(a) * rand(25, 75) + rand(-12, 12),
+      vy: Math.sin(a) * rand(25, 75) - rand(10, 28),
+      ttl, maxTtl: ttl, grav: -55, size: rand(2.5, 6),
+      kind: 'flame', glow: rand(0.65, 1),
+      color: pick(['#ffe070', '#ff9a2a', '#ffce4a', '#e05818', '#b83a10', '#3a3028']),
+    });
+  }
+  // scorch the earth now and then
+  if (Math.random() < 0.05) {
+    const a = actor.face + rand(-fl.arc, fl.arc) * 0.6;
+    const d = rand(range * 0.4, range);
+    gctx.fillStyle = 'rgba(30,26,18,0.28)';
+    gctx.beginPath();
+    gctx.ellipse(actor.x + Math.cos(a) * d, actor.y + Math.sin(a) * d,
+      rand(4, 9), rand(3, 6), rand(0, 3), 0, 7);
+    gctx.fill();
+  }
+
+  // a veteran keeps the stream on target: burn scales hard with rank
+  const dps = fl.dps * (1 + (actor.rank || 0) * 0.35);
+  const reach2 = (range + 8) * (range + 8);
+  const burn = (a2) => {
+    if (a2 === actor || a2.dead) return;
+    if (dist2(actor, a2) > reach2) return;
+    if (Math.abs(angleDiff(Math.atan2(a2.y - actor.y, a2.x - actor.x), actor.face)) > fl.arc) return;
+    let dmg = dps * dt * rand(0.8, 1.2);
+    if (a2.t.tank) dmg *= 0.6;
+    // creditKill ignores German shooters, so passing actor is always safe
+    if (a2.side === 'us') damageUnit(a2, dmg, actor);
+    else damageEnemy(a2, dmg, actor);
+    // men dive under the fire stream within a second or so
+    tryGoProne(a2, 1.5 * dt);
+  };
+  for (const u of G.units) burn(u);
+  for (const e of G.enemies) burn(e);
+}
+
+// pump-action buckshot: one blast, every enemy caught in the cone takes
+// pellet damage scaled by distance and how centered they are in the spread
+function fireShotgun(actor, buffs) {
+  const sg = actor.t.shotgun;
+  // Rifled Slugs: one solid slug instead of a buckshot pattern — far greater
+  // reach, almost no spread, and it drives the full pellet count into whatever
+  // it lines up on.
+  const slug = actor.side === 'us' && G.cardsOwned && G.cardsOwned.has('rifledslugs');
+  const range = unitRange(actor, sg.range) * fogMult() * (slug ? 1.6 : 1);
+  const baseArc = slug ? sg.arc * 0.55 : sg.arc;
+  const arc = baseArc * (1 + (buffs && buffs.accBonus ? buffs.accBonus * 0.25 : 0));
+  const mx = actor.x + Math.cos(actor.face) * (actor.t.gun + 2);
+  const my = actor.y + Math.sin(actor.face) * (actor.t.gun + 2);
+
+  SFX.shotgun();
+  markCamoFired(actor);
+  actor.shotgunBlastT = 0.12;
+  G.flashes.push({ x: mx, y: my, r: 10, ttl: 0.08, max: 0.08 });
+  const spreadMult = Math.max(0.4, 1 - (actor.rank || 0) * 0.08);
+  if (slug) {
+    // a single tight tracer punching out to full range
+    G.tracers.push({
+      x1: mx, y1: my,
+      x2: actor.x + Math.cos(actor.face) * range, y2: actor.y + Math.sin(actor.face) * range,
+      ttl: 0.06, kind: 'buckshot',
+    });
+  } else {
+    for (let i = 0; i < sg.pellets; i++) {
+      const a = actor.face + rand(-sg.spread * spreadMult, sg.spread * spreadMult);
+      const d = rand(25, range);
+      G.tracers.push({
+        x1: mx, y1: my,
+        x2: actor.x + Math.cos(a) * d, y2: actor.y + Math.sin(a) * d,
+        ttl: 0.05, kind: 'buckshot',
+      });
+    }
+  }
+  for (let i = 0; i < 5; i++) {
+    const a = actor.face + rand(-sg.spread * 0.6 * spreadMult, sg.spread * 0.6 * spreadMult);
+    const ttl = rand(0.08, 0.2);
+    G.particles.push({
+      x: mx + Math.cos(a) * rand(4, 14), y: my + Math.sin(a) * rand(4, 14),
+      vx: Math.cos(a) * rand(35, 70), vy: Math.sin(a) * rand(35, 70) - rand(5, 20),
+      ttl, maxTtl: ttl, grav: 120, size: rand(1.2, 2.2),
+      kind: 'smoke', color: pick(['#d8ccb0', '#c8b898', '#a89878', '#8a7a60']),
+    });
+  }
+  G.particles.push({
+    x: mx + Math.cos(actor.face) * 10, y: my + Math.sin(actor.face) * 10,
+    vx: Math.cos(actor.face) * rand(30, 55), vy: Math.sin(actor.face) * rand(30, 55),
+    ttl: 0.18, grav: 90, size: rand(1.5, 2.5), color: '#c8b898',
+  });
+
+  const rank = actor.rank || 0;
+  // attackers (side 'de') hose defenders in G.units; friendlies hose G.enemies
+  const foes = actor.side === 'de' ? G.units : G.enemies;
+  const reach2 = (range + 8) * (range + 8);
+  for (const e of foes) {
+    if (e.dead || e.y < 0 || e.chute > 0 || isCamouflaged(e)) continue;
+    const d2 = dist2(actor, e);
+    if (d2 > reach2) continue;
+    const d = Math.sqrt(d2);
+    const ang = Math.atan2(e.y - actor.y, e.x - actor.x);
+    const off = Math.abs(angleDiff(ang, actor.face));
+    if (off > arc) continue;
+
+    if (e.prone > 0 && Math.random() < 0.6) {
+      G.particles.push({ x: e.x + rand(-6, 6), y: e.y + 4, vx: rand(-25, 25), vy: rand(-55, -20), ttl: 0.3, grav: 200, size: 1.3, color: '#6e6046' });
+      continue;
+    }
+    if (coverBlock(e)) {
+      G.particles.push({ x: e.x, y: e.y + 6, vx: rand(-20, 20), vy: -40, ttl: 0.3, grav: 150, size: 1.5, color: '#b8a878' });
+      continue;
+    }
+
+    const centered = 1 - off / arc;
+    // a slug barely bleeds off over distance and lands its whole mass on target;
+    // buckshot loses half its punch at max range and only a few pellets connect
+    const falloff = 1 - (d / range) * (slug ? 0.15 : 0.5);
+    const pelletsHit = slug ? sg.pellets * 1.5 : Math.max(1, Math.round(centered * 2.5 + rand(0, sg.pellets * 0.35)));
+    let dmg = sg.dmg * pelletsHit * falloff * (1 + rank * 0.09) * rand(0.9, 1.1);
+    if (e.t.tank) dmg *= 0.06;
+    else if (e.t.apc) dmg *= 0.2;
+    if (e.side === 'us') damageUnit(e, dmg, actor);
+    else damageEnemy(e, dmg, actor);
+  }
+}

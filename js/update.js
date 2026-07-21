@@ -242,58 +242,6 @@ function update(dt) {
   compactInPlace(G.groundMarks, m => m.ttl > 0);
 }
 
-function stampSandbagRubble(s) {
-  gctx.fillStyle = 'rgba(120,105,70,0.5)';
-  gctx.beginPath();
-  gctx.ellipse(s.x, s.y, 20, 9, 0, 0, 7);
-  gctx.fill();
-}
-
-function stampBunkerRubble(b) {
-  // shattered concrete slab plus scattered chunks
-  gctx.fillStyle = 'rgba(105,102,92,0.6)';
-  gctx.beginPath();
-  gctx.ellipse(b.x, b.y, 26, 12, 0, 0, 7);
-  gctx.fill();
-  gctx.fillStyle = 'rgba(80,78,70,0.55)';
-  for (let i = 0; i < 6; i++) {
-    gctx.beginPath();
-    gctx.ellipse(b.x + rand(-22, 22), b.y + rand(-9, 9), rand(3, 7), rand(2, 5), rand(0, 3), 0, 7);
-    gctx.fill();
-  }
-}
-
-function stampWatchtowerRubble(t) {
-  // splintered timber frame collapsed in a heap
-  gctx.fillStyle = 'rgba(80,66,44,0.55)';
-  gctx.beginPath();
-  gctx.ellipse(t.x, t.y, 18, 8, 0, 0, 7);
-  gctx.fill();
-  gctx.strokeStyle = 'rgba(60,48,30,0.6)';
-  gctx.lineWidth = 2;
-  for (let i = 0; i < 4; i++) {
-    const a = rand(0, Math.PI * 2), len = rand(8, 16);
-    gctx.beginPath();
-    gctx.moveTo(t.x, t.y);
-    gctx.lineTo(t.x + Math.cos(a) * len, t.y + Math.sin(a) * len * 0.5);
-    gctx.stroke();
-  }
-}
-
-function stampCamoNestRubble(cn) {
-  // scorched brush and torn netting
-  gctx.fillStyle = 'rgba(45,42,30,0.55)';
-  gctx.beginPath();
-  gctx.ellipse(cn.x, cn.y, 24, 11, 0, 0, 7);
-  gctx.fill();
-  gctx.fillStyle = 'rgba(70,60,40,0.5)';
-  for (let i = 0; i < 5; i++) {
-    gctx.beginPath();
-    gctx.ellipse(cn.x + rand(-18, 18), cn.y + rand(-8, 8), rand(3, 6), rand(2, 4), rand(0, 3), 0, 7);
-    gctx.fill();
-  }
-}
-
 function endRun(won, title, stats) {
   G.over = true;
   running = false;

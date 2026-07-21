@@ -2,6 +2,14 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
+function tutorialScriptActive() {
+  return !!(G && G.tutorial && !G.tutorial.done);
+}
+
+function tutorialCamActive() {
+  return !!(G && G.tutorial && G.tutorial.cam.active);
+}
+
 function setupTutorial1(G) {
   const rifle = makeUnit('rifleman', 300, 470);
   rifle.xp = 1;   // one kill away from PFC: the scripted duel promotes him

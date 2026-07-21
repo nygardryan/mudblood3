@@ -1,6 +1,6 @@
 # Axis unit design guidelines
 
-Two rules of thumb when adding or tuning German (`ENEMY_TYPES`) units in `js/game.js`.
+Two rules of thumb when adding or tuning German (`ENEMY_TYPES`) units in `js/constants.js`.
 
 ---
 

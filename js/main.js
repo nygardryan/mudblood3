@@ -72,7 +72,7 @@ el('menu-btn').addEventListener('click', returnToMenu);
 el('tutorial-complete-btn').addEventListener('click', backToTutorialSelect);
 el('speed-btn').addEventListener('click', cycleSpeed);
 el('pause-btn').addEventListener('click', pauseGame);
-el('start-wave-btn').addEventListener('click', startAxisCombat);
+el('start-wave-btn').addEventListener('click', startAssaultCombat);
 el('pause-resume-btn').addEventListener('click', resumeGame);
 el('pause-codex-btn').addEventListener('click', openCodexFromPause);
 el('pause-menu-btn').addEventListener('click', returnToMenu);

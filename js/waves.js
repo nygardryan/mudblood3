@@ -285,10 +285,6 @@ function assaultDeployMaxY(p) {
   return isParaDropUnit(p.key) ? AXIS_PARA_DROP_MAX_Y : AXIS_DEPLOY_Y;
 }
 
-function axisDeployMaxY(p) {
-  return assaultDeployMaxY(p);
-}
-
 function updateEnemyChute(e, dt) {
   if (!(e.chute > 0)) return;
   e.chute -= dt;
@@ -344,10 +340,6 @@ function landingCraftAt(x, y) {
         y >= c.y - c.h / 2 && y <= c.y + c.h / 2) return c;
   }
   return null;
-}
-
-function onLandingCraftDeck(x, y) {
-  return !!landingCraftAt(x, y);
 }
 
 function updateLandingCraft(dt) {
@@ -427,10 +419,6 @@ function startAssaultCombat() {
   SFX.click();
 }
 
-function startAxisCombat() {
-  startAssaultCombat();
-}
-
 function updateAssaultCombat() {
   if (!G.units.some(u => !u.dead)) { victory(); return; }
   if (G.enemies.some(e => !e.dead)) return;
@@ -442,24 +430,6 @@ function updateAssaultCombat() {
   G.phase = 'build';
   G.landingFire = true;
   clearAxisWaveEffects();
-  if (G.level.landingCraft) resetLandingCraftForWave(G);
+  if (G.level.landingCraft) initLandingCraft(G);
   showBanner('WAVE ' + G.wave + ' - DEPLOY');
-}
-
-function resetLandingCraftForWave(G) {
-  const slots = [
-    { x: lx(-200), y: 42 },
-    { x: lx(-70), y: 36 },
-    { x: lx(70), y: 36 },
-    { x: lx(200), y: 42 },
-  ];
-  G.landingCraft = slots.map(s => ({
-    x: s.x, y: s.y, w: 72, h: 34,
-    state: 'waiting', rampT: 0, shoreY: LANDING_CRAFT_SHORE_Y,
-    onDeck: [],
-  }));
-}
-
-function updateAxisCombat() {
-  updateAssaultCombat();
 }

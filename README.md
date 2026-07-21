@@ -204,7 +204,7 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/ordnance.js` — shells, grenades, rockets & bombs
 - `js/damage.js` — damage & death
 - `js/shooting.js` — shooting
-- `js/targeting.js` — target selection
+- `js/targeting.js` — target selection & range/aura indicator overlays
 - `js/update-friendlies.js` — per-frame friendly unit logic
 - `js/update-enemies.js` — per-frame enemy unit logic
 - `js/tutorial.js` — tutorial scripts
@@ -212,6 +212,7 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/render-units.js` — soldier, kit & weapon drawing
 - `js/render-world.js` — vehicle, emplacement & defense drawing
 - `js/render.js` — scene composition (main draw)
+- `js/camera.js` — view camera: mobile pan/zoom/pinch, world<->screen transforms
 - `js/inspector.js` — hover inspector
 - `js/hud.js` — HUD / DOM panels
 - `js/input.js` — placement & pointer/keyboard input

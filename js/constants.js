@@ -32,6 +32,11 @@ const CAMONEST_EXPLOSIVE_MULT = 1.2;    // weak to explosives — no reduction l
 const GRENADE_CATCH_RANGE = 34;         // how close a grenadier must be to a landed enemy grenade to heave it back
 const V2_ROCKET_ARC = 130;              // cruise altitude of the V2 warhead between boost and terminal dive
 
+// engine pacing
+const HUD_INTERVAL = 0.1;         // seconds between DOM HUD refreshes
+const AURA_CACHE_INTERVAL = 0.4;  // seconds between officer/watchtower aura cache rebuilds
+const PARTICLE_CAP = 250;
+
 const UNIT_TYPES = {
   rifleman: {
     name: 'Rifleman', hp: 100, range: 154, dmg: 13, acc: 0.55,

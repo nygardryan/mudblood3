@@ -31,6 +31,40 @@ function showForwardLine() {
   return G && G.mode !== 'hitsquad' && !isAssaultMode();
 }
 
+function unitAtWorld(x, y) {
+  if (!G || isAssaultMode()) return null;
+  for (const u of commandRoster()) {
+    const base = u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.gunEmplacement ? 18 : 14;
+    if (dist(u, { x, y }) < touchHitRadius(base)) return u;
+  }
+  return null;
+}
+
+// nearest live enemy under a tap, for focus-fire orders (normal defense modes)
+function enemyAtWorld(x, y) {
+  if (!G || isAssaultMode()) return null;
+  let best = null, bd = Infinity;
+  for (const e of G.enemies) {
+    if (e.dead || e.y < 0 || e.chute > 0) continue;
+    const base = e.t.tank ? 26 : e.t.apc ? 22 : e.t.vehicle || e.t.bike ? 20
+               : e.t.v2 ? 24 : 14;
+    const d = dist(e, { x, y });
+    if (d < touchHitRadius(base) && d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+
+const officerCount = () => {
+  if (isAssaultMode()) {
+    return G.enemies.filter(e => !e.dead && (e.type === 'officer' || e.type === 'eoff')).length;
+  }
+  // count live officers directly — G.usOfficers is a 0.4s aura cache that lags
+  // behind fresh placements, which would let a placement burst slip past the cap
+  return G ? G.units.filter(u => !u.dead && u.type === 'officer').length : 0;
+};
+
+const officerLimit = () => (G && G.cardsOwned && G.cardsOwned.has('officercorps')) ? 10 : MAX_OFFICERS;
+
 function attackerTypeStats(p) {
   if (p.kind === 'aunit') return UNIT_TYPES[p.key];
   if (p.kind === 'eparadrop') return ENEMY_TYPES.erifle;
@@ -613,7 +647,7 @@ document.addEventListener('keydown', e => {
   }
   if (inBuildPhase() && (e.key === 'Enter' || e.key === ' ')) {
     e.preventDefault();
-    startAxisCombat();
+    startAssaultCombat();
     return;
   }
   const k = e.key.toUpperCase();

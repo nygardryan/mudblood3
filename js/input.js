@@ -145,7 +145,9 @@ function place(p, x, y) {
   mobileVibrate(8);
 
   if (p.kind === 'unit') {
-    G.units.push(makeUnit(p.key, x, y));
+    const u = makeUnit(p.key, x, y);
+    if (u.t.tank || u.t.vehicle) SFX.motor();   // engine turns over as armor rolls on
+    G.units.push(u);
   } else if (p.kind === 'eparadrop') {
     placeAxisParatrooper(x, y);
   } else if (p.kind === 'aunit') {

@@ -141,6 +141,8 @@ function drawProneSoldier(a) {
     c.restore();
     c.fillStyle = '#4a4a42';
     c.beginPath(); c.arc(gunX + 1.5, 2.2, 1.6, 0, 7); c.fill();
+  } else if (a.type === 'medic' && !a.armed) {
+    // an unarmed medic carries no weapon — draw nothing
   } else if (!isSniper) {
     c.strokeStyle = '#26261e';
     c.lineWidth = isEmg ? 2.6 : isBar ? 2.2 : isShot ? 2.8 : isGren ? 2 : 1.8;
@@ -2341,6 +2343,8 @@ function drawSoldier(a) {
     drawSidearm(c, fx, fy, gunLen, a.face, false);
   } else if (type === 'officer' || isMortar) {
     drawSidearm(c, fx, fy, gunLen, a.face, us);
+  } else if (type === 'medic' && !a.armed) {
+    // an unarmed medic carries no weapon — draw nothing
   } else {
     c.strokeStyle = '#26261e';
     c.lineWidth = isSMG ? 2.6 : 2;

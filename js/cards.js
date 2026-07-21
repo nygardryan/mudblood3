@@ -136,7 +136,9 @@ const CARD_COMMON_TEMPLATES = {
     name: 'Standard Issue', cost: 6, weight: 2,
     excludes: ['rifleman', 'gunner', 'grenadier', 'shotgunner', 'bazooka',
       'mortarman', 'sniper', 'flamer', 'jeep', 'sherman', 'atgun', 'aagun'],
-    desc: t => `Arms the ${t.name.toLowerCase()} with a full M1 rifle in place of their weak sidearm — longer range, harder hits.`,
+    desc: (t, type) => type === 'medic'
+      ? `Arms the medic with a full M1 rifle — a healer who can fight back.`
+      : `Arms the ${t.name.toLowerCase()} with a full M1 rifle in place of their weak sidearm — longer range, harder hits.`,
     hooks: type => ({}),
   },
   // medal price runs opposite the unit's TP cost: a discount on a 3 TP
@@ -166,7 +168,6 @@ const CARD_UNIQUES = {
       onDeath: u => {
         const gt = nearestEnemyInRange(u, 220 * fogMult());
         if (!gt) return;
-        SFX.grenadeToss();
         G.grenades.push({
           x: u.x, y: u.y,
           tx: gt.x + rand(-14, 14), ty: gt.y + rand(-14, 14),

@@ -28,6 +28,7 @@ const PARA_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];
 
 function triggerParadrop() {
   showBanner('FALLSCHIRMJÄGER! PARATROOPERS!');
+  SFX.alarm();
   spawnTransportFlyby();
   const w = G.wave;
   const pool = PARA_POOL.slice();
@@ -52,6 +53,7 @@ function triggerParadrop() {
 function triggerAirRaid(w) {
   const cfg = raidForWave(w);
   showBanner(w >= 40 ? 'HEAVY BOMBER RAID!' : w >= 20 ? 'BOMBERS INBOUND!' : 'AIR RAID! TAKE COVER!');
+  SFX.alarm();
   SFX.planeFlyby();
 
   // spread the formation across the field in lanes, then jitter so it doesn't
@@ -101,13 +103,16 @@ function runEvent(ev, w) {
     triggerParadrop();
   } else if (ev === 'fog') {
     showBanner('FOG ROLLS IN');
+    SFX.event();
     G.fog = 25.3;
   } else if (ev === 'fng') {
     showBanner('REINFORCEMENTS: FNG REPORTING');
+    SFX.event();
     const u = makeUnit('rifleman', rand(100, W - 100), rand(H - 90, H - 40));
     G.units.push(u);
   } else if (ev === 'airstrike') {
     showBanner('P-47 STRAFING RUN!');
+    SFX.event();
     spawnStrafeRun(rand(120, W - 120));
   }
 }

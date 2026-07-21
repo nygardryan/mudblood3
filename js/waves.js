@@ -368,7 +368,6 @@ function updateLandingCraft(dt) {
         c.y = c.shoreY;
         c.state = 'ramp';
         c.rampT = 0;
-        SFX.brake();
       }
     } else if (c.state === 'ramp') {
       anyRamping = true;

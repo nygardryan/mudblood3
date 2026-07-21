@@ -1542,32 +1542,60 @@ body {
   display: flex;
   gap: 14px;
   align-items: flex-start;
-  background: rgba(20, 20, 12, 0.55);
+  background:
+    linear-gradient(180deg, rgba(38, 36, 22, 0.7), rgba(18, 18, 11, 0.7));
   border: 1px solid #3a3828;
-  padding: 10px 12px;
+  border-left: 3px solid #6a6544;
+  padding: 12px 14px;
   margin-bottom: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.codex-entry:hover {
+  border-color: #4a4836;
+  border-left-color: #ffd94a;
+  background:
+    linear-gradient(180deg, rgba(46, 43, 24, 0.75), rgba(20, 20, 12, 0.75));
+}
+.codex-entry-us { border-left-color: #7c9a5a; }
+.codex-entry-de { border-left-color: #a85a4a; }
+.codex-frame {
+  flex-shrink: 0;
+  padding: 3px;
+  background: #14140c;
+  border: 1px solid #4a4836;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
 }
 .codex-portrait {
-  flex-shrink: 0;
+  display: block;
   width: 72px;
   height: 72px;
   background: #2a2a1e;
-  border: 1px solid #4a4836;
   image-rendering: pixelated;
 }
 .codex-body { flex: 1; min-width: 0; }
 .codex-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: bold;
   color: #ffd94a;
   letter-spacing: 1px;
-  margin-bottom: 4px;
+  margin-bottom: 7px;
 }
 .codex-stats {
-  font-size: 11px;
-  color: #8a8668;
-  margin-bottom: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 5px;
+  margin-bottom: 8px;
+}
+.codex-chip {
+  font-size: 10px;
+  font-weight: bold;
   letter-spacing: 0.5px;
+  color: #c9c19a;
+  background: rgba(10, 10, 6, 0.5);
+  border: none;
+  border-left: 2px solid #6a6544;
+  padding: 2px 7px;
+  white-space: nowrap;
 }
 .codex-desc {
   font-size: 12px;
@@ -1588,6 +1616,178 @@ body {
   min-height: 32px;
 }
 .codex-play-btn:hover { border-color: #ffd94a; color: #ffd94a; }
+
+/* ---- Codex veterancy panel ---- */
+.codex-vet-toggle {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: flex-start;
+  background: #262417;
+  border: 1px solid #4a4836;
+  border-radius: 0;
+  padding: 8px 12px;
+  color: #c9c19a;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  min-height: 34px;
+}
+.codex-vet-toggle:hover { border-color: #ffd94a; color: #ffd94a; }
+.codex-vet-toggle.open {
+  border-color: #7a6a2a;
+  color: #ffd94a;
+  background: #302b16;
+}
+.codex-vet-toggle .chev {
+  display: inline-block;
+  transition: transform 0.15s;
+  color: #ffd94a;
+}
+.codex-vet-toggle.open .chev { transform: rotate(90deg); }
+.codex-vet {
+  margin-top: 8px;
+  padding: 10px;
+  background: rgba(8, 8, 4, 0.5);
+  border: 1px solid #3a3828;
+}
+.codex-vet.hidden { display: none; }
+.vet-ladder {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #302e20;
+}
+.vet-ladder::-webkit-scrollbar { height: 5px; }
+.vet-ladder::-webkit-scrollbar-thumb { background: #4a4836; border-radius: 3px; }
+.vet-rank {
+  flex: 1 0 auto;
+  min-width: 46px;
+  text-align: center;
+  padding: 4px 4px 6px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid #322f22;
+}
+.vet-rank-max {
+  border-bottom-color: #7a6a2a;
+}
+.vet-rank canvas {
+  display: block;
+  margin: 0 auto 3px;
+  image-rendering: pixelated;
+}
+.vet-rank-name {
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: #ffd94a;
+}
+.vet-rank-max .vet-rank-name { color: #ffe98a; }
+.vet-rank-kills {
+  font-size: 8px;
+  letter-spacing: 0.5px;
+  color: #7a7660;
+  margin-top: 2px;
+}
+.vet-gains {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.vet-gain {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 4px;
+  font-size: 11px;
+  border-bottom: 1px solid rgba(58, 56, 40, 0.5);
+}
+.vet-gain:last-child { border-bottom: none; }
+.vet-gain-label { color: #d8d2b8; }
+.vet-gain-sig .vet-gain-label {
+  color: #ffe98a;
+  display: inline-flex;
+  align-items: center;
+}
+.vet-gain-badge {
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+.vet-gain-per {
+  color: #7c9a5a;
+  font-weight: bold;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.vet-gain-max {
+  color: #8a8668;
+  font-size: 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ---- Codex fortification tiers ---- */
+.fort-grid {
+  display: grid;
+  grid-template-columns: minmax(84px, 1.1fr) 1fr 1fr 1fr;
+  gap: 2px 4px;
+  align-items: center;
+}
+.fort-corner { min-height: 1px; }
+.fort-head {
+  text-align: center;
+  padding: 4px 2px 6px;
+  border-bottom: 2px solid #322f22;
+}
+.fort-head-max { border-bottom-color: #7a6a2a; }
+.fort-head canvas {
+  display: block;
+  margin: 0 auto 3px;
+  image-rendering: pixelated;
+}
+.fort-head-name {
+  font-size: 9.5px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  color: #c9c19a;
+}
+.fort-head-max .fort-head-name { color: #ffe98a; }
+.fort-head-how {
+  font-size: 8px;
+  letter-spacing: 0.3px;
+  color: #7a7660;
+  margin-top: 2px;
+}
+.fort-rowlabel {
+  font-size: 11px;
+  color: #d8d2b8;
+  padding: 4px 2px;
+  border-bottom: 1px solid rgba(58, 56, 40, 0.5);
+}
+.fort-val {
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+  color: #8a8668;
+  padding: 4px 2px;
+  border-bottom: 1px solid rgba(58, 56, 40, 0.5);
+}
+.fort-val-max { color: #ffd94a; }
+.fort-grid > .fort-rowlabel:nth-last-child(4),
+.fort-grid > .fort-val:nth-last-child(3),
+.fort-grid > .fort-val:nth-last-child(2),
+.fort-grid > .fort-val:last-child { border-bottom: none; }
 #codex-back-btn {
   flex-shrink: 0;
   font-size: 14px;

@@ -75,8 +75,11 @@ function unitTPValue(u) {
 function trackAlliedLoss(u) {
   if (G.mode !== 'endless' || u.side !== 'us') return;
   G.catchupDebt += unitTPValue(u);
+  let refunded = false;
   while (G.catchupDebt >= 5) {
     G.catchupDebt -= 5;
     earnTP(1, 'catchup');
+    refunded = true;
   }
+  if (refunded) SFX.cash();   // salvage pay ping when losses buy back some TP
 }

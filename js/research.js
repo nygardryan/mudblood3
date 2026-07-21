@@ -184,7 +184,7 @@ function buildAxisResearchUI() {
       btn.disabled = data.rp < cost;
       btn.addEventListener('click', () => {
         if (buyAxisResearch(key)) {
-          SFX.click();
+          SFX.cash();
           buildAxisResearchUI();
           syncAxisRPDisplays();
         }

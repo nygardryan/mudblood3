@@ -214,7 +214,6 @@ function updateUnit(u, dt) {
       g.ty = ry + rand(-sc, sc);
       u.grenThrowT = 0.35;
       markCamoFired(u);
-      SFX.grenadeToss();
       G.texts.push({ x: u.x, y: u.y - 18, text: 'THROWN BACK!', ttl: 1.6 });
       break;
     }
@@ -229,7 +228,6 @@ function updateUnit(u, dt) {
         u.grenCd = rand(9.6, 13.9) * (1 - u.rank * 0.08);
         u.grenThrowT = 0.35;
         markCamoFired(u);
-        SFX.grenadeToss();
         const sc = 12 * (1 - u.rank * 0.08);
         G.grenades.push({
           x: u.x, y: u.y,
@@ -313,6 +311,7 @@ function updateUnit(u, dt) {
         const amt = Math.min(worst.maxhp - worst.hp, 3 + u.rank * 1.2);
         worst.hp += amt;
         u.healed += amt;
+        SFX.heal();
         // 1 XP per 150 HP patched up — a slow road to sergeant
         if (u.healed >= 150) { u.healed -= 150; gainXP(u); }
         G.particles.push({ x: worst.x + rand(-6, 6), y: worst.y - 10, vx: 0, vy: -18, ttl: 0.5, grav: 0, size: 1.6, color: '#8fe08f' });

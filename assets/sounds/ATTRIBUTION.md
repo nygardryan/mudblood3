@@ -10,7 +10,7 @@ Recorded gunfire (Springfield 1917, Mosin Nagant, Colt 1911, PPSh-41, Winchester
 
 **Kenney — Sci-Fi Sounds**  
 https://opengameart.org/content/sci-fi-sounds  
-Explosions, engines, vehicle brakes, metal impacts.
+Explosions, engines, metal impacts.
 
 **Guialgarve — Flamethrower (Freesound, CC0)**  
 https://freesound.org/people/Guialgarve/sounds/572395/  

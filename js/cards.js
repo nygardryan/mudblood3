@@ -168,7 +168,6 @@ const CARD_UNIQUES = {
       onDeath: u => {
         const gt = nearestEnemyInRange(u, 220 * fogMult());
         if (!gt) return;
-        SFX.grenadeToss();
         G.grenades.push({
           x: u.x, y: u.y,
           tx: gt.x + rand(-14, 14), ty: gt.y + rand(-14, 14),

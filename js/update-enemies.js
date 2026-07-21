@@ -132,7 +132,6 @@ function updateEnemy(e, dt) {
     if (gt && e.grenCd <= 0) {
       e.grenCd = rand(4.5, 6.5);
       e.grenThrowT = 0.35;
-      SFX.grenadeToss();
       G.grenades.push({
         x: e.x, y: e.y,
         tx: gt.x + rand(-14, 14), ty: gt.y + rand(-14, 14),
@@ -362,7 +361,6 @@ function updateHalftrack(e, dt) {
     // rifle distance of a defender: halt and unload the whole squad
     if (nearestUnitInRange(e, 230 * fogMult())) {
       e.unloaded = true;
-      SFX.brake();
       for (let i = 0; i < 6; i++) {
         const crew = makeEnemy(pick(BIKE_CREW_POOL),
           clamp(e.x + rand(-28, 28), 14, W - 14), e.y + rand(-18, 14));
@@ -393,7 +391,6 @@ function updateHalftrack(e, dt) {
 function dismountBike(e) {
   e.dead = true;            // the vehicle leaves play; not a kill, no reward
   stampBike(e, false);
-  SFX.brake();
   // two-man crew, each a random trooper type
   for (const off of [-13, 13]) {
     const crew = makeEnemy(pick(BIKE_CREW_POOL),

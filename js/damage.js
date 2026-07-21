@@ -113,6 +113,7 @@ function damageUnit(u, dmg, from) {
       } else {
         spawnCorpse(u);
         bloodSplat(u.x, u.y, 8);
+        SFX.scream();
       }
       const si = G.selected.indexOf(u);
       if (si !== -1) G.selected.splice(si, 1);
@@ -134,6 +135,7 @@ function gainXP(u) {
     u.rank++;
     const heal = 15 * (u.t.rankHealMult || 1);
     u.hp = Math.min(u.maxhp, u.hp + heal);   // a promotion is good for morale
+    if (u.side === 'us') SFX.promote();
     G.texts.push({ x: u.x, y: u.y - 22, text: 'PROMOTED: ' + next.name, ttl: 2.4 });
   }
 }
@@ -152,6 +154,7 @@ function rankUpUnit(u) {
   u.xp = Math.max(u.xp, next.kills * rankMult);
   const heal = 15 * (u.t.rankHealMult || 1);
   u.hp = Math.min(u.maxhp, u.hp + heal);
+  SFX.promote();
   G.texts.push({ x: u.x, y: u.y - 22, text: 'PROMOTED: ' + next.name, ttl: 2.4 });
 }
 
@@ -224,6 +227,7 @@ function damageEnemy(e, dmg, from) {
     } else {
       spawnCorpse(e);
       bloodSplat(e.x, e.y, 8);
+      SFX.scream();
     }
     // hit-squad mode: drop the fallen man from the player's selection
     const si = G.selected.indexOf(e);

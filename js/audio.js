@@ -11,16 +11,22 @@ const SFX = (() => {
     shotgun:      ['shotgun_1.ogg', 'shotgun_2.ogg', 'shotgun_3.ogg'],
     boomSmall:    ['boom_small_1.ogg', 'boom_small_2.ogg', 'boom_small_3.ogg'],
     boomBig:      ['boom_big_1.ogg', 'boom_big_2.ogg'],
-    grenadeToss:  ['grenade_toss_1.ogg', 'grenade_toss_2.ogg', 'grenade_toss_3.ogg'],
     rocket:       ['rocket_1.ogg', 'rocket_2.ogg', 'rocket_3.ogg'],
     plane:        ['plane_1.ogg', 'plane_2.ogg'],
     planeFlyby:   ['plane_flyby_1.ogg', 'plane_flyby_2.ogg'],
-    brake:        ['brake_1.ogg'],
     flame:        ['flame_1.ogg', 'flame_2.ogg'],
     thunk:        ['thunk_1.ogg'],
     click:        ['click_1.ogg', 'click_2.ogg'],
     error:        ['error_1.ogg'],
     hammer:       ['hammer_1.ogg'],
+    scream:       ['scream_1.ogg', 'scream_2.ogg', 'scream_3.ogg'],
+    heal:         ['heal_1.ogg', 'heal_2.ogg'],
+    cash:         ['cash_1.ogg', 'cash_2.ogg'],
+    promote:      ['promote_1.ogg', 'promote_2.ogg'],
+    alarm:        ['alarm_1.ogg', 'alarm_2.ogg'],
+    whistle:      ['whistle_1.ogg', 'whistle_2.ogg', 'whistle_3.ogg'],
+    motor:        ['motor_1.ogg', 'motor_2.ogg'],
+    event:        ['event_1.ogg'],
   };
   let master = null;
   let noiseBuf = null;
@@ -94,6 +100,17 @@ const SFX = (() => {
 
   function pick(list) {
     return list[Math.floor(Math.random() * list.length)];
+  }
+
+  // rate-limit spammy cues (many men die in a single blast, many medics tick
+  // at once) so they layer into a single readable hit instead of a wall of noise
+  const cooldowns = new Map();
+  function throttled(key, minGap) {
+    const now = audioCtx ? audioCtx.currentTime : 0;
+    const last = cooldowns.get(key) ?? -1e9;
+    if (now - last < minGap) return false;
+    cooldowns.set(key, now);
+    return true;
   }
 
   function playClip(group, opts = {}) {
@@ -194,7 +211,6 @@ const SFX = (() => {
         tone(big ? 55 : 75, big ? 0.7 : 0.45, v * 0.6, 'sine', 30);
       }, { vol: big ? 1 : 0.85, jitter: true });
     },
-    grenadeToss() { playOrSynth('grenadeToss', () => tone(500, 0.1, 0.06, 'triangle', 700), { vol: 0.7, jitter: true }); },
     rocket() {
       playOrSynth('rocket', () => { noise(0.35, 0.4, 'bandpass', 900, 1, 0.4); tone(300, 0.35, 0.1, 'sawtooth', 90); }, { vol: 0.8, jitter: true });
     },
@@ -220,9 +236,42 @@ const SFX = (() => {
         noise(1.2, 0.1, 'bandpass', 400 + Math.random() * 200, 1, 1.1);
       }, { vol: 0.72, jitter: true });
     },
-    brake() {
-      playOrSynth('brake', () => { tone(900, 0.25, 0.07, 'sawtooth', 250); noise(0.2, 0.12, 'bandpass', 1800, 2, 0.22); }, { vol: 0.55 });
-    },
     hammer() { playOrSynth('hammer', () => { tone(1100 + Math.random() * 300, 0.04, 0.08, 'square'); noise(0.03, 0.1, 'highpass', 3000, 1, 0.04); }, { vol: 0.7 }); },
+
+    // casualty scream on infantry death. Throttled and rolled so a blast that
+    // drops a whole squad reads as one or two cries, not a chorus.
+    scream() {
+      if (Math.random() > 0.6 || !throttled('scream', 0.2)) return;
+      playOrSynth('scream', () => { tone(320, 0.35, 0.2, 'sawtooth', 130); noise(0.2, 0.08, 'bandpass', 900, 2, 0.25); }, { vol: 0.5, jitter: true });
+    },
+    // medic patching a wounded man — throttled so a cluster of medics is one cue
+    heal() {
+      if (!throttled('heal', 0.5)) return;
+      playOrSynth('heal', () => { tone(660, 0.14, 0.09, 'sine', 990); tone(990, 0.12, 0.06, 'sine'); }, { vol: 0.42 });
+    },
+    // points/pickup ping for a payout moment (research buy, catch-up refund)
+    cash() { playOrSynth('cash', () => { tone(1200, 0.07, 0.1, 'square'); tone(1800, 0.09, 0.08, 'square'); }, { vol: 0.6 }); },
+    // promotion fanfare when a unit earns a new rank
+    promote() {
+      if (!throttled('promote', 0.15)) return;
+      playOrSynth('promote', () => { tone(523, 0.1, 0.12, 'triangle'); tone(659, 0.1, 0.12, 'triangle'); tone(784, 0.18, 0.12, 'triangle'); }, { vol: 0.6, jitter: true });
+    },
+    // klaxon warning for a major inbound threat (air raid, paratroopers)
+    alarm() {
+      if (!throttled('alarm', 1.2)) return;
+      playOrSynth('alarm', () => { tone(680, 0.3, 0.14, 'sawtooth', 460); tone(680, 0.3, 0.12, 'sawtooth', 460); }, { vol: 0.5 });
+    },
+    // incoming-shell whistle as ordnance arcs toward the field
+    whistle() {
+      if (!throttled('whistle', 0.45)) return;
+      playOrSynth('whistle', () => { tone(1800, 0.6, 0.1, 'sine', 500); }, { vol: 0.5, jitter: true });
+    },
+    // engine turn-over when an armored unit or vehicle deploys
+    motor() { playOrSynth('motor', () => { tone(90, 0.5, 0.14, 'sawtooth', 130); noise(0.4, 0.08, 'lowpass', 500, 0.7, 0.5); }, { vol: 0.5, jitter: true }); },
+    // stinger for a battlefield event banner (fog, reinforcements, strafing run)
+    event() {
+      if (!throttled('event', 0.5)) return;
+      playOrSynth('event', () => { tone(440, 0.12, 0.1, 'triangle'); tone(587, 0.16, 0.1, 'triangle'); }, { vol: 0.6 });
+    },
   };
 })();

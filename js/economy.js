@@ -7,8 +7,10 @@
 // always save toward big-ticket AT purchases, scaled only by difficulty.
 // Kill bounties are pocket change by design — they carry the war-economy
 // attrition (a smooth decay that reaches the 10% floor by wave 200) plus
-// the endless-wide 75% cut from the unit-count reduction pass. Campaign
-// levels pay full rate either way. G.tp holds fractions; the HUD floors it.
+// the endless-wide 50% cut from the unit-count reduction pass (raised from a
+// 75% cut in the income-rebalance pass, so the player has more to experiment
+// with early). Campaign levels pay full rate either way. G.tp holds
+// fractions; the HUD floors it.
 const KILL_TP_MULT = 1.15;   // small across-the-board bump to kill bounties
 const KILL_DECAY_FLOOR_WAVE = 200;
 const KILL_DECAY_RATE = Math.pow(0.1, 1 / KILL_DECAY_FLOOR_WAVE);
@@ -24,7 +26,7 @@ function earnTP(amount, kind = 'kill') {
       const floorWave = warBonds ? KILL_DECAY_FLOOR_WAVE_WARBONDS : KILL_DECAY_FLOOR_WAVE;
       const rate = warBonds ? KILL_DECAY_RATE_WARBONDS : KILL_DECAY_RATE;
       mult *= G.wave >= floorWave ? 0.1 : Math.max(0.1, Math.pow(rate, G.wave));
-      mult *= 0.25;
+      mult *= 0.5;
     }
   }
   G.tp += amount * mult;

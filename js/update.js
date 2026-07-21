@@ -25,7 +25,7 @@ function update(dt) {
   if (G.mode !== 'hitsquad' && !isAssaultMode()) {
     // TP trickle
     G.tpTrickle -= dt;
-    if (G.tpTrickle <= 0) { G.tpTrickle = 6; earnTP(1, 'steady'); }
+    if (G.tpTrickle <= 0) { G.tpTrickle = 4; earnTP(1, 'steady'); }
 
     // officer TP bonus
     G.officerTick -= dt;

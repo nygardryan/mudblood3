@@ -167,90 +167,94 @@ function emplacementSpec(t) {
 }
 
 const ENEMY_TYPES = {
+  // Axis infantry are rebased to their Allied counterpart's stats with a 10%
+  // edge in the favorable direction (hp/dmg/acc/range/speed up, rof/burstGap
+  // down). Stormtrooper has no direct Allied pair, so it takes a flat +10% over
+  // its old numbers. See docs/axis-units.md.
   erifle: {
-    name: 'Rifleman', hp: 60, speed: 22, range: 141, dmg: 10, acc: 0.42,
-    rof: 1.5, burst: 1, burstGap: 0, reward: 2,
+    name: 'Rifleman', hp: 110, speed: 46, range: 169, dmg: 14, acc: 0.6,
+    rof: 0.79, burst: 1, burstGap: 0, reward: 2,
     color: '#5e5e52', gun: 7, sfx: 'rifle', priority: 1,
   },
   esmg: {
-    name: 'Stormtrooper', hp: 70, speed: 36, range: 87, dmg: 7, acc: 0.42,
-    rof: 1.0, burst: 3, burstGap: 0.08, reward: 2,
+    name: 'Stormtrooper', hp: 77, speed: 40, range: 96, dmg: 8, acc: 0.46,
+    rof: 0.9, burst: 3, burstGap: 0.07, reward: 2,
     color: '#46443a', gun: 6, sfx: 'mg', priority: 1,
   },
   egren: {
-    name: 'Grenadier', hp: 70, speed: 27, range: 101, dmg: 8, acc: 0.385,
-    rof: 1.6, burst: 1, burstGap: 0, reward: 3,
+    name: 'Grenadier', hp: 110, speed: 46, range: 254, dmg: 11, acc: 0.6,
+    rof: 1.08, burst: 1, burstGap: 0, reward: 3,
     color: '#524e3e', gun: 5, sfx: 'pistol', priority: 2, grenade: true,
   },
   emg: {
-    name: 'MG Gunner', hp: 90, speed: 16, range: 184, dmg: 8, acc: 0.33,
-    rof: 1.9, burst: 5, burstGap: 0.08, reward: 3,
+    name: 'MG Gunner', hp: 110, speed: 40, range: 197, dmg: 10, acc: 0.35,
+    rof: 1.22, burst: 7, burstGap: 0.08, reward: 3,
     color: '#484640', gun: 10, sfx: 'mg', priority: 3,
   },
   eoff: {
-    name: 'Officer', hp: 80, speed: 24, range: 94, dmg: 8, acc: 0.45,
-    rof: 1.0, burst: 1, burstGap: 0, reward: 4,
+    name: 'Officer', hp: 105, speed: 48, range: 111, dmg: 10, acc: 0.55,
+    rof: 0.81, burst: 1, burstGap: 0, reward: 4,
     color: '#4a4840', gun: 5, sfx: 'pistol', priority: 5, aura: true,
   },
   esniper: {
-    name: 'Sniper', hp: 55, speed: 14, range: 209, dmg: 39, acc: 0.66,
-    rof: 6.8, burst: 1, burstGap: 0, reward: 4,
+    name: 'Sniper', hp: 94, speed: 42, range: 274, dmg: 51, acc: 0.79,
+    rof: 4.68, burst: 1, burstGap: 0, reward: 4,
     color: '#464438', gun: 12, sfx: 'sniper', priority: 4,
   },
   eflame: {
-    name: 'Flamethrower', hp: 85, speed: 34, range: 80, dmg: 0, acc: 0,
+    name: 'Flamethrower', hp: 143, speed: 42, range: 86, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 4,
     color: '#4a4438', gun: 8, sfx: 'rifle', priority: 3,
-    flame: { range: 80, arc: 0.45, dps: 34 },
+    flame: { range: 86, arc: 0.45, dps: 42 },
     blastResist: 0.5,
   },
   emortar: {
-    name: 'Granatwerfer', hp: 75, speed: 18, range: 80, dmg: 8, acc: 0.45,
-    rof: 1.0, burst: 1, burstGap: 0, reward: 5,
+    name: 'Granatwerfer', hp: 99, speed: 42, range: 97, dmg: 9, acc: 0.52,
+    rof: 0.9, burst: 1, burstGap: 0, reward: 5,
     color: '#504e44', gun: 5, sfx: 'pistol', priority: 3,
-    mortar: { range: 348, min: 118, cdMin: 9, cdMax: 12, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
+    mortar: { range: 383, min: 106, cdMin: 8.1, cdMax: 10.8, r: 44, dmg: 83, flight: 1.4, scatter: 47 },
   },
   ebazooka: {
-    name: 'Panzerfaust', hp: 75, speed: 20, range: 80, dmg: 8, acc: 0.45,
-    rof: 1.0, burst: 1, burstGap: 0, reward: 5,
+    name: 'Panzerfaust', hp: 99, speed: 44, range: 88, dmg: 9, acc: 0.5,
+    rof: 0.9, burst: 1, burstGap: 0, reward: 5,
     color: '#545648', gun: 5, sfx: 'pistol', priority: 4,
-    rocket: { range: 206, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
+    rocket: { range: 267, cdMin: 6.7, cdMax: 9.1, r: 33, dmg: 132, speed: 380, armorMult: 3.0 },
   },
   ebike: {
-    name: 'Kradschützen', hp: 80, speed: 85, range: 0, dmg: 0, acc: 0,
+    name: 'Kradschützen', hp: 88, speed: 94, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 5,
     color: '#55554a', gun: 0, sfx: 'rifle', priority: 2, bike: true,
   },
   ejeep: {
-    name: 'Kübelwagen', hp: 220, speed: 45, range: 188, dmg: 11, acc: 0.38,
-    rof: 2.3, burst: 8, burstGap: 0.07, reward: 8,
+    name: 'Kübelwagen', hp: 275, speed: 121, range: 221, dmg: 14, acc: 0.46,
+    rof: 1.89, burst: 18, burstGap: 0.06, reward: 8,
     color: '#57574a', gun: 14, sfx: 'hmg', priority: 3, vehicle: true,
   },
   ehalftrack: {
-    name: 'Sd.Kfz. 251', hp: 1000, speed: 30, range: 161, dmg: 7, acc: 0.38,
-    rof: 2.2, burst: 6, burstGap: 0.08, reward: 12,
+    name: 'Sd.Kfz. 251', hp: 1100, speed: 33, range: 177, dmg: 8, acc: 0.42,
+    rof: 2.0, burst: 7, burstGap: 0.07, reward: 12,
     color: '#54544a', gun: 16, sfx: 'mg', priority: 3, vehicle: true, apc: true,
   },
   panzer: {
-    name: 'Panzer IV', hp: 1200, speed: 8, range: 228, dmg: 0, acc: 0,
-    rof: 4.5, burst: 1, burstGap: 0, reward: 15, shellDmg: 85,
+    name: 'Panzer IV', hp: 1320, speed: 9, range: 251, dmg: 0, acc: 0,
+    rof: 4.05, burst: 1, burstGap: 0, reward: 15, shellDmg: 94,
     color: '#57574e', gun: 0, sfx: 'boom', priority: 0, tank: true,
     fireCone: { arc: 0.25 },
-    mg: { range: 154, dmg: 7, acc: 0.4, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
+    mg: { range: 169, dmg: 8, acc: 0.44, burst: 7, burstGap: 0.08, gun: 24, sfx: 'mg' },
   },
   estug: {
-    name: 'StuG III', hp: 800, speed: 12, range: 201, dmg: 0, acc: 0,
-    rof: 3.8, burst: 1, burstGap: 0, reward: 12, shellDmg: 95,
+    name: 'StuG III', hp: 880, speed: 13, range: 221, dmg: 0, acc: 0,
+    rof: 3.42, burst: 1, burstGap: 0, reward: 12, shellDmg: 105,
     color: '#4a4a42', gun: 0, sfx: 'boom', priority: 0, tank: true, casemate: true,
     fireCone: { arc: 0.2 },
-    mg: { range: 134, dmg: 6, acc: 0.38, burst: 4, burstGap: 0.08, gun: 20, sfx: 'mg' },
+    mg: { range: 147, dmg: 7, acc: 0.42, burst: 4, burstGap: 0.08, gun: 20, sfx: 'mg' },
   },
   etiger: {
-    name: 'Tiger I', hp: 1800, speed: 5, range: 241, dmg: 0, acc: 0,
-    rof: 5.2, burst: 1, burstGap: 0, reward: 22, shellDmg: 110,
+    name: 'Tiger I', hp: 1980, speed: 6, range: 265, dmg: 0, acc: 0,
+    rof: 4.68, burst: 1, burstGap: 0, reward: 22, shellDmg: 121,
     color: '#3f3f38', gun: 0, sfx: 'boom', priority: 0, tank: true, heavy: true,
     fireCone: { arc: 0.22 },
-    mg: { range: 161, dmg: 8, acc: 0.42, burst: 6, burstGap: 0.08, gun: 26, sfx: 'mg' },
+    mg: { range: 177, dmg: 9, acc: 0.46, burst: 7, burstGap: 0.08, gun: 26, sfx: 'mg' },
   },
   // A20 "V2" battery — a rear-echelon siege weapon, not a soldier. It stakes
   // itself out near the top of the field the instant it spawns and mostly
@@ -259,14 +263,14 @@ const ENEMY_TYPES = {
   // artillery, a bazooka that gets lucky) before its next launch window
   // comes up.
   ev2: {
-    name: 'V2 Rocket Battery', hp: 536, speed: 18, range: 0, dmg: 0, acc: 0,
+    name: 'V2 Rocket Battery', hp: 590, speed: 20, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 60,
     color: '#42463c', gun: 0, sfx: 'boom', priority: 5, fixed: true,
-    // r halved from its original 130 — still levels anything close, but no
-    // longer wipes out a whole line at once. dmg is 95% of a rifleman's 100
-    // hp, so a near-direct hit maims rather than instantly kills, and
+    // +10% pass over its old numbers: dmg (105) now edges just past a rifleman's
+    // 100 hp, so a near-direct hit is lethal to fresh infantry rather than merely
+    // maiming. The r still levels a cluster without wiping a whole line, and
     // armorMult makes it brutal against anything on wheels or tracks.
-    v2: { range: W * 0.625, min: 168, cdMin: 21, cdMax: 30, r: 65, dmg: 95, flight: 3.4, scatter: 70, armorMult: 6 },
+    v2: { range: W * 0.625, min: 151, cdMin: 19, cdMax: 27, r: 72, dmg: 105, flight: 3.1, scatter: 63, armorMult: 6.6 },
   },
 };
 

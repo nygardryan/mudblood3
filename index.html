@@ -51,24 +51,65 @@
     <div id="toolbar" class="hidden"></div>
 
     <div id="intro" class="overlay">
-      <h1>MUD &amp; BLOOD</h1>
-      <h2>An HTML5 tribute to the classic Flash game</h2>
-      <p>France, 1944. Earn <b>Tactical Points (TP)</b> from kills and spend them on men, defenses and fire support. Fire support is <b>dangerous to your own men</b> — so it was in real life.</p>
-      <div class="intro-btns modes">
-        <button id="start-tutorial">TUTORIAL
-          <span class="mode-desc">New to the front? Learn to select, move, and buy units — then hold the line.</span></button>
-        <button id="start-endless">ENDLESS
-          <span class="mode-desc">Hold the line against waves without end. There is no winning — only lasting one more wave.</span></button>
-        <button id="start-allied">ALLIED CAMPAIGN
-          <span class="mode-desc">Six battles from Omaha Beach to Bastogne. Assault with landing craft and per-wave TP, then hold the Bulge.</span></button>
-        <button id="start-axis">AXIS CAMPAIGN
-          <span class="mode-desc">Thirteen historical offensives across Europe. Research units between battles, then assault with per-wave TP.</span></button>
-        <button id="start-commando">COMMANDO CAMPAIGN
-          <span class="mode-desc">Direct-control missions behind enemy lines. Level 1: Hit Squad — kill the marked officer in five minutes.</span></button>
-      </div>
-      <div class="intro-btns">
-        <button id="codex-btn" class="secondary">CODEX</button>
-        <button id="settings-btn" class="secondary">SETTINGS</button>
+      <div class="mm">
+        <header class="mm-head">
+          <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>FIELD MANUAL · FRANCE 1944<span class="mm-eyebrow-mark"></span></div>
+          <h1 class="mm-title">MUD <span class="mm-amp">&amp;</span> BLOOD</h1>
+          <p class="mm-tagline">An HTML5 tribute to the classic Flash game</p>
+          <p class="mm-brief">Earn <b>Tactical Points</b> from kills and spend them on men, defenses and fire support. Fire support is <b>dangerous to your own men</b> — so it was in real life.</p>
+        </header>
+
+        <div class="mm-block">
+          <div class="mm-block-label">QUICK PLAY</div>
+          <div class="mm-grid mm-grid--quick">
+            <button id="start-tutorial" class="mm-card mm-card--tutorial">
+              <span class="mm-card-glyph">✚</span>
+              <span class="mm-card-copy">
+                <span class="mm-card-title">TUTORIAL</span>
+                <span class="mm-card-desc">Learn to select, move, and buy units — then hold the line.</span>
+              </span>
+            </button>
+            <button id="start-endless" class="mm-card mm-card--endless">
+              <span class="mm-card-glyph">∞</span>
+              <span class="mm-card-copy">
+                <span class="mm-card-title">ENDLESS</span>
+                <span class="mm-card-desc">Hold the line against waves without end. Last one more wave.</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mm-block">
+          <div class="mm-block-label">CAMPAIGNS</div>
+          <div class="mm-grid mm-grid--campaign">
+            <button id="start-allied" class="mm-card mm-card--allied">
+              <span class="mm-card-glyph">★</span>
+              <span class="mm-card-copy">
+                <span class="mm-card-title">ALLIED</span>
+                <span class="mm-card-desc">Six battles from Omaha Beach to Bastogne. Assault with landing craft and per-wave TP, then hold the Bulge.</span>
+              </span>
+            </button>
+            <button id="start-axis" class="mm-card mm-card--axis">
+              <span class="mm-card-glyph">✠</span>
+              <span class="mm-card-copy">
+                <span class="mm-card-title">AXIS</span>
+                <span class="mm-card-desc">Thirteen historical offensives across Europe. Research units between battles, then assault with per-wave TP.</span>
+              </span>
+            </button>
+            <button id="start-commando" class="mm-card mm-card--commando">
+              <span class="mm-card-glyph">⚔</span>
+              <span class="mm-card-copy">
+                <span class="mm-card-title">COMMANDO</span>
+                <span class="mm-card-desc">Direct-control missions behind enemy lines. Hit Squad — kill the marked officer in five minutes.</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mm-footer">
+          <button id="codex-btn" class="mm-chip">CODEX</button>
+          <button id="settings-btn" class="mm-chip">SETTINGS</button>
+        </div>
       </div>
     </div>
 

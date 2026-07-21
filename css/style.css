@@ -980,6 +980,199 @@ body {
 }
 .overlay button.secondary:hover { background: #33301d; border-color: #a49f7d; }
 
+/* ---- Main menu redesign (scoped to #intro) ---- */
+#intro {
+  justify-content: flex-start;
+  padding: clamp(14px, 4vw, 36px) clamp(12px, 4vw, 40px);
+  /* faint diagonal field-tarp texture behind the panel */
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 217, 74, 0.02) 0 2px, transparent 2px 9px),
+    radial-gradient(120% 80% at 50% -10%, rgba(184, 53, 43, 0.14), transparent 60%),
+    rgba(8, 8, 4, 0.94);
+}
+#intro .mm {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  margin: auto;
+  padding: clamp(18px, 4vw, 30px) clamp(16px, 4vw, 34px) clamp(20px, 4vw, 30px);
+  border: 1px solid #4a4630;
+  background:
+    linear-gradient(180deg, rgba(28, 27, 18, 0.72), rgba(16, 15, 9, 0.72));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 217, 74, 0.04);
+}
+/* targeting-reticle corner brackets */
+#intro .mm::before,
+#intro .mm::after {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #ffd94a;
+  opacity: 0.55;
+  pointer-events: none;
+}
+#intro .mm::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+#intro .mm::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+
+#intro .mm-head { text-align: center; margin-bottom: clamp(16px, 3.5vw, 24px); }
+#intro .mm-eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: clamp(9px, 2.4vw, 11px);
+  letter-spacing: clamp(2px, 1.4vw, 5px);
+  color: #9a9268;
+  margin-bottom: 10px;
+}
+#intro .mm-eyebrow-mark {
+  height: 1px;
+  width: clamp(16px, 8vw, 54px);
+  background: linear-gradient(90deg, transparent, #6a6444);
+}
+#intro .mm-eyebrow-mark:last-child { background: linear-gradient(90deg, #6a6444, transparent); }
+#intro .mm-title {
+  font-size: clamp(34px, 11vw, 68px);
+  line-height: 0.92;
+  letter-spacing: clamp(3px, 2vw, 12px);
+  color: #b8352b;
+  text-shadow: 3px 3px 0 #000, 0 0 22px rgba(184, 53, 43, 0.35);
+  margin: 0 0 6px;
+  flex-shrink: 0;
+}
+#intro .mm-amp { color: #ffd94a; text-shadow: 3px 3px 0 #000; }
+#intro .mm-tagline {
+  font-size: clamp(11px, 3vw, 14px);
+  color: #8a8668;
+  letter-spacing: 1px;
+  margin: 0 0 12px;
+}
+#intro .mm-brief {
+  font-size: clamp(11px, 2.9vw, 13px);
+  line-height: 1.5;
+  color: #c2bb96;
+  max-width: 500px;
+  margin: 0 auto;
+}
+#intro .mm-brief b { color: #ffd94a; }
+
+#intro .mm-block { margin-bottom: clamp(14px, 3vw, 20px); }
+#intro .mm-block-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(10px, 2.6vw, 12px);
+  letter-spacing: clamp(2px, 1.4vw, 4px);
+  color: #ffd94a;
+  margin-bottom: 10px;
+}
+#intro .mm-block-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 217, 74, 0.4), transparent);
+}
+#intro .mm-grid { display: grid; gap: 10px; }
+#intro .mm-grid--quick { grid-template-columns: 1fr 1fr; }
+#intro .mm-grid--campaign { grid-template-columns: 1fr; }
+
+/* card buttons — override generic .overlay button */
+#intro .mm-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  padding: clamp(11px, 2.8vw, 15px) clamp(12px, 3vw, 18px);
+  background: linear-gradient(180deg, rgba(45, 43, 27, 0.9), rgba(30, 28, 17, 0.9));
+  border: 1px solid #55502f;
+  border-left: 3px solid #7d7444;
+  color: #e6dfb8;
+  cursor: pointer;
+  letter-spacing: normal;
+  font-weight: normal;
+  min-height: 0;
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+#intro .mm-card:hover {
+  background: linear-gradient(180deg, rgba(60, 57, 33, 0.95), rgba(40, 38, 22, 0.95));
+  border-color: #ffd94a;
+  transform: translateX(3px);
+  box-shadow: -3px 0 0 0 rgba(255, 217, 74, 0.35), 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+#intro .mm-card:active { transform: translateX(1px); }
+#intro .mm-card-glyph {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(34px, 9vw, 42px);
+  height: clamp(34px, 9vw, 42px);
+  font-size: clamp(18px, 5vw, 24px);
+  color: #ffd94a;
+  border: 1px solid #55502f;
+  background: rgba(0, 0, 0, 0.28);
+}
+#intro .mm-card-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+#intro .mm-card-title {
+  font-size: clamp(14px, 3.8vw, 18px);
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  color: #ffe27a;
+}
+#intro .mm-card-desc {
+  font-size: clamp(10px, 2.7vw, 11.5px);
+  line-height: 1.4;
+  color: #b7b088;
+}
+/* quick-play cards are compact & stack their glyph above on narrow screens */
+#intro .mm-card--quick { }
+#intro .mm-card--endless .mm-card-glyph { font-size: clamp(22px, 6vw, 30px); }
+
+/* per-mode accent colours */
+#intro .mm-card--allied { border-left-color: #6a9a4a; }
+#intro .mm-card--allied .mm-card-glyph { color: #8fbf5a; border-color: #4d6a30; }
+#intro .mm-card--allied:hover { border-color: #8fbf5a; box-shadow: -3px 0 0 0 rgba(143, 191, 90, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4); }
+#intro .mm-card--axis { border-left-color: #b8352b; }
+#intro .mm-card--axis .mm-card-glyph { color: #d86a5c; border-color: #6a2f28; }
+#intro .mm-card--axis:hover { border-color: #d86a5c; box-shadow: -3px 0 0 0 rgba(216, 106, 92, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4); }
+#intro .mm-card--commando { border-left-color: #9a8bb0; }
+#intro .mm-card--commando .mm-card-glyph { color: #b6a6d0; border-color: #4c4560; }
+#intro .mm-card--commando:hover { border-color: #b6a6d0; box-shadow: -3px 0 0 0 rgba(182, 166, 208, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4); }
+
+#intro .mm-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: clamp(6px, 2vw, 10px);
+}
+#intro .mm-chip {
+  flex: 1;
+  max-width: 200px;
+  padding: clamp(9px, 2.4vw, 11px) 18px;
+  font-size: clamp(12px, 3vw, 14px);
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: #c9c19a;
+  background: rgba(20, 19, 11, 0.9);
+  border: 1px solid #6a6444;
+  cursor: pointer;
+  min-height: 44px;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+#intro .mm-chip:hover { border-color: #ffd94a; color: #ffd94a; background: rgba(35, 33, 18, 0.95); }
+
+/* narrow screens: quick-play cards stack their icon on top for breathing room */
+@media (max-width: 430px) {
+  #intro .mm-grid--quick .mm-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    text-align: left;
+  }
+}
+
 /* ---- Settings ---- */
 #settings {
   justify-content: flex-start;

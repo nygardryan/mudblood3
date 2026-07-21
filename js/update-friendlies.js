@@ -118,6 +118,21 @@ function updateUnit(u, dt) {
   if (u.mortarFireT > 0) u.mortarFireT -= dt;
   if (u.camoExposed > 0) u.camoExposed -= dt;
 
+  // Emergency Repair: check if this unit has the card and trigger regeneration
+  if (u.side === 'us' && u.t.tank && G.cardsOwned && G.cardsOwned.has('emergencyrepair_sherman')) {
+    if (u.emergencyRepairCd > 0) u.emergencyRepairCd -= dt;
+    if (u.hp < u.maxhp * EMERGENCY_REPAIR_HP_THRESHOLD && u.emergencyRepairCd <= 0) {
+      u.hp = Math.min(u.maxhp, u.hp + u.maxhp * EMERGENCY_REPAIR_HP_RESTORE);
+      u.emergencyRepairCd = EMERGENCY_REPAIR_COOLDOWN;
+    }
+  } else if (u.side === 'us' && u.t.vehicle && G.cardsOwned && G.cardsOwned.has('emergencyrepair_jeep')) {
+    if (u.emergencyRepairCd > 0) u.emergencyRepairCd -= dt;
+    if (u.hp < u.maxhp * EMERGENCY_REPAIR_HP_THRESHOLD && u.emergencyRepairCd <= 0) {
+      u.hp = Math.min(u.maxhp, u.hp + u.maxhp * EMERGENCY_REPAIR_HP_RESTORE);
+      u.emergencyRepairCd = EMERGENCY_REPAIR_COOLDOWN;
+    }
+  }
+
   if (u.proneCd > 0) u.proneCd -= dt;
   if (u.prone > 0) {
     // a move order gets him up and running; otherwise he waits it out
@@ -409,7 +424,7 @@ function updateEngineer(u, dt) {
     if (f < empFrac) { empFrac = f; emp = s; }
   });
   if (emp) {
-    const amt = Math.min(emp.maxhp - emp.hp, (8 + u.rank * 2.7) * repairMult);
+    const amt = Math.min(emp.maxhp - emp.hp, (16 + u.rank * 5.4) * repairMult);
     emp.hp += amt;
     credit(amt * 0.5);
     sparks(emp.x, emp.y);
@@ -428,7 +443,7 @@ function updateEngineer(u, dt) {
     if (f < vehFrac) { vehFrac = f; veh = a; }
   }
   if (veh) {
-    const amt = Math.min(veh.maxhp - veh.hp, (0.25 + u.rank * 0.075) * 1.5 * repairMult);
+    const amt = Math.min(veh.maxhp - veh.hp, (0.5 + u.rank * 0.15) * 1.5 * repairMult);
     veh.hp += amt;
     credit(amt * 0.15);
     sparks(veh.x, veh.y);

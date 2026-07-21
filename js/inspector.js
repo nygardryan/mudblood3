@@ -220,12 +220,46 @@ function drawMoveCursorPreview() {
   ctx.globalAlpha = 1;
 }
 
-function withPlacementGhostFilter(valid, drawFn) {
-  ctx.save();
-  ctx.globalAlpha = 0.55;
-  ctx.filter = valid ? 'grayscale(1)' : 'grayscale(1) sepia(1) hue-rotate(320deg) saturate(5)';
-  drawFn();
-  ctx.restore();
+// The placement ghost is tinted with a chained canvas filter (grayscale, plus a
+// red wash when the spot is invalid). ctx.filter is very expensive on mobile
+// GPUs, and re-running it on every animation frame while the ghost follows the
+// finger tanked the framerate. Instead we bake each ghost sprite through the
+// filter into an offscreen canvas once, then blit that cached bitmap each frame.
+const GHOST_BUF_HALF = 72;   // world-space half-extent the buffer covers (fits the largest tank)
+const GHOST_BUF_SS = 3;      // supersample so the bitmap stays crisp when zoomed in
+const _ghostBufCache = new Map();
+
+function clearGhostBufCache() {
+  _ghostBufCache.clear();
+}
+
+// Render `drawFn` (which draws a sprite at world origin 0,0 via the shared draw
+// routines) through the ghost filter into a cached offscreen canvas, keyed by
+// sprite identity + validity. Baked at full alpha; the caller's globalAlpha
+// applies the ghost's translucency at blit time.
+function ghostBuffer(key, valid, drawFn) {
+  const cacheKey = key + '|' + (valid ? 1 : 0);
+  let buf = _ghostBufCache.get(cacheKey);
+  if (buf) return buf;
+  const px = GHOST_BUF_HALF * 2 * GHOST_BUF_SS;
+  buf = document.createElement('canvas');
+  buf.width = px;
+  buf.height = px;
+  const octx = buf.getContext('2d');
+  octx.scale(GHOST_BUF_SS, GHOST_BUF_SS);
+  octx.translate(GHOST_BUF_HALF, GHOST_BUF_HALF);   // sprite origin -> buffer centre
+  octx.filter = valid ? 'grayscale(1)' : 'grayscale(1) sepia(1) hue-rotate(320deg) saturate(5)';
+  // the shared draw routines all render through the module-global `ctx`, so
+  // point it at the offscreen context for the duration of the bake
+  const prevCtx = ctx;
+  ctx = octx;
+  try { drawFn(); } finally { ctx = prevCtx; }
+  _ghostBufCache.set(cacheKey, buf);
+  return buf;
+}
+
+function blitGhostBuffer(buf, x, y) {
+  ctx.drawImage(buf, x - GHOST_BUF_HALF, y - GHOST_BUF_HALF, GHOST_BUF_HALF * 2, GHOST_BUF_HALF * 2);
 }
 
 function drawPlacementActor(a) {
@@ -239,24 +273,29 @@ function drawPlacementActor(a) {
 }
 
 function drawPlacementUnitGhost(p, x, y, valid) {
-  const a = p.kind === 'aunit'
-    ? makeAttacker(levelAttackerNation(G.level), p.key, x, y)
-    : p.kind === 'eunit' ? makeEnemy(p.key, x, y)
-    : p.kind === 'eparadrop' ? makeEnemy('erifle', x, y)
-    : makeUnit(p.key, x, y);
-  a._ghost = true;
-  withPlacementGhostFilter(valid, () => drawPlacementActor(a));
+  const nation = p.kind === 'aunit' ? levelAttackerNation(G.level) : '';
+  const buf = ghostBuffer('unit|' + p.kind + '|' + p.key + '|' + nation, valid, () => {
+    const a = p.kind === 'aunit'
+      ? makeAttacker(nation, p.key, 0, 0)
+      : p.kind === 'eunit' ? makeEnemy(p.key, 0, 0)
+      : p.kind === 'eparadrop' ? makeEnemy('erifle', 0, 0)
+      : makeUnit(p.key, 0, 0);
+    a._ghost = true;
+    drawPlacementActor(a);
+  });
+  blitGhostBuffer(buf, x, y);
 }
 
 function drawPlacementDefenseGhost(key, x, y, valid) {
-  withPlacementGhostFilter(valid, () => {
-    if (key === 'wire') drawWire({ x, y, up: false });
-    else if (key === 'sandbags') drawSandbag({ x, y, up: false });
-    else if (key === 'bunker') drawBunker({ x, y, up: false, hp: BUNKER_HP, maxhp: BUNKER_HP });
-    else if (key === 'watchtower') drawWatchtower({ x, y, up: false, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP });
-    else if (key === 'camonest') drawCamoNest({ x, y, up: false, hp: CAMONEST_HP, maxhp: CAMONEST_HP });
-    else if (key === 'mine') drawMine({ x, y, dead: false });
+  const buf = ghostBuffer('def|' + key, valid, () => {
+    if (key === 'wire') drawWire({ x: 0, y: 0, up: false });
+    else if (key === 'sandbags') drawSandbag({ x: 0, y: 0, up: false });
+    else if (key === 'bunker') drawBunker({ x: 0, y: 0, up: false, hp: BUNKER_HP, maxhp: BUNKER_HP });
+    else if (key === 'watchtower') drawWatchtower({ x: 0, y: 0, up: false, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP });
+    else if (key === 'camonest') drawCamoNest({ x: 0, y: 0, up: false, hp: CAMONEST_HP, maxhp: CAMONEST_HP });
+    else if (key === 'mine') drawMine({ x: 0, y: 0, dead: false });
   });
+  blitGhostBuffer(buf, x, y);
 }
 
 function drawPlacementGhost() {

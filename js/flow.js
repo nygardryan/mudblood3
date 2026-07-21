@@ -399,6 +399,7 @@ function startGame(levelId, difficultyId) {
     ? (ENDLESS_DIFFICULTIES[difficultyId] || ENDLESS_DIFFICULTIES.easy)
     : null;
   SFX.resume();
+  clearGhostBufCache();   // loadout/cards can change a ghost's silhouette between games
   newGame(level, difficulty);
   if (G.tutorial) {
     // each script names its opening focus differently; setup() already framed

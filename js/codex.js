@@ -374,6 +374,414 @@ function renderPortrait(typeKey, side) {
   return pc;
 }
 
+// ---- Veterancy: what each unit actually gains as it climbs the rank ladder.
+// Numbers mirror the live formulas in update-friendlies.js / shooting.js /
+// targeting.js so the codex never lies about a promotion's payoff.
+// Shared benefit lines (the universal small-arms buffs from unitBuffs()):
+const RB = {
+  rof:   { label: 'Rate of fire',   per: '+8% / rank',  max: '+48%' },
+  acc:   { label: 'Accuracy',       per: '+8% / rank',  max: '+48%' },
+  dmg:   { label: 'Damage',         per: '+4% / rank',  max: '+24%' },
+  spd:   { label: 'Movement speed', per: '+4% / rank',  max: '+24%' },
+  reach: { label: 'Weapon reach',   per: '+1% / rank',  max: '+6%'  },
+  cover: { label: 'Shrugs off suppression', per: 'up faster each rank', max: 'back in the fight fast' },
+};
+
+const UNIT_RANK_PERKS = {
+  rifleman:   [RB.rof, RB.acc, RB.dmg, RB.reach, RB.spd, RB.cover],
+  gunner:     [RB.rof, RB.acc, RB.dmg, RB.reach, RB.spd, RB.cover],
+  sniper:     [RB.rof, RB.acc, RB.dmg, RB.reach, RB.spd, RB.cover],
+  grenadier:  [
+    RB.rof, RB.acc, RB.dmg,
+    { label: 'Grenade frequency', per: '+8% / rank',  max: 'thrown far more often' },
+    { label: 'Throwing range',    per: '+10% / rank', max: '+60%' },
+    { label: 'Grenade accuracy',  per: '+8% / rank',  max: '+48%' },
+    { label: 'Grenade damage',    per: '+5% / rank',  max: '+30%' },
+    RB.spd,
+  ],
+  shotgunner: [
+    { label: 'Buckshot reach', per: '+5% / rank', max: '+30%' },
+    { label: 'Tighter spread', per: '+8% / rank', max: '+48%' },
+    RB.rof, RB.spd, RB.cover,
+  ],
+  bazooka:    [
+    { label: 'Reload speed',     per: '+8% / rank', max: 'nearly 2× as fast' },
+    { label: 'Rocket accuracy',  per: '+8% / rank', max: 'much tighter' },
+    { label: 'Rocket damage',    per: '+4% / rank', max: '+24%' },
+    RB.spd,
+  ],
+  mortarman:  [
+    { label: 'Reload speed',    per: '+8% / rank', max: 'nearly 2× as fast' },
+    { label: 'Shell accuracy',  per: '+8% / rank', max: 'tighter grouping' },
+    { label: 'Shell damage',    per: '+5% / rank', max: '+30%' },
+    RB.spd,
+  ],
+  medic:      [
+    { label: 'Healing per pulse', per: '+1.2 HP / rank', max: '3 → 10 HP' },
+    { label: 'Aid range',         per: '+1% / rank',     max: '+6%' },
+    RB.spd, RB.cover,
+  ],
+  engineer:   [
+    { label: 'Repair & fortify rate', per: '+35% / rank', max: 'over 3× faster' },
+    { label: 'Work reach',            per: '+5% / rank',  max: '+30%' },
+    RB.rof, RB.spd,
+  ],
+  officer:    [
+    { label: 'Aura: allied fire rate', per: '+3% / rank',   max: 'men fire much faster' },
+    { label: 'Aura: allied accuracy',  per: '+4% / rank',   max: '+24% straighter' },
+    { label: 'TP income',              per: '+⅓ TP / rank', max: '1 → 3 TP / 30s' },
+    { label: 'Command reach',          per: '+5% / rank',   max: '+30%' },
+  ],
+  flamer:     [
+    { label: 'Burn damage',    per: '+35% / rank', max: '+210%' },
+    { label: 'Flame reach',    per: '+5% / rank',  max: '+30%' },
+    { label: 'Promotion heal', per: '+45 HP',      max: 'flak vest patched up' },
+    RB.spd,
+  ],
+  jeep:       [RB.rof, RB.acc, RB.dmg, RB.spd],
+  sherman:    [
+    { label: 'Reload speed',      per: '+8% / rank', max: 'nearly 2× as fast' },
+    { label: 'Gunnery accuracy',  per: '+8% / rank', max: '+48%' },
+    { label: 'Shell damage',      per: '+6% / rank', max: '+36%' },
+    RB.spd,
+  ],
+  atgun:      [
+    { label: 'Traverse arc',    per: '+3° / rank', max: '+18°' },
+    { label: 'Reload speed',    per: '+8% / rank', max: 'nearly 2× as fast' },
+    { label: 'Shell accuracy',  per: '+8% / rank', max: '+48%' },
+    { label: 'Shell damage',    per: '+6% / rank', max: '+36%' },
+  ],
+  aagun:      [
+    { label: 'Traverse arc',  per: '+3° / rank', max: '+18°' },
+    { label: 'Reload speed',  per: '+8% / rank', max: 'nearly 2× as fast' },
+    { label: 'Flak accuracy', per: '+8% / rank', max: '+48%' },
+    { label: 'Flak damage',   per: '+6% / rank', max: '+36%' },
+  ],
+};
+
+// each unit type's signature veterancy trait: a unique drawn badge pinned to the
+// benefit that defines how ranking up transforms it. `on` names the perk row it
+// marks (its unique specialty for specialists, its defining stat for generalists).
+const UNIT_SIGNATURE = {
+  rifleman:   { on: 'Damage' },
+  gunner:     { on: 'Rate of fire' },
+  sniper:     { on: 'Accuracy' },
+  grenadier:  { on: 'Grenade damage' },
+  shotgunner: { on: 'Buckshot reach' },
+  bazooka:    { on: 'Rocket damage' },
+  mortarman:  { on: 'Shell damage' },
+  medic:      { on: 'Healing per pulse' },
+  engineer:   { on: 'Repair & fortify rate' },
+  officer:    { on: 'Aura: allied fire rate' },
+  flamer:     { on: 'Burn damage' },
+  jeep:       { on: 'Movement speed' },
+  sherman:    { on: 'Shell damage' },
+  atgun:      { on: 'Shell damage' },
+  aagun:      { on: 'Flak damage' },
+};
+
+// a unique 16px insignia per unit type: dark gold-rimmed disc + a distinct
+// gold glyph. Drawn at 2× for crispness; displayed at 16px by the codex CSS.
+function makeSignatureBadge(key) {
+  const S = 16, R = 2;
+  const cv = document.createElement('canvas');
+  cv.width = S * R; cv.height = S * R;
+  const c = cv.getContext('2d');
+  c.scale(R, R);
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+
+  // badge disc
+  c.fillStyle = '#1c1a10';
+  c.beginPath(); c.arc(8, 8, 7.4, 0, 7); c.fill();
+  c.strokeStyle = '#ffd94a'; c.lineWidth = 1;
+  c.beginPath(); c.arc(8, 8, 7, 0, 7); c.stroke();
+
+  const gold = '#ffd94a';
+  c.strokeStyle = gold; c.fillStyle = gold; c.lineWidth = 1.3;
+
+  const line = (x1, y1, x2, y2) => { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); };
+  const dot = (x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); };
+  const ring = (x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.stroke(); };
+  const star = (cx, cy, outer, inner) => {
+    c.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const rr = i % 2 ? inner : outer;
+      const a = -Math.PI / 2 + i * Math.PI / 5;
+      const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+      i ? c.lineTo(x, y) : c.moveTo(x, y);
+    }
+    c.closePath(); c.fill();
+  };
+
+  switch (key) {
+    case 'rifleman':   // rifle
+      c.lineWidth = 1.5; line(4, 11, 13, 5); line(4, 11, 5.5, 12.2); break;
+    case 'gunner':     // automatic burst
+      c.lineWidth = 1.4;
+      for (const yo of [-2.6, 0, 2.6]) { line(3.5, 8 + yo, 9, 8 + yo); dot(11, 8 + yo, 1); }
+      break;
+    case 'sniper':     // crosshair
+      ring(8, 8, 3.4); line(8, 2.6, 8, 13.4); line(2.6, 8, 13.4, 8); break;
+    case 'grenadier':  // frag grenade
+      dot(8, 9.5, 3.3); c.fillRect(7, 3.6, 2, 2.2); c.fillRect(6, 4.2, 4, 1.2); break;
+    case 'shotgunner': // buckshot spread
+      c.lineWidth = 1.3; line(4, 8, 13, 4); line(4, 8, 13.5, 8); line(4, 8, 13, 12); break;
+    case 'bazooka':    // rocket
+      c.fillRect(5, 7, 4.5, 2);
+      c.beginPath(); c.moveTo(9.5, 6.4); c.lineTo(13, 8); c.lineTo(9.5, 9.6); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(5, 6); c.lineTo(3.4, 5); c.lineTo(5, 7); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(5, 10); c.lineTo(3.4, 11); c.lineTo(5, 9); c.closePath(); c.fill();
+      break;
+    case 'mortarman':  // lobbed arc
+      c.lineWidth = 1.3;
+      c.beginPath(); c.moveTo(3, 13); c.quadraticCurveTo(8, 0.5, 13, 13); c.stroke();
+      dot(13, 12, 1.4); break;
+    case 'medic':      // red cross
+      c.fillStyle = '#e2453a'; c.fillRect(7, 4, 2, 8); c.fillRect(4, 7, 8, 2); break;
+    case 'engineer':   // cog
+      ring(8, 8, 2.7);
+      c.lineWidth = 1.4;
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3;
+        line(8 + Math.cos(a) * 3.2, 8 + Math.sin(a) * 3.2, 8 + Math.cos(a) * 5.4, 8 + Math.sin(a) * 5.4);
+      }
+      dot(8, 8, 1); break;
+    case 'officer':    // command star
+      star(8, 8, 5.6, 2.4); break;
+    case 'flamer':     // flame
+      c.beginPath();
+      c.moveTo(8, 2.8);
+      c.quadraticCurveTo(12.5, 8, 8, 13.2);
+      c.quadraticCurveTo(3.5, 8, 8, 2.8);
+      c.fill(); break;
+    case 'jeep':       // wheel + speed lines
+      ring(9.5, 8, 3.2); dot(9.5, 8, 1);
+      c.lineWidth = 1.3; line(1.6, 6, 4.6, 6); line(1.2, 9, 4, 9); break;
+    case 'sherman':    // tank
+      c.fillRect(3, 9, 10, 3); c.fillRect(6, 6, 4, 3); c.fillRect(10, 7, 3.6, 1.4); break;
+    case 'atgun':      // AP shell
+      c.beginPath();
+      c.moveTo(4, 6); c.lineTo(10, 6); c.lineTo(13, 8); c.lineTo(10, 10); c.lineTo(4, 10);
+      c.closePath(); c.fill(); break;
+    case 'aagun':      // flak burst
+      c.lineWidth = 1.2;
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4;
+        line(8 + Math.cos(a) * 1.8, 8 + Math.sin(a) * 1.8, 8 + Math.cos(a) * 5.4, 8 + Math.sin(a) * 5.4);
+      }
+      dot(8, 8, 1.5); break;
+  }
+  return cv;
+}
+
+// kills needed to reach each rank, scaled by the unit's rankMult (a Sherman
+// grinds 2.5× the kills of a rifleman, a jeep 3×) — matches gainXP().
+function unitRankLadder(ut) {
+  const rankMult = ut.tank ? 2.5 : (ut.rankMult || 1);
+  return RANKS.map((r, i) => ({ name: r.name, tier: i, kills: Math.ceil(r.kills * rankMult) }));
+}
+
+// a single rank badge: the game's gold chevrons over the rank name + kill gate
+function makeRankBadge(tier, kills, isMax) {
+  const cv = document.createElement('canvas');
+  const W = 34, H = 15;
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  if (tier === 0) {
+    c.strokeStyle = '#6f6c52';
+    c.lineWidth = 1.4;
+    c.beginPath(); c.moveTo(W / 2 - 5, H / 2); c.lineTo(W / 2 + 5, H / 2); c.stroke();
+  } else {
+    c.strokeStyle = isMax ? '#ffe98a' : '#ffd94a';
+    c.lineWidth = 1.4;
+    c.lineJoin = 'round';
+    const step = 5;
+    let sx = W / 2 - (tier * step - 2) / 2;
+    const sy = H / 2 + 2;
+    for (let i = 0; i < tier; i++) {
+      c.beginPath();
+      c.moveTo(sx, sy);
+      c.lineTo(sx + 1.6, sy - 3.4);
+      c.lineTo(sx + 3.2, sy);
+      c.stroke();
+      sx += step;
+    }
+  }
+  return cv;
+}
+
+function buildVeterancyPanel(key, ut) {
+  const perks = UNIT_RANK_PERKS[key];
+  if (!perks) return null;
+
+  const panel = document.createElement('div');
+  panel.className = 'codex-vet';
+
+  // rank ladder strip
+  const ladder = document.createElement('div');
+  ladder.className = 'vet-ladder';
+  for (const step of unitRankLadder(ut)) {
+    const cell = document.createElement('div');
+    cell.className = 'vet-rank' + (step.tier === RANKS.length - 1 ? ' vet-rank-max' : '');
+    const badge = makeRankBadge(step.tier, step.kills, step.tier === RANKS.length - 1);
+    cell.appendChild(badge);
+    const nm = document.createElement('div');
+    nm.className = 'vet-rank-name';
+    nm.textContent = step.name;
+    const kl = document.createElement('div');
+    kl.className = 'vet-rank-kills';
+    kl.textContent = step.tier === 0 ? 'start' : step.kills + (key === 'medic' ? ' heals' : ' kills');
+    cell.appendChild(nm);
+    cell.appendChild(kl);
+    ladder.appendChild(cell);
+  }
+  panel.appendChild(ladder);
+
+  // per-rank benefit list; the unit's signature trait is flagged with its badge
+  const sig = UNIT_SIGNATURE[key];
+  const gains = document.createElement('div');
+  gains.className = 'vet-gains';
+  for (const perk of perks) {
+    const isSig = sig && sig.on === perk.label;
+    const row = document.createElement('div');
+    row.className = 'vet-gain' + (isSig ? ' vet-gain-sig' : '');
+
+    const label = document.createElement('span');
+    label.className = 'vet-gain-label';
+    label.appendChild(document.createTextNode(perk.label));
+    if (isSig) {
+      const badge = makeSignatureBadge(key);
+      badge.className = 'vet-gain-badge';
+      badge.title = 'Signature trait';
+      label.appendChild(badge);
+    }
+
+    const per = document.createElement('span');
+    per.className = 'vet-gain-per';
+    per.textContent = perk.per;
+    const max = document.createElement('span');
+    max.className = 'vet-gain-max';
+    max.textContent = perk.max;
+
+    row.appendChild(label);
+    row.appendChild(per);
+    row.appendChild(max);
+    gains.appendChild(row);
+  }
+  panel.appendChild(gains);
+  return panel;
+}
+
+// ---- Fortification tiers: what an engineer's work buys each emplacement.
+// Standard (as placed) → Fortified (engineer, ~6s) → Hardened (needs the
+// Hardened Works card). Values mirror shooting.js, update-enemies.js, and the
+// WATCHTOWER/CAMONEST constants; HP compounds by the piece's fortifyMult.
+const FORT_TIERS = {
+  wire: {
+    rows: [
+      { label: 'HP',              v: ['3,750', '5,625', '8,438'] },
+      { label: 'Slows enemy to',  v: ['12% speed', '5% speed', '2% speed'] },
+      { label: 'Wears out',       v: ['fast', 'slower', 'slowest'] },
+    ],
+  },
+  sandbags: {
+    rows: [
+      { label: 'HP',           v: ['660', '990', '1,485'] },
+      { label: 'Dodge chance', v: ['50%', '65%', '78%'] },
+      { label: 'Cover radius', v: ['26', '30', '33'] },
+    ],
+  },
+  bunker: {
+    rows: [
+      { label: 'HP',           v: ['2,040', '3,060', '4,590'] },
+      { label: 'Dodge chance', v: ['75%', '85%', '92%'] },
+      { label: 'Cover radius', v: ['30', '34', '38'] },
+    ],
+  },
+  watchtower: {
+    rows: [
+      { label: 'HP',          v: ['500', '750', '1,125'] },
+      { label: 'Range boost', v: ['+25%', '+35%', '+50%'] },
+    ],
+  },
+  camonest: {
+    rows: [
+      { label: 'HP',                   v: ['280', '560', '1,120'] },
+      { label: 'Exposed after firing', v: ['4 s', '2 s', '1 s'] },
+    ],
+  },
+};
+
+const FORT_TIER_META = [
+  { name: 'STANDARD',  how: 'as placed' },
+  { name: 'FORTIFIED', how: 'engineer' },
+  { name: 'HARDENED',  how: 'Hardened Works' },
+];
+
+// a small stacked-layer badge: filled bars grow with the fortification tier
+function makeFortBadge(tier) {
+  const cv = document.createElement('canvas');
+  const W = 30, H = 15;
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  const fill = ['#6f6c52', '#c9b25a', '#ffd94a'][tier - 1];
+  const bw = 18, x = (W - bw) / 2;
+  for (let i = 0; i < 3; i++) {
+    const y = H - 2 - i * 4;
+    c.fillStyle = i < tier ? fill : 'rgba(90,88,66,0.25)';
+    c.fillRect(x, y - 3, bw, 3);
+  }
+  return cv;
+}
+
+function buildFortPanel(key) {
+  const spec = FORT_TIERS[key];
+  if (!spec) return null;
+
+  const panel = document.createElement('div');
+  panel.className = 'codex-vet codex-fort';
+
+  const grid = document.createElement('div');
+  grid.className = 'fort-grid';
+
+  // header: empty corner, then one column per tier
+  const corner = document.createElement('div');
+  corner.className = 'fort-corner';
+  grid.appendChild(corner);
+  FORT_TIER_META.forEach((meta, i) => {
+    const head = document.createElement('div');
+    head.className = 'fort-head' + (i === 2 ? ' fort-head-max' : '');
+    head.appendChild(makeFortBadge(i + 1));
+    const nm = document.createElement('div');
+    nm.className = 'fort-head-name';
+    nm.textContent = meta.name;
+    const how = document.createElement('div');
+    how.className = 'fort-head-how';
+    how.textContent = meta.how;
+    head.appendChild(nm);
+    head.appendChild(how);
+    grid.appendChild(head);
+  });
+
+  // one row per benefit, three tier values across
+  for (const row of spec.rows) {
+    const label = document.createElement('div');
+    label.className = 'fort-rowlabel';
+    label.textContent = row.label;
+    grid.appendChild(label);
+    row.v.forEach((val, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'fort-val' + (i === 2 ? ' fort-val-max' : '');
+      cell.textContent = val;
+      grid.appendChild(cell);
+    });
+  }
+
+  panel.appendChild(grid);
+  return panel;
+}
+
 function formatUnitStats(p, ut) {
   const parts = [`${ut.hp} HP`];
   if (ut.dmg > 0) parts.push(`${ut.dmg} DMG`);
@@ -446,6 +854,24 @@ function codexEntries(tab) {
   }));
 }
 
+// shared expandable section: a labelled button that shows/hides an info panel.
+// no-op when there's no panel (e.g. a mine or strike, which never upgrades).
+function addCodexCollapsible(body, label, panel) {
+  if (!panel) return;
+  const toggle = document.createElement('button');
+  toggle.className = 'codex-vet-toggle';
+  toggle.innerHTML = `<span class="chev">▸</span> ${label}`;
+  toggle.setAttribute('aria-expanded', 'false');
+  panel.classList.add('hidden');
+  toggle.addEventListener('click', () => {
+    const open = panel.classList.toggle('hidden') === false;
+    toggle.classList.toggle('open', open);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  body.appendChild(toggle);
+  body.appendChild(panel);
+}
+
 function buildCodex(tab) {
   codexTab = tab;
   for (const btn of document.querySelectorAll('.codex-tab')) {
@@ -456,20 +882,40 @@ function buildCodex(tab) {
   for (const entry of codexEntries(tab)) {
     const card = document.createElement('div');
     card.className = 'codex-entry';
+    if (entry.side) card.classList.add('codex-entry-' + entry.side);
 
+    const frame = document.createElement('div');
+    frame.className = 'codex-frame';
     const portrait = document.createElement('canvas');
     portrait.className = 'codex-portrait';
     portrait.width = CODEX_PW;
     portrait.height = CODEX_PH;
     const pctx = portrait.getContext('2d');
     pctx.drawImage(renderPortrait(entry.key, entry.side), 0, 0);
+    frame.appendChild(portrait);
 
     const body = document.createElement('div');
     body.className = 'codex-body';
-    body.innerHTML =
-      `<div class="codex-name">${entry.name}</div>` +
-      `<div class="codex-stats">${entry.stats}</div>` +
-      `<div class="codex-desc">${entry.desc}</div>`;
+
+    const name = document.createElement('div');
+    name.className = 'codex-name';
+    name.textContent = entry.name;
+    body.appendChild(name);
+
+    const stats = document.createElement('div');
+    stats.className = 'codex-stats';
+    for (const part of String(entry.stats).split(' · ')) {
+      const chip = document.createElement('span');
+      chip.className = 'codex-chip';
+      chip.textContent = part;
+      stats.appendChild(chip);
+    }
+    body.appendChild(stats);
+
+    const desc = document.createElement('div');
+    desc.className = 'codex-desc';
+    desc.textContent = entry.desc;
+    body.appendChild(desc);
 
     if (entry.play) {
       const playBtn = document.createElement('button');
@@ -482,7 +928,16 @@ function buildCodex(tab) {
       body.appendChild(playBtn);
     }
 
-    card.appendChild(portrait);
+    // troops earn veterancy; emplacements earn fortification tiers — either way
+    // let players preview exactly what the upgrade buys before committing TP
+    if (tab === 'troops') {
+      addCodexCollapsible(body, 'VETERANCY',
+        buildVeterancyPanel(entry.key, UNIT_TYPES[entry.key]));
+    } else if (tab === 'defenses') {
+      addCodexCollapsible(body, 'FORTIFICATION', buildFortPanel(entry.key));
+    }
+
+    card.appendChild(frame);
     card.appendChild(body);
     list.appendChild(card);
   }

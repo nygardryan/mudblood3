@@ -50,7 +50,7 @@
 
     <div id="toolbar" class="hidden"></div>
 
-    <div id="intro" class="overlay">
+    <div id="intro" class="overlay mm-screen">
       <div class="mm">
         <header class="mm-head">
           <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>FIELD MANUAL · FRANCE 1944<span class="mm-eyebrow-mark"></span></div>
@@ -66,14 +66,14 @@
               <span class="mm-card-glyph">✚</span>
               <span class="mm-card-copy">
                 <span class="mm-card-title">TUTORIAL</span>
-                <span class="mm-card-desc">Learn to select, move, and buy units — then hold the line.</span>
+                <span class="mm-card-desc">Learn the basics.</span>
               </span>
             </button>
             <button id="start-endless" class="mm-card mm-card--endless">
               <span class="mm-card-glyph">∞</span>
               <span class="mm-card-copy">
                 <span class="mm-card-title">ENDLESS</span>
-                <span class="mm-card-desc">Hold the line against waves without end. Last one more wave.</span>
+                <span class="mm-card-desc">Survive endless waves.</span>
               </span>
             </button>
           </div>
@@ -86,21 +86,21 @@
               <span class="mm-card-glyph">★</span>
               <span class="mm-card-copy">
                 <span class="mm-card-title">ALLIED</span>
-                <span class="mm-card-desc">Six battles from Omaha Beach to Bastogne. Assault with landing craft and per-wave TP, then hold the Bulge.</span>
+                <span class="mm-card-desc">Six US battles, Omaha to Bastogne.</span>
               </span>
             </button>
             <button id="start-axis" class="mm-card mm-card--axis">
               <span class="mm-card-glyph">✠</span>
               <span class="mm-card-copy">
                 <span class="mm-card-title">AXIS</span>
-                <span class="mm-card-desc">Thirteen historical offensives across Europe. Research units between battles, then assault with per-wave TP.</span>
+                <span class="mm-card-desc">Thirteen German offensives. Research units.</span>
               </span>
             </button>
             <button id="start-commando" class="mm-card mm-card--commando">
               <span class="mm-card-glyph">⚔</span>
               <span class="mm-card-copy">
                 <span class="mm-card-title">COMMANDO</span>
-                <span class="mm-card-desc">Direct-control missions behind enemy lines. Hit Squad — kill the marked officer in five minutes.</span>
+                <span class="mm-card-desc">Direct-control strike missions.</span>
               </span>
             </button>
           </div>
@@ -113,25 +113,33 @@
       </div>
     </div>
 
-    <div id="endless-select" class="overlay hidden">
-      <h1>ENDLESS</h1>
-      <p>Choose your supply situation. Wave attrition still applies on Easy, Medium, and Hard.</p>
-      <div class="intro-btns modes">
-        <button data-endless-diff="sandbox">SANDBOX
-          <span class="mode-desc">Unlimited TP. Jump ahead in waves to test late-game assaults.</span></button>
-        <button data-endless-diff="testing">TESTING
-          <span class="mode-desc">Unlimited TP. No Germans spawn on their own — build them yourself with the GERMANS button.</span></button>
-        <button data-endless-diff="easy">EASY
-          <span class="mode-desc">Full supply rate. The classic experience.</span></button>
-        <button data-endless-diff="medium">MEDIUM
-          <span class="mode-desc">66% income from kills, trickle, and officers.</span></button>
-        <button data-endless-diff="hard">HARD
-          <span class="mode-desc">33% income. Supply lines are thin.</span></button>
-      </div>
-      <div class="intro-btns">
-        <button id="card-shop-btn" class="secondary">CARDS</button>
-        <button id="endless-leaderboard-btn" class="secondary">LEADERBOARDS</button>
-        <button id="endless-back-btn" class="secondary">BACK</button>
+    <div id="endless-select" class="overlay mm-screen hidden">
+      <div class="mm">
+        <header class="mm-head">
+          <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>OPERATION · HOLD THE LINE<span class="mm-eyebrow-mark"></span></div>
+          <h1 class="mm-title">ENDLESS</h1>
+          <p class="mm-brief">Choose your supply situation. Wave attrition still applies on Easy, Medium, and Hard.</p>
+        </header>
+        <div class="mm-block">
+          <div class="mm-block-label">SUPPLY SITUATION</div>
+          <div class="intro-btns modes">
+            <button data-endless-diff="sandbox"><span class="mode-title">SANDBOX</span>
+              <span class="mode-desc">Unlimited TP, skip waves.</span></button>
+            <button data-endless-diff="testing"><span class="mode-title">TESTING</span>
+              <span class="mode-desc">Unlimited TP, spawn your own enemies.</span></button>
+            <button data-endless-diff="easy"><span class="mode-title">EASY</span>
+              <span class="mode-desc">Full supply.</span></button>
+            <button data-endless-diff="medium"><span class="mode-title">MEDIUM</span>
+              <span class="mode-desc">66% income.</span></button>
+            <button data-endless-diff="hard"><span class="mode-title">HARD</span>
+              <span class="mode-desc">33% income.</span></button>
+          </div>
+        </div>
+        <div class="mm-footer">
+          <button id="card-shop-btn">CARDS</button>
+          <button id="endless-leaderboard-btn">LEADERBOARDS</button>
+          <button id="endless-back-btn">BACK</button>
+        </div>
       </div>
     </div>
 
@@ -189,11 +197,21 @@
       <button id="leaderboard-back-btn" class="secondary">BACK</button>
     </div>
 
-    <div id="allied-select" class="overlay hidden">
-      <h1>ALLIED CAMPAIGN</h1>
-      <p>A tour of American battles from Normandy to the Ardennes. Beat each battle to unlock the next. Assault missions spend <b>TP</b> each wave to deploy; the finale is a defense of Bastogne. Progress is saved in your browser.</p>
-      <div id="allied-list" class="intro-btns modes"></div>
-      <button id="allied-back-btn" class="secondary">BACK</button>
+    <div id="allied-select" class="overlay mm-screen hidden">
+      <div class="mm">
+        <header class="mm-head">
+          <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>U.S. ARMY · 1944&ndash;45<span class="mm-eyebrow-mark"></span></div>
+          <h1 class="mm-title">ALLIED CAMPAIGN</h1>
+          <p class="mm-brief">A tour of American battles from Normandy to the Ardennes. Beat each battle to unlock the next. Assault missions spend <b>TP</b> each wave to deploy; the finale is a defense of Bastogne. Progress is saved in your browser.</p>
+        </header>
+        <div class="mm-block">
+          <div class="mm-block-label">BATTLES</div>
+          <div id="allied-list" class="intro-btns modes"></div>
+        </div>
+        <div class="mm-footer">
+          <button id="allied-back-btn">BACK</button>
+        </div>
+      </div>
     </div>
 
     <div id="allied-briefing" class="overlay hidden">
@@ -207,15 +225,23 @@
       </div>
     </div>
 
-    <div id="axis-select" class="overlay hidden">
-      <h1>AXIS CAMPAIGN</h1>
-      <p>A tour of German offensives from Poland 1939 to the Ardennes 1944. Beat each battle to unlock the next. Spend <b>Research Points (RP)</b> to unlock unit types permanently, then spend <b>TP</b> each wave to deploy them. Progress is saved in your browser.</p>
-      <p class="axis-rp-line">Research bank: <b id="axis-rp-balance">0 RP</b></p>
-      <div class="intro-btns axis-select-actions">
-        <button id="axis-research-btn">RESEARCH</button>
+    <div id="axis-select" class="overlay mm-screen hidden">
+      <div class="mm">
+        <header class="mm-head">
+          <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>WEHRMACHT · 1939&ndash;44<span class="mm-eyebrow-mark"></span></div>
+          <h1 class="mm-title">AXIS CAMPAIGN</h1>
+          <p class="mm-brief">A tour of German offensives from Poland 1939 to the Ardennes 1944. Beat each battle to unlock the next. Spend <b>Research Points (RP)</b> to unlock unit types permanently, then spend <b>TP</b> each wave to deploy them. Progress is saved in your browser.</p>
+          <p class="mm-note">Research bank: <b id="axis-rp-balance">0 RP</b></p>
+        </header>
+        <button id="axis-research-btn" class="mm-action">RESEARCH &amp; DEVELOPMENT</button>
+        <div class="mm-block">
+          <div class="mm-block-label">OFFENSIVES</div>
+          <div id="axis-list" class="intro-btns modes"></div>
+        </div>
+        <div class="mm-footer">
+          <button id="axis-back-btn">BACK</button>
+        </div>
       </div>
-      <div id="axis-list" class="intro-btns modes"></div>
-      <button id="axis-back-btn" class="secondary">BACK</button>
     </div>
 
     <div id="axis-research" class="overlay hidden">
@@ -238,18 +264,38 @@
       </div>
     </div>
 
-    <div id="commando-select" class="overlay hidden">
-      <h1>COMMANDO CAMPAIGN</h1>
-      <p>Direct-control missions behind enemy lines. You command a small squad — click to select, click to move. No TP, no purchases.</p>
-      <div id="commando-list" class="intro-btns modes"></div>
-      <button id="commando-back-btn" class="secondary">BACK</button>
+    <div id="commando-select" class="overlay mm-screen hidden">
+      <div class="mm">
+        <header class="mm-head">
+          <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>SPECIAL OPERATIONS · CLASSIFIED<span class="mm-eyebrow-mark"></span></div>
+          <h1 class="mm-title">COMMANDO CAMPAIGN</h1>
+          <p class="mm-brief">Direct-control missions behind enemy lines. You command a small squad — click to select, click to move. No TP, no purchases.</p>
+        </header>
+        <div class="mm-block">
+          <div class="mm-block-label">MISSIONS</div>
+          <div id="commando-list" class="intro-btns modes"></div>
+        </div>
+        <div class="mm-footer">
+          <button id="commando-back-btn">BACK</button>
+        </div>
+      </div>
     </div>
 
-    <div id="tutorial-select" class="overlay hidden">
-      <h1>TUTORIAL</h1>
-      <p>Guided lessons for new recruits. Beat each lesson to unlock the next. Progress is saved in your browser.</p>
-      <div id="tutorial-list" class="intro-btns modes"></div>
-      <button id="tutorial-back-btn" class="secondary">BACK</button>
+    <div id="tutorial-select" class="overlay mm-screen hidden">
+      <div class="mm">
+        <header class="mm-head">
+          <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>BASIC TRAINING · CAMP<span class="mm-eyebrow-mark"></span></div>
+          <h1 class="mm-title">TUTORIAL</h1>
+          <p class="mm-brief">Guided lessons for new recruits. Beat each lesson to unlock the next. Progress is saved in your browser.</p>
+        </header>
+        <div class="mm-block">
+          <div class="mm-block-label">LESSONS</div>
+          <div id="tutorial-list" class="intro-btns modes"></div>
+        </div>
+        <div class="mm-footer">
+          <button id="tutorial-back-btn">BACK</button>
+        </div>
+      </div>
     </div>
 
     <div id="codex" class="overlay hidden">

@@ -980,8 +980,8 @@ body {
 }
 .overlay button.secondary:hover { background: #33301d; border-color: #a49f7d; }
 
-/* ---- Main menu redesign (scoped to #intro) ---- */
-#intro {
+/* ---- Field-manual overlay redesign (shared: intro / endless / campaigns) ---- */
+.mm-screen {
   justify-content: flex-start;
   padding: clamp(14px, 4vw, 36px) clamp(12px, 4vw, 40px);
   /* faint diagonal field-tarp texture behind the panel */
@@ -990,7 +990,7 @@ body {
     radial-gradient(120% 80% at 50% -10%, rgba(184, 53, 43, 0.14), transparent 60%),
     rgba(8, 8, 4, 0.94);
 }
-#intro .mm {
+.mm {
   position: relative;
   width: 100%;
   max-width: 640px;
@@ -1002,8 +1002,8 @@ body {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 217, 74, 0.04);
 }
 /* targeting-reticle corner brackets */
-#intro .mm::before,
-#intro .mm::after {
+.mm::before,
+.mm::after {
   content: "";
   position: absolute;
   width: 22px;
@@ -1012,11 +1012,11 @@ body {
   opacity: 0.55;
   pointer-events: none;
 }
-#intro .mm::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
-#intro .mm::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.mm::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.mm::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
 
-#intro .mm-head { text-align: center; margin-bottom: clamp(16px, 3.5vw, 24px); }
-#intro .mm-eyebrow {
+.mm-head { text-align: center; margin-bottom: clamp(16px, 3.5vw, 24px); }
+.mm-eyebrow {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1026,39 +1026,57 @@ body {
   color: #9a9268;
   margin-bottom: 10px;
 }
-#intro .mm-eyebrow-mark {
+.mm-eyebrow-mark {
   height: 1px;
   width: clamp(16px, 8vw, 54px);
   background: linear-gradient(90deg, transparent, #6a6444);
 }
-#intro .mm-eyebrow-mark:last-child { background: linear-gradient(90deg, #6a6444, transparent); }
-#intro .mm-title {
-  font-size: clamp(34px, 11vw, 68px);
-  line-height: 0.92;
-  letter-spacing: clamp(3px, 2vw, 12px);
+.mm-eyebrow-mark:last-child { background: linear-gradient(90deg, #6a6444, transparent); }
+/* default (sub-menu) title; #intro overrides to hero size below */
+.mm-title {
+  font-size: clamp(26px, 8vw, 46px);
+  line-height: 0.95;
+  letter-spacing: clamp(3px, 2vw, 9px);
   color: #b8352b;
-  text-shadow: 3px 3px 0 #000, 0 0 22px rgba(184, 53, 43, 0.35);
-  margin: 0 0 6px;
+  text-shadow: 3px 3px 0 #000;
+  margin: 0 0 8px;
   flex-shrink: 0;
 }
-#intro .mm-amp { color: #ffd94a; text-shadow: 3px 3px 0 #000; }
-#intro .mm-tagline {
+.mm-amp { color: #ffd94a; text-shadow: 3px 3px 0 #000; }
+.mm-tagline {
   font-size: clamp(11px, 3vw, 14px);
   color: #8a8668;
   letter-spacing: 1px;
   margin: 0 0 12px;
 }
-#intro .mm-brief {
+.mm-brief {
   font-size: clamp(11px, 2.9vw, 13px);
   line-height: 1.5;
   color: #c2bb96;
-  max-width: 500px;
+  max-width: 520px;
   margin: 0 auto;
 }
-#intro .mm-brief b { color: #ffd94a; }
+.mm-brief b { color: #ffd94a; }
+.mm-brief + .mm-brief { margin-top: 8px; }
+.mm-note {
+  font-size: clamp(11px, 2.9vw, 13px);
+  letter-spacing: 1px;
+  color: #b7b088;
+  text-align: center;
+  margin: 10px 0 0;
+}
+.mm-note b { color: #ffd94a; }
 
-#intro .mm-block { margin-bottom: clamp(14px, 3vw, 20px); }
-#intro .mm-block-label {
+#intro .mm-title {
+  font-size: clamp(34px, 11vw, 68px);
+  line-height: 0.92;
+  letter-spacing: clamp(3px, 2vw, 12px);
+  text-shadow: 3px 3px 0 #000, 0 0 22px rgba(184, 53, 43, 0.35);
+  margin-bottom: 6px;
+}
+
+.mm-block { margin-bottom: clamp(14px, 3vw, 20px); }
+.mm-block-label {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1067,18 +1085,18 @@ body {
   color: #ffd94a;
   margin-bottom: 10px;
 }
-#intro .mm-block-label::after {
+.mm-block-label::after {
   content: "";
   flex: 1;
   height: 1px;
   background: linear-gradient(90deg, rgba(255, 217, 74, 0.4), transparent);
 }
-#intro .mm-grid { display: grid; gap: 10px; }
+.mm-grid { display: grid; gap: 10px; }
 #intro .mm-grid--quick { grid-template-columns: 1fr 1fr; }
-#intro .mm-grid--campaign { grid-template-columns: 1fr; }
+.mm-grid--campaign { grid-template-columns: 1fr; }
 
-/* card buttons — override generic .overlay button */
-#intro .mm-card {
+/* hand-authored intro cards (glyph + copy) */
+.mm-card {
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1095,14 +1113,14 @@ body {
   min-height: 0;
   transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
 }
-#intro .mm-card:hover {
+.mm-card:hover {
   background: linear-gradient(180deg, rgba(60, 57, 33, 0.95), rgba(40, 38, 22, 0.95));
   border-color: #ffd94a;
   transform: translateX(3px);
   box-shadow: -3px 0 0 0 rgba(255, 217, 74, 0.35), 0 6px 18px rgba(0, 0, 0, 0.4);
 }
-#intro .mm-card:active { transform: translateX(1px); }
-#intro .mm-card-glyph {
+.mm-card:active { transform: translateX(1px); }
+.mm-card-glyph {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -1114,44 +1132,112 @@ body {
   border: 1px solid #55502f;
   background: rgba(0, 0, 0, 0.28);
 }
-#intro .mm-card-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-#intro .mm-card-title {
+.mm-card-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mm-card-title {
   font-size: clamp(14px, 3.8vw, 18px);
   font-weight: bold;
   letter-spacing: 1.5px;
   color: #ffe27a;
 }
-#intro .mm-card-desc {
+.mm-card-desc {
   font-size: clamp(10px, 2.7vw, 11.5px);
   line-height: 1.4;
   color: #b7b088;
 }
-/* quick-play cards are compact & stack their glyph above on narrow screens */
-#intro .mm-card--quick { }
-#intro .mm-card--endless .mm-card-glyph { font-size: clamp(22px, 6vw, 30px); }
+.mm-card--endless .mm-card-glyph { font-size: clamp(22px, 6vw, 30px); }
 
-/* per-mode accent colours */
-#intro .mm-card--allied { border-left-color: #6a9a4a; }
-#intro .mm-card--allied .mm-card-glyph { color: #8fbf5a; border-color: #4d6a30; }
-#intro .mm-card--allied:hover { border-color: #8fbf5a; box-shadow: -3px 0 0 0 rgba(143, 191, 90, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4); }
-#intro .mm-card--axis { border-left-color: #b8352b; }
-#intro .mm-card--axis .mm-card-glyph { color: #d86a5c; border-color: #6a2f28; }
-#intro .mm-card--axis:hover { border-color: #d86a5c; box-shadow: -3px 0 0 0 rgba(216, 106, 92, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4); }
-#intro .mm-card--commando { border-left-color: #9a8bb0; }
-#intro .mm-card--commando .mm-card-glyph { color: #b6a6d0; border-color: #4c4560; }
-#intro .mm-card--commando:hover { border-color: #b6a6d0; box-shadow: -3px 0 0 0 rgba(182, 166, 208, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4); }
+/* per-mode accent colours (intro cards) */
+.mm-card--allied { border-left-color: #6a9a4a; }
+.mm-card--allied .mm-card-glyph { color: #8fbf5a; border-color: #4d6a30; }
+.mm-card--allied:hover { border-color: #8fbf5a; box-shadow: -3px 0 0 0 rgba(143, 191, 90, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4); }
+.mm-card--axis { border-left-color: #b8352b; }
+.mm-card--axis .mm-card-glyph { color: #d86a5c; border-color: #6a2f28; }
+.mm-card--axis:hover { border-color: #d86a5c; box-shadow: -3px 0 0 0 rgba(216, 106, 92, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4); }
+.mm-card--commando { border-left-color: #9a8bb0; }
+.mm-card--commando .mm-card-glyph { color: #b6a6d0; border-color: #4c4560; }
+.mm-card--commando:hover { border-color: #b6a6d0; box-shadow: -3px 0 0 0 rgba(182, 166, 208, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4); }
 
-#intro .mm-footer {
+/* JS-built mode lists (endless difficulties + campaign levels) rendered as field cards */
+.mm .intro-btns.modes { width: 100%; max-width: none; margin: 0; gap: 9px; }
+.mm .intro-btns.modes button {
+  position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: clamp(11px, 2.8vw, 14px) clamp(13px, 3vw, 18px);
+  background: linear-gradient(180deg, rgba(45, 43, 27, 0.9), rgba(30, 28, 17, 0.9));
+  border: 1px solid #55502f;
+  border-left: 3px solid #7d7444;
+  color: #e6dfb8;
+  font-size: inherit;
+  font-weight: normal;
+  letter-spacing: normal;
+  min-height: 0;
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+.mm .intro-btns.modes button:hover:not(.locked) {
+  background: linear-gradient(180deg, rgba(60, 57, 33, 0.95), rgba(40, 38, 22, 0.95));
+  border-color: #ffd94a;
+  transform: translateX(3px);
+  box-shadow: -3px 0 0 0 rgba(255, 217, 74, 0.35), 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+.mm .intro-btns.modes button:active:not(.locked) { transform: translateX(1px); }
+.mm .intro-btns.modes .mode-title {
+  font-size: clamp(13px, 3.6vw, 16px);
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  color: #ffe27a;
+}
+.mm .intro-btns.modes .mode-desc { color: #b7b088; margin-top: 4px; }
+/* cleared → green left bar; locked → dimmed & flat */
+.mm .intro-btns.modes button.cleared { border-left-color: #6a9a4a; }
+.mm .intro-btns.modes button.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #403c2a;
+  border-left-color: #4a462f;
+  background: linear-gradient(180deg, rgba(30, 29, 19, 0.8), rgba(20, 19, 12, 0.8));
+}
+.mm .intro-btns.modes button.locked .mode-title { color: #8a8668; }
+.mm .intro-btns.modes button.locked:hover { transform: none; box-shadow: none; }
+
+/* accent left-bars for the campaign select lists by overlay */
+#allied-select .mm .intro-btns.modes button:not(.locked) { border-left-color: #6a9a4a; }
+#axis-select .mm .intro-btns.modes button:not(.locked) { border-left-color: #b8352b; }
+#commando-select .mm .intro-btns.modes button:not(.locked) { border-left-color: #9a8bb0; }
+
+/* full-width accent action button (e.g. axis RESEARCH) */
+.mm-action {
+  display: block;
+  width: 100%;
+  padding: clamp(10px, 2.6vw, 12px) 18px;
+  margin: 0 0 clamp(12px, 3vw, 18px);
+  font-size: clamp(12px, 3vw, 14px);
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: #ffd94a;
+  background: linear-gradient(180deg, rgba(61, 56, 25, 0.95), rgba(43, 39, 17, 0.95));
+  border: 1px solid #ffd94a;
+  cursor: pointer;
+  min-height: 44px;
+  transition: background 0.12s ease;
+}
+.mm-action:hover { background: #5a5322; }
+
+/* footer row of chip buttons (CODEX / BACK / etc.) */
+.mm-footer {
   display: flex;
   gap: 10px;
   justify-content: center;
-  margin-top: clamp(6px, 2vw, 10px);
+  flex-wrap: wrap;
+  margin-top: clamp(8px, 2vw, 14px);
 }
-#intro .mm-chip {
-  flex: 1;
-  max-width: 200px;
+.mm-footer button {
+  flex: 1 1 0;
+  min-width: 88px;
+  max-width: 220px;
   padding: clamp(9px, 2.4vw, 11px) 18px;
-  font-size: clamp(12px, 3vw, 14px);
+  font-size: clamp(11px, 2.9vw, 13px);
   font-weight: bold;
   letter-spacing: 2px;
   color: #c9c19a;
@@ -1161,9 +1247,9 @@ body {
   min-height: 44px;
   transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
 }
-#intro .mm-chip:hover { border-color: #ffd94a; color: #ffd94a; background: rgba(35, 33, 18, 0.95); }
+.mm-footer button:hover { border-color: #ffd94a; color: #ffd94a; background: rgba(35, 33, 18, 0.95); }
 
-/* narrow screens: quick-play cards stack their icon on top for breathing room */
+/* narrow screens: intro quick-play cards stack their icon on top */
 @media (max-width: 430px) {
   #intro .mm-grid--quick .mm-card {
     flex-direction: column;
@@ -1171,6 +1257,37 @@ body {
     gap: 8px;
     text-align: left;
   }
+}
+
+/* ---- Phone compaction: the overlay fills the (short) stage, so tighten every
+   vertical rhythm so menus like Endless fit without heavy scrolling ---- */
+@media (max-width: 560px) {
+  .mm-screen { padding: 12px 10px; }
+  .mm { padding: 16px 14px 16px; }
+  .mm::before, .mm::after { width: 16px; height: 16px; }
+  .mm-head { margin-bottom: 12px; }
+  .mm-eyebrow { margin-bottom: 7px; }
+  .mm-title { margin-bottom: 5px; }
+  #intro .mm-title { line-height: 0.95; }
+  .mm-brief { line-height: 1.4; }
+  .mm-block { margin-bottom: 12px; }
+  .mm-block-label { margin-bottom: 8px; }
+
+  /* denser mode-list cards */
+  .mm .intro-btns.modes { gap: 7px; }
+  .mm .intro-btns.modes button { padding: 9px 12px; }
+  .mm .intro-btns.modes .mode-desc { margin-top: 3px; line-height: 1.35; }
+
+  .mm-footer { gap: 8px; margin-top: 10px; }
+  .mm-footer button { min-height: 42px; }
+  .mm-action { margin-bottom: 12px; min-height: 42px; }
+}
+
+/* very short viewports: drop the decorative eyebrow to reclaim height */
+@media (max-height: 640px) {
+  .mm-eyebrow { display: none; }
+  .mm-head { margin-bottom: 10px; }
+  .mm-title { font-size: clamp(22px, 7vw, 40px); }
 }
 
 /* ---- Settings ---- */

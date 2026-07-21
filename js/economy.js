@@ -7,13 +7,23 @@
 // smooth war-economy curve, hitting the 10% floor by wave 120. The decay is
 // the run-killer: enemy volume grows roughly linearly forever, but income
 // shrinks exponentially, so the exponential always wins and no standing army
-// outlasts its supply line. That also makes it safe to pay kills at a real
-// rate (a 50% cut, not pocket change) — extra enemies can never snowball
+// outlasts its supply line. Kills pay a quarter rate — a bonus on top of the
+// steady income, not the backbone — and extra enemies can never snowball
 // into runaway money because the curve crushes the bounty faster than the
 // wave count can grow it. Campaign levels pay full rate; G.tp holds
 // fractions and the HUD floors it.
 const KILL_TP_MULT = 1.15;   // small across-the-board bump to kill bounties
-const KILL_CUT = 0.5;        // kills pay half rate — real money, not the backbone
+// kills pay quarter rate (halved from the old 50% cut — bounties were still
+// carrying too much of the economy); the endless supply trickle is doubled
+// (TRICKLE_INTERVAL_ENDLESS) to hand that income back as steady pay instead
+const KILL_CUT = 0.25;
+// supply trickle: 1 TP per interval. Endless runs at double rate to offset
+// the deeper kill cut; campaigns keep the original pacing.
+const TRICKLE_INTERVAL = 6;
+const TRICKLE_INTERVAL_ENDLESS = 3;
+function trickleInterval() {
+  return G.mode === 'endless' ? TRICKLE_INTERVAL_ENDLESS : TRICKLE_INTERVAL;
+}
 const INCOME_DECAY_FLOOR_WAVE = 120;
 const INCOME_DECAY_RATE = Math.pow(0.1, 1 / INCOME_DECAY_FLOOR_WAVE);
 // War Bonds stretches the same curve out to wave 200 instead of 120

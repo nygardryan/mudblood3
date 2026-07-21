@@ -132,7 +132,7 @@ function newGame(level, difficulty) {
     groundMarks: [], // blood stains and blast craters, fade after GROUND_MARK_TTL
 
     spawnTimer: level.mode === 'allied' ? level.waves[0].delay : 6,
-    tpTrickle: 6,
+    tpTrickle: level.id === 'endless' ? TRICKLE_INTERVAL_ENDLESS : TRICKLE_INTERVAL,
     officerTick: (level.id === 'endless' && equippedEndlessCards().includes('rushorder')) ? 15 : 30,
     eventTimer: rand(40, 60),
     fog: 0,

@@ -23,14 +23,15 @@ function spawnIntervalForWave(w) {
 // enemy-volume ramp. The opening five waves are held deliberately quiet
 // (0.42) so a player sitting on the fat 40 TP starting bank has time to spend
 // it and set a line without being punished. From wave 6 the multiplier climbs
-// to a 1.0 cap by ~wave 22 — a moderate ramp between a flat plateau and a
-// runaway spike. specialWaveMult rides the same curve, so the every-10th
-// set-pieces scale up in step. Combined with the shared income decay
-// (economy.js), this is the run-killer: volume ramps toward full while the
-// economy is already sliding to its floor.
+// to a 1.0 cap by ~wave 34 — slowed from the old ~wave 22 cap so the mid-game
+// escalation breathes, while the wave-6 starting volume stays where it was.
+// specialWaveMult rides the same curve, so the every-10th set-pieces scale up
+// in step. Combined with the shared income decay (economy.js), this is the
+// run-killer: volume ramps toward full while the economy is already sliding
+// to its floor.
 function enemySpawnMult(w) {
   if (w <= 5) return 0.42;
-  return Math.min(1.0, 0.42 + (w - 5) * 0.035);
+  return Math.min(1.0, 0.42 + (w - 5) * 0.02);
 }
 
 function waveComposition(w) {

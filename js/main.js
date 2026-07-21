@@ -5,10 +5,11 @@
 el('start-endless').addEventListener('click', openEndlessSelect);
 el('endless-back-btn').addEventListener('click', closeEndlessSelect);
 for (const btn of document.querySelectorAll('[data-endless-diff]')) {
-  btn.addEventListener('click', () => startGame('endless', btn.dataset.endlessDiff));
+  btn.addEventListener('click', () => openEndlessLoadout(btn.dataset.endlessDiff));
 }
 el('endless-leaderboard-btn').addEventListener('click', () => openLeaderboardSelect('endless-select', 'easy'));
 el('card-shop-btn').addEventListener('click', () => openCardShop('endless-select'));
+el('card-shop-deploy').addEventListener('click', deployEndlessLoadout);
 el('card-shop-back').addEventListener('click', closeCardShop);
 // spending medals on capacity changes what the shop row can afford too,
 // so rebuild the whole screen, not just the plan section

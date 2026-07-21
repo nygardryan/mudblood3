@@ -550,6 +550,16 @@ body {
   text-align: left;
 }
 
+/* loadout mode: the same screen the endless run opens onto, stripped of every
+   way to spend medals — the ON OFFER shop, the reroll/slot controls, the medal
+   tag and the command upgrade all go, leaving just the battle plans to pick and
+   swap. The DEPLOY button only exists in this mode. */
+#card-shop-deploy { display: none; }
+#card-shop.cs--loadout #cs-shop-section,
+#card-shop.cs--loadout .cs-tag,
+#card-shop.cs--loadout #plan-upgrade { display: none; }
+#card-shop.cs--loadout #card-shop-deploy { display: inline-block; }
+
 /* header row: title + dog-tag medal balance */
 #card-shop .cs-head {
   display: flex;

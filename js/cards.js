@@ -592,12 +592,53 @@ function awardWaveMedals() {
 // ---- card shop UI
 
 let cardShopReturnScreen = 'endless-select';
+// 'shop' = the full card shop reached from the menu; 'loadout' = the same screen
+// opened when an endless run starts, stripped to just the battle plans (no
+// purchasing) with a DEPLOY button that launches the run
+let cardShopMode = 'shop';
+// the chosen endless difficulty waiting on the loadout screen's DEPLOY button
+let pendingLoadoutDiff = null;
+
+function applyCardShopMode() {
+  const loadout = cardShopMode === 'loadout';
+  el('card-shop').classList.toggle('cs--loadout', loadout);
+  const title = el('card-shop-title');
+  if (title) title.textContent = loadout ? 'SELECT LOADOUT' : 'CARD SHOP';
+}
 
 function openCardShop(fromScreen) {
+  cardShopMode = 'shop';
+  pendingLoadoutDiff = null;
   cardShopReturnScreen = fromScreen || 'endless-select';
   el(cardShopReturnScreen).classList.add('hidden');
+  applyCardShopMode();
   buildCardShopUI();
   el('card-shop').classList.remove('hidden');
+}
+
+// starting an endless run first drops the player onto the card shop with the
+// buying half hidden, so they can pick and swap a battle plan before deploying.
+// With an empty collection there's nothing to arrange, so skip straight in.
+function openEndlessLoadout(difficultyId) {
+  if (!loadEndlessCards().owned.length) {
+    startGame('endless', difficultyId);
+    return;
+  }
+  cardShopMode = 'loadout';
+  pendingLoadoutDiff = difficultyId;
+  cardShopReturnScreen = 'endless-select';
+  el('endless-select').classList.add('hidden');
+  applyCardShopMode();
+  buildCardShopUI();
+  el('card-shop').classList.remove('hidden');
+}
+
+// the loadout screen's DEPLOY button: launch the endless run with the plan the
+// player just set
+function deployEndlessLoadout() {
+  const diff = pendingLoadoutDiff;
+  pendingLoadoutDiff = null;
+  startGame('endless', diff);
 }
 
 function closeCardShop() {

@@ -34,7 +34,10 @@ function unitBuffs(u) {
 
 // veterans hustle: each rank moves 4% quicker, so a MSG covers ground 24% faster
 function unitSpeed(u) {
-  return u.t.speed * (1 + (u.rank || 0) * 0.04);
+  let mult = 1 + (u.rank || 0) * 0.04;
+  // Double Time: shotgunner/flamer/medic/engineer close ground 30% faster
+  if (u.side === 'us' && G.cardsOwned && G.cardsOwned.has('doubletime_' + u.type)) mult *= 1.3;
+  return u.t.speed * mult;
 }
 
 // close-range specialists stretch their reach hardest as they rank up

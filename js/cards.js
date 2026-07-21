@@ -147,6 +147,17 @@ const CARD_COMMON_TEMPLATES = {
       : `Arms the ${t.name.toLowerCase()} with a full M1 rifle in place of their weak sidearm — longer range, harder hits.`,
     hooks: type => ({}),
   },
+  // the four close-in specialists spend most of a fight walking into or out of
+  // range rather than shooting — a shotgunner closing to buckshot distance, a
+  // flamer hunting his cone, a medic and engineer chasing the front line.
+  // Flag-only, like Desperate Measures: unitSpeed reads G.cardsOwned directly.
+  doubletime: {
+    name: 'Double Time', cost: 6, weight: 2,
+    excludes: ['rifleman', 'gunner', 'grenadier', 'bazooka', 'mortarman',
+      'sniper', 'officer', 'jeep', 'sherman', 'atgun', 'aagun'],
+    desc: t => `${t.name} moves 30% faster.`,
+    hooks: type => ({}),
+  },
   // medal price runs opposite the unit's TP cost: a discount on a 3 TP
   // rifleman is worth far more over a run than one on a 60 TP Sherman
   costcut: {

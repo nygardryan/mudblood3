@@ -63,6 +63,13 @@ function unitRangeMult(u) {
   const rank = u.rank || 0;
   let mult = rank <= 0 ? 1 : 1 + rank * unitRangeRankRate(u.type);
   mult *= watchtowerRangeMult(u);
+  // Desperate Measures: a wounded flamethrower throws his stream farther. The
+  // targeting scan, the burn in flameSpray, and the drawn cone all read this,
+  // so they lengthen in lockstep.
+  if (u.type === 'flamer' && u.side === 'us' && u.hp < u.maxhp * 0.5
+      && G.cardsOwned && G.cardsOwned.has('desperatemeasures')) {
+    mult *= 1.3;
+  }
   return mult;
 }
 

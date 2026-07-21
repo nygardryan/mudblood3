@@ -120,6 +120,14 @@ const CARD_COMMON_TEMPLATES = {
     desc: t => `${t.name} takes 30% less damage from explosions.`,
     hooks: type => ({}),
   },
+  // one free promotion at spawn. Every unit type carries a rank, so this stamps
+  // out a card for each. Flag-only, like Standard Issue: makeUnit reads
+  // `seasonedvet_<type>` at spawn.
+  seasonedvet: {
+    name: 'Seasoned Veteran', cost: 5, weight: 2,
+    desc: t => `Every ${t.name.toLowerCase()} musters in one rank higher — a free promotion.`,
+    hooks: type => ({}),
+  },
   // support units carry weak short-range sidearms; this trades one for a
   // full M1 rifle. Restricted to the three support types via `excludes` so
   // the common stamps out exactly one card each for officer/engineer/medic.
@@ -172,6 +180,14 @@ const CARD_UNIQUES = {
     unit: 'shotgunner', name: 'Rifled Slugs', cost: 9, weight: 3,
     // flag-only: fireShotgun reads G.cardsOwned directly, like Extended Tube
     desc: 'Load slugs, not buckshot: one hard, long-range round with almost no spread.',
+    hooks: {},
+  },
+  // flag-only, like Rifled Slugs: unitRangeMult reads G.cardsOwned to stretch a
+  // wounded flamer's reach, so the targeting scan, the burn, and the drawn cone
+  // all lengthen together
+  desperatemeasures: {
+    unit: 'flamer', name: 'Desperate Measures', cost: 9, weight: 3,
+    desc: 'A flamer below half health throws his stream 30% farther — a glass-cannon gamble.',
     hooks: {},
   },
   crackshot: {
@@ -307,6 +323,20 @@ function maybeSwapToRifle(u) {
     range: r.range, dmg: r.dmg, acc: r.acc, rof: r.rof,
     burst: r.burst, burstGap: r.burstGap, gun: r.gun, sfx: r.sfx,
   };
+}
+
+// Seasoned Veteran: a unit whose type carries the card musters in already
+// blooded — one free promotion at spawn. xp is set to the rank-1 threshold so
+// his next kill counts toward rank 2 exactly as a normally-promoted man's
+// would. Flag-only, like Standard Issue: makeUnit reads `seasonedvet_<type>`.
+const SEASONED_VET_RANK = 1;
+function maybeSeasonVeteran(u) {
+  if (!G.cardsOwned || !G.cardsOwned.has('seasonedvet_' + u.type)) return;
+  const rk = RANKS[SEASONED_VET_RANK];
+  if (!rk) return;
+  u.rank = SEASONED_VET_RANK;
+  const rankMult = u.t.tank ? 2.5 : (u.t.rankMult || 1);
+  u.xp = rk.kills * rankMult;
 }
 
 function defaultEndlessCards() {

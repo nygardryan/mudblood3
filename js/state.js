@@ -180,6 +180,8 @@ function makeUnit(type, x, y, nation = 'us') {
   };
   // Standard Issue card: give support units a rifle in place of their sidearm
   maybeSwapToRifle(u);
+  // Seasoned Veteran card: muster this type in one rank higher
+  maybeSeasonVeteran(u);
   return u;
 }
 

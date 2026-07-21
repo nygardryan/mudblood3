@@ -349,9 +349,9 @@ function gameOver() {
     const diffPrefix = G.mode === 'endless' && G.difficulty ? `${G.difficulty.name} — ` : '';
     let stats = `${diffPrefix}You held for ${G.wave} waves and ${t} seconds. ` +
       `${G.kills} Germans will not go home.`;
-    if (G.ribbonsEarned > 0) {
-      stats += ` +${G.ribbonsEarned} ribbon${G.ribbonsEarned === 1 ? '' : 's'} earned — ` +
-        `${loadEndlessCards().ribbons} banked for the card shop.`;
+    if (G.medalsEarned > 0) {
+      stats += ` +${G.medalsEarned} medal${G.medalsEarned === 1 ? '' : 's'} earned — ` +
+        `${loadEndlessCards().medals} banked for the card shop.`;
     }
     endRun(false, 'LINE OVERRUN', stats);
   }

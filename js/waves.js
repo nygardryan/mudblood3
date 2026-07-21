@@ -207,7 +207,7 @@ function launchWave(w) {
 
 function spawnWave() {
   G.wave++;
-  awardWaveRibbons();
+  awardWaveMedals();
   launchWave(G.wave);
   if (G.wave === 1) showBanner('HERE THEY COME');
 }

@@ -24,8 +24,8 @@ python3 -m http.server 8000
   **Sandbox** (unlimited TP, free purchases; **+1 / +5 / +10** HUD buttons or **] / Shift+] / Ctrl+]** to jump ahead and spawn later waves), **Easy** (full income — the default),
   **Medium** (66% income from kills, trickle, and officers), or **Hard** (33%
   income). Wave attrition still applies on Easy, Medium, and Hard.
-  - **Ribbons & cards (roguelite meta-progression):** every 10th wave survived
-    banks **ribbons** — wave 10 pays 1, wave 20 pays 2, and so on (a run to
+  - **Medals & cards (roguelite meta-progression):** every 10th wave survived
+    banks **medals** — wave 10 pays 1, wave 20 pays 2, and so on (a run to
     wave 46 earns 10 total). Sandbox and Testing pay nothing. Between runs,
     spend them in the **CARDS** shop on the Endless menu: three cards are on
     offer at a time, and buying one reveals another. Cards are **permanent

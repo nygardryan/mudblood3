@@ -2,7 +2,7 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
-// Roguelite meta-progression for Endless: reaching wave 10·N banks N ribbons
+// Roguelite meta-progression for Endless: reaching wave 10·N banks N medals
 // (so a run to wave 46 earns 1+2+3+4). Between runs the card shop sells
 // permanent per-unit-type upgrades into a collection, and the battle-plan
 // screen decides which of them actually deploy. Card effects run through
@@ -12,19 +12,19 @@
 const ENDLESS_CARDS_KEY = 'endlessCards';
 const ENDLESS_CARDS_VERSION = 2;
 // the shop starts offering three cards at once and can be widened a slot at a
-// time up to six (two rows of three); each extra slot costs 10 ribbons, then
+// time up to six (two rows of three); each extra slot costs 10 medals, then
 // doubles (10, 20, 40). The current width lives in the save as data.shopSlots.
 const BASE_SHOP_SLOTS = 3;
 const MAX_SHOP_SLOTS = 6;
 const SHOP_SLOT_BASE_COST = 10;
-// rerolling the shop offer costs ribbons and doubles each time (1, 2, 4, ...);
+// rerolling the shop offer costs medals and doubles each time (1, 2, 4, ...);
 // the price resets to the base whenever the player starts another endless run
 const REROLL_BASE_COST = 1;
 
 // Battle plans: owning a card banks it in the collection, but only cards
 // slotted into the active plan deploy. Every card weighs 1-6 command by how
 // hard it warps a run; the player's command capacity starts at 6 and can be
-// raised a point at a time for ribbons (5, then +20% compounding, rounded up).
+// raised a point at a time for medals (5, then +20% compounding, rounded up).
 const PLAN_SLOTS = 3;
 const PLAN_NAMES = ['PLAN A', 'PLAN B', 'PLAN C'];
 const BASE_COMMAND_CAP = 6;
@@ -76,7 +76,7 @@ function cheatDeath(u) {
 }
 
 // base TP cost of every buyable US unit, keyed by PLACEABLES key — used by
-// War Surplus to compute both its own ribbon price and its discounted result
+// War Surplus to compute both its own medal price and its discounted result
 const PLACEABLE_COST_BY_TYPE = {};
 for (const p of PLACEABLES) if (p.kind === 'unit') PLACEABLE_COST_BY_TYPE[p.key] = p.cost;
 
@@ -131,7 +131,7 @@ const CARD_COMMON_TEMPLATES = {
     desc: t => `Arms the ${t.name.toLowerCase()} with a full M1 rifle in place of their weak sidearm — longer range, harder hits.`,
     hooks: type => ({}),
   },
-  // ribbon price runs opposite the unit's TP cost: a discount on a 3 TP
+  // medal price runs opposite the unit's TP cost: a discount on a 3 TP
   // rifleman is worth far more over a run than one on a 60 TP Sherman
   costcut: {
     name: 'War Surplus', excludes: ['erifle', 'esmg', 'egren', 'emg', 'eoff', 'esniper', 'eflame'],
@@ -311,7 +311,7 @@ function maybeSwapToRifle(u) {
 
 function defaultEndlessCards() {
   return {
-    version: ENDLESS_CARDS_VERSION, ribbons: 0, owned: [], offer: [],
+    version: ENDLESS_CARDS_VERSION, medals: 0, owned: [], offer: [],
     capacity: BASE_COMMAND_CAP, plans: [[], [], []], activePlan: 0,
     rerollCost: REROLL_BASE_COST, shopSlots: BASE_SHOP_SLOTS,
   };
@@ -328,6 +328,12 @@ function loadEndlessCards() {
     const raw = localStorage.getItem(ENDLESS_CARDS_KEY);
     if (raw) data = JSON.parse(raw);
   } catch { data = null; }
+  // migrate: the banked currency 'ribbons' was renamed to 'medals' — carry an
+  // existing balance forward so no one loses what they earned
+  if (data && typeof data === 'object' && data.medals == null && Number.isFinite(data.ribbons)) {
+    data.medals = data.ribbons;
+    delete data.ribbons;
+  }
   // v1 predates battle plans (every owned card was always live) — carry the
   // collection forward rather than wiping it
   const fromV1 = !!data && typeof data === 'object' && data.version === 1;
@@ -335,7 +341,7 @@ function loadEndlessCards() {
   if (!data || typeof data !== 'object' || data.version !== ENDLESS_CARDS_VERSION) {
     data = defaultEndlessCards();
   }
-  data.ribbons = Number.isFinite(data.ribbons) ? Math.max(0, Math.floor(data.ribbons)) : 0;
+  data.medals = Number.isFinite(data.medals) ? Math.max(0, Math.floor(data.medals)) : 0;
   data.owned = Array.isArray(data.owned) ? data.owned.filter(id => CARDS[id]) : [];
   const offer = Array.isArray(data.offer) ? data.offer : [];
   data.offer = offer.filter(id => CARDS[id] && !data.owned.includes(id));
@@ -394,8 +400,8 @@ function buyCard(id) {
   const data = loadEndlessCards();
   const card = CARDS[id];
   const slot = data.offer.indexOf(id);
-  if (!card || slot === -1 || data.owned.includes(id) || card.cost > data.ribbons) return false;
-  data.ribbons -= card.cost;
+  if (!card || slot === -1 || data.owned.includes(id) || card.cost > data.medals) return false;
+  data.medals -= card.cost;
   data.owned.push(id);
   // a fresh purchase slots straight into the active plan when the command fits
   const plan = data.plans[data.activePlan];
@@ -407,7 +413,7 @@ function buyCard(id) {
   return true;
 }
 
-// ribbon price of the next +1 command point: 5 for the first, then each
+// medal price of the next +1 command point: 5 for the first, then each
 // subsequent point costs 20% more than the last, rounded up
 // (5, 6, 8, 10, 12, 15, 18, 22, ...)
 function commandUpgradeCost(capacity) {
@@ -419,14 +425,14 @@ function commandUpgradeCost(capacity) {
 function buyCommandCapacity() {
   const data = loadEndlessCards();
   const cost = commandUpgradeCost(data.capacity);
-  if (cost > data.ribbons) return false;
-  data.ribbons -= cost;
+  if (cost > data.medals) return false;
+  data.medals -= cost;
   data.capacity += 1;
   saveEndlessCards(data);
   return true;
 }
 
-// ribbon price of the next card slot: 10 for the fourth, doubling for each
+// medal price of the next card slot: 10 for the fourth, doubling for each
 // after (10, 20, 40). Null once the shop is already at its six-slot maximum.
 function shopSlotUpgradeCost(shopSlots) {
   if (shopSlots >= MAX_SHOP_SLOTS) return null;
@@ -436,8 +442,8 @@ function shopSlotUpgradeCost(shopSlots) {
 function buyShopSlot() {
   const data = loadEndlessCards();
   const cost = shopSlotUpgradeCost(data.shopSlots);
-  if (cost === null || cost > data.ribbons) return false;
-  data.ribbons -= cost;
+  if (cost === null || cost > data.medals) return false;
+  data.medals -= cost;
   data.shopSlots += 1;
   // stock the freshly opened slot so it isn't a "SOLD OUT" placeholder
   const pick = drawUnofferedCard(data);
@@ -446,13 +452,13 @@ function buyShopSlot() {
   return true;
 }
 
-// draw a fresh shop offer for ribbons; each reroll costs twice the last
+// draw a fresh shop offer for medals; each reroll costs twice the last
 // (2, 4, 8, ...), and the new cards avoid both the collection and the ones
 // currently on display so a reroll always turns the slots over
 function rerollShop() {
   const data = loadEndlessCards();
-  if (data.rerollCost > data.ribbons) return false;
-  data.ribbons -= data.rerollCost;
+  if (data.rerollCost > data.medals) return false;
+  data.medals -= data.rerollCost;
   const avoid = new Set([...data.owned, ...data.offer]);
   data.offer = [];
   for (let i = 0; i < data.shopSlots; i++) {
@@ -525,23 +531,23 @@ function buildCardHooks() {
   return table;
 }
 
-// ribbons only accrue where the leaderboard counts: real endless runs on
+// medals only accrue where the leaderboard counts: real endless runs on
 // easy/medium/hard. Sandbox and testing (unlimited TP) and the tutorial pay
 // nothing, so wave-jumping can't farm the shop.
-function ribbonsEligible() {
+function medalsEligible() {
   return G && G.level.id === 'endless' && G.difficulty && !G.difficulty.sandbox;
 }
 
-function awardWaveRibbons() {
-  if (!ribbonsEligible() || G.wave % 10 !== 0) return;
+function awardWaveMedals() {
+  if (!medalsEligible() || G.wave % 10 !== 0) return;
   const n = G.wave / 10;
   const data = loadEndlessCards();
-  data.ribbons += n;
+  data.medals += n;
   saveEndlessCards(data);
-  G.ribbonsEarned += n;
+  G.medalsEarned += n;
   // floating notice instead of a banner: every 10th wave is a themed
   // set-piece whose banner must not be stomped
-  G.texts.push({ x: W / 2, y: H * 0.62, text: `+${n} RIBBON${n === 1 ? '' : 'S'} EARNED`, ttl: 3.2 });
+  G.texts.push({ x: W / 2, y: H * 0.62, text: `+${n} MEDAL${n === 1 ? '' : 'S'} EARNED`, ttl: 3.2 });
 }
 
 // ---- card shop UI
@@ -560,8 +566,8 @@ function closeCardShop() {
   el(cardShopReturnScreen).classList.remove('hidden');
 }
 
-function ribbonLabel(n) {
-  return n + (n === 1 ? ' RIBBON' : ' RIBBONS');
+function medalLabel(n) {
+  return n + (n === 1 ? ' MEDAL' : ' MEDALS');
 }
 
 // the chip above a card's name: a unit card names its unit type; an
@@ -580,12 +586,12 @@ function commandPips(w) {
 
 function syncCardShopButton() {
   const btn = el('card-shop-btn');
-  if (btn) btn.textContent = 'CARDS — ' + ribbonLabel(loadEndlessCards().ribbons);
+  if (btn) btn.textContent = 'CARDS — ' + medalLabel(loadEndlessCards().medals);
 }
 
 function buildCardShopUI() {
   const data = loadEndlessCards();
-  el('card-shop-ribbons').textContent = data.ribbons;
+  el('card-shop-medals').textContent = data.medals;
   el('card-shop-owned').textContent = data.owned.length + ' / ' + Object.keys(CARDS).length + ' COLLECTED';
   const row = el('card-shop-row');
   row.innerHTML = '';
@@ -601,8 +607,8 @@ function buildCardShopUI() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'cs-card' + (card.unique ? ' cs-card--unique' : '');
-    btn.disabled = card.cost > data.ribbons;
-    const afford = card.cost <= data.ribbons;
+    btn.disabled = card.cost > data.medals;
+    const afford = card.cost <= data.medals;
     btn.innerHTML =
       '<div class="cs-card__top">' +
         '<span class="cs-chip">' + cardUnitLabel(card) + '</span>' +
@@ -625,8 +631,8 @@ function buildCardShopUI() {
   }
   const reroll = el('card-shop-reroll');
   if (reroll) {
-    reroll.textContent = 'REROLL — ' + ribbonLabel(data.rerollCost);
-    reroll.disabled = data.rerollCost > data.ribbons;
+    reroll.textContent = 'REROLL — ' + medalLabel(data.rerollCost);
+    reroll.disabled = data.rerollCost > data.medals;
   }
   const slotBtn = el('card-shop-slot');
   if (slotBtn) {
@@ -635,8 +641,8 @@ function buildCardShopUI() {
       slotBtn.textContent = 'CARD SLOTS — MAX (6)';
       slotBtn.disabled = true;
     } else {
-      slotBtn.textContent = '+1 CARD SLOT — ' + ribbonLabel(slotCost);
-      slotBtn.disabled = slotCost > data.ribbons;
+      slotBtn.textContent = '+1 CARD SLOT — ' + medalLabel(slotCost);
+      slotBtn.disabled = slotCost > data.medals;
     }
   }
   buildBattlePlanUI();
@@ -676,8 +682,8 @@ function buildBattlePlanUI() {
   }
   const upBtn = el('plan-upgrade');
   const upCost = commandUpgradeCost(data.capacity);
-  upBtn.textContent = `+1 COMMAND — ${ribbonLabel(upCost)}`;
-  upBtn.disabled = upCost > data.ribbons;
+  upBtn.textContent = `+1 COMMAND — ${medalLabel(upCost)}`;
+  upBtn.disabled = upCost > data.medals;
   const grid = el('plan-collection');
   grid.replaceChildren();
   if (!data.owned.length) {

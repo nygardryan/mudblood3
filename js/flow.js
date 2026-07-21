@@ -109,12 +109,9 @@ function newResearchAtLevel(levelNum) {
 }
 
 function buildAxisBriefingStats(level) {
-  const waves = assaultWaves(level);
   return {
-    waves,
+    waves: assaultWaves(level),
     winBreaches: level.winBreaches,
-    wave1TP: axisWavePayout(level, 1),
-    waveFinalTP: axisWavePayout(level, waves),
   };
 }
 
@@ -135,7 +132,7 @@ function openAlliedBriefing(levelId) {
     appendBriefingObjective(objList,
       'Objective: ' + stats.winBreaches + ' breakthroughs past the bottom edge, or wipe every defender');
     appendBriefingObjective(objList,
-      'Budget: ' + stats.wave1TP + ' TP (wave 1) → ' + stats.waveFinalTP + ' TP (final wave) — spend each wave or lose it');
+      'Budget: Fresh TP each wave — spend it or lose it');
     if (level.landingCraft) {
       appendBriefingObjective(objList,
         'Rules: Deploy only on landing craft decks, then START WAVE. Craft motor ashore, ramps drop, Germans open fire.');
@@ -200,7 +197,7 @@ function openAxisBriefing(levelId) {
   appendBriefingObjective(objList,
     'Objective: ' + stats.winBreaches + ' breakthroughs past the bottom edge, or wipe every defender');
   appendBriefingObjective(objList,
-    'Budget: ' + stats.wave1TP + ' TP (wave 1) → ' + stats.waveFinalTP + ' TP (final wave) — spend each wave or lose it');
+    'Budget: Fresh TP each wave — spend it or lose it');
   appendBriefingObjective(objList,
     'Rules: Deploy in the top strip, then START WAVE. Defenders persist.');
   const levelNum = axisLevelNum(levelId);

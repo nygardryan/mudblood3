@@ -106,7 +106,7 @@ function newGame(level, difficulty) {
     phase: isAssaultModeLevel(level) ? 'build' : 'combat',
     waveIdx: 0,        // allied campaign: next scripted wave
     kills: 0,
-    ribbonsEarned: 0,  // endless: ribbons banked this run (wave-10 milestones)
+    medalsEarned: 0,  // endless: medals banked this run (wave-10 milestones)
     breaches: 0,
     time: 0,
     over: false,

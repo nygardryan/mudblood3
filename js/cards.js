@@ -41,6 +41,11 @@ const EXTENDED_TUBE_SHELLS = 7;
 // War Chest: extra TP front-loaded onto the run's starting balance in newGame()
 const WAR_CHEST_TP = 25;
 
+// Emergency Repair: triggers when vehicle HP drops below 30% to regenerate 30% HP
+const EMERGENCY_REPAIR_HP_THRESHOLD = 0.3;
+const EMERGENCY_REPAIR_HP_RESTORE = 0.3;
+const EMERGENCY_REPAIR_COOLDOWN = 60;
+
 // Cluster Rounds: the mortarman drops a stick of shells per fire order instead
 // of one, but rushing the tube costs precision — every shell in the stick rolls
 // its scatter against the widened spread. The mortar fire block reads both.
@@ -160,6 +165,15 @@ const CARD_COMMON_TEMPLATES = {
     excludes: ['rifleman', 'gunner', 'grenadier', 'bazooka', 'mortarman',
       'sniper', 'officer', 'jeep', 'sherman', 'atgun', 'aagun'],
     desc: t => `${t.name} moves 30% faster.`,
+    hooks: type => ({}),
+  },
+  // emergency repair only applies to vehicles: those with tank or vehicle flags.
+  // Flag-only: updateUnit checks G.cardsOwned directly to trigger repairs.
+  emergencyrepair: {
+    name: 'Emergency Repair', cost: 8, weight: 3,
+    excludes: ['rifleman', 'gunner', 'grenadier', 'shotgunner', 'bazooka',
+      'mortarman', 'sniper', 'flamer', 'medic', 'engineer', 'officer', 'atgun', 'aagun'],
+    desc: t => `Once ${t.name.toLowerCase()} drops below 30% HP, rapidly regenerate 30% HP. Cooldown: ${EMERGENCY_REPAIR_COOLDOWN}s.`,
     hooks: type => ({}),
   },
   // medal price runs opposite the unit's TP cost: a discount on a 3 TP

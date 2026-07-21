@@ -85,18 +85,10 @@ function update(dt) {
   // drop a focus-fire mark once its target is dead or off the field
   if (G.focusTarget && (G.focusTarget.dead || G.focusTarget.y < 0)) G.focusTarget = null;
 
+  // per-unit cosmetic/exposure timers tick inside updateUnit/updateEnemy —
+  // one pass over each roster instead of a dozen
   for (const u of G.units) if (!u.dead) updateUnit(u, dt);
   for (const e of G.enemies) if (!e.dead) updateEnemy(e, dt);
-  for (const u of G.units) if (!u.dead && u.flameT > 0) u.flameT -= dt;
-  for (const e of G.enemies) if (!e.dead && e.flameT > 0) e.flameT -= dt;
-  for (const u of G.units) if (!u.dead && u.grenThrowT > 0) u.grenThrowT -= dt;
-  for (const e of G.enemies) if (!e.dead && e.grenThrowT > 0) e.grenThrowT -= dt;
-  for (const u of G.units) if (!u.dead && u.shotgunBlastT > 0) u.shotgunBlastT -= dt;
-  for (const u of G.units) if (!u.dead && u.atgunFireT > 0) u.atgunFireT -= dt;
-  for (const u of G.units) if (!u.dead && u.mortarFireT > 0) u.mortarFireT -= dt;
-  for (const e of G.enemies) if (!e.dead && e.mortarFireT > 0) e.mortarFireT -= dt;
-  for (const e of G.enemies) if (!e.dead && e.v2FireT > 0) e.v2FireT -= dt;
-  for (const u of G.units) if (!u.dead && u.camoExposed > 0) u.camoExposed -= dt;
 
   // mines
   for (const m of G.mines) {
@@ -104,7 +96,7 @@ function update(dt) {
     for (const e of G.enemies) {
       if (e.dead || e.chute > 0) continue;
       const trig = e.t.tank ? 22 : e.t.apc ? 19 : e.t.vehicle ? 16 : 11;
-      if (dist(m, e) < trig) {
+      if (dist2(m, e) < trig * trig) {
         m.dead = true;
         explode(m.x, m.y, 44, 130, false);
         break;

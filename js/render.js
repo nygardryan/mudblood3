@@ -2,23 +2,40 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
+// visible world rect while the camera transform is active (mobile zoom /
+// tutorial cam) — anything outside it can skip its draw entirely
+let cullOn = false, cullX0 = 0, cullY0 = 0, cullX1 = 0, cullY1 = 0;
+
+function inView(x, y, m) {
+  return !cullOn || (x >= cullX0 - m && x <= cullX1 + m && y >= cullY0 - m && y <= cullY1 + m);
+}
+
 function draw() {
   hoverActor = findHoverActor();
   ctx.save();
+  cullOn = false;
   if (viewTransformActive()) {
     // any part of the view outside the world would otherwise keep last frame's pixels
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const s = viewScale();
     ctx.scale(s, s);
     ctx.translate(-viewCam.x, -viewCam.y);
+    cullOn = true;
+    cullX0 = viewCam.x; cullY0 = viewCam.y;
+    cullX1 = viewCam.x + canvas.width / s;
+    cullY1 = viewCam.y + canvas.height / s;
   }
   // the bitmap is backed at groundRenderScale× density; map it into W×H world space
   ctx.drawImage(groundCanvas, 0, 0, W, H);
-  for (const m of G.groundMarks) drawGroundMark(m, ctx);
+  for (const m of G.groundMarks) {
+    if (inView(m.x, m.y, 100)) drawGroundMark(m, ctx);
+  }
 
   drawForwardLine();
 
-  for (const cp of G.corpses) drawCorpse(cp);
+  for (const cp of G.corpses) {
+    if (inView(cp.x, cp.y, 30)) drawCorpse(cp);
+  }
 
   drawDefenses();
 
@@ -85,6 +102,7 @@ function draw() {
   }
 
   for (const e of G.enemies) {
+    if (!inView(e.x, e.y, 64)) continue;   // canopy/hull margin
     if (e.chute > 0) drawParatrooper(e);
     else if (e.t.tank) drawTank(e);
     else if (e.t.bike) drawBike(e);
@@ -114,6 +132,7 @@ function draw() {
   }
 
   for (const u of G.units) {
+    if (!inView(u.x, u.y, 64)) continue;
     const hidden = isCamouflaged(u);
     if (hidden) { ctx.save(); ctx.globalAlpha *= 0.4; }
     if (u.t.tank) drawTank(u);
@@ -137,6 +156,8 @@ function draw() {
   // tracers
   ctx.lineWidth = 1.2;
   for (const tr of G.tracers) {
+    if (cullOn && (Math.max(tr.x1, tr.x2) < cullX0 || Math.min(tr.x1, tr.x2) > cullX1 ||
+                   Math.max(tr.y1, tr.y2) < cullY0 || Math.min(tr.y1, tr.y2) > cullY1)) continue;
     if (tr.kind === 'buckshot') {
       ctx.strokeStyle = 'rgba(220,200,150,0.75)';
       ctx.lineWidth = 2.2;
@@ -152,6 +173,7 @@ function draw() {
 
   // particles
   for (const p of G.particles) {
+    if (!inView(p.x, p.y, 12)) continue;
     if (p.kind === 'flame') {
       const life = p.maxTtl ? p.ttl / p.maxTtl : clamp(p.ttl / 0.3, 0, 1);
       const r = p.size * (0.75 + (1 - life) * 0.45);

@@ -24,10 +24,12 @@ function explode(x, y, r, dmg, big, by) {
     });
   }
 
+  const r2 = r * r;
   const hitArea = (e) => {
-    const d = dist(e, { x, y });
-    if (d > r) return 0;
-    let hd = dmg * (1 - (d / r) * 0.7) * rand(0.8, 1.2);
+    const dx = e.x - x, dy = e.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > r2) return 0;
+    let hd = dmg * (1 - (Math.sqrt(d2) / r) * 0.7) * rand(0.8, 1.2);
     if (e.prone > 0) hd *= 0.5;   // flat on the ground, under most of the blast
     return hd;
   };
@@ -64,19 +66,20 @@ function explode(x, y, r, dmg, big, by) {
   // emplacement too — no HP lost.
   const blastShelter = G.cardsOwned && G.cardsOwned.has('blastshelter');
   if (!blastShelter) {
+    const pt = { x, y };
     for (const s of G.sandbags) {
-      if (dist(s, { x, y }) < r) s.hp -= dmg * 0.8;
+      if (dist2(s, pt) < r2) s.hp -= dmg * 0.8;
     }
     for (const b of G.bunkers) {
       // reinforced concrete: blast does far less than it would to sandbags
-      if (dist(b, { x, y }) < r) b.hp -= dmg * 0.4;
+      if (dist2(b, pt) < r2) b.hp -= dmg * 0.4;
     }
     for (const wt of G.watchtowers) {
-      if (dist(wt, { x, y }) < r) wt.hp -= dmg * 0.8;
+      if (dist2(wt, pt) < r2) wt.hp -= dmg * 0.8;
     }
     for (const cn of G.camoNests) {
       // no concrete to absorb it — brush and dugout timber crack fast
-      if (dist(cn, { x, y }) < r) cn.hp -= dmg * CAMONEST_EXPLOSIVE_MULT;
+      if (dist2(cn, pt) < r2) cn.hp -= dmg * CAMONEST_EXPLOSIVE_MULT;
     }
     for (const wr of G.wires) {
       if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;

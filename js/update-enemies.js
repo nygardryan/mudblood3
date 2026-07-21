@@ -24,12 +24,18 @@ function enemyOfficerNear(e) {
   for (const o of officers) {
     if (o.dead || o === e) continue;
     if (!(o.t.aura || o.type === 'officer' || o.type === 'eoff')) continue;
-    if (dist(o, e) < 140) return true;
+    if (dist2(o, e) < 140 * 140) return true;
   }
   return false;
 }
 
 function updateEnemy(e, dt) {
+  // cosmetic timers, formerly separate full-array passes in update()
+  if (e.flameT > 0) e.flameT -= dt;
+  if (e.grenThrowT > 0) e.grenThrowT -= dt;
+  if (e.mortarFireT > 0) e.mortarFireT -= dt;
+  if (e.v2FireT > 0) e.v2FireT -= dt;
+
   // still under canopy: drift down, sway in the wind, do nothing else
   if (e.chute > 0) {
     updateEnemyChute(e, dt);
@@ -125,10 +131,11 @@ function updateEnemy(e, dt) {
   let rocketTarget = null;
   let mortarTarget = null;
 
-  // grenadier lobs grenades
+  // grenadier lobs grenades — no point scanning for a lob before the fuse hand
+  // is free
   if (e.t.grenade) {
     e.grenCd -= dt;
-    const gt = nearestUnitInRange(e, 190);
+    const gt = e.grenCd <= 0 ? nearestUnitInRange(e, 190) : null;
     if (gt && e.grenCd <= 0) {
       e.grenCd = rand(4.5, 6.5);
       e.grenThrowT = 0.35;
@@ -144,11 +151,19 @@ function updateEnemy(e, dt) {
   if (e.t.rocket) {
     e.rocketCd -= dt;
     const rk = e.t.rocket;
-    const rr = rk.range * fogMult();
-    const safe = u => dist(e, u) > rk.r + 20;
-    rocketTarget = nearestUnitInRange(e, rr, u => u.t.tank && safe(u)) ||
-                   nearestUnitInRange(e, rr, u => (u.t.vehicle || u.t.gunEmplacement) && safe(u)) ||
-                   nearestUnitInRange(e, rr, safe);
+    // the pick only matters when the tube is ready to fire, or when there's no
+    // sidearm target and it decides whether to hold or advance — skip the scan
+    // otherwise, and take all three priority tiers in a single pass
+    if (e.rocketCd <= 0 || !target) {
+      const rr = rk.range * fogMult();
+      const safeR2 = (rk.r + 20) * (rk.r + 20);
+      const safe = u => dist2(e, u) > safeR2;
+      rocketTarget = tieredUnitTarget(e, rr, [
+        u => u.t.tank && safe(u),
+        u => (u.t.vehicle || u.t.gunEmplacement) && safe(u),
+        safe,
+      ]);
+    }
     if (e.rocketCd <= 0 && rocketTarget) {
       e.rocketCd = rand(rk.cdMin, rk.cdMax);
       e.face = Math.atan2(rocketTarget.y - e.y, rocketTarget.x - e.x);
@@ -170,8 +185,12 @@ function updateEnemy(e, dt) {
   if (e.t.mortar) {
     e.mortCd -= dt;
     const mt = e.t.mortar;
-    const mr = mt.range * fogMult();
-    mortarTarget = nearestUnitInRange(e, mr, u => dist(e, u) > mt.min);
+    // same deal as the rocket: only scan when it can fire or has nothing else
+    if (e.mortCd <= 0 || !target) {
+      const mr = mt.range * fogMult();
+      const min2 = mt.min * mt.min;
+      mortarTarget = nearestUnitInRange(e, mr, u => dist2(e, u) > min2);
+    }
     if (e.mortCd <= 0 && mortarTarget) {
       e.mortCd = rand(mt.cdMin, mt.cdMax);
       e.face = Math.atan2(mortarTarget.y - e.y, mortarTarget.x - e.x);
@@ -188,14 +207,21 @@ function updateEnemy(e, dt) {
   if (e.t.v2) {
     e.v2Cd -= dt;
     const vk = e.t.v2;
-    const vr = vk.range * fogMult();
     // tanks first, then anything else on wheels, then whatever's left beyond
     // minimum range — a V2 battery has no reason to spare infantry, it's
-    // just less interested in them than in armor
-    const safe = u => dist(e, u) > vk.r + 60;
-    v2Target = nearestUnitInRange(e, vr, u => u.t.tank && safe(u)) ||
-               nearestUnitInRange(e, vr, u => (u.t.vehicle || u.t.gunEmplacement) && safe(u)) ||
-               nearestUnitInRange(e, vr, u => dist(e, u) > vk.min && safe(u));
+    // just less interested in them than in armor. One pass, and only when
+    // the battery can fire or has nothing else holding its attention.
+    if (e.v2Cd <= 0 || !target) {
+      const vr = vk.range * fogMult();
+      const safeR2 = (vk.r + 60) * (vk.r + 60);
+      const min2 = vk.min * vk.min;
+      const safe = u => dist2(e, u) > safeR2;
+      v2Target = tieredUnitTarget(e, vr, [
+        u => u.t.tank && safe(u),
+        u => (u.t.vehicle || u.t.gunEmplacement) && safe(u),
+        u => dist2(e, u) > min2 && safe(u),
+      ]);
+    }
     if (e.v2Cd <= 0 && v2Target) {
       e.v2Cd = rand(vk.cdMin, vk.cdMax);
       e.face = Math.atan2(v2Target.y - e.y, v2Target.x - e.x);
@@ -210,7 +236,7 @@ function updateEnemy(e, dt) {
     rollEnemyPushUrge(e, engageTarget, dt, command);
     runWeapon(e, target, dt, buffed ? { rofMult: 0.8 } : null);
     // stormtroopers keep pushing even under fire
-    if (!command && e.t.speed >= 30 && dist(e, target) > range * 0.5) {
+    if (!command && e.t.speed >= 30 && dist2(e, target) > range * range * 0.25) {
       advance(e, dt, buffed);
     }
   } else if (engageTarget) {
@@ -264,7 +290,7 @@ function rollEnemyPushUrge(e, target, dt, command) {
   e.pushCd -= dt;
   if (e.pushCd <= 0) {
     e.pushCd = rand(3, 6);
-    if (Math.random() < 0.4 && dist(e, target) > 70) {
+    if (Math.random() < 0.4 && dist2(e, target) > 70 * 70) {
       e.pushT = rand(1.2, 2.8);
     }
   }

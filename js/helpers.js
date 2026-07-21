@@ -5,7 +5,16 @@
 const rand = (a, b) => a + Math.random() * (b - a);
 const randi = (a, b) => Math.floor(rand(a, b + 1));
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+// plain sqrt beats Math.hypot by 2-4x and game coordinates never overflow it
+const dist = (a, b) => {
+  const dx = a.x - b.x, dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+// squared distance for range checks: compare against r*r and skip the sqrt
+const dist2 = (a, b) => {
+  const dx = a.x - b.x, dy = a.y - b.y;
+  return dx * dx + dy * dy;
+};
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
 const HUD_INTERVAL = 0.1;
@@ -18,6 +27,15 @@ function compactInPlace(arr, keep) {
     if (keep(arr[i])) arr[w++] = arr[i];
   }
   arr.length = w;
+}
+
+// visit every defense emplacement without building a throwaway merged array
+function forEachDefense(fn) {
+  for (const s of G.sandbags) fn(s);
+  for (const b of G.bunkers) fn(b);
+  for (const w of G.wires) fn(w);
+  for (const t of G.watchtowers) fn(t);
+  for (const c of G.camoNests) fn(c);
 }
 
 function compactDefenses(arr, onDestroy) {

@@ -7,7 +7,7 @@ function officerBuff(u) {
   for (const o of officers) {
     if (o.dead || o === u) continue;
     if (!(o.type === 'officer' || o.type === 'eoff' || o.t.aura)) continue;
-    if (dist(o, u) < OFFICER_AURA) {
+    if (dist2(o, u) < OFFICER_AURA * OFFICER_AURA) {
       // a veteran officer drives his men harder
       return { rofMult: 0.75 - (o.rank || 0) * 0.03, accBonus: 0.18 + (o.rank || 0) * 0.04 };
     }
@@ -51,7 +51,7 @@ function watchtowerRangeMult(u) {
   if (u.side !== 'us' || u.t.mortar || !G.watchtowers.length) return 1;
   let mult = 1;
   for (const wt of G.watchtowers) {
-    if (dist(wt, u) < WATCHTOWER_AURA) {
+    if (dist2(wt, u) < WATCHTOWER_AURA * WATCHTOWER_AURA) {
       const wtMult = wt.up2 ? WATCHTOWER_RANGE_MULT_HARDENED
         : wt.up ? WATCHTOWER_RANGE_MULT_UPGRADED : WATCHTOWER_RANGE_MULT;
       if (wtMult > mult) mult = wtMult;
@@ -79,6 +79,14 @@ function unitRange(u, base) {
 }
 
 function updateUnit(u, dt) {
+  // cosmetic/exposure timers, formerly separate full-array passes in update()
+  if (u.flameT > 0) u.flameT -= dt;
+  if (u.grenThrowT > 0) u.grenThrowT -= dt;
+  if (u.shotgunBlastT > 0) u.shotgunBlastT -= dt;
+  if (u.atgunFireT > 0) u.atgunFireT -= dt;
+  if (u.mortarFireT > 0) u.mortarFireT -= dt;
+  if (u.camoExposed > 0) u.camoExposed -= dt;
+
   if (u.proneCd > 0) u.proneCd -= dt;
   if (u.prone > 0) {
     // a move order gets him up and running; otherwise he waits it out
@@ -201,7 +209,8 @@ function updateUnit(u, dt) {
     // caught, or thrown by a friendly (kind 'frag'), are never eligible.
     for (const g of G.grenades) {
       if (g.by || g.caught || !g.landed || g.fuse < 0.6) continue;
-      if (dist(u, { x: g.tx, y: g.ty }) > GRENADE_CATCH_RANGE) continue;
+      const gdx = g.tx - u.x, gdy = g.ty - u.y;
+      if (gdx * gdx + gdy * gdy > GRENADE_CATCH_RANGE * GRENADE_CATCH_RANGE) continue;
       g.caught = true;
       g.by = u;
       g.landed = false;
@@ -222,7 +231,7 @@ function updateUnit(u, dt) {
     u.grenCd -= dt;
     if (u.grenCd <= 0) {
       // never inside his own blast, never onto a danger-close buddy
-      const gt = nearestEnemyInRange(u, 200 * (1 + (u.rank || 0) * 0.10) * fogMult(), e => dist(u, e) > 60);
+      const gt = nearestEnemyInRange(u, 200 * (1 + (u.rank || 0) * 0.10) * fogMult(), e => dist2(u, e) > 60 * 60);
       if (gt && !friendlyNearPoint(gt.x, gt.y, 55, u)) {
         // grenades are a rare, heavy punch — the carbine does the daily work.
         // Veterans throw more often, tighter and harder.
@@ -247,11 +256,14 @@ function updateUnit(u, dt) {
       const rk = u.t.rocket;
       const rr = unitRange(u, rk.range) * fogMult();
       // tanks first, then soft vehicles, infantry only when there is nothing
-      // on wheels; never inside his own blast
-      const safe = e => dist(u, e) > rk.r + 20;
-      const rt = nearestEnemyInRange(u, rr, e => e.t.tank && safe(e)) ||
-                 nearestEnemyInRange(u, rr, e => (e.t.vehicle || e.t.bike) && safe(e)) ||
-                 nearestEnemyInRange(u, rr, safe);
+      // on wheels; never inside his own blast — one pass over the enemies
+      const safeR2 = (rk.r + 20) * (rk.r + 20);
+      const safe = e => dist2(u, e) > safeR2;
+      const rt = tieredEnemyTarget(u, rr, [
+        e => e.t.tank && safe(e),
+        e => (e.t.vehicle || e.t.bike) && safe(e),
+        safe,
+      ]);
       if (rt && !friendlyNearPoint(rt.x, rt.y, 40, u)) {
         // a veteran crew reloads faster and walks his shots in
         u.rocketCd = rand(rk.cdMin, rk.cdMax) * (1 - u.rank * 0.08);
@@ -279,7 +291,7 @@ function updateUnit(u, dt) {
     if (u.mortCd <= 0) {
       const mt = u.t.mortar;
       const mr = unitRange(u, mt.range) * fogMult();
-      const inRange = e => dist(u, e) > mt.min;
+      const inRange = e => dist2(u, e) > mt.min * mt.min;
       // counter-battery: friendly mortars drop on enemy mortar teams first
       let target = firstEnemyInRange(u, mr, e => inRange(e) && e.t.mortar);
       if (!target) target = firstEnemyInRange(u, mr, inRange);
@@ -305,7 +317,7 @@ function updateUnit(u, dt) {
       for (const a of G.units) {
         // no field-dressing machines: medics treat men, not metal
         if (a.dead || a === u || a.t.tank || a.t.vehicle || a.t.gunEmplacement || a.hp >= a.maxhp) continue;
-        if (dist(u, a) < MEDIC_RANGE) {
+        if (dist2(u, a) < MEDIC_RANGE * MEDIC_RANGE) {
           const f = a.hp / a.maxhp;
           if (f < frac) { frac = f; worst = a; }
         }
@@ -353,11 +365,12 @@ function updateEngineer(u, dt) {
 
   // 1) restack damaged sandbags / patch bunker concrete / restring damaged wire / brace the watch tower
   let emp = null, empFrac = 1;
-  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires, ...G.watchtowers, ...G.camoNests]) {
-    if (s.hp >= s.maxhp || dist(u, s) > R) continue;
+  const R2 = R * R;
+  forEachDefense(s => {
+    if (s.hp >= s.maxhp || dist2(u, s) > R2) return;
     const f = s.hp / s.maxhp;
     if (f < empFrac) { empFrac = f; emp = s; }
-  }
+  });
   if (emp) {
     const amt = Math.min(emp.maxhp - emp.hp, (8 + u.rank * 2.7) * repairMult);
     emp.hp += amt;
@@ -373,7 +386,7 @@ function updateEngineer(u, dt) {
   let veh = null, vehFrac = 1;
   for (const a of G.units) {
     if (a.dead || a === u || !(a.t.tank || a.t.vehicle || a.t.gunEmplacement) || a.hp >= a.maxhp) continue;
-    if (dist(u, a) > R) continue;
+    if (dist2(u, a) > R2) continue;
     const f = a.hp / a.maxhp;
     if (f < vehFrac) { vehFrac = f; veh = a; }
   }
@@ -389,12 +402,12 @@ function updateEngineer(u, dt) {
   // Every intact piece earns a first fortification; with Hardened Works an
   // already-fortified piece can be pushed to a second, tougher tier.
   const hardened = G.cardsOwned && G.cardsOwned.has('hardenedworks');
-  let target = null, td = R;
-  for (const s of [...G.sandbags, ...G.bunkers, ...G.wires, ...G.watchtowers, ...G.camoNests]) {
-    if (s.up2 || (s.up && !hardened)) continue;
-    const d = dist(u, s);
+  let target = null, td = R2;
+  forEachDefense(s => {
+    if (s.up2 || (s.up && !hardened)) return;
+    const d = dist2(u, s);
     if (d < td) { td = d; target = s; }
-  }
+  });
   if (target) {
     target.workProg += 0.4 * (1 + u.rank * 0.35);
     sparks(target.x, target.y);
@@ -427,9 +440,10 @@ function updateATGun(u, dt) {
   u.cd -= dt;
 
   // armor is the priority; soft vehicles after. Infantry is not this gun's job.
-  const target =
-    nearestEnemyInRange(u, range, e => e.t.tank && inCone(e)) ||
-    nearestEnemyInRange(u, range, e => (e.t.vehicle || e.t.bike || e.t.v2) && inCone(e));
+  const target = tieredEnemyTarget(u, range, [
+    e => e.t.tank && inCone(e),
+    e => (e.t.vehicle || e.t.bike || e.t.v2) && inCone(e),
+  ]);
 
   if (!target) {
     // crank the tube back to center
@@ -661,8 +675,7 @@ function tankTargets(a) {
   if (a.side === 'us') {
     return {
       // enemy armor is the cannon's priority target, inside the turret arc
-      cannon: nearestEnemyInRange(a, cannonRange, e => e.t.tank && inCone(e)) ||
-              nearestEnemyInRange(a, cannonRange, inCone),
+      cannon: tieredEnemyTarget(a, cannonRange, [e => e.t.tank && inCone(e), inCone]),
       mg: nearestEnemyInRange(a, mgRange, e => !e.t.tank && inCone(e)),
     };
   }

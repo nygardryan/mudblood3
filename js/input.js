@@ -196,8 +196,12 @@ function place(p, x, y) {
     }
   } else if (p.key === 'rankup') {
     showBanner('FIELD PROMOTIONS');
-    for (const a of [...G.units, ...G.enemies]) {
-      if (!a.dead && dist(a, { x, y }) < RANKUP_RADIUS) rankUpUnit(a);
+    const pt = { x, y };
+    for (const a of G.units) {
+      if (!a.dead && dist2(a, pt) < RANKUP_RADIUS * RANKUP_RADIUS) rankUpUnit(a);
+    }
+    for (const a of G.enemies) {
+      if (!a.dead && dist2(a, pt) < RANKUP_RADIUS * RANKUP_RADIUS) rankUpUnit(a);
     }
   } else if (p.key === 'purge') {
     showBanner('AREA CLEARED');

@@ -20,19 +20,21 @@ function coverBlock(target) {
   if (target.side !== 'us' || target.t.tank || target.t.vehicle) return false;
   // bunker walls first: they stop more fire and barely notice small arms
   for (const b of G.bunkers) {
-    if (b.hp > 0 && dist(b, target) < (b.up2 ? 38 : b.up ? 34 : 30)) {
+    const r = b.up2 ? 38 : b.up ? 34 : 30;
+    if (b.hp > 0 && dist2(b, target) < r * r) {
       if (Math.random() < (b.up2 ? 0.92 : b.up ? 0.85 : 0.75)) { b.hp -= b.up ? 1 : 2; return true; }
     }
   }
   for (const s of G.sandbags) {
     // fortified bags stop more and shrug off hits better; hardened, more still
-    if (s.hp > 0 && dist(s, target) < (s.up2 ? 33 : s.up ? 30 : 26)) {
+    const r = s.up2 ? 33 : s.up ? 30 : 26;
+    if (s.hp > 0 && dist2(s, target) < r * r) {
       if (Math.random() < (s.up2 ? 0.78 : s.up ? 0.65 : 0.5)) { s.hp -= s.up2 ? 2 : s.up ? 3 : 4; return true; }
     }
   }
   // watch tower: spotters call out incoming fire, a flat 10% dodge for anyone under it
   for (const wt of G.watchtowers) {
-    if (wt.hp > 0 && dist(wt, target) < WATCHTOWER_AURA) {
+    if (wt.hp > 0 && dist2(wt, target) < WATCHTOWER_AURA * WATCHTOWER_AURA) {
       if (Math.random() < 0.1) { wt.hp -= 3; return true; }
     }
   }
@@ -44,15 +46,25 @@ function coverBlock(target) {
 // their last shot. Vehicles and fixed guns are too big to hide in one.
 function camoNestAt(u) {
   for (const cn of G.camoNests) {
-    if (cn.hp > 0 && dist(cn, u) < CAMONEST_ZONE) return cn;
+    if (cn.hp > 0 && dist2(cn, u) < CAMONEST_ZONE * CAMONEST_ZONE) return cn;
   }
   return null;
 }
 
+// isCamouflaged runs per enemy-vs-unit pair in targeting plus once per unit
+// per draw, so the nest lookup rides the same 0.4s cache as the officer aura
+// (G.buffFrame). camoExposed and nest HP stay live, so opening fire or losing
+// the nest still reveals the man instantly.
 function isCamouflaged(u) {
   if (u.side !== 'us' || u.dead || u.t.tank || u.t.vehicle || u.t.apc || u.t.bike || u.t.gunEmplacement) return false;
   if (u.camoExposed > 0) return false;
-  return !!camoNestAt(u);
+  const bf = G.buffFrame || 0;
+  if (u._camoFrame !== bf) {
+    u._camoFrame = bf;
+    u._camoNest = camoNestAt(u);
+  }
+  const cn = u._camoNest;
+  return !!(cn && cn.hp > 0);
 }
 
 function markCamoFired(u) {

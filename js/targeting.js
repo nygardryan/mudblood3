@@ -9,18 +9,18 @@ function focusPick(u, range, pred) {
   const f = G && G.focusTarget;
   if (!f || f.dead || f.y < 0 || f.chute > 0) return null;
   if (pred && !pred(f)) return null;
-  if (dist(u, f) > range) return null;
+  if (dist2(u, f) > range * range) return null;
   return f;
 }
 
 function nearestEnemyInRange(u, range, pred) {
   const f = focusPick(u, range, pred);
   if (f) return f;
-  let best = null, bd = range;
+  let best = null, bd = range * range;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
     if (pred && !pred(e)) continue;
-    const d = dist(u, e);
+    const d = dist2(u, e);
     if (d < bd) { bd = d; best = e; }
   }
   return best;
@@ -29,11 +29,52 @@ function nearestEnemyInRange(u, range, pred) {
 function firstEnemyInRange(u, range, pred) {
   const f = focusPick(u, range, pred);
   if (f) return f;
+  const r2 = range * range;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
     if (pred && !pred(e)) continue;
-    if (dist(u, e) <= range) return e;
+    if (dist2(u, e) <= r2) return e;
   }
+  return null;
+}
+
+// tiered priority pick in ONE pass over G.enemies — equivalent to chaining
+// nearestEnemyInRange(u, range, tier0) || nearestEnemyInRange(u, range, tier1)
+// || ..., including the focus-fire override, without rescanning per tier
+function tieredEnemyTarget(u, range, tiers) {
+  const n = tiers.length;
+  const best = new Array(n).fill(null);
+  const bd = new Array(n).fill(range * range);
+  for (const e of G.enemies) {
+    if (e.dead || e.y < 0 || e.chute > 0) continue;
+    const d2 = dist2(u, e);
+    for (let i = 0; i < n; i++) {
+      if (d2 < bd[i] && tiers[i](e)) { bd[i] = d2; best[i] = e; }
+    }
+  }
+  const f = G && G.focusTarget;
+  const focusOk = f && !f.dead && f.y >= 0 && !(f.chute > 0) &&
+    dist2(u, f) <= range * range;
+  for (let i = 0; i < n; i++) {
+    if (focusOk && tiers[i](f)) return f;
+    if (best[i]) return best[i];
+  }
+  return null;
+}
+
+// same single-pass tiered pick over G.units (enemy shooters; no focus fire)
+function tieredUnitTarget(e, range, tiers) {
+  const n = tiers.length;
+  const best = new Array(n).fill(null);
+  const bd = new Array(n).fill(range * range);
+  for (const u of G.units) {
+    if (u.dead || isCamouflaged(u)) continue;
+    const d2 = dist2(e, u);
+    for (let i = 0; i < n; i++) {
+      if (d2 < bd[i] && tiers[i](u)) { bd[i] = d2; best[i] = u; }
+    }
+  }
+  for (let i = 0; i < n; i++) if (best[i]) return best[i];
   return null;
 }
 
@@ -41,10 +82,11 @@ function sniperTarget(u, range) {
   const f = focusPick(u, range, e => !e.t.tank);
   if (f) return f;
   let best = null, bp = -1, bd = Infinity;
+  const r2 = range * range;
   for (const e of G.enemies) {
     if (e.dead || e.t.tank || e.y < 0 || e.chute > 0) continue;
-    const d = dist(u, e);
-    if (d > range) continue;
+    const d = dist2(u, e);
+    if (d > r2) continue;
     if (e.t.priority > bp || (e.t.priority === bp && d < bd)) {
       bp = e.t.priority; bd = d; best = e;
     }
@@ -713,10 +755,10 @@ function flameSpray(actor, dt) {
 
   // a veteran keeps the stream on target: burn scales hard with rank
   const dps = fl.dps * (1 + (actor.rank || 0) * 0.35);
+  const reach2 = (range + 8) * (range + 8);
   const burn = (a2) => {
     if (a2 === actor || a2.dead) return;
-    const d = dist(actor, a2);
-    if (d > range + 8) return;
+    if (dist2(actor, a2) > reach2) return;
     if (Math.abs(angleDiff(Math.atan2(a2.y - actor.y, a2.x - actor.x), actor.face)) > fl.arc) return;
     let dmg = dps * dt * rand(0.8, 1.2);
     if (a2.t.tank) dmg *= 0.6;
@@ -786,10 +828,12 @@ function fireShotgun(actor, buffs) {
   const rank = actor.rank || 0;
   // attackers (side 'de') hose defenders in G.units; friendlies hose G.enemies
   const foes = actor.side === 'de' ? G.units : G.enemies;
+  const reach2 = (range + 8) * (range + 8);
   for (const e of foes) {
     if (e.dead || e.y < 0 || e.chute > 0 || isCamouflaged(e)) continue;
-    const d = dist(actor, e);
-    if (d > range + 8) continue;
+    const d2 = dist2(actor, e);
+    if (d2 > reach2) continue;
+    const d = Math.sqrt(d2);
     const ang = Math.atan2(e.y - actor.y, e.x - actor.x);
     const off = Math.abs(angleDiff(ang, actor.face));
     if (off > arc) continue;
@@ -817,18 +861,21 @@ function fireShotgun(actor, buffs) {
 }
 
 function friendlyNearPoint(x, y, r, except) {
+  const r2 = r * r;
   for (const u of G.units) {
-    if (!u.dead && u !== except && dist(u, { x, y }) < r) return true;
+    if (u.dead || u === except) continue;
+    const dx = u.x - x, dy = u.y - y;
+    if (dx * dx + dy * dy < r2) return true;
   }
   return false;
 }
 
 function nearestUnitInRange(e, range, pred) {
-  let best = null, bd = range;
+  let best = null, bd = range * range;
   for (const u of G.units) {
     if (u.dead || isCamouflaged(u)) continue;
     if (pred && !pred(u)) continue;
-    const d = dist(e, u);
+    const d = dist2(e, u);
     if (d < bd) { bd = d; best = u; }
   }
   return best;

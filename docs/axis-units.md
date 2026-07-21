@@ -15,7 +15,7 @@ Compare against the matching entry in `UNIT_TYPES` and set the Axis unit to that
 | Stat | Axis adjustment |
 |------|-----------------|
 | HP | ~10% higher (`× 1.1`) |
-| Speed | ~10% faster (`× 1.1`) |
+| Speed | **Matched exactly** to the Allied counterpart — Germans no longer outpace their US equivalents |
 | Range | ~10% longer direct-fire range (`× 1.1`) |
 | Damage / accuracy | Higher `dmg`, `acc`, or an extra burst round (`× 1.1`) |
 | Rate of fire | Lower `rof` value = faster shots (`× 0.9`) |
@@ -23,15 +23,15 @@ Compare against the matching entry in `UNIT_TYPES` and set the Axis unit to that
 
 Leave reward (`reward` on enemies) and spawn cost (`AXIS_PLACEABLES`) separate — those are economy knobs, not combat parity.
 
-Axis-only types with no direct Allied pair (Stormtrooper, Kradschützen, halftrack, the tanks, the V2 battery) take a flat **+10% over their previous numbers** instead of rebasing onto an Allied unit.
+Axis-only types with no direct Allied pair (Stormtrooper, Kradschützen, halftrack, the tanks, the V2 battery) take a flat **+10% over their previous numbers** instead of rebasing onto an Allied unit — including their speed, since there is no counterpart to match.
 
 ### Examples in the codebase
 
 | Allied | Axis | Notes |
 |--------|------|-------|
-| `rifleman` — 100 HP, 154 rng, 13 dmg, 0.55 acc, speed 42 | `erifle` — 110 HP, 169 rng, 14 dmg, 0.6 acc, speed 46 | Higher across the board |
-| `bazooka` — 90 HP, speed 40 | `ebazooka` — 99 HP, speed 44 | Rocket block also +10% (132 dmg vs 120) |
-| `mortarman` — 90 HP, speed 38 | `emortar` — 99 HP, speed 42 | Mortar block also +10% (83 dmg, 44 r) |
+| `rifleman` — 100 HP, 154 rng, 13 dmg, 0.55 acc, speed 42 | `erifle` — 110 HP, 169 rng, 14 dmg, 0.6 acc, speed 42 | Higher across the board; speed matched |
+| `bazooka` — 90 HP, speed 40 | `ebazooka` — 99 HP, speed 40 | Rocket block also +10% (132 dmg vs 120); speed matched |
+| `mortarman` — 90 HP, speed 38 | `emortar` — 99 HP, speed 38 | Mortar block also +10% (83 dmg, 44 r); speed matched |
 | `sniper` — 85 HP, 249 rng, 46 dmg, 0.72 acc | `esniper` — 94 HP, 274 rng, 51 dmg, 0.79 acc | Tougher and longer reach |
 | `flamer` — 130 HP, 38 dps | `eflame` — 143 HP, 42 dps | More durable, slightly more burn |
 

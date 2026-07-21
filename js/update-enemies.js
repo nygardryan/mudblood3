@@ -1,4 +1,4 @@
-/* Mud & Blood — per-frame enemy unit logic.
+/* Dirt & Iron — per-frame enemy unit logic.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

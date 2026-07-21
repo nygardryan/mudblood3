@@ -1,4 +1,4 @@
-/* Mud & Blood — HUD / DOM panels.
+/* Dirt & Iron — HUD / DOM panels.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
@@ -132,7 +132,11 @@ function syncSelectionMobile() {
 
 function syncMobileChrome() {
   const stage = el('stage');
+  const hudEl = el('hud');
   const tip = el('tipbar');
+  // the TP / wave / kills / breach readouts only make sense mid-game; hide them
+  // on the menus (running stays true while paused, so they persist through pause)
+  if (hudEl) hudEl.classList.toggle('playing', !!running);
   const actions = el('mobile-actions');
   const placeCancel = el('place-cancel');
   if (stage) {

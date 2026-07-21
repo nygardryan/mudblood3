@@ -1,4 +1,4 @@
-/* Mud & Blood — soldier, kit & weapon drawing.
+/* Dirt & Iron — soldier, kit & weapon drawing.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

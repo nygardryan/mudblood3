@@ -1,4 +1,4 @@
-/* Mud & Blood — canvas setup & global game state.
+/* Dirt & Iron — canvas setup & global game state.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

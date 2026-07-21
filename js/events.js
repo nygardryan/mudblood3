@@ -1,4 +1,4 @@
-/* Mud & Blood — random events.
+/* Dirt & Iron — random events.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

@@ -1,4 +1,4 @@
-/* Mud & Blood — vehicle, emplacement & defense drawing.
+/* Dirt & Iron — vehicle, emplacement & defense drawing.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

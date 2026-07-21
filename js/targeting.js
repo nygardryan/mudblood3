@@ -1,4 +1,4 @@
-/* Mud & Blood — target selection.
+/* Dirt & Iron — target selection.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

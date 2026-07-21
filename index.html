@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#000000">
-<title>Mud &amp; Blood — HTML5 Remake</title>
+<title>Dirt &amp; Iron — HTML5 Remake</title>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -19,15 +19,15 @@
     <canvas id="game" width="540" height="620"></canvas>
 
     <div id="hud">
-      <div class="hud-box" id="hud-tp" title="Tactical Points — earned from kills and over time">TP <span id="tp">0</span></div>
-      <div class="hud-box" id="wavebox">WAVE 0</div>
+      <div class="hud-box hud-stat" id="hud-tp" title="Tactical Points — earned from kills and over time">TP <span id="tp">0</span></div>
+      <div class="hud-box hud-stat" id="wavebox">WAVE 0</div>
       <div class="hud-box sandbox-wave-skip hidden" id="sandbox-wave-skip" title="Jump ahead and spawn that wave">
         <button type="button" class="wave-skip-btn" data-wave-skip="1">+1</button>
         <button type="button" class="wave-skip-btn" data-wave-skip="5">+5</button>
         <button type="button" class="wave-skip-btn" data-wave-skip="10">+10</button>
       </div>
-      <div class="hud-box">KILLS <span id="kills">0</span></div>
-      <div class="hud-box breach" id="breachbox" title="Breakthroughs past the bottom edge">BREACH 0/7</div>
+      <div class="hud-box hud-stat">KILLS <span id="kills">0</span></div>
+      <div class="hud-box breach hud-stat" id="breachbox" title="Breakthroughs past the bottom edge">BREACH 0/7</div>
       <button id="view-reset" class="hud-box hidden" title="Reset map zoom and position">MAP</button>
       <button id="start-wave-btn" class="hud-box hidden" title="Begin the assault">START WAVE</button>
       <button id="speed-btn" class="hud-box hidden" title="Game speed">1x</button>
@@ -54,8 +54,8 @@
       <div class="mm">
         <header class="mm-head">
           <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>FIELD MANUAL · FRANCE 1944<span class="mm-eyebrow-mark"></span></div>
-          <h1 class="mm-title">MUD <span class="mm-amp">&amp;</span> BLOOD</h1>
-          <p class="mm-tagline">An HTML5 tribute to the classic Flash game</p>
+          <h1 class="mm-title">DIRT <span class="mm-amp">&amp;</span> IRON</h1>
+          <p class="mm-tagline">An HTML5 squad-defense game</p>
           <p class="mm-brief">Earn <b>Tactical Points</b> from kills and spend them on men, defenses and fire support. Fire support is <b>dangerous to your own men</b> — so it was in real life.</p>
         </header>
 
@@ -341,7 +341,7 @@
     <div id="gameover" class="overlay hidden">
       <h1 id="go-title">LINE OVERRUN</h1>
       <p id="go-stats"></p>
-      <p class="quote">"War is mud, blood, and the man next to you."</p>
+      <p class="quote">"War is dirt, iron, and the man next to you."</p>
       <div id="go-leaderboard-entry" class="hidden">
         <p class="go-leaderboard-hint">New leaderboard score! Enter a name if you want one on the board:</p>
         <div class="go-score-form">

@@ -1,7 +1,7 @@
-# Mud & Blood — HTML5 Remake
+# Dirt & Iron — HTML5 Squad Defense
 
-A tribute to *Mud and Blood 2*, the classic Flash squad-defense game, rebuilt with
-plain HTML5 Canvas and vanilla JavaScript. No Flash, no frameworks, no build step.
+A WWII squad-defense game built with plain HTML5 Canvas and vanilla JavaScript.
+No Flash, no frameworks, no build step.
 Sound effects come from curated CC0 / open-licensed samples in `assets/sounds/`
 (see attribution file there); a few cues still use lightweight WebAudio synthesis.
 

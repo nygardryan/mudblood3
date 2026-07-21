@@ -1,4 +1,4 @@
-/* Mud & Blood — menus, briefings & game flow.
+/* Dirt & Iron — menus, briefings & game flow.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

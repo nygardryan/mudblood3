@@ -1,4 +1,4 @@
-/* Mud & Blood — tuning constants & placeable catalog.
+/* Dirt & Iron — tuning constants & placeable catalog.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
@@ -168,11 +168,13 @@ function emplacementSpec(t) {
 
 const ENEMY_TYPES = {
   // Axis infantry are rebased to their Allied counterpart's stats with a 10%
-  // edge in the favorable direction (hp/dmg/acc/range/speed up, rof/burstGap
-  // down). Stormtrooper has no direct Allied pair, so it takes a flat +10% over
-  // its old numbers. See docs/axis-units.md.
+  // edge in the favorable direction (hp/dmg/acc/range up, rof/burstGap down),
+  // but movement speed is now matched exactly to the Allied counterpart so the
+  // Germans no longer outpace their US equivalents. Stormtrooper has no direct
+  // Allied pair, so it keeps its own speed and takes a flat +10% on the rest.
+  // See docs/axis-units.md.
   erifle: {
-    name: 'Rifleman', hp: 110, speed: 46, range: 169, dmg: 14, acc: 0.6,
+    name: 'Rifleman', hp: 110, speed: 42, range: 169, dmg: 14, acc: 0.6,
     rof: 0.79, burst: 1, burstGap: 0, reward: 2,
     color: '#5e5e52', gun: 7, sfx: 'rifle', priority: 1,
   },
@@ -182,40 +184,40 @@ const ENEMY_TYPES = {
     color: '#46443a', gun: 6, sfx: 'mg', priority: 1,
   },
   egren: {
-    name: 'Grenadier', hp: 110, speed: 46, range: 254, dmg: 11, acc: 0.6,
+    name: 'Grenadier', hp: 110, speed: 42, range: 254, dmg: 11, acc: 0.6,
     rof: 1.08, burst: 1, burstGap: 0, reward: 3,
     color: '#524e3e', gun: 5, sfx: 'pistol', priority: 2, grenade: true,
   },
   emg: {
-    name: 'MG Gunner', hp: 110, speed: 40, range: 197, dmg: 10, acc: 0.35,
+    name: 'MG Gunner', hp: 110, speed: 36, range: 197, dmg: 10, acc: 0.35,
     rof: 1.22, burst: 7, burstGap: 0.08, reward: 3,
     color: '#484640', gun: 10, sfx: 'mg', priority: 3,
   },
   eoff: {
-    name: 'Officer', hp: 105, speed: 48, range: 111, dmg: 10, acc: 0.55,
+    name: 'Officer', hp: 105, speed: 44, range: 111, dmg: 10, acc: 0.55,
     rof: 0.81, burst: 1, burstGap: 0, reward: 4,
     color: '#4a4840', gun: 5, sfx: 'pistol', priority: 5, aura: true,
   },
   esniper: {
-    name: 'Sniper', hp: 94, speed: 42, range: 274, dmg: 51, acc: 0.79,
+    name: 'Sniper', hp: 94, speed: 38, range: 274, dmg: 51, acc: 0.79,
     rof: 4.68, burst: 1, burstGap: 0, reward: 4,
     color: '#464438', gun: 12, sfx: 'sniper', priority: 4,
   },
   eflame: {
-    name: 'Flamethrower', hp: 143, speed: 42, range: 86, dmg: 0, acc: 0,
+    name: 'Flamethrower', hp: 143, speed: 38, range: 86, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 4,
     color: '#4a4438', gun: 8, sfx: 'rifle', priority: 3,
     flame: { range: 86, arc: 0.45, dps: 42 },
     blastResist: 0.5,
   },
   emortar: {
-    name: 'Granatwerfer', hp: 99, speed: 42, range: 97, dmg: 9, acc: 0.52,
+    name: 'Granatwerfer', hp: 99, speed: 38, range: 97, dmg: 9, acc: 0.52,
     rof: 0.9, burst: 1, burstGap: 0, reward: 5,
     color: '#504e44', gun: 5, sfx: 'pistol', priority: 3,
     mortar: { range: 383, min: 106, cdMin: 8.1, cdMax: 10.8, r: 44, dmg: 83, flight: 1.4, scatter: 47 },
   },
   ebazooka: {
-    name: 'Panzerfaust', hp: 99, speed: 44, range: 88, dmg: 9, acc: 0.5,
+    name: 'Panzerfaust', hp: 99, speed: 40, range: 88, dmg: 9, acc: 0.5,
     rof: 0.9, burst: 1, burstGap: 0, reward: 5,
     color: '#545648', gun: 5, sfx: 'pistol', priority: 4,
     rocket: { range: 267, cdMin: 6.7, cdMax: 9.1, r: 33, dmg: 132, speed: 380, armorMult: 3.0 },
@@ -226,7 +228,7 @@ const ENEMY_TYPES = {
     color: '#55554a', gun: 0, sfx: 'rifle', priority: 2, bike: true,
   },
   ejeep: {
-    name: 'Kübelwagen', hp: 275, speed: 121, range: 221, dmg: 14, acc: 0.46,
+    name: 'Kübelwagen', hp: 275, speed: 110, range: 221, dmg: 14, acc: 0.46,
     rof: 1.89, burst: 18, burstGap: 0.06, reward: 8,
     color: '#57574a', gun: 14, sfx: 'hmg', priority: 3, vehicle: true,
   },

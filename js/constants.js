@@ -1,4 +1,4 @@
-/* Mud & Blood — tuning constants & placeable catalog.
+/* Trenchworks: WW2 — tuning constants & placeable catalog.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

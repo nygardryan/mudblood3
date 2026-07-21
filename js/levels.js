@@ -1,4 +1,4 @@
-/* Mud & Blood — level definitions.
+/* Trenchworks: WW2 — level definitions.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

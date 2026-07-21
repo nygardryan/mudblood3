@@ -1044,9 +1044,9 @@ body {
 .mm-eyebrow-mark:last-child { background: linear-gradient(90deg, #6a6444, transparent); }
 /* default (sub-menu) title; #intro overrides to hero size below */
 .mm-title {
-  font-size: clamp(26px, 8vw, 46px);
+  font-size: clamp(22px, 6vw, 38px);
   line-height: 0.95;
-  letter-spacing: clamp(3px, 2vw, 9px);
+  letter-spacing: clamp(2px, 1.1vw, 6px);
   color: #b8352b;
   text-shadow: 3px 3px 0 #000;
   margin: 0 0 8px;
@@ -1078,9 +1078,9 @@ body {
 .mm-note b { color: #ffd94a; }
 
 #intro .mm-title {
-  font-size: clamp(34px, 11vw, 68px);
+  font-size: clamp(26px, 6.8vw, 50px);
   line-height: 0.92;
-  letter-spacing: clamp(3px, 2vw, 12px);
+  letter-spacing: clamp(2px, 0.9vw, 6px);
   text-shadow: 3px 3px 0 #000, 0 0 22px rgba(184, 53, 43, 0.35);
   margin-bottom: 6px;
 }

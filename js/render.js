@@ -1,4 +1,4 @@
-/* Mud & Blood — scene composition (main draw).
+/* Trenchworks: WW2 — scene composition (main draw).
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

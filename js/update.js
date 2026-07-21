@@ -1,4 +1,4 @@
-/* Mud & Blood — main update loop.
+/* Trenchworks: WW2 — main update loop.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

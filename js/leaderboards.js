@@ -1,4 +1,4 @@
-/* Mud & Blood — endless leaderboards.
+/* Trenchworks: WW2 — endless leaderboards.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

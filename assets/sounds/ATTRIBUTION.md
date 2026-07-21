@@ -1,6 +1,6 @@
 # Sound attribution
 
-Curated open-source sound effects used by Mud & Blood. See `assets/sounds/*.ogg`.
+Curated open-source sound effects used by Trenchworks: WW2. See `assets/sounds/*.ogg`.
 
 ## CC0 (public domain — no attribution required)
 

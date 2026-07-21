@@ -1,4 +1,4 @@
-/* Mud & Blood — damage & death.
+/* Trenchworks: WW2 — damage & death.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

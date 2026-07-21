@@ -1,4 +1,4 @@
-/* Mud & Blood — small shared helpers.
+/* Trenchworks: WW2 — small shared helpers.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

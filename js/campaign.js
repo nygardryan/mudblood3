@@ -1,4 +1,4 @@
-/* Mud & Blood — campaign progress.
+/* Trenchworks: WW2 — campaign progress.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

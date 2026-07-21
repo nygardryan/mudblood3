@@ -1,4 +1,4 @@
-/* Mud & Blood — event wiring, frame loop & bootstrap.
+/* Trenchworks: WW2 — event wiring, frame loop & bootstrap.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

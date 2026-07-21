@@ -1,4 +1,4 @@
-/* Mud & Blood — settings.
+/* Trenchworks: WW2 — settings.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

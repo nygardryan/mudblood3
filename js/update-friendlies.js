@@ -1,4 +1,4 @@
-/* Mud & Blood — per-frame friendly unit logic.
+/* Trenchworks: WW2 — per-frame friendly unit logic.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

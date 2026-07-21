@@ -1,4 +1,4 @@
-/* Mud & Blood — shells, grenades, rockets & bombs.
+/* Trenchworks: WW2 — shells, grenades, rockets & bombs.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

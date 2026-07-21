@@ -1,4 +1,4 @@
-/* Mud & Blood — axis research.
+/* Trenchworks: WW2 — axis research.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

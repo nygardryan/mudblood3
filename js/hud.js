@@ -1,4 +1,4 @@
-/* Mud & Blood — HUD / DOM panels.
+/* Trenchworks: WW2 — HUD / DOM panels.
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 

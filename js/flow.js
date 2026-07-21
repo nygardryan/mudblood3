@@ -48,6 +48,7 @@ function returnToMenu() {
   el('pause').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('codex').classList.add('hidden');
+  el('changelog').classList.add('hidden');
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
   el('leaderboard-select').classList.add('hidden');
@@ -421,6 +422,7 @@ function startGame(levelId, difficultyId) {
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('codex').classList.add('hidden');
+  el('changelog').classList.add('hidden');
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
   el('leaderboard-select').classList.add('hidden');

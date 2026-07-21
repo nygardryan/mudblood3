@@ -153,6 +153,10 @@ function saveGoLeaderboardScore() {
   const diffId = entryBox.dataset.diff;
   const wave = parseInt(entryBox.dataset.wave, 10);
   if (!diffId || !Number.isFinite(wave)) return;
+  // clear the pending score before writing so a second call (Enter key plus a
+  // Save-button click, both wired to this handler) can't add a duplicate entry
+  delete entryBox.dataset.diff;
+  delete entryBox.dataset.wave;
   const name = el('go-name-input').value.trim();
   const rank = addLeaderboardEntry(diffId, name, wave);
   entryBox.classList.add('hidden');

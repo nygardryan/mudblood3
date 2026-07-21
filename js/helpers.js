@@ -33,7 +33,8 @@ const officerCount = () => {
   if (isAssaultMode()) {
     return G.enemies.filter(e => !e.dead && (e.type === 'officer' || e.type === 'eoff')).length;
   }
-  if (G && G.usOfficers) return G.usOfficers.length;
+  // count live officers directly — G.usOfficers is a 0.4s aura cache that lags
+  // behind fresh placements, which would let a placement burst slip past the cap
   return G ? G.units.filter(u => !u.dead && u.type === 'officer').length : 0;
 };
 

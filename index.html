@@ -95,24 +95,45 @@
     </div>
 
     <div id="card-shop" class="overlay hidden">
-      <h1>CARD SHOP</h1>
-      <p>Every 10th wave survived in Endless banks ribbons — wave 10 pays 1, wave 20 pays 2, and so on.
-        Spend them here on cards: permanent upgrades for your collection.
-        Sandbox and Testing runs earn nothing.</p>
-      <p class="axis-rp-line">Banked: <b id="card-shop-ribbons">0 RIBBONS</b> &middot; <span id="card-shop-owned">0 / 0 COLLECTED</span></p>
-      <div id="card-shop-row"></div>
-      <p class="axis-rp-line">
-        <button id="card-shop-reroll" type="button" class="secondary plan-upgrade-btn">REROLL — 1 RIBBON</button>
-        <button id="card-shop-slot" type="button" class="secondary plan-upgrade-btn">+1 CARD SLOT — 10 RIBBONS</button></p>
-      <h2 class="plan-title">BATTLE PLANS</h2>
-      <p>Only cards deployed in the active plan take the field. Each card weighs 1&ndash;6 command by how
-        hard it warps a run, and your command capacity caps what one plan can carry.
-        Tap a card to deploy it or send it to reserve; keep three plans and swap between runs.</p>
-      <div id="plan-tabs"></div>
-      <p class="axis-rp-line">In the field: <b id="plan-command">0 / 6 COMMAND</b>
-        <button id="plan-upgrade" type="button" class="secondary plan-upgrade-btn">+1 COMMAND — 5 RIBBONS</button></p>
-      <div id="plan-collection"></div>
-      <button id="card-shop-back" class="secondary">BACK</button>
+      <div class="cs-inner">
+        <div class="cs-head">
+          <h1>CARD SHOP</h1>
+          <div class="cs-tag" title="Ribbons banked">
+            <span class="cs-tag__num" id="card-shop-ribbons">0</span>
+            <span class="cs-tag__lab">RIBBONS</span>
+          </div>
+        </div>
+        <p class="cs-intro">Every 10th wave survived banks ribbons — <b>wave 10 pays 1, wave 20 pays 2</b>, and up.
+          Spend them on permanent unit upgrades. Sandbox &amp; Testing runs pay nothing.</p>
+
+        <div class="cs-sec-head">
+          <h2 class="cs-sec-title">ON OFFER</h2>
+          <span class="cs-sec-meta" id="card-shop-owned">0 / 0 COLLECTED</span>
+        </div>
+        <div id="card-shop-row"></div>
+        <div class="cs-controls">
+          <button id="card-shop-reroll" type="button" class="cs-ctrl">REROLL — 1 RIBBON</button>
+          <button id="card-shop-slot" type="button" class="cs-ctrl">+1 CARD SLOT — 10 RIBBONS</button>
+        </div>
+
+        <div class="cs-sec-head">
+          <h2 class="cs-sec-title cs-sec-title--plans">BATTLE PLANS</h2>
+          <span class="cs-sec-meta">DEPLOYED CARDS TAKE THE FIELD</span>
+        </div>
+        <p class="cs-intro">Only cards in the active plan take the field. Each weighs 1&ndash;6 command, and your
+          capacity caps what one plan can carry. Tap a card to deploy it or send it to reserve — keep three plans and swap between runs.</p>
+        <div id="plan-tabs"></div>
+        <div class="cs-meter">
+          <div class="cs-meter__top">
+            <span class="cs-meter__lab">COMMAND IN THE FIELD</span>
+            <span class="cs-meter__val" id="plan-command">0 / 6</span>
+          </div>
+          <div class="cs-segs" id="plan-segs"></div>
+          <button id="plan-upgrade" type="button" class="cs-upg">+1 COMMAND — 5 RIBBONS</button>
+        </div>
+        <div id="plan-collection"></div>
+        <button id="card-shop-back" class="secondary">BACK</button>
+      </div>
     </div>
 
     <div id="leaderboard-select" class="overlay hidden">

@@ -570,6 +570,14 @@ function cardUnitLabel(card) {
   return (card.label != null ? card.label : UNIT_TYPES[card.unitType].name).toUpperCase();
 }
 
+// six command pips, the first `w` of them lit — a card's loadout weight read
+// at a glance instead of as buried text
+function commandPips(w) {
+  let html = '';
+  for (let i = 0; i < 6; i++) html += '<span class="cs-pip' + (i < w ? ' cs-pip--on' : '') + '"></span>';
+  return html;
+}
+
 function syncCardShopButton() {
   const btn = el('card-shop-btn');
   if (btn) btn.textContent = 'CARDS — ' + ribbonLabel(loadEndlessCards().ribbons);
@@ -577,7 +585,7 @@ function syncCardShopButton() {
 
 function buildCardShopUI() {
   const data = loadEndlessCards();
-  el('card-shop-ribbons').textContent = ribbonLabel(data.ribbons);
+  el('card-shop-ribbons').textContent = data.ribbons;
   el('card-shop-owned').textContent = data.owned.length + ' / ' + Object.keys(CARDS).length + ' COLLECTED';
   const row = el('card-shop-row');
   row.innerHTML = '';
@@ -585,31 +593,28 @@ function buildCardShopUI() {
     const card = CARDS[data.offer[i]];
     if (!card) {
       const empty = document.createElement('div');
-      empty.className = 'shop-card shop-card-empty';
+      empty.className = 'cs-card cs-card--empty';
       empty.textContent = 'SOLD OUT';
       row.appendChild(empty);
       continue;
     }
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'shop-card' + (card.unique ? ' shop-card-unique' : '');
+    btn.className = 'cs-card' + (card.unique ? ' cs-card--unique' : '');
     btn.disabled = card.cost > data.ribbons;
-    const unit = document.createElement('span');
-    unit.className = 'shop-card-unit';
-    unit.textContent = cardUnitLabel(card) + (card.unique ? ' · UNIQUE' : '');
-    const name = document.createElement('span');
-    name.className = 'shop-card-name';
-    name.textContent = card.name.toUpperCase();
-    const desc = document.createElement('span');
-    desc.className = 'shop-card-desc';
-    desc.textContent = card.desc;
-    const cmd = document.createElement('span');
-    cmd.className = 'shop-card-command';
-    cmd.textContent = 'COMMAND ' + card.weight;
-    const cost = document.createElement('span');
-    cost.className = 'shop-card-cost';
-    cost.textContent = ribbonLabel(card.cost);
-    btn.append(unit, name, desc, cmd, cost);
+    const afford = card.cost <= data.ribbons;
+    btn.innerHTML =
+      '<div class="cs-card__top">' +
+        '<span class="cs-chip">' + cardUnitLabel(card) + '</span>' +
+        '<span class="cs-rarity ' + (card.unique ? 'cs-rarity--uni">UNIQUE' : 'cs-rarity--std">STANDARD') + '</span>' +
+      '</div>' +
+      '<span class="cs-card__name">' + card.name.toUpperCase() + '</span>' +
+      '<span class="cs-card__effect">' + card.desc + '</span>' +
+      '<div class="cs-card__foot">' +
+        '<span class="cs-cmd"><span class="cs-cmd__lab">COMMAND</span>' +
+          '<span class="cs-pips">' + commandPips(card.weight) + '</span></span>' +
+        '<span class="cs-cost">' + card.cost + '<span class="cs-cost__u">' + (afford ? 'RB' : 'NEED') + '</span></span>' +
+      '</div>';
     btn.addEventListener('click', () => {
       if (buyCard(card.id)) {
         SFX.click();
@@ -647,8 +652,9 @@ function buildBattlePlanUI() {
   for (let i = 0; i < PLAN_SLOTS; i++) {
     const tab = document.createElement('button');
     tab.type = 'button';
-    tab.className = 'codex-tab plan-tab' + (i === data.activePlan ? ' active' : '');
-    tab.textContent = `${PLAN_NAMES[i]} · ${planCommandUsed(data.plans[i])}/${data.capacity}`;
+    tab.className = 'cs-ptab' + (i === data.activePlan ? ' cs-ptab--active' : '');
+    tab.innerHTML = '<span class="cs-ptab__n">' + PLAN_NAMES[i] + '</span>' +
+      '<span class="cs-ptab__c">' + planCommandUsed(data.plans[i]) + ' / ' + data.capacity + ' CMD</span>';
     tab.addEventListener('click', () => {
       if (i === data.activePlan) return;
       setActivePlan(i);
@@ -659,7 +665,15 @@ function buildBattlePlanUI() {
   }
   const plan = data.plans[data.activePlan];
   const used = planCommandUsed(plan);
-  el('plan-command').textContent = `${used} / ${data.capacity} COMMAND`;
+  el('plan-command').textContent = `${used} / ${data.capacity}`;
+  // command budget as a segmented bar: `used` of `capacity` cells lit
+  const segs = el('plan-segs');
+  segs.replaceChildren();
+  for (let s = 0; s < data.capacity; s++) {
+    const seg = document.createElement('span');
+    seg.className = 'cs-seg' + (s < used ? ' cs-seg--fill' : '');
+    segs.appendChild(seg);
+  }
   const upBtn = el('plan-upgrade');
   const upCost = commandUpgradeCost(data.capacity);
   upBtn.textContent = `+1 COMMAND — ${ribbonLabel(upCost)}`;
@@ -668,7 +682,7 @@ function buildBattlePlanUI() {
   grid.replaceChildren();
   if (!data.owned.length) {
     const none = document.createElement('div');
-    none.className = 'plan-empty';
+    none.className = 'cs-chit cs-chit--empty';
     none.textContent = 'NO CARDS IN THE COLLECTION YET — BUY SOME ABOVE.';
     grid.appendChild(none);
     return;
@@ -678,21 +692,15 @@ function buildBattlePlanUI() {
     const equipped = plan.includes(id);
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'plan-card' + (equipped ? ' plan-card-equipped' : '')
-      + (card.unique ? ' plan-card-unique' : '');
+    btn.className = 'cs-chit' + (equipped ? ' cs-chit--deployed' : '')
+      + (card.unique ? ' cs-chit--unique' : '');
     // a reserve card that can't fit the remaining command stays visible but dead
     btn.disabled = !equipped && used + card.weight > data.capacity;
     btn.title = card.desc;
-    const unit = document.createElement('span');
-    unit.className = 'shop-card-unit';
-    unit.textContent = cardUnitLabel(card);
-    const name = document.createElement('span');
-    name.className = 'plan-card-name';
-    name.textContent = card.name.toUpperCase();
-    const state = document.createElement('span');
-    state.className = 'plan-card-state';
-    state.textContent = (equipped ? 'DEPLOYED' : 'RESERVE') + ' · ' + card.weight + ' CMD';
-    btn.append(unit, name, state);
+    btn.innerHTML = '<span class="cs-chip">' + cardUnitLabel(card) + '</span>' +
+      '<span class="cs-chit__name">' + card.name.toUpperCase() + '</span>' +
+      '<span class="cs-chit__state"><span class="cs-dot"></span>' +
+        (equipped ? 'DEPLOYED' : 'RESERVE') + ' · ' + card.weight + ' CMD</span>';
     btn.addEventListener('click', () => {
       if (togglePlanCard(id)) {
         SFX.click();

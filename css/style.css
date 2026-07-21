@@ -535,216 +535,366 @@ body {
   cursor: not-allowed;
 }
 
-/* ---- Endless card shop ---- */
+/* ---- Endless card shop (mobile-first redesign) ----
+   The overlay lives inside the scaled stage, so viewport media queries and
+   `vw` sizing can't be trusted for the internal layout. Everything here is
+   container-driven instead: the shop row is a flex-wrap that stacks one card
+   per row on a phone and flows to two, then three across as the stage widens;
+   the collection is an auto-fill grid. Selectors are prefixed with #card-shop /
+   #card-shop-row / #plan-tabs / #plan-collection so they outrank `.overlay
+   button` and `.overlay p/h2`, which centre and restyle their contents. */
+#card-shop .cs-inner {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+/* header row: title + dog-tag ribbon balance */
+#card-shop .cs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 10px;
+}
+#card-shop .cs-head h1 { margin: 0; flex: 0 0 auto; }
+#card-shop .cs-tag {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  background: linear-gradient(180deg, #26271a, #191a10);
+  border: 1px solid #50512f;
+  border-radius: 22px;
+  padding: 7px 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+#card-shop .cs-tag__num {
+  font-size: clamp(18px, 5vw, 24px);
+  font-weight: bold;
+  color: #e7b93d;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+#card-shop .cs-tag__lab {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #968f6c;
+  font-weight: bold;
+}
+
+/* intro dispatch lines */
+#card-shop .cs-intro {
+  margin: 0 0 6px;
+  max-width: 62ch;
+  font-size: clamp(12px, 3vw, 13px);
+  line-height: 1.55;
+  color: #968f6c;
+  border-left: 2px solid #7a2c22;
+  padding: 2px 0 2px 12px;
+}
+#card-shop .cs-intro b { color: #ddd5ad; }
+
+/* section heads: a stamped tick + label on the left, a status meta on the right */
+#card-shop .cs-sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 24px 0 12px;
+}
+#card-shop .cs-sec-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 4px;
+  color: #ddd5ad;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#card-shop .cs-sec-title::before {
+  content: "";
+  width: 16px;
+  height: 2px;
+  background: #e7b93d;
+  display: inline-block;
+}
+#card-shop .cs-sec-title--plans::before { background: #c8422f; }
+#card-shop .cs-sec-meta {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #6c6650;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* shop card row: container-driven stack → 2-up → 3-across */
 #card-shop-row {
   display: flex;
-  flex-wrap: wrap;   /* three abreast; a widened shop spills onto a second row */
-  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
   align-items: stretch;
-  gap: clamp(8px, 2vw, 16px);
-  margin-bottom: 22px;
   width: 100%;
-  max-width: 640px;
+  margin-bottom: 4px;
 }
-/* playing-card panels: portrait aspect, title block up top, description
-   below, cost pinned to the bottom edge. The #card-shop-row prefix outranks
-   the `.overlay button` base rule. */
-#card-shop-row .shop-card {
+#card-shop-row .cs-card {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 340px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  /* three abreast whatever the stage width — the overlay lives inside the
-     scaled stage, so viewport units can't be trusted here. A one-third basis
-     (minus the two 16px gaps, plus a rounding hair) keeps exactly three per
-     row at any container width, so a fourth/fifth/sixth card wraps below. */
-  flex: 1 1 calc((100% - 34px) / 3);
-  min-width: 0;
-  max-width: 190px;
-  aspect-ratio: 5 / 7;
-  padding: 14px 12px 12px;
-  background: rgba(30, 28, 18, 0.95);
-  border: 2px solid #5a5322;
-  border-radius: 8px;
-  /* inner pinstripe frame, like a printed card face */
-  box-shadow: inset 0 0 0 4px rgba(30, 28, 18, 0.95), inset 0 0 0 5px #4a4326;
-  color: #c9c19a;
+  text-align: left;
+  padding: 13px 14px 12px;
+  background: linear-gradient(180deg, #2b2c1d, #232418);
+  border: 1px solid #3a3b28;
+  border-radius: 9px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 3px rgba(0, 0, 0, 0.28), inset 0 0 0 4px rgba(80, 81, 47, 0.32);
+  color: #ddd5ad;
+  font-family: inherit;
   font-weight: normal;
-  font-size: clamp(10px, 2.8vw, 12px);
+  font-size: 12px;
   letter-spacing: 0;
   text-transform: none;
+  transition: transform 0.16s ease, border-color 0.16s ease;
 }
-#card-shop-row .shop-card:hover:not(:disabled) {
-  background: #3a3418;
-  border-color: #8a7c30;
-  box-shadow: inset 0 0 0 4px #3a3418, inset 0 0 0 5px #6a5f2e;
-  transform: translateY(-3px);
+#card-shop-row .cs-card:hover:not(:disabled) { transform: translateY(-3px); border-color: #50512f; }
+#card-shop-row .cs-card:disabled { opacity: 0.5; cursor: not-allowed; }
+#card-shop-row .cs-card--unique {
+  border-color: #b78e22;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 3px rgba(0, 0, 0, 0.3), inset 0 0 0 4px rgba(183, 142, 34, 0.4);
 }
-#card-shop-row .shop-card:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-#card-shop-row .shop-card-unique { border-color: #a08430; }
-.shop-card-unit {
-  font-size: clamp(8px, 2.2vw, 10px);
-  letter-spacing: 2px;
-  color: #8a8668;
-  margin-top: 4px;
-}
-.shop-card-unique .shop-card-unit { color: #c9a83e; }
-.shop-card-name {
-  font-size: clamp(13px, 3.4vw, 17px);
-  font-weight: bold;
-  letter-spacing: 2px;
-  color: #ffd94a;
-  margin-top: 2px;
-}
-.shop-card-desc {
-  flex: 1;
-  width: 100%;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #4a4326;
-  font-size: clamp(10px, 2.8vw, 12px);
-  line-height: 1.5;
-}
-.shop-card-cost {
-  margin-top: 8px;
-  padding: 3px 12px;
-  border: 1px solid #4a5a30;
-  border-radius: 10px;
-  font-size: clamp(10px, 2.8vw, 12px);
-  letter-spacing: 1px;
-  color: #8fbf5a;
-}
-.shop-card:disabled .shop-card-cost { color: #b8352b; border-color: #6a3028; }
-#card-shop-row .shop-card-empty {
-  justify-content: center;
+#card-shop-row .cs-card--unique:hover:not(:disabled) { border-color: #e7b93d; }
+#card-shop-row .cs-card--empty {
   align-items: center;
-  color: #6a6650;
+  justify-content: center;
+  text-align: center;
+  min-height: 130px;
+  color: #6c6650;
   letter-spacing: 3px;
   border-style: dashed;
   border-color: #3a3620;
-  background: rgba(20, 18, 12, 0.6);
+  background: rgba(20, 18, 12, 0.5);
   box-shadow: none;
 }
-.shop-card-command {
-  margin-top: 6px;
-  font-size: clamp(9px, 2.4vw, 11px);
-  letter-spacing: 1px;
-  color: #8a8668;
-}
-
-/* ---- Battle plans: the loadout section under the shop row ---- */
-.plan-title {
-  font-size: clamp(16px, 5vw, 28px);
-  letter-spacing: clamp(2px, 1.5vw, 6px);
-  color: #b8352b;
-  margin: 14px 0 4px;
-}
-#plan-tabs {
+#card-shop .cs-card__top {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  margin: 6px 0 2px;
+  margin-bottom: 9px;
 }
-/* the id prefix outranks the `.overlay button` base rule, same fight the
-   shop cards win with their #card-shop-row prefix */
-#plan-tabs .plan-tab {
-  background: #262417;
-  border: 1px solid #4a4836;
-  color: #8a8668;
-  font-size: clamp(9px, 2.5vw, 10px);
+#card-shop .cs-chip {
+  font-size: 9px;
+  letter-spacing: 2px;
+  font-weight: bold;
+  color: #968f6c;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid #3a3b28;
+  border-radius: 5px;
+  padding: 3px 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#card-shop .cs-rarity {
+  font-size: 8.5px;
+  letter-spacing: 1.5px;
+  font-weight: bold;
+  padding: 3px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+#card-shop .cs-rarity--std { color: #6c6650; border: 1px solid #3a3b28; }
+#card-shop .cs-rarity--uni {
+  color: #1a160a;
+  background: linear-gradient(180deg, #e7b93d, #b78e22);
+}
+#card-shop .cs-card__name {
+  font-size: clamp(15px, 4vw, 18px);
   font-weight: bold;
   letter-spacing: 1px;
-  padding: 8px 10px;
-  min-height: 36px;
+  line-height: 1.15;
+  color: #ddd5ad;
+  margin-bottom: 7px;
 }
-#plan-tabs .plan-tab:hover { border-color: #8a8668; color: #c9c19a; }
-#plan-tabs .plan-tab.active {
-  border-color: #ffd94a;
-  color: #ffd94a;
-}
-.overlay button.plan-upgrade-btn {
-  font-size: clamp(10px, 2.8vw, 12px);
-  letter-spacing: 1px;
-  padding: 6px 12px;
-  margin-left: 10px;
-  min-height: 32px;
-}
-.overlay button.plan-upgrade-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-#plan-collection {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+#card-shop-row .cs-card--unique .cs-card__name { color: #e7b93d; }
+#card-shop .cs-card__effect { flex: 1; font-size: 12px; line-height: 1.5; color: #968f6c; }
+#card-shop .cs-card__foot {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #50512f;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  width: 100%;
-  max-width: 640px;
-  margin: 10px 0 20px;
 }
-/* compact card chits: same printed-card face as the shop, minus the blurb —
-   the full description lives in the hover title */
-#plan-collection .plan-card {
+#card-shop .cs-cmd { display: flex; flex-direction: column; gap: 4px; }
+#card-shop .cs-cmd__lab { font-size: 8px; letter-spacing: 2px; color: #6c6650; font-weight: bold; }
+#card-shop .cs-pips { display: flex; gap: 3px; }
+#card-shop .cs-pip { width: 9px; height: 9px; border-radius: 2px; border: 1px solid #50512f; }
+#card-shop .cs-pip--on { background: #e7b93d; border-color: #e7b93d; }
+#card-shop .cs-cost {
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+  color: #96c45c;
+  background: rgba(79, 107, 44, 0.16);
+  border: 1px solid #4f6b2c;
+  border-radius: 7px;
+  padding: 6px 11px;
+  white-space: nowrap;
+}
+#card-shop .cs-cost__u { font-size: 9px; letter-spacing: 1px; margin-left: 3px; opacity: 0.8; }
+#card-shop-row .cs-card:disabled .cs-cost {
+  color: #c8422f;
+  border-color: #7a2c22;
+  background: rgba(122, 44, 34, 0.14);
+}
+
+/* shop controls: reroll + add-slot */
+#card-shop .cs-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+#card-shop .cs-ctrl {
+  flex: 1 1 180px;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: #ddd5ad;
+  background: #1b1c12;
+  border: 1px solid #3a3b28;
+  border-radius: 7px;
+  padding: 11px 14px;
+  min-height: 44px;
+  transition: border-color 0.14s ease, color 0.14s ease;
+}
+#card-shop .cs-ctrl:hover:not(:disabled) { border-color: #b78e22; color: #e7b93d; }
+#card-shop .cs-ctrl:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---- Battle plans ---- */
+#plan-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+#plan-tabs .cs-ptab {
+  flex: 1 1 90px;
+  font-family: inherit;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
-  padding: 10px 8px;
-  background: rgba(30, 28, 18, 0.95);
-  border: 2px solid #4a4326;
+  gap: 3px;
+  background: #1b1c12;
+  border: 1px solid #3a3b28;
   border-radius: 8px;
-  color: #8a8668;
-  font-weight: normal;
-  font-size: clamp(10px, 2.8vw, 12px);
-  letter-spacing: 0;
-  text-transform: none;
+  padding: 9px 6px;
+  min-height: 44px;
+  transition: border-color 0.14s ease, background 0.14s ease;
 }
-#plan-collection .plan-card:hover:not(:disabled) {
-  background: #3a3418;
-  border-color: #8a7c30;
-  transform: translateY(-2px);
+#plan-tabs .cs-ptab__n { font-size: 11px; font-weight: bold; letter-spacing: 2px; color: #968f6c; }
+#plan-tabs .cs-ptab__c { font-size: 9.5px; letter-spacing: 1px; color: #6c6650; font-variant-numeric: tabular-nums; }
+#plan-tabs .cs-ptab:hover:not(.cs-ptab--active) { border-color: #50512f; }
+#plan-tabs .cs-ptab--active { border-color: #e7b93d; background: linear-gradient(180deg, rgba(231, 185, 61, 0.1), transparent); }
+#plan-tabs .cs-ptab--active .cs-ptab__n { color: #e7b93d; }
+#plan-tabs .cs-ptab--active .cs-ptab__c { color: #968f6c; }
+
+/* command budget meter */
+#card-shop .cs-meter {
+  background: #1b1c12;
+  border: 1px solid #3a3b28;
+  border-radius: 9px;
+  padding: 13px 15px;
+  margin-bottom: 16px;
 }
-#plan-collection .plan-card:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+#card-shop .cs-meter__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
 }
-#plan-collection .plan-card-unique { border-style: double; }
-#plan-collection .plan-card-equipped {
-  border-color: #8fbf5a;
-  color: #c9c19a;
-  background: rgba(38, 44, 24, 0.95);
+#card-shop .cs-meter__lab { font-size: 10px; letter-spacing: 2px; color: #6c6650; font-weight: bold; }
+#card-shop .cs-meter__val { font-size: 14px; font-weight: bold; letter-spacing: 1px; color: #ddd5ad; font-variant-numeric: tabular-nums; }
+#card-shop .cs-segs { display: flex; gap: 4px; margin-bottom: 12px; }
+#card-shop .cs-seg {
+  flex: 1;
+  height: 12px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid #3a3b28;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
-.plan-card-name {
-  font-size: clamp(11px, 3vw, 14px);
+#card-shop .cs-seg--fill { background: linear-gradient(180deg, #96c45c, #4f6b2c); border-color: #4f6b2c; }
+#card-shop .cs-upg {
+  width: 100%;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 11px;
   font-weight: bold;
   letter-spacing: 1px;
-  color: #c9c19a;
-  margin-top: 2px;
+  color: #ddd5ad;
+  background: transparent;
+  border: 1px dashed #50512f;
+  border-radius: 7px;
+  padding: 9px;
+  min-height: 40px;
+  transition: border-color 0.14s ease, color 0.14s ease;
 }
-.plan-card-equipped .plan-card-name { color: #ffd94a; }
-.plan-card-state {
-  margin-top: 6px;
-  padding: 2px 8px;
-  border: 1px solid #4a4326;
-  border-radius: 10px;
-  font-size: clamp(8px, 2.2vw, 10px);
-  letter-spacing: 1px;
+#card-shop .cs-upg:hover:not(:disabled) { border-color: #e7b93d; color: #e7b93d; }
+#card-shop .cs-upg:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* collection grid: compact chits with a deployed/reserve state stripe */
+#plan-collection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin: 0 0 20px;
 }
-.plan-card-equipped .plan-card-state {
-  color: #8fbf5a;
-  border-color: #4a5a30;
+#plan-collection .cs-chit {
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  background: #232418;
+  border: 1px solid #3a3b28;
+  border-left: 3px solid #6c6650;
+  border-radius: 7px;
+  padding: 11px 12px;
+  color: #ddd5ad;
+  font-weight: normal;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  transition: transform 0.12s ease, border-color 0.14s ease, background 0.14s ease;
 }
-.plan-empty {
+#plan-collection .cs-chit:hover:not(:disabled) { transform: translateY(-2px); }
+#plan-collection .cs-chit:disabled { opacity: 0.4; cursor: not-allowed; }
+#plan-collection .cs-chit__name { font-size: 13px; font-weight: bold; letter-spacing: 0.5px; color: #ddd5ad; line-height: 1.15; }
+#plan-collection .cs-chit__state { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; letter-spacing: 1px; font-weight: bold; color: #6c6650; }
+#card-shop .cs-dot { width: 7px; height: 7px; border-radius: 50%; background: #6c6650; flex: 0 0 auto; }
+#plan-collection .cs-chit--unique { border-left-color: #e7b93d; }
+#plan-collection .cs-chit--unique .cs-chit__name { color: #e7b93d; }
+#plan-collection .cs-chit--deployed { border-left-color: #96c45c; background: linear-gradient(180deg, rgba(79, 107, 44, 0.16), #232418); }
+#plan-collection .cs-chit--deployed .cs-chit__name { color: #ddd5ad; }
+#plan-collection .cs-chit--deployed .cs-chit__state { color: #96c45c; }
+#plan-collection .cs-chit--deployed .cs-dot { background: #96c45c; box-shadow: 0 0 6px rgba(150, 196, 92, 0.6); }
+#plan-collection .cs-chit--unique.cs-chit--deployed { border-left-color: #96c45c; }
+#plan-collection .cs-chit--empty {
   grid-column: 1 / -1;
+  text-align: center;
   padding: 18px;
   border: 2px dashed #3a3620;
   border-radius: 8px;
-  color: #6a6650;
+  color: #6c6650;
   letter-spacing: 2px;
-  font-size: clamp(10px, 2.8vw, 12px);
+  font-size: 12px;
 }
 
 .overlay button {

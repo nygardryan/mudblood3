@@ -47,6 +47,10 @@ const WAR_CHEST_TP = 25;
 const CLUSTER_ROUNDS_SHELLS = 4;
 const CLUSTER_ROUNDS_SCATTER_MULT = 1.6;
 
+// Vampiric Flame: a slow-burn siphon that returns some of the flamer's own
+// damage on enemies as healing. flameSpray reads this fraction directly.
+const VAMPIRIC_FLAME_LIFESTEAL = 0.18;
+
 // Level the Barrels: the flak mount learns to depress. It keeps its full air
 // role, but anything that closes inside this range on the ground catches a
 // 40mm HE round. Deliberately short — this is a last-ditch self-defence wedge,
@@ -208,6 +212,15 @@ const CARD_UNIQUES = {
     desc: 'A flamer below half health throws his stream 30% farther — a glass-cannon gamble.',
     hooks: {},
   },
+  // flag-only, like Desperate Measures/Rifled Slugs: flameSpray reads
+  // G.cardsOwned directly since flame damage never touches fireShot's
+  // beforeShot/afterShot hooks — the flamer siphons a slow trickle of HP back
+  // from every enemy his stream burns, a vampire's deal with the fire.
+  vampiricflame: {
+    unit: 'flamer', name: 'Vampiric Flame', cost: 9, weight: 3,
+    desc: `The flamer siphons ${Math.round(VAMPIRIC_FLAME_LIFESTEAL * 100)}% of the damage his stream deals to enemies back as slow healing.`,
+    hooks: {},
+  },
   crackshot: {
     unit: 'sniper', name: 'Crack Shot', cost: 8, weight: 3,
     desc: 'Every miss guarantees the sniper\'s next shot connects.',
@@ -232,6 +245,13 @@ const CARD_UNIQUES = {
     // Lets an engineer push an already-fortified emplacement to a second tier —
     // tougher, deeper cover, longer range, harder wire.
     desc: 'Engineers push fortifications to a second tier: hardened emplacements with even more HP, cover, and range.',
+    hooks: {},
+  },
+  cannibalize: {
+    unit: 'engineer', name: 'Cannibalize', cost: 9, weight: 3,
+    // flag-only: unitBuffs and unitRangeMult read G.cardsOwned directly and
+    // count repairable objects (via engineerRepairCount) inside ENGINEER_RANGE.
+    desc: 'Each repairable object in his repair radius gives the engineer +10% fire rate and range.',
     hooks: {},
   },
   rushorder: {

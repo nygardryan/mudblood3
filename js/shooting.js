@@ -208,6 +208,9 @@ function flameSpray(actor, dt) {
   // a veteran keeps the stream on target: burn scales hard with rank
   const dps = fl.dps * (1 + (actor.rank || 0) * 0.35);
   const reach2 = (range + 8) * (range + 8);
+  // Vampiric Flame: only the player's own flamer siphons, and only off actual
+  // enemies — burning your own side for healing would reward friendly fire
+  const vampiric = actor.side === 'us' && G.cardsOwned && G.cardsOwned.has('vampiricflame');
   const burn = (a2) => {
     if (a2 === actor || a2.dead) return;
     if (dist2(actor, a2) > reach2) return;
@@ -215,8 +218,12 @@ function flameSpray(actor, dt) {
     let dmg = dps * dt * rand(0.8, 1.2);
     if (a2.t.tank) dmg *= 0.6;
     // creditKill ignores German shooters, so passing actor is always safe
-    if (a2.side === 'us') damageUnit(a2, dmg, actor);
-    else damageEnemy(a2, dmg, actor);
+    if (a2.side === 'us') {
+      damageUnit(a2, dmg, actor);
+    } else {
+      damageEnemy(a2, dmg, actor);
+      if (vampiric) actor.hp = Math.min(actor.maxhp, actor.hp + dmg * VAMPIRIC_FLAME_LIFESTEAL);
+    }
     // men dive under the fire stream within a second or so
     tryGoProne(a2, 1.5 * dt);
   };

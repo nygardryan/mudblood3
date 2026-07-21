@@ -27,6 +27,12 @@ function unitBuffs(u) {
     b.accBonus += u.rank * 0.08;
     b.dmgMult *= 1 + u.rank * 0.04;
   }
+  // Cannibalize: +10% fire rate (lower rofMult = faster cycling) per
+  // repairable object in the engineer's radius
+  if (u.type === 'engineer' && u.side === 'us' && G.cardsOwned && G.cardsOwned.has('cannibalize')) {
+    const n = engineerRepairCount(u);
+    if (n > 0) b.rofMult *= Math.pow(0.9, n);
+  }
   u._buffs = b;
   u._buffsFrame = G.buffFrame;
   return b;
@@ -63,6 +69,23 @@ function watchtowerRangeMult(u) {
   return mult;
 }
 
+// Cannibalize: counts repairable objects (defense emplacements, plus vehicles
+// and gun emplacements) inside the engineer's repair radius — cached per
+// G.buffFrame since unitBuffs and unitRangeMult both need it every frame.
+function engineerRepairCount(u) {
+  if (u._repairCountFrame === G.buffFrame) return u._repairCount;
+  const R2 = ENGINEER_RANGE * ENGINEER_RANGE;
+  let n = 0;
+  forEachDefense(s => { if (dist2(u, s) < R2) n++; });
+  for (const a of G.units) {
+    if (a === u || a.dead || !(a.t.tank || a.t.vehicle || a.t.gunEmplacement)) continue;
+    if (dist2(u, a) < R2) n++;
+  }
+  u._repairCount = n;
+  u._repairCountFrame = G.buffFrame;
+  return n;
+}
+
 function unitRangeMult(u) {
   const rank = u.rank || 0;
   let mult = rank <= 0 ? 1 : 1 + rank * unitRangeRankRate(u.type);
@@ -73,6 +96,11 @@ function unitRangeMult(u) {
   if (u.type === 'flamer' && u.side === 'us' && u.hp < u.maxhp * 0.5
       && G.cardsOwned && G.cardsOwned.has('desperatemeasures')) {
     mult *= 1.3;
+  }
+  // Cannibalize: +10% range per repairable object in the engineer's radius
+  if (u.type === 'engineer' && u.side === 'us' && G.cardsOwned && G.cardsOwned.has('cannibalize')) {
+    const n = engineerRepairCount(u);
+    if (n > 0) mult *= Math.pow(1.1, n);
   }
   return mult;
 }

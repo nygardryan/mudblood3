@@ -9,6 +9,9 @@ const TOOLBAR_SIZE_DEFAULT = 100;
 const SOUND_VOLUME_KEY = 'soundVolume';
 const SOUND_VOLUME_DEFAULT = 100;
 const SOUND_MUTED_KEY = 'soundMuted';
+const SHAKE_AMOUNT_KEY = 'shakeAmount';
+const SHAKE_AMOUNT_DEFAULT = 50;
+let shakeScale = 1; // 0-1 multiplier applied to every addShake() call
 
 function clampToolbarSize(pct) {
   return Math.max(TOOLBAR_SIZE_MIN, Math.min(TOOLBAR_SIZE_MAX, Math.round(pct)));
@@ -78,10 +81,35 @@ function saveSoundMuted(muted) {
   localStorage.setItem(SOUND_MUTED_KEY, String(on));
 }
 
+function clampShakeAmount(pct) {
+  return Math.max(0, Math.min(100, Math.round(pct)));
+}
+
+function loadShakeAmount() {
+  const saved = parseInt(localStorage.getItem(SHAKE_AMOUNT_KEY), 10);
+  return Number.isFinite(saved) ? clampShakeAmount(saved) : SHAKE_AMOUNT_DEFAULT;
+}
+
+function applyShakeAmount(pct) {
+  const amount = clampShakeAmount(pct);
+  shakeScale = amount / 100;
+  const slider = el('shake-amount-slider');
+  const label = el('shake-amount-label');
+  if (slider) slider.value = amount;
+  if (label) label.textContent = amount + '%';
+  return amount;
+}
+
+function saveShakeAmount(pct) {
+  const amount = applyShakeAmount(pct);
+  localStorage.setItem(SHAKE_AMOUNT_KEY, String(amount));
+}
+
 function applySavedSettings() {
   applyToolbarSize(loadToolbarSize());
   applySoundVolume(loadSoundVolume());
   applySoundMuted(loadSoundMuted());
+  applyShakeAmount(loadShakeAmount());
 }
 
 function openSettings(from) {
@@ -109,4 +137,7 @@ el('toolbar-size-slider').addEventListener('input', e => {
 });
 el('sound-volume-slider').addEventListener('input', e => {
   saveSoundVolume(Number(e.target.value));
+});
+el('shake-amount-slider').addEventListener('input', e => {
+  saveShakeAmount(Number(e.target.value));
 });

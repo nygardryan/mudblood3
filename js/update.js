@@ -214,6 +214,7 @@ function update(dt) {
   }
   for (const tr of G.tracers) tr.ttl -= dt;
   for (const f of G.flashes) f.ttl -= dt;
+  if (G.shake > 0) G.shake = Math.max(0, G.shake - 26 * dt);
   for (const tx of G.texts) { tx.ttl -= dt; tx.y -= 14 * dt; }
   for (const cp of G.corpses) cp.ttl -= dt;
   for (const m of G.groundMarks) m.ttl -= dt;

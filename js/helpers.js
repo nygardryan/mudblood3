@@ -17,6 +17,13 @@ const dist2 = (a, b) => {
 };
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
+// screen shake: explosions bump the amplitude up, update() decays it —
+// simultaneous blasts take the strongest kick rather than stacking.
+// shakeScale is the user's Settings slider (0-1), declared in settings.js
+function addShake(amount) {
+  G.shake = Math.max(G.shake || 0, amount * shakeScale);
+}
+
 function compactInPlace(arr, keep) {
   let w = 0;
   for (let i = 0; i < arr.length; i++) {

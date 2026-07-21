@@ -13,6 +13,7 @@ function inView(x, y, m) {
 function draw() {
   hoverActor = findHoverActor();
   ctx.save();
+  if (G.shake > 0.05) ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));
   cullOn = false;
   if (viewTransformActive()) {
     // any part of the view outside the world would otherwise keep last frame's pixels
@@ -237,13 +238,25 @@ function draw() {
       ctx.restore();
       continue;
     }
-    ctx.globalAlpha = a * 0.9;
+    if (f.kind === 'ring') {
+      // a thin shockwave racing outward from the blast, well past the flash itself
+      const age = 1 - a;
+      const rr = f.r * (0.25 + age * 0.85);
+      ctx.globalAlpha = a * a * 0.55;
+      ctx.strokeStyle = '#ffd88a';
+      ctx.lineWidth = 0.5 + 2.5 * a;
+      ctx.beginPath(); ctx.arc(f.x, f.y, rr, 0, 7); ctx.stroke();
+      continue;
+    }
+    // holds near full brightness then snaps out, punchier than a linear fade
+    const coreA = Math.pow(Math.max(a, 0), 0.6);
+    ctx.globalAlpha = coreA * 0.9;
     ctx.fillStyle = '#fff0b4';
     ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.35, 0, 7); ctx.fill();
-    ctx.globalAlpha = a * 0.55;
+    ctx.globalAlpha = coreA * 0.55;
     ctx.fillStyle = '#ff8c28';
     ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.7, 0, 7); ctx.fill();
-    ctx.globalAlpha = a * 0.25;
+    ctx.globalAlpha = coreA * 0.25;
     ctx.fillStyle = '#ff5014';
     ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.fill();
   }

@@ -14,13 +14,38 @@ function scheduleShell(x, y, delay, r, dmg, big, by, kind) {
 function explode(x, y, r, dmg, big, by) {
   SFX.boom(big);
   addGroundMark({ type: 'crater', x, y, r, rot1: rand(0, 3), rot2: rand(0, 3) });
+  addShake(big ? 7 : 3.5);
 
+  // hot core flash plus a shockwave ring that outruns it
   G.flashes.push({ x, y, r: r * 1.15, ttl: 0.22, max: 0.22 });
+  G.flashes.push({ x, y, r: r * (big ? 2.2 : 1.6), ttl: big ? 0.4 : 0.28, max: big ? 0.4 : 0.28, kind: 'ring' });
+
   for (let i = 0; i < 26; i++) {
     G.particles.push({
       x, y, vx: rand(-90, 90), vy: rand(-160, -20),
       ttl: rand(0.4, 1.1), grav: 220, size: rand(1.5, 3.5),
       color: pick(['#3c3325', '#57492f', '#6e6046', '#2a2318']),
+    });
+  }
+  // fire licking up out of the blast center
+  const fireN = big ? 16 : 8;
+  for (let i = 0; i < fireN; i++) {
+    G.particles.push({
+      x: x + rand(-r * 0.15, r * 0.15), y: y + rand(-r * 0.1, r * 0.1),
+      vx: rand(-25, 25), vy: rand(-100, -25),
+      ttl: rand(0.15, 0.4), grav: -30, size: rand(1.8, big ? 4.5 : 3.2),
+      kind: 'flame', color: pick(['#ffdf8a', '#ff9c3c', '#ff6a1e', '#fff2c0']),
+    });
+  }
+  // smoke drifting up once the flash and fire have died down
+  const smokeN = big ? 16 : 7;
+  for (let i = 0; i < smokeN; i++) {
+    const ttl = rand(0.6, big ? 1.6 : 1.0);
+    G.particles.push({
+      x: x + rand(-r * 0.25, r * 0.25), y: y + rand(-r * 0.15, r * 0.15),
+      vx: rand(-16, 16), vy: rand(-60, -18),
+      ttl, maxTtl: ttl, grav: -10, size: rand(3, big ? 7 : 5),
+      kind: 'smoke', color: pick(['#3d362a', '#4e4536', '#57492f', '#2a2318']),
     });
   }
 
@@ -118,6 +143,7 @@ function v2FlightState(s) {
 // tall churning smoke column climbing off the crater afterward
 function explodeV2(x, y, r, dmg, by) {
   explode(x, y, r, dmg, true, by);
+  addShake(13);
   G.flashes.push({ x, y, r: r * 1.9, ttl: 0.3, max: 0.3 });
   G.flashes.push({ x, y, r: r * 0.8, ttl: 0.6, max: 0.6 });
   addGroundMark({ type: 'crater', x, y, r: r * 1.4, rot1: rand(0, 3), rot2: rand(0, 3) });

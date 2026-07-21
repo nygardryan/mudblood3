@@ -127,6 +127,7 @@ function newGame(level, difficulty) {
     tracers: [],
     particles: [],
     flashes: [],
+    shake: 0,        // current screen-shake amplitude in px, decays each frame
     texts: [],       // floating notices (promotions)
     corpses: [],     // fallen soldiers, cleared away after CORPSE_TTL
     groundMarks: [], // blood stains and blast craters, fade after GROUND_MARK_TTL

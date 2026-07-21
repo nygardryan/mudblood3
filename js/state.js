@@ -180,6 +180,8 @@ function makeUnit(type, x, y, nation = 'us') {
   };
   // Standard Issue card: give support units a rifle in place of their sidearm
   maybeSwapToRifle(u);
+  // a medic carries no weapon of his own — only the Standard Issue rifle arms him
+  if (u.type === 'medic') u.armed = !!(G.cardsOwned && G.cardsOwned.has('riflearm_medic'));
   // Seasoned Veteran card: muster this type in one rank higher
   maybeSeasonVeteran(u);
   return u;

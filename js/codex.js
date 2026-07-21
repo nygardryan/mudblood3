@@ -19,7 +19,7 @@ const SOUND_INFO = [
     desc: 'Long-range rifle fire from allied and enemy snipers.',
     play: () => SFX.sniper() },
   { key: 'sfx-pistol', name: 'Pistol Shot', category: 'WEAPONS',
-    desc: 'Sidearm fire — medics, officers, bazooka backup, and enemy grenadiers.',
+    desc: 'Sidearm fire — officers, bazooka backup, and enemy grenadiers.',
     play: () => SFX.pistol() },
   { key: 'sfx-shotgun', name: 'Shotgun Blast', category: 'WEAPONS',
     desc: 'Buckshot from the allied shotgunner at close range.',

@@ -183,9 +183,15 @@ function updateUnit(u, dt) {
 
   const buffs = unitBuffs(u);
   const range = unitRange(u, u.t.range) * fogMult();
-  let target;
-  if (u.type === 'sniper') target = sniperTarget(u, range);
-  else target = nearestEnemyInRange(u, range);
+  let target = null;
+  if (u.type === 'medic' && !u.armed) {
+    // an unarmed medic never opens fire — only the Standard Issue rifle card
+    // (which sets u.armed at spawn) gives him a weapon
+  } else if (u.type === 'sniper') {
+    target = sniperTarget(u, range);
+  } else {
+    target = nearestEnemyInRange(u, range);
+  }
   runWeapon(u, target, dt, buffs);
 
   if (u.t.grenade) {

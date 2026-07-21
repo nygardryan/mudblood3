@@ -83,7 +83,7 @@ const UNIT_TYPES = {
     name: 'Medic', hp: 90, range: 94, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, speed: 46,
     color: '#60744f', gun: 5, sfx: 'pistol',
-    desc: 'Patches up the most wounded man in range, faster with rank. Carries a sidearm.',
+    desc: 'Patches up the most wounded man in range, faster with rank. Carries no weapon.',
   },
   engineer: {
     name: 'Engineer', hp: 95, range: 74, dmg: 7, acc: 0.45,
@@ -356,7 +356,7 @@ const PLACEABLES = [
     { key: 'sniper', label: 'SNIPER', cost: 10, kind: 'unit', hotkey: '4',
       desc: 'Springfield scoped rifle. Picks officers, snipers, and gunners first. Rank: faster, straighter, harder.' },
     { key: 'medic', label: 'MEDIC', cost: 12, kind: 'unit', hotkey: '5',
-      desc: 'Sidearm. Heals the most wounded nearby soldier. Faster with rank. Snipers hunt him. Can\'t repair vehicles or fortifications.' },
+      desc: 'Unarmed. Heals the most wounded nearby soldier. Faster with rank. Snipers hunt him. Can\'t repair vehicles or fortifications.' },
     { key: 'engineer', label: 'ENGINEER', cost: 14, kind: 'unit', hotkey: 'E',
       desc: 'Repairs and upgrades fortifications. Slowly patches vehicles and AT guns. SMG close range. Rank: faster repairs, extended range.' },
     { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',

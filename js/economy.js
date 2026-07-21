@@ -63,22 +63,3 @@ function placeableCost(p) {
   return base;
 }
 
-// endless catch-up mechanic: every 5 TP worth of allied units lost refunds
-// 1 TP, so a rough wave doesn't snowball into a run-ending spiral. Tracks
-// fractional TP lost in G.catchupDebt across deaths.
-function unitTPValue(u) {
-  const p = PLACEABLES.find(pl => pl.key === u.type);
-  return p ? placeableCost(p) : 0;
-}
-
-function trackAlliedLoss(u) {
-  if (G.mode !== 'endless' || u.side !== 'us') return;
-  G.catchupDebt += unitTPValue(u);
-  let refunded = false;
-  while (G.catchupDebt >= 5) {
-    G.catchupDebt -= 5;
-    earnTP(1, 'catchup');
-    refunded = true;
-  }
-  if (refunded) SFX.cash();   // salvage pay ping when losses buy back some TP
-}

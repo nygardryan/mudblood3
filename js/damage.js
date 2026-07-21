@@ -100,7 +100,6 @@ function damageUnit(u, dmg, from) {
       if (isAssaultMode() || G.mode === 'hitsquad') {
         G.kills++;
       }
-      trackAlliedLoss(u);
       if (u.t.tank) {
         stampWreck(u);
         explode(u.x, u.y, 50, 60, true);

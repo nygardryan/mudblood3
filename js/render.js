@@ -153,22 +153,28 @@ function draw() {
     if (!u.dead && u.t.shotgun && u.shotgunBlastT > 0) drawShotgunBlast(u);
   }
 
-  // tracers
-  ctx.lineWidth = 1.2;
+  // tracers — the round races from muzzle to impact, then the streak fades
+  // out behind it rather than flashing on at full length for its whole life
   for (const tr of G.tracers) {
     if (cullOn && (Math.max(tr.x1, tr.x2) < cullX0 || Math.min(tr.x1, tr.x2) > cullX1 ||
                    Math.max(tr.y1, tr.y2) < cullY0 || Math.min(tr.y1, tr.y2) > cullY1)) continue;
-    if (tr.kind === 'buckshot') {
-      ctx.strokeStyle = 'rgba(220,200,150,0.75)';
-      ctx.lineWidth = 2.2;
-    } else if (tr.fromBar) {
-      ctx.strokeStyle = 'rgba(255,230,160,0.85)';
-      ctx.lineWidth = 1.6;
-    } else {
-      ctx.strokeStyle = 'rgba(255,235,170,0.8)';
-      ctx.lineWidth = 1.2;
-    }
-    ctx.beginPath(); ctx.moveTo(tr.x1, tr.y1); ctx.lineTo(tr.x2, tr.y2); ctx.stroke();
+    const life = tr.life || 0.06;
+    const age = clamp(1 - tr.ttl / life, 0, 1);
+    const fade = tr.ttl / life;
+    const headT = clamp(age / 0.55, 0, 1);
+    const tailT = clamp(headT - 0.45, 0, 1);
+    const hx = tr.x1 + (tr.x2 - tr.x1) * headT, hy = tr.y1 + (tr.y2 - tr.y1) * headT;
+    const tx = tr.x1 + (tr.x2 - tr.x1) * tailT, ty = tr.y1 + (tr.y2 - tr.y1) * tailT;
+    let rgb, width, headR;
+    if (tr.kind === 'buckshot') { rgb = '220,200,150'; width = 2.2; headR = 1.6; }
+    else if (tr.fromBar) { rgb = '255,230,160'; width = 1.6; headR = 1.3; }
+    else { rgb = '255,235,170'; width = 1.2; headR = 1.1; }
+    ctx.strokeStyle = `rgba(${rgb},${(0.8 * fade).toFixed(3)})`;
+    ctx.lineWidth = width;
+    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
+    // bright spark riding at the leading edge of the round
+    ctx.fillStyle = `rgba(255,250,214,${(0.95 * fade).toFixed(3)})`;
+    ctx.beginPath(); ctx.arc(hx, hy, headR, 0, 7); ctx.fill();
   }
 
   // particles
@@ -197,9 +203,40 @@ function draw() {
   }
   ctx.globalAlpha = 1;
 
-  // explosion flashes
+  // explosion flashes, plus directional muzzle flashes that snap open and
+  // wilt shut instead of just fading a static disc in place
   for (const f of G.flashes) {
     const a = f.ttl / f.max;
+    if (f.kind === 'muzzle') {
+      const age = 1 - a;
+      // pops to full size almost instantly, then eases back down as it dies
+      const pop = Math.min(1, age * 6) * (0.65 + a * 0.35);
+      const len = f.r * 2 * pop, wid = f.r * 0.9 * pop;
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.angle || 0);
+      ctx.globalAlpha = a * 0.95;
+      ctx.fillStyle = '#fff6d2';
+      ctx.beginPath(); ctx.arc(0, 0, f.r * 0.32 * pop, 0, 7); ctx.fill();
+      ctx.globalAlpha = a * 0.85;
+      ctx.fillStyle = '#ffb144';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(len * 0.35, -wid * 0.5);
+      ctx.lineTo(len, 0);
+      ctx.lineTo(len * 0.35, wid * 0.5);
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = a * 0.55;
+      ctx.fillStyle = '#ff7a1e';
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(-wid * 0.42, -len * 0.3); ctx.lineTo(wid * 0.12, -wid * 0.08);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(-wid * 0.42, len * 0.3); ctx.lineTo(wid * 0.12, wid * 0.08);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+      continue;
+    }
     ctx.globalAlpha = a * 0.9;
     ctx.fillStyle = '#fff0b4';
     ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.35, 0, 7); ctx.fill();

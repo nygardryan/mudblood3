@@ -225,7 +225,7 @@ function updatePlane(p, dt) {
       const iy = p.y - rand(70, 150);
       if (iy < 0) continue;
 
-      G.tracers.push({ x1: p.x + rand(-4, 4), y1: p.y - 20, x2: ix, y2: iy, ttl: 0.07 });
+      G.tracers.push({ x1: p.x + rand(-4, 4), y1: p.y - 20, x2: ix, y2: iy, ttl: 0.07, life: 0.07 });
       G.particles.push({
         x: ix, y: iy, vx: rand(-25, 25), vy: rand(-70, -20),
         ttl: rand(0.2, 0.45), grav: 260, size: rand(1.2, 2.2),

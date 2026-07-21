@@ -82,7 +82,7 @@ function fireShot(shooter, target, opts) {
   const mx = shooter.x + Math.cos(shooter.face) * (t.gun + 3);
   const my = shooter.y + Math.sin(shooter.face) * (t.gun + 3);
   SFX[t.sfx]();
-  G.flashes.push({ x: mx, y: my, r: 5, ttl: 0.05, max: 0.05 });
+  G.flashes.push({ x: mx, y: my, r: 6, ttl: 0.07, max: 0.07, kind: 'muzzle', angle: shooter.face });
 
   let acc = t.acc * (opts && opts.accBonus ? 1 + opts.accBonus : 1);
   const d = dist(shooter, target);
@@ -107,7 +107,7 @@ function fireShot(shooter, target, opts) {
   if (!hit) { hx += rand(-22, 22); hy += rand(-16, 22); }
 
   G.tracers.push({
-    x1: mx, y1: my, x2: hx, y2: hy, ttl: 0.06,
+    x1: mx, y1: my, x2: hx, y2: hy, ttl: 0.09, life: 0.09,
     fromBar: shooter.type === 'gunner',
   });
 
@@ -241,14 +241,14 @@ function fireShotgun(actor, buffs) {
   SFX.shotgun();
   markCamoFired(actor);
   actor.shotgunBlastT = 0.12;
-  G.flashes.push({ x: mx, y: my, r: 10, ttl: 0.08, max: 0.08 });
+  G.flashes.push({ x: mx, y: my, r: 11, ttl: 0.09, max: 0.09, kind: 'muzzle', angle: actor.face });
   const spreadMult = Math.max(0.4, 1 - (actor.rank || 0) * 0.08);
   if (slug) {
     // a single tight tracer punching out to full range
     G.tracers.push({
       x1: mx, y1: my,
       x2: actor.x + Math.cos(actor.face) * range, y2: actor.y + Math.sin(actor.face) * range,
-      ttl: 0.06, kind: 'buckshot',
+      ttl: 0.08, life: 0.08, kind: 'buckshot',
     });
   } else {
     for (let i = 0; i < sg.pellets; i++) {
@@ -257,7 +257,7 @@ function fireShotgun(actor, buffs) {
       G.tracers.push({
         x1: mx, y1: my,
         x2: actor.x + Math.cos(a) * d, y2: actor.y + Math.sin(a) * d,
-        ttl: 0.05, kind: 'buckshot',
+        ttl: 0.07, life: 0.07, kind: 'buckshot',
       });
     }
   }

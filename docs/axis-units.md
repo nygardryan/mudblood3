@@ -4,53 +4,55 @@ Two rules of thumb when adding or tuning German (`ENEMY_TYPES`) units in `js/gam
 
 ---
 
-## 1. Axis counterparts should be slightly worse than Allied units
+## 1. Axis counterparts should be slightly *better* than Allied units
 
-When there is a direct US/Axis pair, the German version should generally be a step down on paper. The player buys and commands Allied troops; Axis attackers are spawned in waves or purchased in the Axis campaign, so a small stat edge keeps defense fair without making Germans feel like cardboard.
+When there is a direct US/Axis pair, the German version is now a step **up** on paper — roughly a 10% edge, **except movement speed, which is left untouched**. The player buys and commands Allied troops; giving the spawned attackers a stat edge keeps the pressure on without changing how long waves take to close the field. (This reverses the earlier "Axis are slightly worse" rule.)
 
-### What to tune down
+### What to tune up
 
-Compare against the matching entry in `UNIT_TYPES` and shave one or more of:
+Compare against the matching entry in `UNIT_TYPES` and set the Axis unit to that stat **× 1.1 in the favorable direction**:
 
-| Stat | Typical Axis adjustment |
-|------|-------------------------|
-| HP | ~10–25% lower |
-| Speed | Slower (especially infantry) |
-| Range | Shorter direct-fire range |
-| Damage / accuracy | Lower `dmg`, `acc`, or fewer burst rounds |
-| Rate of fire | Higher `rof` value = slower shots |
-| Specialist payloads | Same weapon profile is fine; trim HP/speed on the carrier |
+| Stat | Axis adjustment |
+|------|-----------------|
+| HP | ~10% higher (`× 1.1`) |
+| Speed | **Unchanged** — keep the existing (slower) Axis value |
+| Range | ~10% longer direct-fire range (`× 1.1`) |
+| Damage / accuracy | Higher `dmg`, `acc`, or an extra burst round (`× 1.1`) |
+| Rate of fire | Lower `rof` value = faster shots (`× 0.9`) |
+| Specialist payloads | Give the shell/rocket/flame block the same 10% edge (more `dmg`/`dps`/radius, shorter cooldowns) |
 
 Leave reward (`reward` on enemies) and spawn cost (`AXIS_PLACEABLES`) separate — those are economy knobs, not combat parity.
+
+Axis-only types with no direct Allied pair (Stormtrooper, Kradschützen, halftrack, the tanks, the V2 battery) take a flat **+10% over their previous numbers** instead of rebasing onto an Allied unit — again leaving speed alone.
 
 ### Examples in the codebase
 
 | Allied | Axis | Notes |
 |--------|------|-------|
-| `rifleman` — 100 HP, 230 rng, 13 dmg, 0.55 acc, speed 42 | `erifle` — 60 HP, 210 rng, 10 dmg, 0.42 acc, speed 22 | Lower across the board |
-| `bazooka` — 90 HP, speed 40 | `ebazooka` — 75 HP, speed 20 | Same rocket block; weaker trooper |
-| `mortarman` — 90 HP, speed 38 | `emortar` — 75 HP, speed 18 | Same mortar block; weaker trooper |
-| `sniper` — 85 HP, 372 rng, 46 dmg, 0.72 acc | `esniper` — 55 HP, 312 rng, 39 dmg, 0.66 acc | Weaker and shorter reach |
-| `flamer` — 130 HP, 38 dps | `eflame` — 85 HP, 34 dps | Less durable, slightly less burn |
+| `rifleman` — 100 HP, 154 rng, 13 dmg, 0.55 acc, speed 42 | `erifle` — 110 HP, 169 rng, 14 dmg, 0.6 acc, speed 22 | Higher across the board; speed untouched |
+| `bazooka` — 90 HP, speed 40 | `ebazooka` — 99 HP, speed 20 | Rocket block also +10% (132 dmg vs 120) |
+| `mortarman` — 90 HP, speed 38 | `emortar` — 99 HP, speed 18 | Mortar block also +10% (83 dmg, 44 r) |
+| `sniper` — 85 HP, 249 rng, 46 dmg, 0.72 acc | `esniper` — 94 HP, 274 rng, 51 dmg, 0.79 acc | Tougher and longer reach |
+| `flamer` — 130 HP, 38 dps | `eflame` — 143 HP, 42 dps | More durable, slightly more burn |
 
-Specialist blocks (`rocket`, `mortar`, `flame`, etc.) can mirror the Allied numbers when the weapon itself is the same class; differentiate on the soldier carrying it.
+Specialist blocks (`rocket`, `mortar`, `flame`, etc.) carry the same 10% edge as the trooper now, rather than mirroring the Allied numbers.
 
 ### Template for a new paired unit
 
 ```js
 // UNIT_TYPES — Allied reference
 bazooka: {
-  name: 'Bazooka', hp: 90, range: 120, dmg: 8, acc: 0.45,
+  name: 'Bazooka', hp: 90, range: 80, dmg: 8, acc: 0.45,
   rof: 1.0, speed: 40,
-  rocket: { range: 363, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
+  rocket: { range: 243, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
 },
 
-// ENEMY_TYPES — Axis counterpart (slightly worse trooper, same weapon class)
+// ENEMY_TYPES — Axis counterpart (~10% better trooper and weapon block, same speed as before)
 ebazooka: {
-  name: 'Panzerfaust', hp: 75, speed: 20, range: 120, dmg: 8, acc: 0.45,
-  rof: 1.0, burst: 1, burstGap: 0, reward: 5,
+  name: 'Panzerfaust', hp: 99, speed: 20, range: 88, dmg: 9, acc: 0.5,
+  rof: 0.9, burst: 1, burstGap: 0, reward: 5,
   color: '#545648', gun: 5, sfx: 'pistol', priority: 4,
-  rocket: { range: 363, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
+  rocket: { range: 267, cdMin: 6.7, cdMax: 9.1, r: 33, dmg: 132, speed: 380, armorMult: 3.0 },
 },
 ```
 

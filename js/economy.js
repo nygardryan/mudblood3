@@ -18,6 +18,7 @@ const KILL_DECAY_RATE_WARBONDS = Math.pow(0.1, 1 / KILL_DECAY_FLOOR_WAVE_WARBOND
 function earnTP(amount, kind = 'kill') {
   let mult = kind === 'kill' ? KILL_TP_MULT : 1;
   if (G.mode === 'endless') {
+    mult *= 2;   // endless-wide income doubling, applies to all sources (kill/steady/catchup)
     if (G.difficulty) mult *= G.difficulty.incomeMult;
     if (kind === 'kill') {
       const warBonds = G.cardsOwned && G.cardsOwned.has('warbonds');

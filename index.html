@@ -337,24 +337,51 @@
     <div id="settings" class="overlay hidden">
       <h1>SETTINGS</h1>
       <div class="settings-panel">
-        <label class="settings-label" for="toolbar-size-slider">Purchase button size</label>
-        <p class="settings-hint">Adjust the Units, Abilities, and Emplacements toolbar on the left edge of the field.</p>
-        <input type="range" id="toolbar-size-slider" min="80" max="400" step="5" value="100">
-        <div id="toolbar-size-label" class="settings-value">100%</div>
-        <label class="settings-label" for="sound-volume-slider">Sound volume</label>
-        <p class="settings-hint">Master volume for gunfire, explosions, and UI sounds.</p>
-        <input type="range" id="sound-volume-slider" min="0" max="100" step="5" value="100">
-        <div id="sound-volume-label" class="settings-value">100%</div>
-        <button id="settings-mute-btn" class="secondary">SND ON</button>
-        <label class="settings-label" for="music-volume-slider">Music volume</label>
-        <p class="settings-hint">Background music. Independent of the sound-effects volume.</p>
-        <input type="range" id="music-volume-slider" min="0" max="100" step="5" value="60">
-        <div id="music-volume-label" class="settings-value">60%</div>
-        <button id="settings-music-btn" class="secondary">MUS ON</button>
-        <label class="settings-label" for="shake-amount-slider">Screen shake</label>
-        <p class="settings-hint">Camera shake intensity when explosions go off. Set to 0 to turn it off.</p>
-        <input type="range" id="shake-amount-slider" min="0" max="100" step="5" value="50">
-        <div id="shake-amount-label" class="settings-value">50%</div>
+        <!-- Display section -->
+        <div class="settings-section">
+          <div class="settings-section-title">Display</div>
+          <label class="settings-label" for="toolbar-size-slider">Purchase button size</label>
+          <p class="settings-hint">Adjust the Units, Abilities, and Emplacements toolbar on the left edge of the field.</p>
+          <input type="range" id="toolbar-size-slider" min="80" max="400" step="5" value="100">
+          <div id="toolbar-size-label" class="settings-value">100%</div>
+        </div>
+
+        <!-- Audio section -->
+        <div class="settings-section">
+          <div class="settings-section-title">Audio</div>
+
+          <div class="settings-row">
+            <label class="settings-label" for="sound-volume-slider">Sound volume</label>
+            <div id="sound-volume-label" class="settings-value">100%</div>
+          </div>
+          <input type="range" id="sound-volume-slider" min="0" max="100" step="5" value="100">
+          <p class="settings-hint">Gunfire, explosions, and UI sounds.</p>
+          <div style="display:flex;justify-content:flex-end;margin:2px 0 14px">
+            <button id="settings-mute-btn" class="secondary">SND OFF</button>
+          </div>
+
+          <div class="settings-row">
+            <label class="settings-label" for="music-volume-slider">Music volume</label>
+            <div id="music-volume-label" class="settings-value">60%</div>
+          </div>
+          <input type="range" id="music-volume-slider" min="0" max="100" step="5" value="60">
+          <p class="settings-hint">Background music. Independent of sound effects.</p>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin:2px 0 0">
+            <button id="settings-music-btn" class="secondary">MUS OFF</button>
+            <button id="settings-music-next" class="secondary">NEXT</button>
+          </div>
+        </div>
+
+        <!-- Effects section -->
+        <div class="settings-section">
+          <div class="settings-section-title">Effects</div>
+          <div class="settings-row">
+            <label class="settings-label" for="shake-amount-slider">Screen shake</label>
+            <div id="shake-amount-label" class="settings-value">50%</div>
+          </div>
+          <input type="range" id="shake-amount-slider" min="0" max="100" step="5" value="50">
+          <p class="settings-hint">Camera shake intensity when explosions go off. Set to 0 to turn it off.</p>
+        </div>
       </div>
       <button id="settings-back-btn">BACK</button>
     </div>

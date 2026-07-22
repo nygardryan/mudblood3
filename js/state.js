@@ -79,11 +79,18 @@ function defenderNationLabel(nation) {
 }
 
 function syncMuteButtons() {
-  const label = SFX.muted ? 'SND OFF' : 'SND ON';
+  const muted = SFX.muted;
   const btn = el('settings-mute-btn');
-  if (btn) btn.textContent = label;
+  if (btn) {
+    btn.textContent = muted ? 'SND OFF' : 'SND ON';
+    btn.dataset.on = String(!muted);
+  }
   const mbtn = el('settings-music-btn');
-  if (mbtn) mbtn.textContent = MUSIC.muted ? 'MUS OFF' : 'MUS ON';
+  if (mbtn) {
+    const mm = MUSIC.muted;
+    mbtn.textContent = mm ? 'MUS OFF' : 'MUS ON';
+    mbtn.dataset.on = String(!mm);
+  }
 }
 
 const canvas = document.getElementById('game');

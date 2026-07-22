@@ -10,7 +10,7 @@ const SOUND_VOLUME_KEY = 'soundVolume';
 const SOUND_VOLUME_DEFAULT = 100;
 const SOUND_MUTED_KEY = 'soundMuted';
 const MUSIC_VOLUME_KEY = 'musicVolume';
-const MUSIC_VOLUME_DEFAULT = 60;
+const MUSIC_VOLUME_DEFAULT = 10;
 const MUSIC_MUTED_KEY = 'musicMuted';
 const SHAKE_AMOUNT_KEY = 'shakeAmount';
 const SHAKE_AMOUNT_DEFAULT = 50;
@@ -186,6 +186,9 @@ el('sound-volume-slider').addEventListener('input', e => {
 });
 el('settings-music-btn').addEventListener('click', () => {
   saveMusicMuted(!MUSIC.muted);
+});
+el('settings-music-next').addEventListener('click', () => {
+  MUSIC.next();
 });
 el('music-volume-slider').addEventListener('input', e => {
   saveMusicVolume(Number(e.target.value));

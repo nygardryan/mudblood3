@@ -2,6 +2,10 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
+// how far from a mobile long-press the game will reach to grab an enemy to
+// inspect — generous, since a fingertip covers a small, moving target
+const LONGPRESS_SNAP_R = 40;
+
 function minefieldPositions(cx, cy) {
   // Tight X pattern: center mine plus one on each diagonal. Mines are immune
   // to explosives now, so there's no chain radius to space them around.
@@ -180,7 +184,6 @@ function place(p, x, y) {
 
   if (p.kind === 'unit') {
     const u = makeUnit(p.key, x, y);
-    if (u.t.tank || u.t.vehicle) SFX.motor();   // engine turns over as armor rolls on
     G.units.push(u);
     maybeSpawnPassenger(u);   // Passenger card: a deployed jeep drops a free grunt
   } else if (p.kind === 'eparadrop') {
@@ -344,6 +347,7 @@ canvas.addEventListener('pointerdown', e => {
   canvas.setPointerCapture(e.pointerId);
   updatePointer(e);
   suppressClick = false;
+  touchInspect = null;   // any new touch dismisses a pinned enemy info panel
 
   if (placing) {
     if (!isPlaying()) return;
@@ -367,11 +371,23 @@ canvas.addEventListener('pointerdown', e => {
   if (!isPlaying() || isAssaultMode()) return;
   drag = { x0: mouse.x, y0: mouse.y, x1: mouse.x, y1: mouse.y, active: false };
 
-  // long-press on mobile → clear selection, enter multi-select drag mode
+  // long-press on mobile → inspect a nearby enemy, or (on empty ground) enter
+  // multi-select marquee mode
   if (touchUI() && !placing) {
     clearLongPress();
+    // lock the target now, at press time: the enemy may drift during the hold,
+    // and the fingertip snaps to whatever hostile is nearest the press point
+    longPressFoe = nearestHostile(mouse.x, mouse.y, LONGPRESS_SNAP_R);
     longPressTimer = setTimeout(() => {
       if (placing) return;
+      if (longPressFoe && !longPressFoe.dead) {
+        touchInspect = longPressFoe;   // pin its info panel (touch has no hover)
+        longPressing = true;           // release is a hold, not a tap
+        drag = null;                   // suppress the marquee box
+        clearViewPan();
+        mobileVibrate(10);
+        return;
+      }
       G.selected = [];
       longPressing = true;
       clearViewPan();
@@ -415,7 +431,8 @@ canvas.addEventListener('pointermove', e => {
       if (!viewPan.active) {
         const moved = Math.hypot(e.clientX - viewPan.clientX0, e.clientY - viewPan.clientY0);
         if (moved > tapSlop()) {
-          if (!unitAtWorld(viewPan.worldX0, viewPan.worldY0)) {
+          // a pending inspect hold owns the gesture — don't let it become a pan
+          if (!unitAtWorld(viewPan.worldX0, viewPan.worldY0) && !longPressFoe) {
             viewPan.active = true;
             drag = null;
           } else {
@@ -430,9 +447,12 @@ canvas.addEventListener('pointermove', e => {
     }
   }
 
-  // cancel long-press timer if user started dragging before timer fired
-  if (longPressTimer && drag && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > tapSlop()) {
-    clearLongPress();
+  // cancel long-press timer if the finger wanders before it fires. An inspect
+  // hold (foe locked) gets a roomier tolerance so natural thumb jitter on a
+  // small target doesn't abort it.
+  if (longPressTimer && drag) {
+    const wander = Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0);
+    if (wander > (longPressFoe ? 30 : tapSlop())) clearLongPress();
   }
 
   if (placeTouch?.active) {
@@ -441,7 +461,8 @@ canvas.addEventListener('pointermove', e => {
   if (drag) {
     drag.x1 = mouse.x;
     drag.y1 = mouse.y;
-    if (!drag.active && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > tapSlop()) {
+    // don't open a marquee while an inspect hold is pending on a locked enemy
+    if (!drag.active && !longPressFoe && Math.hypot(drag.x1 - drag.x0, drag.y1 - drag.y0) > tapSlop()) {
       drag.active = true;
       syncToolbarVisibility();
     }
@@ -454,6 +475,7 @@ canvas.addEventListener('pointerup', e => {
   clearPlaceHold();
   // ensure the long-press timer doesn't fire after release
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  longPressFoe = null;
 
   if (viewGesture?.active) {
     if (activePointers.size < 2) viewGesture = null;

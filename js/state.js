@@ -7,6 +7,7 @@ let placing = null;   // placeable currently being placed
 let mouse = { x: W / 2, y: H / 2, inside: false };
 let drag = null;      // marquee selection in progress: { x0, y0, x1, y1, active }
 let hoverActor = null; // hostile under the cursor, described in a panel while hovered
+let touchInspect = null; // hostile pinned by a mobile long-press, so its info panel shows on touch
 let suppressClick = false; // eat the click that follows a completed drag-select or pointerup action
 let placeTouch = null;  // touch placement drag: { active, moved, startX, startY }
 let viewPan = null;     // one-finger camera pan on mobile
@@ -16,6 +17,7 @@ let lastTap = { t: 0, x: 0, y: 0 };
 let lastUnitClick = { t: 0, type: null };
 let longPressTimer = null;
 let longPressing = false;
+let longPressFoe = null; // enemy locked at press-time for the inspect long-press (survives the target moving)
 let viewCam = { x: 0, y: 0, zoom: 1 };
 let viewDirty = false;
 let viewGesture = null;   // two-finger pinch/pan snapshot
@@ -26,6 +28,7 @@ let lastCoverZoom = null;
 function clearLongPress() {
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
   longPressing = false;
+  longPressFoe = null;
 }
 
 let running = false;

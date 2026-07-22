@@ -25,7 +25,6 @@ const SFX = (() => {
     promote:      ['promote_1.ogg', 'promote_2.ogg'],
     alarm:        ['alarm_1.ogg', 'alarm_2.ogg'],
     whistle:      ['whistle_1.ogg', 'whistle_2.ogg', 'whistle_3.ogg'],
-    motor:        ['motor_1.ogg', 'motor_2.ogg'],
     event:        ['event_1.ogg'],
   };
   let master = null;
@@ -273,8 +272,6 @@ const SFX = (() => {
       if (!throttled('whistle', 0.45)) return;
       playOrSynth('whistle', () => { tone(1800, 0.6, 0.1, 'sine', 500); }, { vol: 0.5, jitter: true });
     },
-    // engine turn-over when an armored unit or vehicle deploys
-    motor() { playOrSynth('motor', () => { tone(90, 0.5, 0.14, 'sawtooth', 130); noise(0.4, 0.08, 'lowpass', 500, 0.7, 0.5); }, { vol: 0.5, jitter: true }); },
     // stinger for a battlefield event banner (fog, reinforcements, strafing run)
     event() {
       if (!throttled('event', 0.5)) return;

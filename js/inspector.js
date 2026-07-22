@@ -20,16 +20,42 @@ function actorHitRadius(a) {
   return a.t.tank ? 26 : a.t.vehicle ? 20 : a.t.gunEmplacement ? 18 : 14;
 }
 
-function findHoverActor() {
-  if (!G || !mouse.inside || placing || touchUI()) return null;
-  if (drag && drag.active) return null;
+// nearest hostile whose hit radius covers a world point, or null. Shared by the
+// mouse hover and the mobile long-press inspector.
+function hostileAt(x, y) {
+  if (!G) return null;
   let best = null, bestD = Infinity;
   for (const a of hostileRoster()) {
     if (a.dead) continue;
-    const d = dist(a, mouse);
+    const d = dist(a, { x, y });
     if (d < actorHitRadius(a) && d < bestD) { best = a; bestD = d; }
   }
   return best;
+}
+
+// nearest hostile within maxR of a point, ignoring per-actor hit radius. The
+// mobile inspect long-press uses this so a fingertip only has to land *near* a
+// small, moving enemy, not dead on it.
+function nearestHostile(x, y, maxR) {
+  if (!G) return null;
+  let best = null, bestD = maxR;
+  for (const a of hostileRoster()) {
+    if (a.dead) continue;
+    const d = dist(a, { x, y });
+    if (d < bestD) { best = a; bestD = d; }
+  }
+  return best;
+}
+
+function findHoverActor() {
+  // touch has no cursor: the panel is driven by a long-press pin instead
+  if (touchInspect) {
+    if (touchInspect.dead) touchInspect = null;
+    return touchInspect;
+  }
+  if (!G || !mouse.inside || placing || touchUI()) return null;
+  if (drag && drag.active) return null;
+  return hostileAt(mouse.x, mouse.y);
 }
 
 function hoverStats(a) {

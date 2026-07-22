@@ -40,6 +40,8 @@ function returnToMenu() {
   running = false;
   paused = false;
   placing = null;
+  touchInspect = null;
+  longPressFoe = null;
   mobileToolbarMinimized = false;
   activePointers.clear();
   viewGesture = null;
@@ -384,6 +386,8 @@ function backToTutorialSelect() {
   running = false;
   paused = false;
   placing = null;
+  touchInspect = null;
+  longPressFoe = null;
   mobileToolbarMinimized = false;
   activePointers.clear();
   el('tutorial-complete').classList.add('hidden');

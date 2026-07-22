@@ -4,6 +4,17 @@
 const CHANGELOG = [
   {
     date: '2026-07-22',
+    title: 'Cards, Settings & Visual Polish',
+    changes: [
+      'New cards: Flamer Tank and Passenger.',
+      'Redesigned the settings panel with sections, custom sliders, and pill toggles.',
+      'Added a mobile info box and enlarged the unit inspector.',
+      'Updated emplacements and body graphics.',
+      'Assorted style, sound, and rendering improvements.',
+    ],
+  },
+  {
+    date: '2026-07-22',
     title: 'Background Music',
     changes: [
       'Added a background music playlist (drop tracks into assets/music/).',

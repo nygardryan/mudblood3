@@ -5,8 +5,17 @@
 // Point at anything hostile and get its name, condition, and the same blurb the
 // codex carries — without leaving the fight. Mouse only; there is no hovering
 // on touch.
-const HOVER_PANEL_W = 196;
-const HOVER_PAD = 7;
+const HOVER_PANEL_W = 260;
+const HOVER_PAD = 9;
+// Panel typography, kept as named constants so the box height math (drawInfoPanel)
+// and the per-line text offsets stay in lockstep when the sizes are tuned.
+const HOVER_TITLE_FONT = 'bold 13px "Courier New", monospace';
+const HOVER_TITLE_LH = 15;   // title line height
+const HOVER_STAT_FONT = '11px "Courier New", monospace';
+const HOVER_STAT_LH = 13;    // stat line height
+const HOVER_DESC_FONT = '12px "Courier New", monospace';
+const HOVER_DESC_LH = 15;    // description line height
+const HOVER_DESC_GAP = 5;    // gap between the stat block and the description
 
 // whoever is shooting at the player: he runs the attackers (G.enemies) in the
 // assault campaigns and in hit-squad, and the defenders (G.units) in endless
@@ -131,13 +140,13 @@ function drawInfoPanel(a, own = false) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
-  ctx.font = '8px "Courier New", monospace';
+  ctx.font = HOVER_STAT_FONT;
   const statLines = wrapCanvasText(hoverStats(a, own), innerW, ' · ');
-  ctx.font = '9px "Courier New", monospace';
+  ctx.font = HOVER_DESC_FONT;
   const descLines = desc ? wrapCanvasText(desc.split(/\s+/), innerW) : [];
 
-  const h = HOVER_PAD * 2 + 11 + statLines.length * 10
-    + (descLines.length ? 4 + descLines.length * 11 : 0);
+  const h = HOVER_PAD * 2 + HOVER_TITLE_LH + statLines.length * HOVER_STAT_LH
+    + (descLines.length ? HOVER_DESC_GAP + descLines.length * HOVER_DESC_LH : 0);
 
   // the actor's position in canvas pixels — draw() has already unwound its
   // camera transform by the time we get here
@@ -157,20 +166,20 @@ function drawInfoPanel(a, own = false) {
   ctx.strokeRect(x + 0.5, y + 0.5, HOVER_PANEL_W - 1, h - 1);
 
   let ty = y + HOVER_PAD;
-  ctx.font = 'bold 10px "Courier New", monospace';
+  ctx.font = HOVER_TITLE_FONT;
   ctx.fillStyle = '#ffd94a';
   ctx.fillText((a.t.name || a.type).toUpperCase(), x + HOVER_PAD, ty);
-  ty += 11;
+  ty += HOVER_TITLE_LH;
 
-  ctx.font = '8px "Courier New", monospace';
+  ctx.font = HOVER_STAT_FONT;
   ctx.fillStyle = '#8a8668';
-  for (const l of statLines) { ctx.fillText(l, x + HOVER_PAD, ty); ty += 10; }
+  for (const l of statLines) { ctx.fillText(l, x + HOVER_PAD, ty); ty += HOVER_STAT_LH; }
 
   if (descLines.length) {
-    ty += 4;
-    ctx.font = '9px "Courier New", monospace';
+    ty += HOVER_DESC_GAP;
+    ctx.font = HOVER_DESC_FONT;
     ctx.fillStyle = '#d8d2b8';
-    for (const l of descLines) { ctx.fillText(l, x + HOVER_PAD, ty); ty += 11; }
+    for (const l of descLines) { ctx.fillText(l, x + HOVER_PAD, ty); ty += HOVER_DESC_LH; }
   }
   ctx.restore();
 }

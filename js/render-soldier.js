@@ -303,6 +303,7 @@ function drawSoldier(a) {
   const bodyH = isShotgun ? 5.8 : isEmg ? 4.7 : isBar ? 4.9 : isFlamer ? 5.4 : isGrenadier ? 5.2 : isMortar ? 5.1 : isOfficer ? 5.2 : isRifle ? 4.9 : isSniper ? 4.8 : 5;
   c.fillStyle = a.t.color;
   c.beginPath(); c.ellipse(0, 0, bodyW, bodyH, a.face, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(14,15,11,0.6)'; c.lineWidth = 1.1; c.stroke();
   if (isOfficer) {
     if (us) {
       c.fillStyle = '#5a6048';
@@ -704,7 +705,7 @@ function drawSoldier(a) {
     c.fillStyle = '#b8261c';
     c.fillRect(-2.4, -1.7, 4.8, 1.4); c.fillRect(-0.7, -3.4, 1.4, 4.8);
   } else {
-    c.fillStyle = us ? '#5b6b4a' : '#61615a';
+    c.fillStyle = us ? '#63804d' : '#5c626c';
     c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill();
     c.strokeStyle = 'rgba(0,0,0,0.35)';
     c.lineWidth = 1;

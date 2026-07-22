@@ -166,6 +166,7 @@ function drawProneSoldier(a) {
   // torso stretched along the facing
   c.fillStyle = a.t.color;
   c.beginPath(); c.ellipse(-1, 0, isMG ? 7.2 : isShot ? 7 : isBar ? 7 : isSniper ? 6.8 : isOfficer ? 6.6 : isRifle ? 6.4 : 6.5, isMG ? 3.4 : isShot ? 3.5 : isBar ? 3.3 : isSniper ? 3.1 : isOfficer ? 3.3 : isRifle ? 3.05 : 3.2, 0, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(14,15,11,0.55)'; c.lineWidth = 1; c.stroke();
   if (isRifle) {
     if (us) {
       c.fillStyle = '#3a4034';
@@ -279,7 +280,7 @@ function drawProneSoldier(a) {
       c.stroke();
     }
   } else if (a.type === 'erifle') {
-    c.fillStyle = '#61615a';
+    c.fillStyle = '#5c626c';
     c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
     c.strokeStyle = 'rgba(0,0,0,0.35)';
     c.lineWidth = 1;
@@ -296,7 +297,7 @@ function drawProneSoldier(a) {
     c.beginPath();
     c.moveTo(3.1, -1.6); c.quadraticCurveTo(3.6, -2.2, 4.2, -1.5); c.stroke();
   } else if (a.type === 'esmg') {
-    c.fillStyle = '#61615a';
+    c.fillStyle = '#5c626c';
     c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
     c.strokeStyle = 'rgba(0,0,0,0.35)';
     c.lineWidth = 1;
@@ -308,7 +309,7 @@ function drawProneSoldier(a) {
     c.fillStyle = 'rgba(230,228,210,0.85)';
     c.beginPath(); c.arc(3.2, -1.2, 1.1, 0, 7); c.fill();
   } else if (a.type === 'eflame') {
-    c.fillStyle = '#61615a';
+    c.fillStyle = '#5c626c';
     c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
     c.strokeStyle = 'rgba(0,0,0,0.35)';
     c.lineWidth = 1;
@@ -323,7 +324,7 @@ function drawProneSoldier(a) {
     c.lineWidth = 0.55;
     c.stroke();
   } else if (a.type === 'emg') {
-    c.fillStyle = '#61615a';
+    c.fillStyle = '#5c626c';
     c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
     c.strokeStyle = 'rgba(0,0,0,0.35)';
     c.lineWidth = 1;
@@ -340,7 +341,7 @@ function drawProneSoldier(a) {
     c.moveTo(5.5, -1.5); c.lineTo(4.5, 1.5);
     c.stroke();
   } else if (isRifle) {
-    c.fillStyle = '#5b6b4a';
+    c.fillStyle = '#63804d';
     c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
     c.strokeStyle = 'rgba(0,0,0,0.35)';
     c.lineWidth = 1;
@@ -351,7 +352,7 @@ function drawProneSoldier(a) {
       c.beginPath(); c.arc(5 + off, 0, 2.7, 0.2, 2.9); c.stroke();
     }
   } else {
-    c.fillStyle = a.type === 'medic' ? '#ddd8c8' : us ? '#5b6b4a' : '#61615a';
+    c.fillStyle = a.type === 'medic' ? '#ddd8c8' : us ? '#63804d' : '#5c626c';
     c.beginPath(); c.arc(5, 0, 3.2, 0, 7); c.fill();
     c.strokeStyle = 'rgba(0,0,0,0.35)';
     c.lineWidth = 1;

@@ -21,14 +21,28 @@ function drawTank(a) {
   c.beginPath(); c.ellipse(0, 4, heavy ? 30 : 26, heavy ? 21 : 18, 0, 0, 7); c.fill();
   if (a.moveTo) c.rotate(hullRot);
   // tracks
-  c.fillStyle = '#2f2f28';
-  c.fillRect(-trackOff, -16, trackW, 32);
-  c.fillRect(trackOff - trackW, -16, trackW, 32);
+  for (const tx of [-trackOff, trackOff - trackW]) {
+    c.fillStyle = '#26261f';
+    c.fillRect(tx, -16, trackW, 32);
+    c.fillStyle = 'rgba(122,120,106,0.22)';
+    c.fillRect(tx, -16, trackW, 1.4);
+    c.fillRect(tx, 14.6, trackW, 1.4);
+    c.strokeStyle = 'rgba(0,0,0,0.5)';
+    c.lineWidth = 0.8;
+    for (let ty = -14; ty <= 14; ty += 4) { c.beginPath(); c.moveTo(tx, ty); c.lineTo(tx + trackW, ty); c.stroke(); }
+  }
   // hull
   c.fillStyle = a.t.color;
   c.fillRect(-hw, -hh, hw * 2, hh * 2);
-  c.strokeStyle = us ? '#39462f' : '#3a3a32';
-  c.lineWidth = 1.5;
+  c.fillStyle = 'rgba(255,255,255,0.10)';
+  c.fillRect(-hw, -hh, hw * 2, 3);
+  c.fillStyle = 'rgba(0,0,0,0.18)';
+  c.fillRect(-hw, hh - 3, hw * 2, 3);
+  c.strokeStyle = 'rgba(0,0,0,0.28)';
+  c.lineWidth = 1;
+  c.beginPath(); c.moveTo(-hw + 2, -hh + 6); c.lineTo(hw - 2, -hh + 6); c.stroke();
+  c.strokeStyle = us ? '#2f3b26' : '#2b2b25';
+  c.lineWidth = 1.6;
   c.strokeRect(-hw, -hh, hw * 2, hh * 2);
   if (us) {
     // white US star on the hull
@@ -44,17 +58,35 @@ function drawTank(a) {
     c.stroke();
   }
   if (casemate) {
-    c.fillStyle = '#3e3e36';
+    c.fillStyle = heavy ? '#3a3a34' : '#44443b';
     c.fillRect(-4, -5, 28, 10);
+    c.strokeStyle = '#2b2b25'; c.lineWidth = 1.2;
+    c.strokeRect(-4, -5, 28, 10);
+    c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(-4, -5, 28, 1.6);
+    c.fillStyle = '#4c4c43';
     c.fillRect(20, -3, 18, 6);
+    c.fillStyle = '#26261f'; c.fillRect(37, -3.4, 2.4, 6.8);
   } else {
     // turret — compensate for hull rotation so barrel stays at world bearing a.turret
     c.rotate(a.turret - hullAng + home);
+    const tr = heavy ? 12 : 10;
     c.fillStyle = us ? '#54634a' : (heavy ? '#353530' : '#4c4c43');
     c.fillRect(6, -2.5, heavy ? 28 : 24, heavy ? 6 : 5);          // barrel
-    c.beginPath(); c.arc(0, 0, heavy ? 12 : 10, 0, 7); c.fill();
-    c.strokeStyle = us ? '#39462f' : '#33332c';
-    c.beginPath(); c.arc(0, 0, heavy ? 12 : 10, 0, 7); c.stroke();
+    c.fillStyle = '#26261f';
+    c.fillRect(heavy ? 32 : 28, -3, 2.6, heavy ? 7 : 6);          // muzzle brake
+    c.fillStyle = us ? '#5b6b50' : (heavy ? '#3a3a34' : '#525249');
+    c.beginPath(); c.arc(0, 0, tr, 0, 7); c.fill();
+    c.strokeStyle = us ? '#2f3b26' : '#2b2b25';
+    c.lineWidth = 1.4;
+    c.beginPath(); c.arc(0, 0, tr, 0, 7); c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,0.16)';
+    c.lineWidth = 1.4;
+    c.beginPath(); c.arc(0, 0, tr - 2, Math.PI * 1.05, Math.PI * 1.75); c.stroke();
+    c.fillStyle = 'rgba(0,0,0,0.22)';
+    c.beginPath(); c.arc(-tr * 0.28, 0, tr * 0.32, 0, 7); c.fill();
+    c.strokeStyle = us ? '#3a4630' : '#33332c';
+    c.lineWidth = 0.8;
+    c.beginPath(); c.arc(-tr * 0.28, 0, tr * 0.32, 0, 7); c.stroke();
   }
   c.restore();
 
@@ -261,7 +293,7 @@ function drawJeepBody(c, color, us) {
     c.strokeStyle = '#4a4038';
     c.lineWidth = 2;
     c.beginPath(); c.moveTo(-8, front * 12.5); c.lineTo(8, front * 12.5); c.stroke();
-    c.fillStyle = us ? '#5b6b4a' : '#61615a';
+    c.fillStyle = us ? '#63804d' : '#5c626c';
     c.beginPath(); c.arc(-3.5, front * 6, 2.2, 0, 7); c.fill();
     c.strokeStyle = 'rgba(0,0,0,0.35)';
     c.lineWidth = 0.8;
@@ -276,9 +308,11 @@ function drawJeepBody(c, color, us) {
     c.lineTo(8, front * 2);
     c.quadraticCurveTo(9, front * 8, 8, front * 13);
     c.closePath(); c.fill();
-    c.strokeStyle = '#3c3c32';
-    c.lineWidth = 1.2;
+    c.strokeStyle = '#2b2b25';
+    c.lineWidth = 1.4;
     c.stroke();
+    c.fillStyle = 'rgba(255,255,255,0.10)';
+    c.fillRect(-7, -front * 9, 14, 2.2);
     c.strokeStyle = 'rgba(0,0,0,0.3)';
     c.lineWidth = 1;
     c.beginPath(); c.moveTo(-8, front * 2); c.lineTo(-8, -front * 6); c.stroke();
@@ -293,7 +327,7 @@ function drawJeepBody(c, color, us) {
     }
     c.fillStyle = '#3a3a32';
     c.beginPath(); c.arc(0, front * 12, 2.5, 0, 7); c.fill();
-    c.fillStyle = '#61615a';
+    c.fillStyle = '#5c626c';
     c.beginPath(); c.arc(-3.5, front * 5, 2.2, 0, 7); c.fill();
     c.beginPath(); c.arc(3.5, front * 5, 2.2, 0, 7); c.fill();
   }
@@ -340,7 +374,7 @@ function drawJeep(a) {
 
   c.rotate(a.face - hullAng + home);
   drawVehicleHMG(c, a.t.gun, us);
-  c.fillStyle = us ? '#5b6b4a' : '#61615a';
+  c.fillStyle = us ? '#63804d' : '#5c626c';
   c.beginPath(); c.ellipse(-5.5, 0, 3.6, 4.8, 0, 0, 7); c.fill();
   c.fillStyle = us ? '#4a5a3f' : '#525244';
   c.beginPath(); c.ellipse(-5.5, 0, 3, 4, 0, 0, 7); c.fill();
@@ -532,7 +566,7 @@ function drawATGun(a) {
   ctx.moveTo(bx, by);
   ctx.lineTo(bx + fx * 7, by + fy * 7);
   ctx.stroke();
-  ctx.fillStyle = '#5b6b4a';
+  ctx.fillStyle = '#63804d';
   ctx.beginPath(); ctx.arc(bx - fy * 2.5, by + fx * 2.5 - 1, 3.4, 0, 7); ctx.fill();
   ctx.strokeStyle = 'rgba(0,0,0,0.35)';
   ctx.lineWidth = 0.9;
@@ -672,7 +706,7 @@ function drawAAGun(a) {
   ctx.beginPath(); ctx.ellipse(bx + 1, by + 3, 5, 2.5, a.turret, 0, 7); ctx.fill();
   ctx.fillStyle = a.t.color;
   ctx.beginPath(); ctx.ellipse(bx, by, 4.2, 5.2, a.turret, 0, 7); ctx.fill();
-  ctx.fillStyle = '#5b6b4a';
+  ctx.fillStyle = '#63804d';
   ctx.beginPath(); ctx.arc(bx, by - 1, 3.4, 0, 7); ctx.fill();
   ctx.strokeStyle = 'rgba(0,0,0,0.35)';
   ctx.lineWidth = 0.9;
@@ -930,10 +964,15 @@ function drawHalftrack(e) {
   c.beginPath(); c.ellipse(0, 4, 14, 19, 0, 0, 7); c.fill();
 
   // rear tracks (the back half) and front wheels — it drives downfield
-  c.fillStyle = '#2f2f28';
-  c.fillRect(-12, -16, 5, 18);
-  c.fillRect(7, -16, 5, 18);
-  c.fillStyle = '#26251f';
+  for (const tx of [-12, 7]) {
+    c.fillStyle = '#26261f';
+    c.fillRect(tx, -16, 5, 18);
+    c.fillStyle = 'rgba(120,118,104,0.22)';
+    c.fillRect(tx, -16, 5, 1.2);
+    c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 0.7;
+    for (let ty = -14; ty <= 0; ty += 3) { c.beginPath(); c.moveTo(tx, ty); c.lineTo(tx + 5, ty); c.stroke(); }
+  }
+  c.fillStyle = '#22221c';
   c.fillRect(-11, 8, 4, 7);
   c.fillRect(7, 8, 4, 7);
 
@@ -943,18 +982,22 @@ function drawHalftrack(e) {
   c.moveTo(-9, -17); c.lineTo(9, -17);
   c.lineTo(10, 4); c.lineTo(6, 16); c.lineTo(-6, 16); c.lineTo(-10, 4);
   c.closePath(); c.fill();
-  c.strokeStyle = '#3a3a32';
-  c.lineWidth = 1.2;
+  c.strokeStyle = '#2b2b25';
+  c.lineWidth = 1.4;
   c.stroke();
+  c.fillStyle = 'rgba(255,255,255,0.09)';
+  c.fillRect(-9, -17, 18, 2.4);
   // engine deck seam at the nose
   c.strokeStyle = 'rgba(0,0,0,0.35)';
   c.beginPath(); c.moveTo(-8, 7); c.lineTo(8, 7); c.stroke();
 
   // open troop bay; helmets visible until the squad piles out
-  c.fillStyle = '#3c3c33';
+  c.fillStyle = '#34342c';
   c.fillRect(-7, -15, 14, 16);
+  c.strokeStyle = 'rgba(0,0,0,0.4)'; c.lineWidth = 0.9;
+  c.strokeRect(-7, -15, 14, 16);
   if (!e.unloaded) {
-    c.fillStyle = '#61615a';
+    c.fillStyle = '#5c626c';
     for (const [hx, hy] of [[-3.5, -11], [3.5, -11], [-3.5, -5], [3.5, -5], [0, -8]]) {
       c.beginPath(); c.arc(hx, hy, 2.4, 0, 7); c.fill();
     }
@@ -966,7 +1009,7 @@ function drawHalftrack(e) {
   c.lineWidth = 2.4;
   c.beginPath(); c.moveTo(4, 0); c.lineTo(e.t.gun + 4, 0); c.stroke();
   c.rotate(-e.face);
-  c.fillStyle = '#61615a';
+  c.fillStyle = '#5c626c';
   c.beginPath(); c.arc(0, 2.5, 2.8, 0, 7); c.fill();
   c.restore();
 
@@ -1029,19 +1072,26 @@ function drawBike(e) {
   c.fillStyle = 'rgba(0,0,0,0.25)';
   c.beginPath(); c.ellipse(1, 3, 10, 7, 0, 0, 7); c.fill();
   // wheels
-  c.fillStyle = '#26251f';
+  c.fillStyle = '#22221c';
   c.fillRect(-5.5, -11, 5, 4);
   c.fillRect(-5.5, 7, 5, 4);
   c.fillRect(3.5, 4, 5, 3);
+  c.fillStyle = 'rgba(110,108,96,0.35)';
+  c.fillRect(-5.5, -11, 5, 1);
+  c.fillRect(-5.5, 7, 5, 1);
   // frame and sidecar
   c.fillStyle = e.t.color;
   c.fillRect(-5, -10, 4, 20);
   c.fillRect(3, -5, 6, 11);
-  c.strokeStyle = '#3a3a30';
-  c.lineWidth = 1;
+  c.fillStyle = 'rgba(255,255,255,0.10)';
+  c.fillRect(-5, -10, 4, 1.6);
+  c.fillRect(3, -5, 6, 1.4);
+  c.strokeStyle = '#2b2b25';
+  c.lineWidth = 1.1;
   c.strokeRect(3, -5, 6, 11);
+  c.strokeRect(-5, -10, 4, 20);
   // rider and passenger helmets
-  c.fillStyle = '#61615a';
+  c.fillStyle = '#5c626c';
   c.beginPath(); c.arc(-3, -1, 3, 0, 7); c.fill();
   c.beginPath(); c.arc(6, -1, 2.6, 0, 7); c.fill();
   c.restore();
@@ -1058,13 +1108,13 @@ function drawBike(e) {
 function drawWire(wr) {
   ctx.save();
   ctx.translate(wr.x, wr.y);
-  ctx.strokeStyle = '#4b4438';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#2c2820';
+  ctx.lineWidth = 2.6;
   ctx.beginPath(); ctx.moveTo(-34, 5); ctx.lineTo(-30, -7); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(34, 5); ctx.lineTo(30, -7); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(0, -7); ctx.stroke();
-  ctx.strokeStyle = 'rgba(60,58,50,0.9)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(150,146,124,0.95)';
+  ctx.lineWidth = 1.1;
   // fortified wire carries an extra strand; hardened wire another still
   const strands = wr.up2 ? [-10, -8, -5, -1, 3] : wr.up ? [-8, -5, -1, 3] : [-5, -1, 3];
   for (const yy of strands) {
@@ -1085,14 +1135,20 @@ function drawSandbag(s) {
   const rows = s.up ? 3 : 2;
   for (let r = 0; r < rows; r++) {
     for (let i = -1.5; i <= 1.5; i++) {
-      ctx.fillStyle = r ? '#9a8a5e' : '#8a7a50';
-      ctx.strokeStyle = '#6e6040';
-      ctx.lineWidth = 1;
+      ctx.fillStyle = r ? '#a89566' : '#977f52';
+      ctx.strokeStyle = '#4f4229';
+      ctx.lineWidth = 1.1;
       const bx = i * 12 + (r % 2 ? 6 : 0), by = -r * 6;
       if (Math.abs(bx) > 20 || (r === 2 && Math.abs(bx) > 14)) continue;
       ctx.beginPath();
       ctx.ellipse(bx, by, 7, 4, 0, 0, 7);
       ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(216,198,150,0.55)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.ellipse(bx - 1, by - 1.1, 4.6, 2, 0, 3.55, 5.9); ctx.stroke();
+      ctx.strokeStyle = 'rgba(66,54,30,0.45)';
+      ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(bx - 4.6, by + 0.5); ctx.lineTo(bx + 4.6, by + 0.5); ctx.stroke();
     }
   }
   // hardened bags gain a plank-and-stake revetment holding the wall
@@ -1138,8 +1194,8 @@ function drawBunker(b) {
   ctx.beginPath(); ctx.ellipse(0, 5, 30, 11, 0, 0, 7); ctx.fill();
   // concrete slab body
   ctx.fillStyle = b.up ? '#8d8b80' : '#7f7d72';
-  ctx.strokeStyle = '#4e4c44';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#33322c';
+  ctx.lineWidth = 2.2;
   ctx.beginPath();
   ctx.moveTo(-28, 8);
   ctx.lineTo(-28, -6);
@@ -1150,7 +1206,7 @@ function drawBunker(b) {
   ctx.closePath();
   ctx.fill(); ctx.stroke();
   // roof highlight
-  ctx.fillStyle = b.up ? '#a09e92' : '#93917f';
+  ctx.fillStyle = b.up ? '#b0ac9d' : '#9f9d8a';
   ctx.beginPath();
   ctx.moveTo(-24, -2);
   ctx.lineTo(-24, -6);
@@ -1161,8 +1217,10 @@ function drawBunker(b) {
   ctx.closePath();
   ctx.fill();
   // firing slit facing the German line
-  ctx.fillStyle = '#1e1c16';
+  ctx.fillStyle = '#191712';
   ctx.fillRect(-16, -9, 32, 4);
+  ctx.fillStyle = 'rgba(184,180,164,0.5)';
+  ctx.fillRect(-16, -5.2, 32, 1);
   // fortified bunkers get steel plating over the slit corners
   if (b.up) {
     ctx.fillStyle = '#5a5850';
@@ -1193,10 +1251,16 @@ function drawBunker(b) {
 }
 
 function drawMine(m) {
-  ctx.fillStyle = '#38352a';
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath(); ctx.ellipse(m.x, m.y + 2, 6, 3, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#3a372b';
   ctx.beginPath(); ctx.arc(m.x, m.y, 5, 0, 7); ctx.fill();
-  ctx.fillStyle = '#565040';
+  ctx.strokeStyle = '#1b190f'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(m.x, m.y, 5, 0, 7); ctx.stroke();
+  ctx.fillStyle = '#635b46';
   ctx.beginPath(); ctx.arc(m.x, m.y, 2, 0, 7); ctx.fill();
+  ctx.strokeStyle = 'rgba(150,142,110,0.5)'; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.arc(m.x - 1, m.y - 1, 3, 3.4, 5.6); ctx.stroke();
 }
 
 function drawWatchtower(t) {
@@ -1227,10 +1291,13 @@ function drawWatchtower(t) {
     ctx.strokeRect(-15, -15, 30, 30);
   }
   // square lookout platform roof, viewed straight down
-  ctx.fillStyle = '#6b5636';
-  ctx.strokeStyle = '#3d3220';
-  ctx.lineWidth = 1.5;
+  ctx.fillStyle = '#77612f';
+  ctx.strokeStyle = '#2a2114';
+  ctx.lineWidth = 1.6;
   ctx.beginPath(); ctx.rect(-9, -9, 18, 18); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(38,30,16,0.5)';
+  ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.moveTo(-3, -9); ctx.lineTo(-3, 9); ctx.moveTo(3, -9); ctx.lineTo(3, 9); ctx.stroke();
   // roof ridge highlight
   ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 1;
@@ -1280,7 +1347,7 @@ function drawCamoNest(cn) {
     ctx.beginPath(); ctx.moveTo(i, 7); ctx.lineTo(i + 10, -13); ctx.stroke();
   }
   // foliage tufts break up the outline
-  ctx.fillStyle = '#5c6b42';
+  ctx.fillStyle = '#64753f';
   for (const [fx, fy, fr] of [[-20, -12, 5], [-4, -15, 6], [12, -13, 5], [22, -8, 4], [-24, 2, 4], [24, 3, 4]]) {
     ctx.beginPath(); ctx.arc(fx, fy, fr, 0, 7); ctx.fill();
   }
@@ -1334,8 +1401,8 @@ function drawAmmoCrate(t) {
 
   // each crate lid, drawn back-to-front so the front boxes overlap
   const box = (bx, by, w, h) => {
-    ctx.fillStyle = '#6e5a34';
-    ctx.strokeStyle = '#3f3218';
+    ctx.fillStyle = '#7c6335';
+    ctx.strokeStyle = '#2e2410';
     ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.rect(bx - w / 2, by - h / 2, w, h); ctx.fill(); ctx.stroke();
     // stenciled band + slat line

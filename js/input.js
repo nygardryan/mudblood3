@@ -182,6 +182,7 @@ function place(p, x, y) {
     const u = makeUnit(p.key, x, y);
     if (u.t.tank || u.t.vehicle) SFX.motor();   // engine turns over as armor rolls on
     G.units.push(u);
+    maybeSpawnPassenger(u);   // Passenger card: a deployed jeep drops a free grunt
   } else if (p.kind === 'eparadrop') {
     placeAxisParatrooper(x, y);
   } else if (p.kind === 'aunit') {

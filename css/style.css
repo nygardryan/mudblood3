@@ -1288,8 +1288,18 @@ body {
   .mm .intro-btns.modes button { padding: 9px 12px; }
   .mm .intro-btns.modes .mode-desc { margin-top: 3px; line-height: 1.35; }
 
-  .mm-footer { gap: 8px; margin-top: 10px; }
-  .mm-footer button { min-height: 42px; }
+  /* stack footer actions into full-width rows so long labels like
+     "LEADERBOARDS" never overflow the forced 1/3 flex width */
+  .mm-footer { gap: 8px; margin-top: 10px; flex-direction: column; }
+  .mm-footer button {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+    min-height: 42px;
+    padding: 11px 14px;
+    letter-spacing: 1.5px;
+    white-space: nowrap;
+  }
   .mm-action { margin-bottom: 12px; min-height: 42px; }
 }
 

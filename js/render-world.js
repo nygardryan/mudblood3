@@ -1322,11 +1322,64 @@ function drawCamoNest(cn) {
   ctx.restore();
 }
 
+// a stack of ammunition crates, seen from above: a few wooden boxes with
+// stenciled bands. Fortified stacks add a box and a strap; hardened ones get a
+// tarp corner. Splinters spread as it takes hits.
+function drawAmmoCrate(t) {
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  // drop shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath(); ctx.ellipse(0, 4, 16, 9, 0, 0, 7); ctx.fill();
+
+  // each crate lid, drawn back-to-front so the front boxes overlap
+  const box = (bx, by, w, h) => {
+    ctx.fillStyle = '#6e5a34';
+    ctx.strokeStyle = '#3f3218';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.rect(bx - w / 2, by - h / 2, w, h); ctx.fill(); ctx.stroke();
+    // stenciled band + slat line
+    ctx.strokeStyle = 'rgba(210,190,120,0.55)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(bx - w / 2 + 2, by); ctx.lineTo(bx + w / 2 - 2, by); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.beginPath(); ctx.moveTo(bx - w / 2, by - h / 2); ctx.lineTo(bx + w / 2, by - h / 2); ctx.stroke();
+  };
+  box(-6, -5, 15, 12);
+  box(7, -3, 14, 11);
+  // fortified stacks pile on an extra crate
+  if (t.up) box(-2, 6, 16, 12);
+  else box(0, 5, 15, 11);
+
+  // hardened stacks get a lashed tarp corner
+  if (t.up2) {
+    ctx.fillStyle = 'rgba(60,66,44,0.75)';
+    ctx.beginPath();
+    ctx.moveTo(-13, -10); ctx.lineTo(1, -12); ctx.lineTo(-4, -2); ctx.closePath();
+    ctx.fill();
+  }
+
+  // battle damage: boards splinter loose as it's shot up
+  const f = t.hp / t.maxhp;
+  if (f < 0.66) {
+    ctx.strokeStyle = 'rgba(30,24,14,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-11, -8); ctx.lineTo(-4, -1); ctx.stroke();
+  }
+  if (f < 0.33) {
+    ctx.strokeStyle = 'rgba(30,24,14,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(11, -6); ctx.lineTo(4, 3); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawDefenses() {
   for (const wr of G.wires) drawWire(wr);
   for (const s of G.sandbags) drawSandbag(s);
   for (const b of G.bunkers) drawBunker(b);
   for (const t of G.watchtowers) drawWatchtower(t);
   for (const cn of G.camoNests) drawCamoNest(cn);
+  for (const ac of G.ammoCrates) drawAmmoCrate(ac);
   for (const m of G.mines) drawMine(m);
 }

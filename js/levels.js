@@ -33,6 +33,7 @@ const SANDBAG_HP = 660;
 const BUNKER_HP = 2040;
 const WATCHTOWER_HP = 500;
 const CAMONEST_HP = 280;
+const AMMOCRATE_HP = 320;
 function usBag(G, x, y, hp = SANDBAG_HP)    { G.sandbags.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 function usBunker(G, x, y, hp = BUNKER_HP){ G.bunkers.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 function usWire(G, x, y, hp = 3750)  { G.wires.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }

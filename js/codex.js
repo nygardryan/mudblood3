@@ -211,6 +211,9 @@ function drawCodexIcon(key) {
   } else if (key === 'watchtower') {
     codexStamp(2.1, 0, 0, () =>
       drawWatchtower({ x: 0, y: 0, up: false, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP }));
+  } else if (key === 'ammocrate') {
+    codexStamp(1.7, 0, 2, () =>
+      drawAmmoCrate({ x: 0, y: 0, up: false, hp: AMMOCRATE_HP, maxhp: AMMOCRATE_HP }));
   } else if (key === 'mine') {
     // the five-mine X scatter a single minefield drop actually lays down
     for (const [mx, my] of [[0, 2], [20, -16], [-20, -16], [20, 20], [-20, 20]]) {
@@ -320,7 +323,7 @@ function renderPortrait(typeKey, side) {
   ctx = pc.getContext('2d');
   G = { selected: [] };
 
-  const defenseKeys = ['wire', 'sandbags', 'bunker', 'watchtower', 'camonest', 'mine', 'mortar', 'artillery'];
+  const defenseKeys = ['wire', 'sandbags', 'bunker', 'watchtower', 'camonest', 'ammocrate', 'mine', 'mortar', 'artillery'];
   const eventKeys = EVENT_INFO.map(e => e.key);
   const soundKeys = SOUND_INFO.map(s => s.key);
   if (defenseKeys.includes(typeKey) || eventKeys.includes(typeKey) || soundKeys.includes(typeKey)) {
@@ -727,6 +730,12 @@ const FORT_TIERS = {
     rows: [
       { label: 'HP',                   v: ['280', '560', '1,120'] },
       { label: 'Exposed after firing', v: ['4 s', '2 s', '1 s'] },
+    ],
+  },
+  ammocrate: {
+    rows: [
+      { label: 'HP',                   v: ['320', '480', '720'] },
+      { label: 'Fire & reload speed',  v: ['+10%', '+20%', '+30%'] },
     ],
   },
 };

@@ -133,6 +133,23 @@ function stampCamoNestRubble(cn) {
   }
 }
 
+function stampAmmoCrateRubble(t) {
+  // shattered crates and scattered boards
+  gctx.fillStyle = 'rgba(70,58,34,0.5)';
+  gctx.beginPath();
+  gctx.ellipse(t.x, t.y, 15, 8, 0, 0, 7);
+  gctx.fill();
+  gctx.strokeStyle = 'rgba(50,40,22,0.6)';
+  gctx.lineWidth = 2;
+  for (let i = 0; i < 5; i++) {
+    const a = rand(0, Math.PI * 2), len = rand(6, 13);
+    gctx.beginPath();
+    gctx.moveTo(t.x, t.y);
+    gctx.lineTo(t.x + Math.cos(a) * len, t.y + Math.sin(a) * len * 0.5);
+    gctx.stroke();
+  }
+}
+
 function damageUnit(u, dmg, from) {
   u.hp -= dmg;
   if (u.t.tank || u.t.vehicle || u.t.gunEmplacement) {
@@ -224,6 +241,7 @@ function purgeRadius(x, y, r) {
   for (const b of G.bunkers) if (dist(b, at) < r) b.hp = 0;
   for (const wt of G.watchtowers) if (dist(wt, at) < r) wt.hp = 0;
   for (const cn of G.camoNests) if (dist(cn, at) < r) cn.hp = 0;
+  for (const ac of G.ammoCrates) if (dist(ac, at) < r) ac.hp = 0;
   for (const wr of G.wires) if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp = 0;
   for (const m of G.mines) if (!m.dead && dist(m, at) < r) m.dead = true;
 }

@@ -227,6 +227,7 @@ function update(dt) {
   compactDefenses(G.bunkers, stampBunkerRubble);
   compactDefenses(G.watchtowers, stampWatchtowerRubble);
   compactDefenses(G.camoNests, stampCamoNestRubble);
+  compactDefenses(G.ammoCrates, stampAmmoCrateRubble);
   compactInPlace(G.wires, w => w.hp > 0);
   compactInPlace(G.mines, m => !m.dead);
   compactInPlace(G.shells, s => !s.done);
@@ -266,6 +267,10 @@ function endRun(won, title, stats) {
       delete nextBtn.dataset.nextLevel;
     }
   }
+  // an endless run banks medals for the card shop, so offer a shortcut straight
+  // there from the results screen instead of routing back through the menu
+  const shopBtn = el('go-shop-btn');
+  if (shopBtn) shopBtn.classList.toggle('hidden', !(G && G.mode === 'endless'));
   document.getElementById('gameover').classList.remove('hidden');
   el('pause').classList.add('hidden');
   updateGameOverLeaderboard(won);

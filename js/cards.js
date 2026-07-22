@@ -305,7 +305,7 @@ const CARD_UNIQUES = {
   // G.cardsOwned directly and skips every defense structure's blast damage.
   blastshelter: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Blast Shelter', cost: 16, weight: 6,
-    desc: 'Overhead cover makes every emplacement immune to explosions — sandbags, bunkers, watch towers, camo nests, wire and mines take no blast damage.',
+    desc: 'Overhead cover makes every emplacement immune to explosions — sandbags, bunkers, watch towers, camo nests, ammo crates, wire and mines take no blast damage.',
     hooks: {},
   },
   // like Blast Shelter, an emplacement card with no per-unit hook: the enemy

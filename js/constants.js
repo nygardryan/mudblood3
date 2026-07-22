@@ -24,6 +24,12 @@ const PURGE_RADIUS = 150;   // testing-mode-only kill-everything ability
 const WATCHTOWER_RANGE_MULT = 1.25;
 const WATCHTOWER_RANGE_MULT_UPGRADED = 1.35;
 const WATCHTOWER_RANGE_MULT_HARDENED = 1.5;    // second-tier fortification (Hardened Works)
+const AMMOCRATE_AURA = 30;                      // radius that shares out its ammunition
+// lower rofMult = faster cycling: nearby soldiers fire and reload quicker.
+// a fresh crate is +10%, an engineer-fortified one +20%, a hardened one +30%.
+const AMMOCRATE_ROF_MULT = 0.9;
+const AMMOCRATE_ROF_MULT_UPGRADED = 0.8;
+const AMMOCRATE_ROF_MULT_HARDENED = 0.7;       // second-tier fortification (Hardened Works)
 const CAMONEST_ZONE = 30;               // same footprint as a bunker's cover radius
 const CAMONEST_REVEAL = 3;              // seconds targetable after a shot, unfortified
 const CAMONEST_REVEAL_FORTIFIED = 1.5;
@@ -386,6 +392,8 @@ const PLACEABLES = [
     desc: 'Wooden lookout. +25% range for nearby soldiers (+35% fortified). Mortars ignore it. Frail.' },
   { key: 'camonest', label: 'CAMO NEST', cost: 4, kind: 'defense', hotkey: 'C',
     desc: 'Concealed position. Hidden until firing; exposed 3 s after last shot (1.5 s fortified). No dodge bonus. Weak to explosives.' },
+  { key: 'ammocrate', label: 'AMMO CRATE', cost: 8, kind: 'defense', hotkey: 'X',
+    desc: 'Ammunition cache. Nearby soldiers fire and reload 10% faster (+20% fortified, +30% hardened). Frail.' },
   { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
     desc: 'Cluster of 3 anti-personnel mines. Hurts tanks too. Germans can\'t see them.' },
   { key: 'mortar', label: 'MORTAR STRIKE', cost: 5, kind: 'support', hotkey: '0',

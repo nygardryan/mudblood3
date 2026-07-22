@@ -293,6 +293,7 @@ function drawPlacementDefenseGhost(key, x, y, valid) {
     else if (key === 'bunker') drawBunker({ x: 0, y: 0, up: false, hp: BUNKER_HP, maxhp: BUNKER_HP });
     else if (key === 'watchtower') drawWatchtower({ x: 0, y: 0, up: false, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP });
     else if (key === 'camonest') drawCamoNest({ x: 0, y: 0, up: false, hp: CAMONEST_HP, maxhp: CAMONEST_HP });
+    else if (key === 'ammocrate') drawAmmoCrate({ x: 0, y: 0, up: false, hp: AMMOCRATE_HP, maxhp: AMMOCRATE_HP });
     else if (key === 'mine') drawMine({ x: 0, y: 0, dead: false });
   });
   blitGhostBuffer(buf, x, y);

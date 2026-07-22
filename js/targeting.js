@@ -416,6 +416,8 @@ function drawDefenseRangeIndicator(key, x, y) {
     ctx.setLineDash([]);
   } else if (key === 'watchtower') {
     drawOfficerAuraRing(x, y, WATCHTOWER_AURA, 0.45, true);
+  } else if (key === 'ammocrate') {
+    drawOfficerAuraRing(x, y, AMMOCRATE_AURA, 0.45, true);
   }
 }
 

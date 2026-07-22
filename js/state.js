@@ -119,6 +119,7 @@ function newGame(level, difficulty) {
     mines: [],
     watchtowers: [],
     camoNests: [],
+    ammoCrates: [],
     shells: [],      // incoming ordnance {x,y,timer,r,dmg,big}
     grenades: [],    // thrown grenades in flight
     rockets: [],     // bazooka rockets in flight

@@ -106,6 +106,10 @@ function explode(x, y, r, dmg, big, by) {
       // no concrete to absorb it — brush and dugout timber crack fast
       if (dist2(cn, pt) < r2) cn.hp -= dmg * CAMONEST_EXPLOSIVE_MULT;
     }
+    for (const ac of G.ammoCrates) {
+      // thin crate wood, and a blast can cook off what's stacked inside
+      if (dist2(ac, pt) < r2) ac.hp -= dmg;
+    }
     for (const wr of G.wires) {
       if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;
     }

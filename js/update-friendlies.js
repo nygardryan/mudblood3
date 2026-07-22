@@ -22,6 +22,7 @@ function unitBuffs(u) {
   const b = { rofMult: 1, accBonus: 0, dmgMult: 1 };
   const ob = officerBuff(u);
   if (ob) { b.rofMult *= ob.rofMult; b.accBonus += ob.accBonus; }
+  b.rofMult *= ammoCrateRofMult(u);
   if (u.rank > 0) {
     b.rofMult *= 1 - u.rank * 0.08;
     b.accBonus += u.rank * 0.08;
@@ -51,6 +52,22 @@ function unitRangeRankRate(type) {
   if (type === 'mortarman') return 0.03;   // mortar crews stretch their reach 3% per rank
   return (type === 'shotgunner' || type === 'engineer' || type === 'officer' || type === 'flamer')
     ? 0.05 : 0.01;
+}
+
+// an ammo crate keeps nearby soldiers topped up: shorter reloads and quicker
+// follow-up shots (lower rofMult = faster cycling). A fortified crate hands out
+// more, a hardened one more still; a man in reach of several takes the best.
+function ammoCrateRofMult(u) {
+  if (u.side !== 'us' || !G.ammoCrates.length) return 1;
+  let mult = 1;
+  for (const ac of G.ammoCrates) {
+    if (ac.hp > 0 && dist2(ac, u) < AMMOCRATE_AURA * AMMOCRATE_AURA) {
+      const acMult = ac.up2 ? AMMOCRATE_ROF_MULT_HARDENED
+        : ac.up ? AMMOCRATE_ROF_MULT_UPGRADED : AMMOCRATE_ROF_MULT;
+      if (acMult < mult) mult = acMult;
+    }
+  }
+  return mult;
 }
 
 // a watch tower's raised vantage extends the sightline of nearby riflemen —

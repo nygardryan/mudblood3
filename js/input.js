@@ -212,6 +212,8 @@ function place(p, x, y) {
     G.watchtowers.push({ x, y, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP, up: false, workProg: 0 });
   } else if (p.key === 'camonest') {
     G.camoNests.push({ x, y, hp: CAMONEST_HP, maxhp: CAMONEST_HP, up: false, workProg: 0, fortifyMult: 2 });
+  } else if (p.key === 'ammocrate') {
+    G.ammoCrates.push({ x, y, hp: AMMOCRATE_HP, maxhp: AMMOCRATE_HP, up: false, workProg: 0 });
   } else if (p.key === 'wire') {
     G.wires.push({ x, y, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
   } else if (p.key === 'mine') {

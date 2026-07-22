@@ -61,6 +61,7 @@ el('commando-back-btn').addEventListener('click', closeCommandoSelect);
 el('start-tutorial').addEventListener('click', openTutorialSelect);
 el('tutorial-back-btn').addEventListener('click', closeTutorialSelect);
 el('restart-btn').addEventListener('click', () => startGame(G ? G.level.id : 'endless', G?.difficulty?.id));
+el('go-shop-btn').addEventListener('click', () => openCardShop('gameover'));
 el('next-mission-btn').addEventListener('click', () => {
   const id = el('next-mission-btn')?.dataset.nextLevel;
   if (!id) return;

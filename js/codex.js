@@ -5,82 +5,111 @@
 const CODEX_PW = 72, CODEX_PH = 72;
 let codexTab = 'troops';
 
+// `group` names the audio.js CLIPS bank behind each sound, and `opts` the
+// playback treatment it gets in game. Sounds whose bank holds more than one
+// random clip are broken out into one codex entry per clip (see
+// expandSoundInfo) so each variant can be auditioned on its own.
 const SOUND_INFO = [
   { key: 'sfx-rifle', name: 'Rifle Shot', category: 'WEAPONS',
     desc: 'Rifle-class infantry fire — riflemen, grenadiers, flamers, and enemy rifles.',
-    play: () => SFX.rifle() },
+    group: 'rifle', opts: { vol: 0.85 }, play: () => SFX.rifle() },
   { key: 'sfx-mg', name: 'Machine Gun', category: 'WEAPONS',
     desc: 'Automatic weapons — BAR gunners, engineers, tank coax MG, and enemy MGs.',
-    play: () => SFX.mg() },
+    group: 'mg', opts: { vol: 0.8 }, play: () => SFX.mg() },
   { key: 'sfx-hmg', name: 'Heavy Machine Gun', category: 'WEAPONS',
     desc: 'Mounted .50 cal fire from jeeps, Kübelwagens, and P-47 strafing runs.',
-    play: () => SFX.hmg() },
+    group: 'hmg', opts: { vol: 0.85 }, play: () => SFX.hmg() },
   { key: 'sfx-sniper', name: 'Sniper Shot', category: 'WEAPONS',
     desc: 'Long-range rifle fire from allied and enemy snipers.',
-    play: () => SFX.sniper() },
+    group: 'rifle', opts: { vol: 0.9, rate: 0.82 }, play: () => SFX.sniper() },
   { key: 'sfx-pistol', name: 'Pistol Shot', category: 'WEAPONS',
     desc: 'Sidearm fire — officers, bazooka backup, and enemy grenadiers.',
-    play: () => SFX.pistol() },
+    group: 'pistol', opts: { vol: 0.75 }, play: () => SFX.pistol() },
   { key: 'sfx-shotgun', name: 'Shotgun Blast', category: 'WEAPONS',
     desc: 'Buckshot from the allied shotgunner at close range.',
-    play: () => SFX.shotgun() },
+    group: 'shotgun', opts: { vol: 0.85 }, play: () => SFX.shotgun() },
   { key: 'sfx-flame', name: 'Flamethrower', category: 'WEAPONS',
     desc: 'Roaring flame spray while allied or enemy flamethrowers are active.',
-    play: () => SFX.flame() },
+    group: 'flame', opts: { vol: 0.58 }, play: () => SFX.flame() },
   { key: 'sfx-rocket', name: 'Rocket Launch', category: 'EXPLOSIONS',
     desc: 'Bazooka rocket ignition and launch.',
-    play: () => SFX.rocket() },
+    group: 'rocket', opts: { vol: 0.8 }, play: () => SFX.rocket() },
   { key: 'sfx-boom-small', name: 'Small Explosion', category: 'EXPLOSIONS',
     desc: 'Light blasts — grenades, rockets, mines, AT gun, and tank cannon fire.',
-    play: () => SFX.boom(false) },
+    group: 'boomSmall', opts: { vol: 0.85 }, play: () => SFX.boom(false) },
   { key: 'sfx-boom-big', name: 'Big Explosion', category: 'EXPLOSIONS',
     desc: 'Heavy detonations — artillery barrages, tank wrecks, and large shell impacts.',
-    play: () => SFX.boom(true) },
+    group: 'boomBig', opts: { vol: 1 }, play: () => SFX.boom(true) },
   { key: 'sfx-whistle', name: 'Incoming Whistle', category: 'EXPLOSIONS',
     desc: 'Arcing shell whistle as mortars, artillery, and the V2 warhead fall toward the field.',
-    play: () => SFX.whistle() },
+    group: 'whistle', opts: { vol: 0.5 }, play: () => SFX.whistle() },
   { key: 'sfx-motor', name: 'Engine Start', category: 'VEHICLES & AIR',
     desc: 'Engine turn-over when a Sherman or jeep rolls onto the field.',
-    play: () => SFX.motor() },
+    group: 'motor', opts: { vol: 0.5 }, play: () => SFX.motor() },
   { key: 'sfx-plane', name: 'Plane Engine', category: 'VEHICLES & AIR',
     desc: 'Looping aircraft engine during strafing runs and transport flybys.',
-    play: () => SFX.plane() },
+    group: 'plane', opts: { vol: 0.42 }, play: () => SFX.plane() },
   { key: 'sfx-planeflyby', name: 'Plane Flyby', category: 'VEHICLES & AIR',
     desc: 'Doppler pass at the start of airstrikes and paratrooper drops.',
-    play: () => SFX.planeFlyby() },
+    group: 'planeFlyby', opts: { vol: 0.72 }, play: () => SFX.planeFlyby() },
   { key: 'sfx-hammer', name: 'Hammer', category: 'GAME EVENTS',
     desc: 'Engineer fortification and repair work on emplacements.',
-    play: () => SFX.hammer() },
+    group: 'hammer', opts: { vol: 0.7 }, play: () => SFX.hammer() },
   { key: 'sfx-scream', name: 'Casualty Cry', category: 'GAME EVENTS',
     desc: 'Pained cry when an infantryman is cut down — allied or enemy.',
-    play: () => SFX.scream() },
+    group: 'scream', opts: { vol: 0.5 }, play: () => SFX.scream() },
   { key: 'sfx-heal', name: 'Medic Treat', category: 'GAME EVENTS',
     desc: 'Soft chime as a medic patches up a wounded man in range.',
-    play: () => SFX.heal() },
+    group: 'heal', opts: { vol: 0.42 }, play: () => SFX.heal() },
   { key: 'sfx-promote', name: 'Promotion', category: 'GAME EVENTS',
     desc: 'Short fanfare when an allied unit earns a new rank.',
-    play: () => SFX.promote() },
+    group: 'promote', opts: { vol: 0.6 }, play: () => SFX.promote() },
   { key: 'sfx-cash', name: 'Payout', category: 'GAME EVENTS',
     desc: 'Points ping for a payout — research purchases and catch-up salvage refunds.',
-    play: () => SFX.cash() },
+    group: 'cash', opts: { vol: 0.6 }, play: () => SFX.cash() },
   { key: 'sfx-alarm', name: 'Alarm Klaxon', category: 'GAME EVENTS',
     desc: 'Warning klaxon for a major inbound threat — air raids and paratrooper drops.',
-    play: () => SFX.alarm() },
+    group: 'alarm', opts: { vol: 0.5 }, play: () => SFX.alarm() },
   { key: 'sfx-event', name: 'Event Stinger', category: 'GAME EVENTS',
     desc: 'Cue for a battlefield event — fog, reinforcements, and strafing runs.',
-    play: () => SFX.event() },
+    group: 'event', opts: { vol: 0.6 }, play: () => SFX.event() },
   { key: 'sfx-click', name: 'Click', category: 'UI',
     desc: 'Toolbar selection, unit placement, movement orders, and wave skip.',
-    play: () => SFX.click() },
+    group: 'click', opts: { vol: 1 }, play: () => SFX.click() },
   { key: 'sfx-error', name: 'Error', category: 'UI',
     desc: 'Rejected action — insufficient TP, officer cap, or invalid placement.',
-    play: () => SFX.error() },
+    group: 'error', opts: { vol: 1 }, play: () => SFX.error() },
   { key: 'sfx-thunk', name: 'Thunk', category: 'UI',
     desc: 'Dull impact tone — defined but not yet wired to a gameplay trigger.',
-    play: () => SFX.thunk() },
+    group: 'thunk', opts: { vol: 0.9 }, play: () => SFX.thunk() },
 ];
 
-const SOUND_CATEGORY_BY_KEY = Object.fromEntries(SOUND_INFO.map(s => [s.key, s.category]));
+// one codex entry per underlying random clip: a sound backed by N > 1 clips
+// becomes "<Name> 1" … "<Name> N", each auditioning that exact clip. Sounds
+// with a single clip (or synth-only) stay as one entry playing the in-game cue.
+function expandSoundInfo() {
+  const out = [];
+  for (const s of SOUND_INFO) {
+    const n = s.group ? SFX.clipCount(s.group) : 0;
+    if (n > 1) {
+      for (let i = 0; i < n; i++) {
+        out.push({
+          key: `${s.key}-${i + 1}`,
+          name: `${s.name} ${i + 1}`,
+          category: s.category,
+          desc: s.desc,
+          play: () => SFX.playVariant(s.group, i, s.opts),
+        });
+      }
+    } else {
+      out.push({ key: s.key, name: s.name, category: s.category, desc: s.desc, play: s.play });
+    }
+  }
+  return out;
+}
+
+const SOUND_ENTRIES = expandSoundInfo();
+const SOUND_CATEGORY_BY_KEY = Object.fromEntries(SOUND_ENTRIES.map(s => [s.key, s.category]));
 
 function drawCodexSoundIcon(category) {
   const c = ctx;
@@ -89,17 +118,27 @@ function drawCodexSoundIcon(category) {
   c.fillRect(0, 0, CODEX_PW, CODEX_PH);
 
   if (category === 'WEAPONS') {
-    c.fillStyle = '#ffd94a';
+    // a rifle fired diagonally, muzzle flash at the barrel tip
+    c.save();
+    c.translate(cx - 2, cy + 5);
+    c.rotate(-0.34);
+    c.fillStyle = '#7a5b34';           // wooden stock
     c.beginPath();
-    c.moveTo(cx - 4, cy + 6);
-    c.lineTo(cx + 14, cy - 2);
-    c.lineTo(cx + 10, cy + 2);
-    c.lineTo(cx + 18, cy + 8);
-    c.lineTo(cx + 6, cy + 10);
-    c.closePath();
-    c.fill();
-    c.fillStyle = 'rgba(255,180,60,0.45)';
-    c.beginPath(); c.arc(cx + 8, cy, 12, 0, 7); c.fill();
+    c.moveTo(-26, -3); c.lineTo(-11, -4); c.lineTo(-11, 5); c.lineTo(-24, 6);
+    c.closePath(); c.fill();
+    c.fillStyle = '#40403a';           // receiver + barrel
+    c.fillRect(-13, -3, 33, 5);
+    c.fillStyle = '#2f2f2a';           // sight/bolt detail
+    c.fillRect(-4, -6, 3, 3);
+    c.fillStyle = '#ffd94a';           // muzzle flash
+    c.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4, r = i % 2 ? 3 : 9;
+      const x = 22 + Math.cos(a) * r, y = -1 + Math.sin(a) * r;
+      i ? c.lineTo(x, y) : c.moveTo(x, y);
+    }
+    c.closePath(); c.fill();
+    c.restore();
   } else if (category === 'EXPLOSIONS') {
     c.fillStyle = 'rgba(255,120,40,0.55)';
     c.beginPath(); c.arc(cx, cy + 2, 18, 0, 7); c.fill();
@@ -114,24 +153,15 @@ function drawCodexSoundIcon(category) {
       c.stroke();
     }
   } else if (category === 'VEHICLES & AIR') {
-    c.fillStyle = '#4a5a3f';
-    c.beginPath();
-    c.ellipse(cx, cy + 4, 22, 6, 0, 0, 7);
-    c.fill();
-    c.strokeStyle = '#8a8668';
-    c.lineWidth = 2;
-    c.beginPath();
-    c.moveTo(cx, cy - 16);
-    c.lineTo(cx, cy + 2);
-    c.stroke();
-    c.fillStyle = '#6a7a5a';
-    c.beginPath();
-    c.moveTo(cx - 16, cy - 8);
-    c.lineTo(cx + 16, cy - 8);
-    c.lineTo(cx + 12, cy - 14);
-    c.lineTo(cx - 12, cy - 14);
-    c.closePath();
-    c.fill();
+    // top-down aircraft silhouette — the "& AIR" half reads at a glance
+    c.fillStyle = '#5a6a4a';
+    c.beginPath(); c.ellipse(cx, cy, 5, 20, 0, 0, 7); c.fill();        // fuselage
+    c.beginPath(); c.ellipse(cx, cy - 3, 24, 6, 0, 0, 7); c.fill();    // wings
+    c.beginPath(); c.ellipse(cx, cy + 13, 9, 3.5, 0, 0, 7); c.fill();  // tailplane
+    c.fillStyle = '#7a8a68';
+    c.beginPath(); c.arc(cx, cy - 13, 3.5, 0, 7); c.fill();            // cockpit
+    c.fillStyle = '#3a4634';
+    c.beginPath(); c.ellipse(cx, cy - 20, 6, 1.8, 0, 0, 7); c.fill();  // spinning prop
   } else if (category === 'GAME EVENTS') {
     c.fillStyle = '#b8443a';
     c.beginPath();
@@ -222,16 +252,28 @@ function drawCodexIcon(key) {
       codexStamp(2.2, mx, my, () => drawMine({ x: 0, y: 0, dead: false }));
     }
   } else if (key === 'mortar') {
-    c.strokeStyle = '#8a8668';
+    // tube on the left lobs a shell over an arc into a burst on the right
+    const bx = CODEX_PW - 16, by = CODEX_PH - 14;
+    c.fillStyle = '#3a3c2c';                       // baseplate
+    c.beginPath(); c.ellipse(16, CODEX_PH - 11, 8, 3.5, 0, 0, 7); c.fill();
+    c.save();                                       // angled tube
+    c.translate(16, CODEX_PH - 12);
+    c.rotate(-0.62);
+    c.fillStyle = '#4a4c38';
+    c.fillRect(-3, -20, 6, 20);
+    c.fillStyle = '#5c5e46';
+    c.fillRect(-3, -20, 6, 3);
+    c.restore();
+    c.strokeStyle = '#8a8668';                      // trajectory
     c.lineWidth = 1.5;
     c.setLineDash([3, 3]);
-    c.beginPath(); c.moveTo(16, CODEX_PH - 14); c.quadraticCurveTo(cx, 10, CODEX_PW - 16, CODEX_PH - 14);
+    c.beginPath(); c.moveTo(20, CODEX_PH - 24); c.quadraticCurveTo(cx, 9, bx, by - 4);
     c.stroke();
     c.setLineDash([]);
-    c.fillStyle = '#5a5c42';
-    c.beginPath(); c.arc(CODEX_PW - 16, CODEX_PH - 14, 5, 0, 7); c.fill();
-    c.fillStyle = 'rgba(255,120,40,0.5)';
-    c.beginPath(); c.arc(CODEX_PW - 16, CODEX_PH - 14, 10, 0, 7); c.fill();
+    c.fillStyle = 'rgba(255,120,40,0.5)';           // impact burst
+    c.beginPath(); c.arc(bx, by, 11, 0, 7); c.fill();
+    c.fillStyle = '#ffd94a';
+    c.beginPath(); c.arc(bx, by, 4, 0, 7); c.fill();
   } else if (key === 'artillery') {
     for (const [ox, oy] of [[cx - 14, cy + 6], [cx + 10, cy - 4], [cx - 2, cy + 14]]) {
       c.fillStyle = 'rgba(255,100,30,0.35)';
@@ -247,15 +289,20 @@ function drawCodexIcon(key) {
       c.fill();
     }
   } else if (key === 'fng') {
-    c.fillStyle = '#5b6b4a';
-    c.beginPath(); c.arc(cx, cy + 2, 16, 0, 7); c.fill();
-    c.fillStyle = '#4a5d3a';
-    c.beginPath(); c.ellipse(cx, cy + 6, 12, 8, 0, 0, 7); c.fill();
-    c.fillStyle = '#5b6b4a';
-    c.beginPath(); c.arc(cx, cy - 6, 8, 0, 7); c.fill();
-    c.strokeStyle = '#26261e';
-    c.lineWidth = 2;
-    c.beginPath(); c.moveTo(cx, cy + 2); c.lineTo(cx, cy - 18); c.stroke();
+    // a lone green rifleman reporting for duty: helmet, face, shoulders
+    c.fillStyle = '#5b6b4a';                     // shoulders / torso
+    c.beginPath();
+    c.moveTo(cx - 18, cy + 20);
+    c.quadraticCurveTo(cx - 17, cy + 3, cx, cy + 3);
+    c.quadraticCurveTo(cx + 17, cy + 3, cx + 18, cy + 20);
+    c.closePath(); c.fill();
+    c.fillStyle = '#c19a6b';                     // face
+    c.beginPath(); c.arc(cx, cy - 1, 7, 0, 7); c.fill();
+    c.fillStyle = '#4a5d3a';                     // helmet dome
+    c.beginPath(); c.arc(cx, cy - 3, 9.5, Math.PI, 0); c.closePath(); c.fill();
+    c.fillRect(cx - 11, cy - 3, 22, 2.5);        // helmet brim
+    c.fillStyle = '#3c4a2e';                     // chin strap
+    c.fillRect(cx - 7, cy + 4, 14, 1.6);
   } else if (key === 'airraid') {
     // bomber shadow crossing south, bombs falling away beneath it
     c.fillStyle = 'rgba(0,0,0,0.42)';
@@ -272,31 +319,39 @@ function drawCodexIcon(key) {
     c.fillStyle = 'rgba(255,120,40,0.4)';
     c.beginPath(); c.arc(cx, CODEX_PH - 8, 12, 0, 7); c.fill();
   } else if (key === 'paradrop') {
-    c.strokeStyle = '#c9c19a';
-    c.lineWidth = 1.2;
+    // a filled canopy with shroud lines and a trooper slung beneath
+    c.fillStyle = '#c9c19a';
     c.beginPath();
-    c.moveTo(cx - 18, cy - 16);
-    c.quadraticCurveTo(cx, cy - 28, cx + 18, cy - 16);
-    c.lineTo(cx + 18, cy - 16);
-    c.quadraticCurveTo(cx, cy - 4, cx - 18, cy - 16);
-    c.stroke();
-    c.strokeStyle = '#8a8668';
-    c.beginPath(); c.moveTo(cx, cy - 16); c.lineTo(cx, cy + 10); c.stroke();
-    c.fillStyle = '#61615a';
-    c.beginPath(); c.arc(cx, cy + 12, 5, 0, 7); c.fill();
+    c.moveTo(cx - 19, cy - 13);
+    c.quadraticCurveTo(cx, cy - 31, cx + 19, cy - 13);
+    c.quadraticCurveTo(cx, cy - 6, cx - 19, cy - 13);
+    c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(70,66,48,0.5)';        // canopy gores
+    c.lineWidth = 1;
+    for (const gx of [-9, 0, 9]) {
+      c.beginPath(); c.moveTo(cx + gx, cy - 17); c.lineTo(cx + gx * 0.6, cy - 9); c.stroke();
+    }
+    c.strokeStyle = '#8a8668';                    // shroud lines
+    c.beginPath(); c.moveTo(cx - 15, cy - 11); c.lineTo(cx, cy + 8);
+    c.moveTo(cx + 15, cy - 11); c.lineTo(cx, cy + 8); c.stroke();
+    c.fillStyle = '#5b6b4a';                       // trooper body
+    c.beginPath(); c.ellipse(cx, cy + 13, 4, 6, 0, 0, 7); c.fill();
+    c.fillStyle = '#4a5d3a';                       // helmet
+    c.beginPath(); c.arc(cx, cy + 8, 3.6, 0, 7); c.fill();
   } else if (key === 'airstrike') {
+    // P-47 diving down-field, ordnance marching ahead of its nose
+    const ay = cy - 12;
     c.fillStyle = '#4a5a3f';
-    c.beginPath();
-    c.moveTo(10, cy + 4);
-    c.lineTo(CODEX_PW - 10, cy - 2);
-    c.lineTo(CODEX_PW - 14, cy + 2);
-    c.lineTo(CODEX_PW - 10, cy + 6);
-    c.lineTo(10, cy + 10);
-    c.closePath();
-    c.fill();
-    c.fillStyle = 'rgba(255,120,40,0.4)';
-    for (const bx of [28, 40, 52]) {
-      c.beginPath(); c.arc(bx, cy + 16, 5, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(cx, ay, 4.5, 15, 0, 0, 7); c.fill();      // fuselage
+    c.beginPath(); c.ellipse(cx, ay - 2, 19, 5, 0, 0, 7); c.fill();    // wings
+    c.beginPath(); c.ellipse(cx, ay + 11, 8, 3, 0, 0, 7); c.fill();    // tailplane
+    c.fillStyle = '#6a7a5a';
+    c.beginPath(); c.arc(cx, ay - 7, 3, 0, 7); c.fill();               // cockpit
+    for (const [ix, iy, r] of [[cx - 2, cy + 8, 4], [cx + 3, cy + 17, 5], [cx - 1, cy + 26, 6.5]]) {
+      c.fillStyle = 'rgba(255,130,40,0.5)';
+      c.beginPath(); c.arc(ix, iy, r, 0, 7); c.fill();
+      c.fillStyle = '#ffd94a';
+      c.beginPath(); c.arc(ix, iy, r * 0.35, 0, 7); c.fill();
     }
   } else if (key === 'special') {
     // military map symbol: stacked assault chevrons driving downfield
@@ -325,7 +380,7 @@ function renderPortrait(typeKey, side) {
 
   const defenseKeys = ['wire', 'sandbags', 'bunker', 'watchtower', 'camonest', 'ammocrate', 'mine', 'mortar', 'artillery'];
   const eventKeys = EVENT_INFO.map(e => e.key);
-  const soundKeys = SOUND_INFO.map(s => s.key);
+  const soundKeys = SOUND_ENTRIES.map(s => s.key);
   if (defenseKeys.includes(typeKey) || eventKeys.includes(typeKey) || soundKeys.includes(typeKey)) {
     drawCodexIcon(typeKey);
   } else {
@@ -863,7 +918,7 @@ function codexEntries(tab) {
     });
   }
   if (tab === 'sounds') {
-    return SOUND_INFO.map(s => ({
+    return SOUND_ENTRIES.map(s => ({
       key: s.key,
       side: null,
       name: s.name,

@@ -117,7 +117,8 @@ const SFX = (() => {
     if (!audioCtx || muted) return false;
     const list = CLIPS[group];
     if (!list) return false;
-    const file = pick(list);
+    const file = opts.index != null ? list[opts.index] : pick(list);
+    if (!file) return false;
     const buf = buffers.get(file);
     if (!buf) return false;
 
@@ -190,6 +191,12 @@ const SFX = (() => {
     get muted() { return muted; },
     setVolume,
     get volume() { return volume; },
+
+    // how many random clips back a group (0 if unknown / synth-only)
+    clipCount(group) { return (CLIPS[group] || []).length; },
+    // play one specific clip of a group — used by the codex to audition each
+    // random variant on its own rather than a random pick
+    playVariant(group, index, opts = {}) { return playClip(group, { ...opts, index }); },
 
     click()   { playOrSynth('click', () => tone(900, 0.05, 0.12, 'square')); },
     error()   { playOrSynth('error', () => tone(160, 0.14, 0.15, 'square')); },

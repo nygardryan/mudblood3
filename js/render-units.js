@@ -2317,14 +2317,15 @@ function drawEmortarKit(c, fx, fy, face, tube) {
 }
 
 // live flame jet while a flamethrower is spraying
-function drawFlameStream(actor) {
-  if (!actor.flameT || actor.flameT <= 0 || !actor.t.flame) return;
-  const fl = actor.t.flame;
+function drawFlameStream(actor, opts) {
+  const fl = (opts && opts.flame) || actor.t.flame;
+  if (!actor.flameT || actor.flameT <= 0 || !fl) return;
   const range = unitRange(actor, fl.range) * fogMult();
-  const bearing = actor.face;
+  const bearing = (opts && opts.bearing !== undefined) ? opts.bearing : actor.face;
+  const originDist = (opts && opts.originDist !== undefined) ? opts.originDist : actor.t.gun + 1.2;
   const fx = Math.cos(bearing), fy = Math.sin(bearing);
-  const nx = actor.x + fx * (actor.t.gun + 1.2);
-  const ny = actor.y + fy * (actor.t.gun + 1.2);
+  const nx = actor.x + fx * originDist;
+  const ny = actor.y + fy * originDist;
   const pulse = 0.82 + Math.sin(G.time * 22) * 0.18;
   const alpha = clamp(actor.flameT / 0.15, 0, 1) * pulse;
   const reach = range * (0.68 + Math.sin(G.time * 14) * 0.06);

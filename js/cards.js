@@ -56,6 +56,13 @@ const CLUSTER_ROUNDS_SCATTER_MULT = 1.6;
 // damage on enemies as healing. flameSpray reads this fraction directly.
 const VAMPIRIC_FLAME_LIFESTEAL = 0.18;
 
+// Flame Tank: rips the Sherman's 75mm out for a hull flamethrower. A short,
+// wide cone that shreds infantry but can't crack armor. tankTargets and
+// updateTankCombat read G.cardsOwned to swap the cannon for a flame burst,
+// and render.js draws the turret stream. flameSpray takes the spec directly.
+const FLAME_TANK_FLAME = { range: 150, arc: 0.42, dps: 92 };
+const FLAME_TANK_BURST = 1.1; // seconds of sustained spray before the coax swap
+
 // Level the Barrels: the flak mount learns to depress. It keeps its full air
 // role, but anything that closes inside this range on the ground catches a
 // 40mm HE round. Deliberately short — this is a last-ditch self-defence wedge,
@@ -233,6 +240,15 @@ const CARD_UNIQUES = {
   vampiricflame: {
     unit: 'flamer', name: 'Vampiric Flame', cost: 9, weight: 3,
     desc: `The flamer siphons ${Math.round(VAMPIRIC_FLAME_LIFESTEAL * 100)}% of the damage his stream deals to enemies back as slow healing.`,
+    hooks: {},
+  },
+  // flag-only, like Rifled Slugs: tankTargets/updateTankCombat read
+  // G.cardsOwned to trade the 75mm for a flamethrower, and render.js paints
+  // the turret's flame stream. flameSpray's tank branch already halves burn
+  // damage to armor, so this genuinely can't crack a Tiger.
+  flametank: {
+    unit: 'sherman', name: 'Flame Tank', cost: 14, weight: 5,
+    desc: `Rip out the 75mm for a hull flamethrower: a wide cone of fire torches infantry — friend or foe — at close range. It still scorches armor, but only for chip damage, never the cannon's punch.`,
     hooks: {},
   },
   crackshot: {

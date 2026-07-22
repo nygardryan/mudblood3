@@ -35,9 +35,12 @@ function findHoverActor() {
 function hoverStats(a) {
   const t = a.t;
   const parts = [`${Math.max(0, Math.ceil(a.hp))}/${a.maxhp} HP`];
-  if (t.shellDmg) parts.push(`${t.shellDmg} SHELL`);
+  // Flame Tank reads as a flamethrower, not a cannon: no shell, shorter reach
+  const flameTank = t.tank ? tankFlame(a) : null;
+  if (flameTank) parts.push('FLAME');
+  else if (t.shellDmg) parts.push(`${t.shellDmg} SHELL`);
   else if (t.dmg > 0) parts.push(`${t.dmg} DMG`);
-  if (t.range > 0) parts.push(`${Math.round(t.range)} RNG`);
+  if (t.range > 0) parts.push(`${Math.round(flameTank ? flameTank.range : t.range)} RNG`);
   if (t.flame) parts.push('FLAME');
   if (t.grenade) parts.push('GRENADES');
   if (t.rocket) parts.push('ROCKET');

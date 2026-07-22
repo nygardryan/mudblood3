@@ -148,7 +148,12 @@ function draw() {
     if (!e.dead && e.t.flame && e.flameT > 0) drawFlameStream(e);
   }
   for (const u of G.units) {
-    if (!u.dead && u.t.flame && u.flameT > 0) drawFlameStream(u);
+    if (u.dead || !(u.flameT > 0)) continue;
+    if (u.t.flame) drawFlameStream(u);
+    // Flame Tank sprays down the turret bearing, nozzle out at the barrel tip
+    else if (u.t.tank && G.cardsOwned && G.cardsOwned.has('flametank')) {
+      drawFlameStream(u, { flame: FLAME_TANK_FLAME, bearing: u.turret, originDist: 24 });
+    }
   }
   for (const u of G.units) {
     if (!u.dead && u.t.shotgun && u.shotgunBlastT > 0) drawShotgunBlast(u);

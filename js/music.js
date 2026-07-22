@@ -47,6 +47,13 @@ const MUSIC = (() => {
     playTrack(0);
   }
 
+  // Pause while the tab is hidden or the window is minimized; resume on return.
+  document.addEventListener('visibilitychange', () => {
+    if (!started || !audio) return;
+    if (document.hidden) audio.pause();
+    else audio.play().catch(() => { /* resume blocked — stay silent */ });
+  });
+
   return {
     start,
     setVolume(pct) { volume = Math.max(0, Math.min(100, Math.round(pct))); applyVolume(); return volume; },

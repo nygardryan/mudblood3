@@ -311,7 +311,13 @@ function drawUnitWeaponRange(a, opts) {
     return;
   }
   if (t.fireCone) {
-    drawFireCone(a.x, a.y, bearing, t.fireCone.arc, unitRange(a, t.range) * fog, alpha);
+    // Flame Tank: paint the shorter, wider flame cone instead of the cannon arc
+    const flame = tankFlame(a);
+    if (flame) {
+      drawFlameRangeCone(a.x, a.y, bearing, flame.arc, unitRange(a, flame.range) * fog, alpha);
+    } else {
+      drawFireCone(a.x, a.y, bearing, t.fireCone.arc, unitRange(a, t.range) * fog, alpha);
+    }
     return;
   }
   if (t.flame) {

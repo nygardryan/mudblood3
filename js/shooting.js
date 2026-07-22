@@ -163,8 +163,13 @@ function runWeapon(actor, target, dt, buffs) {
 
 // one tick of flame from `actor` toward its facing: burns EVERYTHING in the
 // cone regardless of side — that's the deal you make with a flamethrower
-function flameSpray(actor, dt) {
-  const fl = actor.t.flame;
+// opts lets a non-flamer actor drive the stream: the Flame Tank passes its own
+// flame spec, aims down the turret bearing, and offsets the nozzle to the
+// barrel tip. Default behaviour (the M2 flamer) reads t.flame and faces face.
+function flameSpray(actor, dt, opts) {
+  const fl = (opts && opts.flame) || actor.t.flame;
+  const bearing = (opts && opts.bearing !== undefined) ? opts.bearing : actor.face;
+  const originDist = (opts && opts.originDist !== undefined) ? opts.originDist : actor.t.gun + 1.5;
   // fog shortens the stream the same way it shortens acquisition and the
   // drawn cone — otherwise men burn out past where the flame is rendered
   const range = unitRange(actor, fl.range) * fogMult();
@@ -174,15 +179,15 @@ function flameSpray(actor, dt) {
   actor.flameSfx = (actor.flameSfx || 0) - dt;
   if (actor.flameSfx <= 0) { actor.flameSfx = 0.4; SFX.flame(); }
 
-  const nx = actor.x + Math.cos(actor.face) * (actor.t.gun + 1.5);
-  const ny = actor.y + Math.sin(actor.face) * (actor.t.gun + 1.5);
+  const nx = actor.x + Math.cos(bearing) * originDist;
+  const ny = actor.y + Math.sin(bearing) * originDist;
   if (Math.random() < 0.35) {
     G.flashes.push({ x: nx, y: ny, r: rand(5, 9), ttl: 0.06, max: 0.06 });
   }
 
   // roiling fire particles along the cone
   for (let i = 0; i < 9; i++) {
-    const a = actor.face + rand(-fl.arc, fl.arc) * 0.85;
+    const a = bearing + rand(-fl.arc, fl.arc) * 0.85;
     const d = rand(8, range * 0.95);
     const ttl = rand(0.12, 0.42);
     G.particles.push({
@@ -196,7 +201,7 @@ function flameSpray(actor, dt) {
   }
   // scorch the earth now and then
   if (Math.random() < 0.05) {
-    const a = actor.face + rand(-fl.arc, fl.arc) * 0.6;
+    const a = bearing + rand(-fl.arc, fl.arc) * 0.6;
     const d = rand(range * 0.4, range);
     gctx.fillStyle = 'rgba(30,26,18,0.28)';
     gctx.beginPath();
@@ -214,7 +219,7 @@ function flameSpray(actor, dt) {
   const burn = (a2) => {
     if (a2 === actor || a2.dead) return;
     if (dist2(actor, a2) > reach2) return;
-    if (Math.abs(angleDiff(Math.atan2(a2.y - actor.y, a2.x - actor.x), actor.face)) > fl.arc) return;
+    if (Math.abs(angleDiff(Math.atan2(a2.y - actor.y, a2.x - actor.x), bearing)) > fl.arc) return;
     let dmg = dps * dt * rand(0.8, 1.2);
     if (a2.t.tank) dmg *= 0.6;
     // creditKill ignores German shooters, so passing actor is always safe

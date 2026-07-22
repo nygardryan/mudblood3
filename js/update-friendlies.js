@@ -733,6 +733,13 @@ function flakHitChute(e, by) {
 
 const TANK_SWAP_RELOAD = 2.0; // seconds between the cannon and the coax
 
+// Flame Tank swaps a US Sherman's cannon for a hull flamethrower — returns the
+// spec when the player owns the card, null otherwise.
+function tankFlame(a) {
+  return (a.side === 'us' && G.cardsOwned && G.cardsOwned.has('flametank'))
+    ? FLAME_TANK_FLAME : null;
+}
+
 function tankTargets(a) {
   const fog = fogMult();
   const cannonRange = unitRange(a, a.t.range) * fog;
@@ -740,6 +747,18 @@ function tankTargets(a) {
   const cone = a.t.fireCone;
   const inCone = e => !cone || inFireCone(a, e, a.turret, cone.arc);
   if (a.side === 'us') {
+    const flame = tankFlame(a);
+    if (flame) {
+      // the flamethrower burns anything in its cone: infantry get shredded,
+      // armor only scorched for chip damage at the same halved rate a flamer
+      // manages (flameSpray applies the ×0.6 tank penalty). The coax still can't
+      // touch armor, so it stays infantry-only like a stock Sherman's MG.
+      const flameRange = unitRange(a, flame.range) * fog;
+      return {
+        cannon: nearestEnemyInRange(a, flameRange, inCone),
+        mg: nearestEnemyInRange(a, mgRange, e => !e.t.tank && inCone(e)),
+      };
+    }
     return {
       // enemy armor is the cannon's priority target, inside the turret arc
       cannon: tieredEnemyTarget(a, cannonRange, [e => e.t.tank && inCone(e), inCone]),
@@ -786,6 +805,24 @@ function updateTankCombat(a, dt) {
     return;
   }
 
+  // a Flame Tank burst in progress: sustained spray from the turret each tick,
+  // tracking the target so the cone stays on it, then swap to the coax
+  if (a.flameLeft > 0) {
+    a.flameLeft -= dt;
+    const flame = tankFlame(a);
+    if (flame && a.flameTarget && !a.flameTarget.dead) {
+      const want = Math.atan2(a.flameTarget.y - a.y, a.flameTarget.x - a.x);
+      a.turret += clamp(angleDiff(want, a.turret), -TURRET_TRACK * dt, TURRET_TRACK * dt);
+    }
+    if (flame) flameSpray(a, dt, { flame, bearing: a.turret, originDist: 24 });
+    if (a.flameLeft <= 0 || !flame) {
+      a.flameTarget = null;
+      a.wpn = 'mg';
+      a.cd = tankReload(a);
+    }
+    return;
+  }
+
   const targets = tankTargets(a);
   // nothing for the weapon whose turn it is: the other one may take the shot,
   // but only once the swap reload has run out — the turn never gets skipped
@@ -812,6 +849,14 @@ function updateTankCombat(a, dt) {
   if (!target || a.cd > 0 || Math.abs(diff) > 0.15) return;
 
   if (a.wpn === 'cannon') {
+    // Flame Tank: the cannon slot opens a sustained flame burst instead of
+    // lobbing a shell — the spray itself runs in the a.flameLeft block above
+    const flame = tankFlame(a);
+    if (flame) {
+      a.flameLeft = FLAME_TANK_BURST;
+      a.flameTarget = target;
+      return;
+    }
     SFX.boom(false);
     G.flashes.push({
       x: a.x + Math.cos(a.turret) * 26, y: a.y + Math.sin(a.turret) * 26,

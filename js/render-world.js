@@ -264,6 +264,8 @@ function drawJeepBody(c, color, us) {
     c.strokeStyle = '#39462f';
     c.lineWidth = 1.2;
     c.stroke();
+    c.fillStyle = 'rgba(255,255,255,0.10)';
+    c.fillRect(-6.5, front * 11.5, 13, 2);
     c.strokeStyle = '#2e3828';
     c.lineWidth = 0.7;
     for (let i = -2; i <= 2; i++) {
@@ -518,6 +520,8 @@ function drawATGun(a) {
   c.lineTo(-12, 3);
   c.closePath();
   c.fill(); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,0.10)';
+  c.fillRect(-11, -6 + kick * 0.3, 22, 1.6);
   c.fillStyle = '#ffd94a';
   c.fillRect(-2, -4 + kick * 0.3, 4, 1.2);
   c.fillStyle = 'rgba(30,36,22,0.35)';
@@ -663,6 +667,8 @@ function drawAAGun(a) {
   c.strokeStyle = '#39462f';
   c.lineWidth = 1;
   c.strokeRect(-6, -2, 12, 10);
+  c.fillStyle = 'rgba(255,255,255,0.10)';
+  c.fillRect(-6, -2, 12, 1.6);
 
   // ammo clips standing in the loader's rack
   c.fillStyle = '#c8a858';
@@ -678,6 +684,7 @@ function drawAAGun(a) {
   for (const bxo of [-3.2, 3.2]) {
     c.fillRect(bxo - 1.5, bTop, 3, 16);
     c.strokeRect(bxo - 1.5, bTop, 3, 16);
+    c.fillStyle = 'rgba(162,160,142,0.35)'; c.fillRect(bxo - 1.5, bTop, 1, 16);
     // flash hider at the muzzle
     c.fillStyle = '#4a4038';
     c.fillRect(bxo - 2.1, bTop - 2.5, 4.2, 3);
@@ -789,6 +796,8 @@ function drawV2Launcher(a) {
   c.strokeStyle = '#2a2a22';
   c.lineWidth = 1.2;
   c.stroke();
+  c.fillStyle = 'rgba(255,255,255,0.08)';
+  c.fillRect(-12, -21, 24, 2.2);
   // engine grille aft, crew hatch forward
   c.strokeStyle = '#33362e';
   c.lineWidth = 1;
@@ -1326,9 +1335,18 @@ function drawCamoNest(cn) {
   // drop shadow
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   ctx.beginPath(); ctx.ellipse(0, 5, 30, 11, 0, 0, 7); ctx.fill();
+  // layered foliage clump: dark base -> mid body -> lit crown
+  const tuft = (x, y, r) => {
+    ctx.fillStyle = '#33472a';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    ctx.fillStyle = '#4c6234';
+    ctx.beginPath(); ctx.arc(x - r * 0.2, y - r * 0.25, r * 0.72, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(124,152,82,0.85)';
+    ctx.beginPath(); ctx.arc(x - r * 0.34, y - r * 0.42, r * 0.34, 0, 7); ctx.fill();
+  };
   // dug-in earthwork, same footprint as the bunker slab
-  ctx.fillStyle = '#4a5138';
-  ctx.strokeStyle = '#33392a';
+  ctx.fillStyle = '#454d34';
+  ctx.strokeStyle = '#2c3123';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(-28, 8);
@@ -1339,18 +1357,26 @@ function drawCamoNest(cn) {
   ctx.lineTo(28, 8);
   ctx.closePath();
   ctx.fill(); ctx.stroke();
-  // scrim netting lattice over the top
-  ctx.strokeStyle = 'rgba(60,68,42,0.7)';
-  ctx.lineWidth = 1;
+  // raised-lip highlight along the parapet + dug shade at the base
+  ctx.fillStyle = 'rgba(120,132,86,0.28)';
+  ctx.fillRect(-24, -13.5, 44, 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.fillRect(-27, 5.5, 54, 2.5);
+  // scrim netting lattice over the top — two-tone weave for depth
+  ctx.strokeStyle = 'rgba(30,38,20,0.6)';
+  ctx.lineWidth = 1.4;
   for (let i = -20; i <= 20; i += 8) {
     ctx.beginPath(); ctx.moveTo(i, -13); ctx.lineTo(i + 10, 7); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(i, 7); ctx.lineTo(i + 10, -13); ctx.stroke();
   }
-  // foliage tufts break up the outline
-  ctx.fillStyle = '#64753f';
-  for (const [fx, fy, fr] of [[-20, -12, 5], [-4, -15, 6], [12, -13, 5], [22, -8, 4], [-24, 2, 4], [24, 3, 4]]) {
-    ctx.beginPath(); ctx.arc(fx, fy, fr, 0, 7); ctx.fill();
+  ctx.strokeStyle = 'rgba(96,108,68,0.55)';
+  ctx.lineWidth = 0.7;
+  for (let i = -20; i <= 20; i += 8) {
+    ctx.beginPath(); ctx.moveTo(i - 0.8, -13); ctx.lineTo(i + 9.2, 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i - 0.8, 7); ctx.lineTo(i + 9.2, -13); ctx.stroke();
   }
+  // foliage tufts break up the outline, fuller cover along the crest
+  for (const [fx, fy, fr] of [[-23, -11, 5.5], [-14, -14, 5], [-4, -15, 6], [7, -14, 5.5], [16, -13, 5], [23, -9, 4.5], [-25, -1, 4.5], [25, 0, 4.5], [-18, 4, 4], [17, 4, 4]]) tuft(fx, fy, fr);
   // fortified nests dig in deeper: a denser net weave and thicker brush
   if (cn.up) {
     ctx.strokeStyle = 'rgba(40,48,28,0.75)';
@@ -1359,17 +1385,11 @@ function drawCamoNest(cn) {
       ctx.beginPath(); ctx.moveTo(i, -13); ctx.lineTo(i + 6, 7); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(i, 7); ctx.lineTo(i + 6, -13); ctx.stroke();
     }
-    ctx.fillStyle = '#465a34';
-    for (const [fx, fy, fr] of [[-14, -16, 5], [4, -17, 5], [18, -14, 4], [-26, -4, 4], [26, -3, 4]]) {
-      ctx.beginPath(); ctx.arc(fx, fy, fr, 0, 7); ctx.fill();
-    }
+    for (const [fx, fy, fr] of [[-14, -16, 5], [4, -17, 5], [18, -14, 4], [-26, -4, 4], [26, -3, 4]]) tuft(fx, fy, fr);
   }
   // hardened nests pile on a darker overgrowth crown
   if (cn.up2) {
-    ctx.fillStyle = '#3a4a2a';
-    for (const [fx, fy, fr] of [[-20, -18, 5], [-6, -20, 5], [10, -19, 5], [22, -16, 4]]) {
-      ctx.beginPath(); ctx.arc(fx, fy, fr, 0, 7); ctx.fill();
-    }
+    for (const [fx, fy, fr] of [[-20, -18, 5.5], [-6, -20, 5.5], [10, -19, 5.5], [22, -16, 4.5]]) tuft(fx, fy, fr);
   }
   // firing slit, screened by brush
   ctx.fillStyle = '#161810';

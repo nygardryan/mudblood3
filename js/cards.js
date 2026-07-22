@@ -896,9 +896,9 @@ function buildBattlePlanUI() {
       + (card.unique ? ' cs-chit--unique' : '');
     // a reserve card that can't fit the remaining command stays visible but dead
     btn.disabled = !equipped && used + card.weight > data.capacity;
-    btn.title = card.desc;
     btn.innerHTML = '<span class="cs-chip">' + cardUnitLabel(card) + '</span>' +
       '<span class="cs-chit__name">' + card.name.toUpperCase() + '</span>' +
+      '<span class="cs-chit__desc">' + card.desc + '</span>' +
       '<span class="cs-chit__state"><span class="cs-dot"></span>' +
         (equipped ? 'DEPLOYED' : 'RESERVE') + ' · ' + card.weight + ' CMD</span>';
     btn.addEventListener('click', () => {

@@ -217,6 +217,7 @@ function update(dt) {
   if (G.shake > 0) G.shake = Math.max(0, G.shake - 26 * dt);
   for (const tx of G.texts) { tx.ttl -= dt; tx.y -= 14 * dt; }
   for (const cp of G.corpses) cp.ttl -= dt;
+  for (const g of G.gibs) updateGib(g, dt);
   for (const m of G.groundMarks) m.ttl -= dt;
   if (G.banner) { G.banner.ttl -= dt; if (G.banner.ttl <= 0) G.banner = null; }
 
@@ -241,6 +242,7 @@ function update(dt) {
   compactInPlace(G.flashes, f => f.ttl > 0);
   compactInPlace(G.texts, t => t.ttl > 0);
   compactInPlace(G.corpses, c => c.ttl > 0);
+  compactInPlace(G.gibs, g => g.ttl > 0);
   compactInPlace(G.groundMarks, m => m.ttl > 0);
 }
 

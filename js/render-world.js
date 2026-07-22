@@ -1071,38 +1071,113 @@ function drawLandingCraft(c) {
   ctx2.restore();
 }
 
+// a bike tire seen from above: narrow dark oval with a rim highlight,
+// plus a body-coloured fender arching over its leading half
+function drawBikeWheel(c, x, y, body) {
+  c.fillStyle = '#1d1d18';
+  c.beginPath(); c.ellipse(x, y, 2.3, 5.2, 0, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(120,118,104,0.4)';
+  c.lineWidth = 0.8;
+  c.beginPath(); c.ellipse(x, y, 1, 3.6, 0, 0, 7); c.stroke();
+  c.fillStyle = body;
+  c.strokeStyle = '#2b2e33';
+  c.lineWidth = 0.8;
+  c.beginPath(); c.ellipse(x, y - 3, 3.1, 3.4, 0, Math.PI, 2 * Math.PI); c.fill(); c.stroke();
+}
+
 function drawBike(e) {
   const c = ctx;
   const lean = Math.sin(e.y * 0.02) * 0.12; // matches the weave
+  const body = e.t.color;
+  const dark = '#3d4249';
+  const helmet = '#565c66';
   c.save();
   c.translate(e.x, e.y);
   c.rotate(lean);
-  // shadow
-  c.fillStyle = 'rgba(0,0,0,0.25)';
-  c.beginPath(); c.ellipse(1, 3, 10, 7, 0, 0, 7); c.fill();
-  // wheels
-  c.fillStyle = '#22221c';
-  c.fillRect(-5.5, -11, 5, 4);
-  c.fillRect(-5.5, 7, 5, 4);
-  c.fillRect(3.5, 4, 5, 3);
-  c.fillStyle = 'rgba(110,108,96,0.35)';
-  c.fillRect(-5.5, -11, 5, 1);
-  c.fillRect(-5.5, 7, 5, 1);
-  // frame and sidecar
-  c.fillStyle = e.t.color;
-  c.fillRect(-5, -10, 4, 20);
-  c.fillRect(3, -5, 6, 11);
-  c.fillStyle = 'rgba(255,255,255,0.10)';
-  c.fillRect(-5, -10, 4, 1.6);
-  c.fillRect(3, -5, 6, 1.4);
-  c.strokeStyle = '#2b2b25';
+
+  // ground shadow under the whole rig
+  c.fillStyle = 'rgba(0,0,0,0.22)';
+  c.beginPath(); c.ellipse(1.5, 3, 12, 8, 0, 0, 7); c.fill();
+
+  // --- sidecar (right side): mounting struts, torpedo tub, passenger, MG34 ---
+  c.strokeStyle = dark;
+  c.lineWidth = 1.4;
+  c.beginPath(); c.moveTo(-2, -4); c.lineTo(3, -3); c.stroke();
+  c.beginPath(); c.moveTo(-2, 6); c.lineTo(3, 6); c.stroke();
+  drawBikeWheel(c, 8.5, 3.5, body);
+  // pointed boat-hull tub
+  c.fillStyle = body;
+  c.strokeStyle = '#2b2e33';
   c.lineWidth = 1.1;
-  c.strokeRect(3, -5, 6, 11);
-  c.strokeRect(-5, -10, 4, 20);
-  // rider and passenger helmets
-  c.fillStyle = '#5c626c';
-  c.beginPath(); c.arc(-3, -1, 3, 0, 7); c.fill();
-  c.beginPath(); c.arc(6, -1, 2.6, 0, 7); c.fill();
+  c.beginPath();
+  c.moveTo(4, -6);
+  c.lineTo(9.5, -5.5);
+  c.quadraticCurveTo(11, -1, 10, 4);
+  c.quadraticCurveTo(9, 9, 6.5, 11);           // pointed nose
+  c.quadraticCurveTo(4.5, 9, 4, 4);
+  c.closePath(); c.fill(); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,0.12)';
+  c.beginPath();
+  c.moveTo(4.4, -5); c.lineTo(9, -4.6);
+  c.quadraticCurveTo(10, -1, 9.4, 2);
+  c.lineTo(5, 1); c.closePath(); c.fill();
+  // passenger: shoulders + helmet, hunched forward
+  c.fillStyle = dark;
+  c.beginPath(); c.ellipse(7, -1, 3, 3.4, 0, 0, 7); c.fill();
+  c.fillStyle = helmet;
+  c.beginPath(); c.arc(7, 0.5, 2.6, 0, 7); c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.14)';
+  c.beginPath(); c.arc(7, -0.3, 1.2, 0, 7); c.fill();
+  // MG34 clamped to the tub, barrel forward
+  c.strokeStyle = '#23231d';
+  c.lineWidth = 2.4;
+  c.beginPath(); c.moveTo(9, 6); c.lineTo(9.5, 16); c.stroke();
+  c.strokeStyle = '#45443a';
+  c.lineWidth = 0.7;
+  for (let t = 8; t <= 14; t += 2) { c.beginPath(); c.moveTo(8.4, t); c.lineTo(9.8, t); c.stroke(); }
+  c.fillStyle = '#2c2c24';
+  c.fillRect(8, 4.5, 3, 3);
+
+  // --- motorcycle (left side) ---
+  drawBikeWheel(c, -5, -9, body);              // rear wheel
+  drawBikeWheel(c, -5, 10, body);              // front wheel
+  // boxer engine cylinders poking out each side
+  c.fillStyle = dark;
+  c.strokeStyle = '#2b2e33';
+  c.lineWidth = 0.8;
+  c.beginPath(); c.ellipse(-8.4, 0, 2, 2.6, 0, 0, 7); c.fill(); c.stroke();
+  c.beginPath(); c.ellipse(-1.6, 0, 2, 2.6, 0, 0, 7); c.fill(); c.stroke();
+  // frame: fuel tank + seat spine
+  c.fillStyle = body;
+  c.strokeStyle = '#2b2e33';
+  c.lineWidth = 1.1;
+  c.beginPath();
+  c.moveTo(-7, -6); c.lineTo(-3, -6);
+  c.quadraticCurveTo(-2.3, 0, -3, 6);
+  c.lineTo(-7, 6);
+  c.quadraticCurveTo(-7.7, 0, -7, -6);
+  c.closePath(); c.fill(); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,0.14)';   // fuel-tank sheen
+  c.beginPath(); c.ellipse(-5, 1.5, 1.6, 3, 0, 0, 7); c.fill();
+  // handlebars near the front
+  c.strokeStyle = '#23231d';
+  c.lineWidth = 1.3;
+  c.beginPath(); c.moveTo(-9, 6.5); c.lineTo(-1, 6.5); c.stroke();
+  // headlight nacelle at the nose
+  c.fillStyle = '#c9c3a8';
+  c.beginPath(); c.arc(-5, 8.5, 1.5, 0, 7); c.fill();
+  c.strokeStyle = '#2b2e33'; c.lineWidth = 0.7; c.stroke();
+  // rider: torso hunched over the tank + helmet + arms to the bars
+  c.strokeStyle = dark;
+  c.lineWidth = 2;
+  c.beginPath(); c.moveTo(-5, 3); c.lineTo(-8.5, 6); c.stroke();
+  c.beginPath(); c.moveTo(-5, 3); c.lineTo(-1.5, 6); c.stroke();
+  c.fillStyle = dark;
+  c.beginPath(); c.ellipse(-5, -1, 3.2, 4, 0, 0, 7); c.fill();
+  c.fillStyle = helmet;
+  c.beginPath(); c.arc(-5, 1.5, 2.8, 0, 7); c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.16)';
+  c.beginPath(); c.arc(-5, 0.7, 1.3, 0, 7); c.fill();
   c.restore();
 
   if (e.hp < e.maxhp) {

@@ -38,6 +38,10 @@ function draw() {
     if (inView(cp.x, cp.y, 30)) drawCorpse(cp);
   }
 
+  for (const g of G.gibs) {
+    if (inView(g.x, g.y, 30)) drawGib(g);
+  }
+
   drawDefenses();
 
   if (G.landingCraft && G.landingCraft.length) {

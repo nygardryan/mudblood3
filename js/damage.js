@@ -35,10 +35,24 @@ function drawGroundMark(m, c) {
     c.ellipse(m.x, m.y, m.rx, m.ry, m.rot, 0, 7);
     c.fill();
   } else if (m.type === 'bloodpool') {
-    c.fillStyle = m.color;
+    const s = m.r || 1;
     c.translate(m.x, m.y);
     c.rotate(m.rot);
-    c.beginPath(); c.ellipse(0, 2, 13, 8, 0, 0, 7); c.fill();
+    // diffuse outer halo where blood has soaked into the dirt
+    c.fillStyle = 'rgba(74,14,10,0.28)';
+    c.beginPath(); c.ellipse(0, 2, 16 * s, 10 * s, 0, 0, 7); c.fill();
+    // irregular satellite blobs and a spatter finger
+    c.fillStyle = m.color;
+    if (m.blobs) {
+      for (const b of m.blobs) {
+        c.beginPath(); c.ellipse(b.dx, b.dy + 2, b.rx, b.ry, 0, 0, 7); c.fill();
+      }
+    }
+    // main pool
+    c.beginPath(); c.ellipse(0, 2, 13 * s, 8 * s, 0, 0, 7); c.fill();
+    // dark, glossy core
+    c.fillStyle = 'rgba(48,6,5,0.55)';
+    c.beginPath(); c.ellipse(0, 2, 7 * s, 4.5 * s, 0, 0, 7); c.fill();
   } else if (m.type === 'crater') {
     c.translate(m.x, m.y);
     c.fillStyle = 'rgba(30,26,18,0.55)';
@@ -53,22 +67,304 @@ function spawnCorpse(a) {
   addGroundMark({
     type: 'bloodpool', x: a.x, y: a.y, rot: rand(0, Math.PI * 2),
     color: `rgba(${randi(90, 120)},${randi(10, 20)},10,0.45)`,
+    r: rand(0.85, 1.25),
+    blobs: [
+      { dx: rand(-14, -8), dy: rand(-5, 5), rx: rand(4, 7), ry: rand(3, 5) },
+      { dx: rand(8, 14), dy: rand(-5, 5), rx: rand(3, 6), ry: rand(2, 4) },
+    ],
   });
-  G.corpses.push({ x: a.x, y: a.y, rot: rand(0, Math.PI * 2), side: a.side, nation: a.nation, ttl: CORPSE_TTL });
+  const us = (a.nation || a.side) === 'us';
+  const cp = {
+    x: a.x, y: a.y, rot: rand(0, Math.PI * 2),
+    side: a.side, nation: a.nation, ttl: CORPSE_TTL,
+    // muted base tunic tint drawn from the living unit, darkened toward the dirt
+    col: (a.t && a.t.color) || (us ? '#4f6a3a' : '#565d67'),
+    pose: randi(0, CORPSE_POSES.length - 1),
+    // grab-bag of randoms; each pose reads whichever it needs
+    arm1: rand(-0.9, -0.3), arm2: rand(0.3, 1.1),
+    leg1: rand(-0.55, -0.15), leg2: rand(0.15, 0.5),
+    twist: rand(-0.4, 0.4),      // head lolled off the torso axis
+    curl: rand(0.6, 1.1),        // how tightly a fetal body is drawn up
+    lean: rand(0, 1) < 0.5 ? 1 : -1, // which side a crumpled body folds to
+    face: rand(0, 1) < 0.5 ? 1 : -1, // sprawled onto face or back
+  };
+  // dark-comedy dismemberment: sometimes a limb (or the head) is torn clean
+  // off and cartwheels away, leaving a stumped body behind
+  if ((a.gib || rand(0, 1) < 0.14)) {
+    const parts = pick([['head'], ['legR'], ['armR'], ['head', 'armR'], ['legR', 'legL'], ['armR', 'legR']]);
+    cp.missing = {};
+    for (const p of parts) {
+      cp.missing[p] = true;
+      spawnGib(cp, p === 'head' ? 'head' : p[0] === 'l' ? 'leg' : 'arm', us);
+    }
+  }
+  G.corpses.push(cp);
+}
+
+// mix a hex tunic colour toward a dark, muddy tone so the fallen read as drained
+function muteColor(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const mr = 34, mg = 30, mb = 24; // grave-dirt target
+  return `rgb(${Math.round(r + (mr - r) * k)},${Math.round(g + (mg - g) * k)},${Math.round(b + (mb - b) * k)})`;
+}
+
+// --- shared corpse limb/head primitives (all drawn in body-local space) ---
+
+// a limb as a rounded stroke ending in a boot or a bare hand
+function corpseLimb(c, x0, y0, x1, y1, w, col, cap) {
+  c.strokeStyle = col;
+  c.lineWidth = w;
+  c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+  if (cap === 'boot') {
+    c.fillStyle = '#241f18';
+    c.beginPath(); c.ellipse(x1, y1, 1.9, 1.4, Math.atan2(y1 - y0, x1 - x0), 0, 7); c.fill();
+  }
+}
+
+// head + helmet at (hx,hy); face>0 shows the pale face, else the helmet dome
+function corpseHead(c, hx, hy, skin, helmet, face) {
+  c.fillStyle = skin;
+  c.beginPath(); c.arc(hx, hy, 2.7, 0, 7); c.fill();
+  if (face > 0) {
+    c.fillStyle = helmet;
+    c.beginPath(); c.ellipse(hx + 1.5, hy - 2.6, 3, 2.1, 0.4, 0, 7); c.fill();
+  } else {
+    c.fillStyle = helmet;
+    c.beginPath(); c.arc(hx, hy, 3.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(15,15,12,0.5)';
+    c.lineWidth = 0.9;
+    c.beginPath(); c.arc(hx, hy, 3.2, 0, 7); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,0.10)';
+    c.beginPath(); c.arc(hx - 0.8, hy - 0.8, 1.4, 0, 7); c.fill();
+  }
+}
+
+// torso ellipse with a spine highlight and a webbing/belt line
+function corpseTorso(c, col, rx, ry) {
+  c.fillStyle = muteColor(col, 0.32);
+  c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, 7); c.fill();
+  c.fillStyle = muteColor(col, 0.18);
+  c.beginPath(); c.ellipse(-0.5, -0.6, rx * 0.75, ry * 0.56, 0, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(20,18,14,0.5)';
+  c.lineWidth = 1.1;
+  c.beginPath(); c.moveTo(-rx * 0.45, -ry * 0.5); c.lineTo(-rx * 0.45, ry * 0.5); c.stroke();
+}
+
+function handDot(c, x, y, skin) {
+  c.fillStyle = skin;
+  c.beginPath(); c.arc(x, y, 1.4, 0, 7); c.fill();
+}
+
+// 0 — classic sprawl: legs trailing, arms outflung
+function poseSprawl(c, cp, P) {
+  const lx = -3;
+  const l1y = Math.sin(cp.leg1) * 11 - 4, l2y = Math.sin(cp.leg2) * 11 + 4;
+  corpseLimb(c, lx, 0, lx - 9, l1y, 3.2, P.limb, 'boot');
+  corpseLimb(c, lx, 1, lx - 9, l2y, 3.2, P.limb, 'boot');
+  const a1x = 2 + Math.cos(cp.arm1) * 8, a1y = Math.sin(cp.arm1) * 9 - 3;
+  const a2x = 2 + Math.cos(cp.arm2) * 8, a2y = Math.sin(cp.arm2) * 9 + 3;
+  corpseLimb(c, 2, 0, a1x, a1y, 2.8, P.tunic);
+  corpseLimb(c, 2, 0, a2x, a2y, 2.8, P.tunic);
+  handDot(c, a1x, a1y, P.skin); handDot(c, a2x, a2y, P.skin);
+  corpseTorso(c, cp.col, 8.5, 4.6);
+  corpseHead(c, 8, Math.sin(cp.twist) * 3, P.skin, P.helmet, cp.face);
+}
+
+// 1 — spread-eagle: all four limbs flung wide, on the back
+function poseSpreadEagle(c, cp, P) {
+  corpseLimb(c, -3, 0, -12, -7, 3.2, P.limb, 'boot');
+  corpseLimb(c, -3, 0, -12, 7, 3.2, P.limb, 'boot');
+  corpseLimb(c, 3, 0, 11, -8, 2.8, P.tunic);
+  corpseLimb(c, 3, 0, 11, 8, 2.8, P.tunic);
+  handDot(c, 11, -8, P.skin); handDot(c, 11, 8, P.skin);
+  corpseTorso(c, cp.col, 8, 5);
+  corpseHead(c, 9, Math.sin(cp.twist) * 2, P.skin, P.helmet, 1);
+}
+
+// 2 — face-down splat: arms reaching overhead, legs together
+function poseFaceDown(c, cp, P) {
+  corpseLimb(c, -3, -1.5, -11, -3, 3.2, P.limb, 'boot');
+  corpseLimb(c, -3, 1.5, -11, 3, 3.2, P.limb, 'boot');
+  corpseLimb(c, 4, 0, 13, -4 + cp.twist * 3, 2.8, P.tunic);
+  corpseLimb(c, 4, 0, 13, 4 + cp.twist * 3, 2.8, P.tunic);
+  handDot(c, 13, -4 + cp.twist * 3, P.skin); handDot(c, 13, 4 + cp.twist * 3, P.skin);
+  corpseTorso(c, cp.col, 8, 4.4);
+  corpseHead(c, 8.5, Math.sin(cp.twist) * 2, P.skin, P.helmet, -1);
+}
+
+// 3 — fetal curl: knees drawn up, arms tucked, head bowed
+function poseFetal(c, cp, P) {
+  const s = cp.lean; // curl direction
+  corpseLimb(c, -2, s * 1, -6, s * (7 * cp.curl), 3.2, P.limb, 'boot');
+  corpseLimb(c, -1, s * 2, -4, s * (9 * cp.curl), 3.2, P.limb, 'boot');
+  corpseLimb(c, 3, s * 0.5, 6, s * (5 * cp.curl), 2.6, P.tunic);
+  handDot(c, 6, s * (5 * cp.curl), P.skin);
+  c.save();
+  c.scale(1, 0.92);
+  corpseTorso(c, cp.col, 7, 5.6);
+  c.restore();
+  corpseHead(c, 6.5, s * (4 * cp.curl), P.skin, P.helmet, cp.face);
+}
+
+// 4 — crumpled sideways: folded at the waist toward one side
+function poseCrumpled(c, cp, P) {
+  const s = cp.lean;
+  corpseLimb(c, -4, 0, -11, -3, 3.2, P.limb, 'boot');
+  corpseLimb(c, -4, 1, -9, s * 8, 3.2, P.limb, 'boot');
+  corpseLimb(c, 2, 0, 3, s * 8, 2.8, P.tunic);          // arm folded under
+  corpseLimb(c, 3, -1, 10, -5, 2.8, P.tunic);            // arm flung out
+  handDot(c, 10, -5, P.skin); handDot(c, 3, s * 8, P.skin);
+  c.save();
+  c.rotate(s * 0.25);
+  corpseTorso(c, cp.col, 8, 4.4);
+  c.restore();
+  corpseHead(c, 8, s * 1.5 + Math.sin(cp.twist) * 2, P.skin, P.helmet, cp.face);
+}
+
+// 5 — pitched forward: folded over, rear slightly up, arms beneath
+function posePitchedForward(c, cp, P) {
+  corpseLimb(c, -3, -3, -12, -6, 3.2, P.limb, 'boot');
+  corpseLimb(c, -3, 3, -12, 6, 3.2, P.limb, 'boot');
+  corpseLimb(c, 4, -1, 9, -2, 2.6, P.tunic);
+  corpseLimb(c, 4, 1, 9, 2, 2.6, P.tunic);
+  handDot(c, 9, -2, P.skin); handDot(c, 9, 2, P.skin);
+  // hunched torso (bigger, rounder — the back arched up)
+  c.fillStyle = muteColor(cp.col, 0.28);
+  c.beginPath(); c.ellipse(0, 0, 8.5, 5.4, 0, 0, 7); c.fill();
+  c.fillStyle = muteColor(cp.col, 0.1);
+  c.beginPath(); c.ellipse(-0.5, -0.5, 6, 3.2, 0, 0, 7); c.fill();
+  corpseHead(c, 9, Math.sin(cp.twist) * 2.5, P.skin, P.helmet, -1);
+}
+
+const CORPSE_POSES = [poseSprawl, poseSpreadEagle, poseFaceDown, poseFetal, poseCrumpled, posePitchedForward];
+
+// a wet, gaping stump where a limb or head was torn off
+function corpseStump(c, x, y, r) {
+  c.fillStyle = '#3a0a08';
+  c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+  c.fillStyle = '#6e1410';
+  c.beginPath(); c.arc(x, y, r * 0.55, 0, 7); c.fill();
+}
+
+// dismembered sprawl — same as poseSprawl but skips whatever cp.missing lists,
+// leaving a bloody stump; the detached parts fly off as gibs
+function poseDismembered(c, cp, P) {
+  const m = cp.missing || {};
+  const lx = -3;
+  const l1y = Math.sin(cp.leg1) * 11 - 4, l2y = Math.sin(cp.leg2) * 11 + 4;
+  if (m.legL) corpseStump(c, lx, 0, 2.2); else corpseLimb(c, lx, 0, lx - 9, l1y, 3.2, P.limb, 'boot');
+  if (m.legR) corpseStump(c, lx, 1.5, 2.2); else corpseLimb(c, lx, 1, lx - 9, l2y, 3.2, P.limb, 'boot');
+  const a1x = 2 + Math.cos(cp.arm1) * 8, a1y = Math.sin(cp.arm1) * 9 - 3;
+  const a2x = 2 + Math.cos(cp.arm2) * 8, a2y = Math.sin(cp.arm2) * 9 + 3;
+  if (m.armL) corpseStump(c, 2, -1, 1.9); else { corpseLimb(c, 2, 0, a1x, a1y, 2.8, P.tunic); handDot(c, a1x, a1y, P.skin); }
+  if (m.armR) corpseStump(c, 2, 1, 1.9); else { corpseLimb(c, 2, 0, a2x, a2y, 2.8, P.tunic); handDot(c, a2x, a2y, P.skin); }
+  corpseTorso(c, cp.col, 8.5, 4.6);
+  if (m.head) corpseStump(c, 6, Math.sin(cp.twist) * 2, 2.4);
+  else corpseHead(c, 8, Math.sin(cp.twist) * 3, P.skin, P.helmet, cp.face);
+}
+
+// launch a detached part outward from the death site
+function spawnGib(cp, kind, us) {
+  const ang = rand(0, Math.PI * 2), spd = rand(45, 95);
+  G.gibs.push({
+    kind, x: cp.x, y: cp.y, z: 3,
+    vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd * 0.7, vz: rand(70, 130),
+    rot: rand(0, 7), spin: rand(-14, 14),
+    col: muteColor(cp.col, 0.32), limb: muteColor(cp.col, 0.5),
+    skin: us ? '#9a7350' : '#9c7a58', helmet: us ? '#43503a' : '#464b53',
+    landed: false, trail: 0, ttl: CORPSE_TTL,
+  });
+}
+
+function updateGib(g, dt) {
+  g.ttl -= dt;
+  if (g.landed) return;
+  g.vz -= 340 * dt;                 // gravity on the vertical arc
+  g.z += g.vz * dt;
+  g.x += g.vx * dt;
+  g.y += g.vy * dt;
+  g.rot += g.spin * dt;
+  // droplets flicked off while it tumbles through the air
+  g.trail -= dt;
+  if (g.trail <= 0) {
+    g.trail = 0.03;
+    G.particles.push({
+      x: g.x, y: g.y - g.z, vx: rand(-30, 30), vy: rand(-40, 10),
+      ttl: rand(0.2, 0.5), grav: 240, size: rand(1, 2),
+      color: pick(['#7a1410', '#5c0e0a', '#95201a']),
+    });
+  }
+  if (g.z <= 0) {
+    g.z = 0; g.landed = true; g.vx = g.vy = g.spin = 0;
+    // it lands with a splat and a small pool of its own
+    addGroundMark({
+      type: 'bloodpool', x: g.x, y: g.y, rot: rand(0, 7),
+      color: `rgba(${randi(90, 120)},${randi(10, 20)},10,0.4)`, r: rand(0.4, 0.7),
+    });
+    bloodSplat(g.x, g.y, 4);
+  }
+}
+
+function drawGib(g) {
+  const alpha = clamp(g.ttl / 8, 0, 1);
+  const c = ctx;
+  c.save();
+  c.globalAlpha = alpha;
+  // shadow stays on the ground; the part itself lifts by z while airborne
+  c.fillStyle = `rgba(0,0,0,${0.22 - Math.min(g.z, 40) / 260})`;
+  c.beginPath(); c.ellipse(g.x, g.y, 3.5, 2, 0, 0, 7); c.fill();
+  c.translate(g.x, g.y - g.z);
+  c.rotate(g.rot);
+  c.lineCap = 'round';
+  if (g.kind === 'head') {
+    corpseStump(c, -2.6, 0, 1.3);           // torn neck
+    c.fillStyle = g.skin;
+    c.beginPath(); c.arc(0, 0, 2.6, 0, 7); c.fill();
+    c.fillStyle = g.helmet;
+    c.beginPath(); c.arc(0.3, -0.3, 3, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(15,15,12,0.5)'; c.lineWidth = 0.8;
+    c.beginPath(); c.arc(0.3, -0.3, 3, 0, 7); c.stroke();
+  } else if (g.kind === 'leg') {
+    c.strokeStyle = g.limb; c.lineWidth = 3.2;
+    c.beginPath(); c.moveTo(-4, 0); c.lineTo(4, 0.5); c.stroke();
+    c.fillStyle = '#241f18';
+    c.beginPath(); c.ellipse(5, 0.5, 1.9, 1.4, 0, 0, 7); c.fill();
+    corpseStump(c, -4, 0, 1.6);
+  } else { // arm
+    c.strokeStyle = g.col; c.lineWidth = 2.6;
+    c.beginPath(); c.moveTo(-3.5, 0); c.lineTo(3.5, 0.3); c.stroke();
+    c.fillStyle = g.skin;
+    c.beginPath(); c.arc(4, 0.3, 1.4, 0, 7); c.fill();
+    corpseStump(c, -3.5, 0, 1.3);
+  }
+  c.restore();
 }
 
 function drawCorpse(cp) {
   const alpha = clamp(cp.ttl / 8, 0, 1); // fade out over the last seconds
   const us = (cp.nation || cp.side) === 'us';
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(cp.x, cp.y);
-  ctx.rotate(cp.rot);
-  ctx.fillStyle = us ? '#33402c' : '#4a4a40';
-  ctx.beginPath(); ctx.ellipse(0, 0, 9, 4, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = us ? '#5b6b4a' : '#61615a';
-  ctx.beginPath(); ctx.arc(7, 0, 3.4, 0, 7); ctx.fill();
-  ctx.restore();
+  const c = ctx;
+  const P = {
+    tunic: muteColor(cp.col, 0.32),
+    limb: muteColor(cp.col, 0.5),
+    skin: us ? '#9a7350' : '#9c7a58',
+    helmet: us ? '#43503a' : '#464b53',
+  };
+  c.save();
+  c.globalAlpha = alpha;
+  c.translate(cp.x, cp.y);
+  c.rotate(cp.rot);
+  c.lineCap = 'round';
+
+  // soft ground shadow beneath the body
+  c.fillStyle = 'rgba(0,0,0,0.22)';
+  c.beginPath(); c.ellipse(0, 1.5, 11, 5.5, 0, 0, 7); c.fill();
+
+  if (cp.missing) poseDismembered(c, cp, P);
+  else (CORPSE_POSES[cp.pose] || poseSprawl)(c, cp, P);
+
+  c.restore();
 }
 
 function stampWreck(e) {

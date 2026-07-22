@@ -426,19 +426,77 @@ function dismountBike(e) {
   }
 }
 
-// parked (dismounted) or wrecked (shot up) bike left on the field
+// parked (dismounted) or wrecked (shot up) bike left on the field.
+// mirrors the live drawBike silhouette (bike left, sidecar right, nose +y)
+// but drained of colour — dull olive when abandoned, charred when destroyed.
 function stampBike(e, wrecked) {
-  gctx.save();
-  gctx.translate(e.x, e.y);
-  gctx.rotate(wrecked ? rand(-0.9, 0.9) : rand(-0.15, 0.15));
-  gctx.globalAlpha = 0.9;
-  gctx.fillStyle = wrecked ? '#3a3831' : '#4a4a3f';
-  gctx.fillRect(-5, -10, 4, 20);                 // bike frame
-  gctx.fillRect(3, -5, 6, 11);                   // sidecar tub
-  gctx.fillStyle = '#2c2b24';
-  gctx.fillRect(-5.5, -11, 5, 4);                // front wheel
-  gctx.fillRect(-5.5, 7, 5, 4);                  // rear wheel
-  gctx.fillRect(3.5, 4, 5, 3);                   // sidecar wheel
-  gctx.restore();
-  gctx.globalAlpha = 1;
+  const g = gctx;
+  g.save();
+  g.translate(e.x, e.y);
+  g.rotate(wrecked ? rand(-0.9, 0.9) : rand(-0.15, 0.15));
+
+  const tire = wrecked ? '#1a1a16' : '#22221c';
+  const metal = wrecked ? '#2f2d27' : '#474b44';
+  const dark = wrecked ? '#211f1b' : '#33362f';
+
+  // scorch halo blasted into the ground under a wreck
+  if (wrecked) {
+    g.globalAlpha = 0.5;
+    g.fillStyle = '#161410';
+    g.beginPath(); g.ellipse(1, 1, 15, 12, 0, 0, 7); g.fill();
+  }
+
+  g.globalAlpha = wrecked ? 0.92 : 0.85;
+
+  // a stamped wheel: dark tire oval with a faint rim
+  const wheel = (x, y) => {
+    g.fillStyle = tire;
+    g.beginPath(); g.ellipse(x, y, 2.3, 5.2, 0, 0, 7); g.fill();
+    if (!wrecked) {
+      g.strokeStyle = 'rgba(120,118,104,0.3)'; g.lineWidth = 0.8;
+      g.beginPath(); g.ellipse(x, y, 1, 3.6, 0, 0, 7); g.stroke();
+    }
+  };
+
+  // sidecar tub (pointed hull) + its wheel
+  wheel(8.5, 3.5);
+  g.fillStyle = metal;
+  g.strokeStyle = dark; g.lineWidth = 1;
+  g.beginPath();
+  g.moveTo(4, -6); g.lineTo(9.5, -5.5);
+  g.quadraticCurveTo(11, -1, 10, 4);
+  g.quadraticCurveTo(9, 9, 6.5, 11);
+  g.quadraticCurveTo(4.5, 9, 4, 4);
+  g.closePath(); g.fill(); g.stroke();
+
+  // bike: two wheels + fuel-tank frame
+  wheel(-5, -9);
+  // a wrecked bike loses its front wheel, knocked off to the side
+  if (wrecked) { g.save(); g.translate(-11, 12); g.rotate(1.1); wheel(0, 0); g.restore(); }
+  else wheel(-5, 10);
+  g.fillStyle = metal;
+  g.strokeStyle = dark; g.lineWidth = 1;
+  g.beginPath();
+  g.moveTo(-7, -6); g.lineTo(-3, -6);
+  g.quadraticCurveTo(-2.3, 0, -3, 6);
+  g.lineTo(-7, 6);
+  g.quadraticCurveTo(-7.7, 0, -7, -6);
+  g.closePath(); g.fill(); g.stroke();
+  // boxer cylinder stubs
+  g.fillStyle = dark;
+  g.beginPath(); g.ellipse(-8.4, 0, 2, 2.6, 0, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(-1.6, 0, 2, 2.6, 0, 0, 7); g.fill();
+
+  // burnt-out detailing: soot smear + a couple of scattered debris flecks
+  if (wrecked) {
+    g.fillStyle = 'rgba(10,8,6,0.55)';
+    g.beginPath(); g.ellipse(-4, -1, 5, 7, 0, 0, 7); g.fill();
+    g.fillStyle = '#14120e';
+    g.fillRect(2, -9, 2, 2);
+    g.fillRect(-9, 8, 1.6, 1.6);
+    g.fillRect(11, 6, 1.6, 1.6);
+  }
+
+  g.restore();
+  g.globalAlpha = 1;
 }

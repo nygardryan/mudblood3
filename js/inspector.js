@@ -5,17 +5,17 @@
 // Point at anything hostile and get its name, condition, and the same blurb the
 // codex carries — without leaving the fight. Mouse only; there is no hovering
 // on touch.
-const HOVER_PANEL_W = 260;
-const HOVER_PAD = 9;
+const HOVER_PANEL_W = 384;
+const HOVER_PAD = 13;
 // Panel typography, kept as named constants so the box height math (drawInfoPanel)
 // and the per-line text offsets stay in lockstep when the sizes are tuned.
-const HOVER_TITLE_FONT = 'bold 13px "Courier New", monospace';
-const HOVER_TITLE_LH = 15;   // title line height
-const HOVER_STAT_FONT = '11px "Courier New", monospace';
-const HOVER_STAT_LH = 13;    // stat line height
-const HOVER_DESC_FONT = '12px "Courier New", monospace';
-const HOVER_DESC_LH = 15;    // description line height
-const HOVER_DESC_GAP = 5;    // gap between the stat block and the description
+const HOVER_TITLE_FONT = 'bold 19px "Courier New", monospace';
+const HOVER_TITLE_LH = 23;   // title line height
+const HOVER_STAT_FONT = '17px "Courier New", monospace';
+const HOVER_STAT_LH = 19;    // stat line height
+const HOVER_DESC_FONT = '18px "Courier New", monospace';
+const HOVER_DESC_LH = 22;    // description line height
+const HOVER_DESC_GAP = 7;    // gap between the stat block and the description
 
 // whoever is shooting at the player: he runs the attackers (G.enemies) in the
 // assault campaigns and in hit-squad, and the defenders (G.units) in endless

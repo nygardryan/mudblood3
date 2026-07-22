@@ -9,6 +9,9 @@ const TOOLBAR_SIZE_DEFAULT = 100;
 const SOUND_VOLUME_KEY = 'soundVolume';
 const SOUND_VOLUME_DEFAULT = 100;
 const SOUND_MUTED_KEY = 'soundMuted';
+const MUSIC_VOLUME_KEY = 'musicVolume';
+const MUSIC_VOLUME_DEFAULT = 60;
+const MUSIC_MUTED_KEY = 'musicMuted';
 const SHAKE_AMOUNT_KEY = 'shakeAmount';
 const SHAKE_AMOUNT_DEFAULT = 50;
 let shakeScale = 1; // 0-1 multiplier applied to every addShake() call
@@ -81,6 +84,47 @@ function saveSoundMuted(muted) {
   localStorage.setItem(SOUND_MUTED_KEY, String(on));
 }
 
+function clampMusicVolume(pct) {
+  return Math.max(0, Math.min(100, Math.round(pct)));
+}
+
+function loadMusicVolume() {
+  const saved = parseInt(localStorage.getItem(MUSIC_VOLUME_KEY), 10);
+  return Number.isFinite(saved) ? clampMusicVolume(saved) : MUSIC_VOLUME_DEFAULT;
+}
+
+function applyMusicVolume(pct) {
+  const vol = MUSIC.setVolume(clampMusicVolume(pct));
+  const slider = el('music-volume-slider');
+  const label = el('music-volume-label');
+  if (slider) slider.value = vol;
+  if (label) label.textContent = vol + '%';
+  return vol;
+}
+
+function saveMusicVolume(pct) {
+  const vol = applyMusicVolume(pct);
+  localStorage.setItem(MUSIC_VOLUME_KEY, String(vol));
+}
+
+function loadMusicMuted() {
+  const saved = localStorage.getItem(MUSIC_MUTED_KEY);
+  if (saved === 'true') return true;
+  if (saved === 'false') return false;
+  return false;
+}
+
+function applyMusicMuted(muted) {
+  MUSIC.setMuted(muted);
+  syncMuteButtons();
+  return muted;
+}
+
+function saveMusicMuted(muted) {
+  const on = applyMusicMuted(muted);
+  localStorage.setItem(MUSIC_MUTED_KEY, String(on));
+}
+
 function clampShakeAmount(pct) {
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
@@ -109,6 +153,8 @@ function applySavedSettings() {
   applyToolbarSize(loadToolbarSize());
   applySoundVolume(loadSoundVolume());
   applySoundMuted(loadSoundMuted());
+  applyMusicVolume(loadMusicVolume());
+  applyMusicMuted(loadMusicMuted());
   applyShakeAmount(loadShakeAmount());
 }
 
@@ -137,6 +183,12 @@ el('toolbar-size-slider').addEventListener('input', e => {
 });
 el('sound-volume-slider').addEventListener('input', e => {
   saveSoundVolume(Number(e.target.value));
+});
+el('settings-music-btn').addEventListener('click', () => {
+  saveMusicMuted(!MUSIC.muted);
+});
+el('music-volume-slider').addEventListener('input', e => {
+  saveMusicVolume(Number(e.target.value));
 });
 el('shake-amount-slider').addEventListener('input', e => {
   saveShakeAmount(Number(e.target.value));

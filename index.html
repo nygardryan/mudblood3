@@ -346,6 +346,11 @@
         <input type="range" id="sound-volume-slider" min="0" max="100" step="5" value="100">
         <div id="sound-volume-label" class="settings-value">100%</div>
         <button id="settings-mute-btn" class="secondary">SND ON</button>
+        <label class="settings-label" for="music-volume-slider">Music volume</label>
+        <p class="settings-hint">Background music. Independent of the sound-effects volume.</p>
+        <input type="range" id="music-volume-slider" min="0" max="100" step="5" value="60">
+        <div id="music-volume-label" class="settings-value">60%</div>
+        <button id="settings-music-btn" class="secondary">MUS ON</button>
         <label class="settings-label" for="shake-amount-slider">Screen shake</label>
         <p class="settings-hint">Camera shake intensity when explosions go off. Set to 0 to turn it off.</p>
         <input type="range" id="shake-amount-slider" min="0" max="100" step="5" value="50">
@@ -390,6 +395,7 @@
 
 <!-- Plain scripts sharing one global scope — load order matters: definitions first, bootstrap (main.js) last. -->
 <script src="js/audio.js"></script>
+<script src="js/music.js"></script>
 <script src="js/constants.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/helpers.js"></script>

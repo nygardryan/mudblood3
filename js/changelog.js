@@ -3,6 +3,14 @@
 // Add a new object to the TOP of this array whenever you ship changes.
 const CHANGELOG = [
   {
+    date: '2026-07-22',
+    title: 'Background Music',
+    changes: [
+      'Added a background music playlist (drop tracks into assets/music/).',
+      'New settings: music volume slider and music mute toggle.',
+    ],
+  },
+  {
     date: '2026-07-21',
     title: 'Cards & Combat Updates',
     changes: [

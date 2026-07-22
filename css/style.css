@@ -1332,7 +1332,8 @@ body {
   margin-bottom: 16px;
 }
 #toolbar-size-slider,
-#sound-volume-slider {
+#sound-volume-slider,
+#music-volume-slider {
   width: 100%;
   accent-color: #ffd94a;
   cursor: pointer;
@@ -1346,7 +1347,8 @@ body {
   letter-spacing: 1px;
   text-align: center;
 }
-#settings-mute-btn {
+#settings-mute-btn,
+#settings-music-btn {
   width: 100%;
 }
 #settings-back-btn {

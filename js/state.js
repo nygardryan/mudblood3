@@ -82,6 +82,8 @@ function syncMuteButtons() {
   const label = SFX.muted ? 'SND OFF' : 'SND ON';
   const btn = el('settings-mute-btn');
   if (btn) btn.textContent = label;
+  const mbtn = el('settings-music-btn');
+  if (mbtn) mbtn.textContent = MUSIC.muted ? 'MUS OFF' : 'MUS ON';
 }
 
 const canvas = document.getElementById('game');

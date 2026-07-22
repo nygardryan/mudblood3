@@ -961,18 +961,7 @@ function drawSoldierOverlays(a) {
     ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.arc(a.x, a.y, 12, 0, 7); ctx.stroke();
     ctx.setLineDash([]);
-    if (G.selected.length === 1) {
-      ctx.font = 'bold 10px "Courier New", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      // German kit carries no rank or kill tally on the label
-      const label = (a.nation || a.side) === 'us'
-        ? RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' +
-          (a.type === 'medic' || a.type === 'engineer' ? a.xp + ' XP' : a.xp + ' KILLS')
-        : a.t.name.toUpperCase();
-      ctx.fillText(label, a.x + 1, a.y + 23);
-      ctx.fillStyle = '#ffe98a';
-      ctx.fillText(label, a.x, a.y + 22);
-    }
+    // name/rank/kills now live in the single-selection info panel (inspector.js),
+    // so the floating label under the unit is no longer drawn here
   }
 }

@@ -58,9 +58,16 @@ function findHoverActor() {
   return hostileAt(mouse.x, mouse.y);
 }
 
-function hoverStats(a) {
+function hoverStats(a, own = false) {
   const t = a.t;
   const parts = [`${Math.max(0, Math.ceil(a.hp))}/${a.maxhp} HP`];
+  // player-controlled troops carry a rank and a tally (medics/engineers earn
+  // their stripes on support work, everyone else on kills) — mirrors the
+  // floating selection label
+  if ((a.nation || a.side) === 'us' && RANKS && RANKS[a.rank]) {
+    parts.push(RANKS[a.rank].name.toUpperCase());
+    parts.push(`${a.xp} ${a.type === 'medic' || a.type === 'engineer' ? 'XP' : 'KILLS'}`);
+  }
   // Flame Tank reads as a flamethrower, not a cannon: no shell, shorter reach
   const flameTank = t.tank ? tankFlame(a) : null;
   if (flameTank) parts.push('FLAME');
@@ -78,7 +85,9 @@ function hoverStats(a) {
   else if (t.vehicle) parts.push('VEHICLE');
   if (t.aura) parts.push('AURA');
   if (t.fixed) parts.push('IMMOBILE');
-  if (t.reward) parts.push(`+${t.reward} TP`);
+  // reward is the bounty an attacker collects for killing this unit — only
+  // meaningful when it's a target, not the player's own selected trooper
+  if (t.reward && !own) parts.push(`+${t.reward} TP`);
   return parts;
 }
 
@@ -110,8 +119,9 @@ function drawHoverHighlight() {
   ctx.setLineDash([]);
 }
 
-function drawHoverPanel() {
-  const a = hoverActor;
+// the enemy hover/long-press panel and the single-selected-ally panel share
+// this box; pass whichever actor should be described
+function drawInfoPanel(a, own = false) {
   if (!a) return;
   const desc = a.t.desc || ENEMY_INFO[a.type] || '';
   const innerW = HOVER_PANEL_W - HOVER_PAD * 2;
@@ -122,7 +132,7 @@ function drawHoverPanel() {
   ctx.textBaseline = 'top';
 
   ctx.font = '8px "Courier New", monospace';
-  const statLines = wrapCanvasText(hoverStats(a), innerW, ' · ');
+  const statLines = wrapCanvasText(hoverStats(a, own), innerW, ' · ');
   ctx.font = '9px "Courier New", monospace';
   const descLines = desc ? wrapCanvasText(desc.split(/\s+/), innerW) : [];
 
@@ -163,6 +173,14 @@ function drawHoverPanel() {
     for (const l of descLines) { ctx.fillText(l, x + HOVER_PAD, ty); ty += 11; }
   }
   ctx.restore();
+}
+
+function drawHoverPanel() {
+  // an inspected enemy takes priority; otherwise a lone selected ally gets the
+  // same info box (only when exactly one is selected, so a squad stays uncluttered)
+  if (hoverActor) { drawInfoPanel(hoverActor); return; }
+  if (!G || placing || isAssaultMode()) return;
+  if (G.selected.length === 1) drawInfoPanel(G.selected[0], true);
 }
 
 function drawDragBox() {

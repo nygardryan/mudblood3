@@ -15,6 +15,12 @@ python3 -m http.server 8000
 # then visit http://localhost:8000
 ```
 
+For automated or console-driven testing there is a small in-page harness on
+`window.TEST` (`js/test-api.js`): validated game starts, free unit placement,
+manual sim stepping (the frame loop freezes in hidden/automated tabs), and
+JSON state snapshots. `TEST.help()` lists the API; `CLAUDE.md` documents the
+workflow.
+
 ## Game modes
 
 - **Endless** — the classic. Germans attack in endless waves from the top of the
@@ -224,3 +230,4 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/settings.js` — settings
 - `js/flow.js` — menus, briefings & game flow
 - `js/main.js` — event wiring, frame loop & bootstrap
+- `js/test-api.js` — `window.TEST` console/automation harness (inert during play)

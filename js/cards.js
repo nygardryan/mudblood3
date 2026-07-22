@@ -102,6 +102,39 @@ function cheatDeath(u) {
 const PLACEABLE_COST_BY_TYPE = {};
 for (const p of PLACEABLES) if (p.kind === 'unit') PLACEABLE_COST_BY_TYPE[p.key] = p.cost;
 
+// Passenger: a jeep deployed with this card rolls in carrying one free
+// infantryman. The foot soldiers only — no second vehicle or emplacement rides
+// shotgun. Each type's odds run inverse to its TP cost, so the 3 TP rifleman
+// hops out far more often than a 15 TP officer. maybeSpawnPassenger fires from
+// the unit-placement block in input.js right after the jeep is pushed.
+const PASSENGER_INFANTRY = ['rifleman', 'gunner', 'grenadier', 'shotgunner',
+  'bazooka', 'mortarman', 'sniper', 'medic', 'engineer', 'officer', 'flamer'];
+
+function rollPassengerType() {
+  let total = 0;
+  const weights = PASSENGER_INFANTRY.map(k => {
+    const w = 1 / PLACEABLE_COST_BY_TYPE[k];
+    total += w;
+    return w;
+  });
+  let r = Math.random() * total;
+  for (let i = 0; i < PASSENGER_INFANTRY.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return PASSENGER_INFANTRY[i];
+  }
+  return PASSENGER_INFANTRY[0];
+}
+
+function maybeSpawnPassenger(jeep) {
+  if (!G.cardsOwned || !G.cardsOwned.has('passenger')) return;
+  if (jeep.type !== 'jeep') return;
+  const type = rollPassengerType();
+  // drop the passenger just behind the jeep so he doesn't spawn on the .50 cal
+  const u = makeUnit(type, jeep.x + rand(-22, 22), jeep.y + rand(18, 34));
+  G.units.push(u);
+  G.texts.push({ x: u.x, y: u.y - 22, text: 'PASSENGER: ' + UNIT_TYPES[type].name.toUpperCase(), ttl: 2 });
+}
+
 // an instant reload is worth whatever the cooldown it erases is worth:
 // near-nothing on fast-cycling rifles, a run-warping 6 on the bazooka, whose
 // long rocket cooldown vanishes entirely against massed waves
@@ -249,6 +282,13 @@ const CARD_UNIQUES = {
   flametank: {
     unit: 'sherman', name: 'Flame Tank', cost: 14, weight: 5,
     desc: `Rip out the 75mm for a hull flamethrower: a wide cone of fire torches infantry — friend or foe — at close range. It still scorches armor, but only for chip damage, never the cannon's punch.`,
+    hooks: {},
+  },
+  // flag-only: maybeSpawnPassenger (called from input.js placement) reads
+  // G.cardsOwned when a jeep deploys and rolls a free rider off rollPassengerType
+  passenger: {
+    unit: 'jeep', name: 'Passenger', cost: 10, weight: 3,
+    desc: 'Every jeep rolls in carrying one free infantryman — cheap grunts far likelier than pricey specialists, so a rifleman rides most often.',
     hooks: {},
   },
   crackshot: {

@@ -758,6 +758,12 @@ function deployEndlessLoadout() {
 function closeCardShop() {
   el('card-shop').classList.add('hidden');
   el(cardShopReturnScreen).classList.remove('hidden');
+  // coming back to the endgame ceremony, resync its offer/banked with anything
+  // bought or rerolled inside the full shop
+  if (cardShopReturnScreen === 'endless-endgame') {
+    renderEndgameCards();
+    syncEndgameBanked();
+  }
 }
 
 function medalLabel(n) {
@@ -909,4 +915,124 @@ function buildBattlePlanUI() {
     });
     grid.appendChild(btn);
   }
+}
+
+// ---- endless endgame: the "Spotlight Locker" medal ceremony (design 2b)
+
+// count the hero medal number up from zero for a bit of ceremony
+function animateMedalCount(node, to, prefix) {
+  if (!node) return;
+  const dur = 700;
+  const start = performance.now();
+  function tick(now) {
+    const p = Math.min(1, (now - start) / dur);
+    // ease-out so it decelerates onto the final figure
+    const val = Math.round((1 - Math.pow(1 - p, 3)) * to);
+    node.textContent = prefix + val;
+    if (p < 1) requestAnimationFrame(tick);
+    else node.textContent = prefix + to;
+  }
+  node.textContent = prefix + '0';
+  requestAnimationFrame(tick);
+}
+
+// one tap-to-expand requisition card for the endgame footlocker
+function buildEndgameCard(card, medals) {
+  const afford = card.cost <= medals;
+  const btn = document.createElement('div');
+  btn.className = 'ee-card' + (card.unique ? ' ee-card--uni' : '');
+  btn.innerHTML =
+    '<div class="ee-card__top">' +
+      '<span class="ee-card__unit">' + cardUnitLabel(card) + '</span>' +
+      '<span class="ee-card__rar ' + (card.unique ? 'ee-card__rar--uni">UNIQUE' : 'ee-card__rar--std">STANDARD') + '</span>' +
+      '<span class="ee-card__cost' + (afford ? '' : ' ee-card__cost--need') + '">' + card.cost +
+        '<u>' + (afford ? 'RB' : 'NEED') + '</u></span>' +
+    '</div>' +
+    '<div class="ee-card__name">' + card.name.toUpperCase() + '</div>' +
+    '<div class="ee-card__desc">' + card.desc + '</div>' +
+    '<div class="ee-card__foot">' +
+      '<span class="ee-pips">' + endgamePips(card.weight) + '</span>' +
+      '<span class="ee-card__chev">▾ requisition</span>' +
+    '</div>' +
+    '<div class="ee-card__body">' +
+      '<div class="ee-card__full">Costs ' + card.weight + ' command in your battle plan.</div>' +
+      '<button class="ee-buy"' + (afford ? '' : ' disabled') + '>Requisition — ' + medalLabel(card.cost) + '</button>' +
+    '</div>';
+  // tapping the card body toggles the detail drawer; the chevron flips with it
+  const chev = btn.querySelector('.ee-card__chev');
+  btn.addEventListener('click', () => {
+    const open = btn.classList.toggle('ee-card--open');
+    chev.textContent = open ? '▴ hide' : '▾ requisition';
+  });
+  const buy = btn.querySelector('.ee-buy');
+  buy.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (buyCard(card.id)) {
+      SFX.click();
+      renderEndgameCards();
+      syncEndgameBanked();
+      syncCardShopButton();
+    }
+  });
+  return btn;
+}
+
+// six command pips, first `w` lit — a card's plan weight at a glance
+function endgamePips(w) {
+  let html = '';
+  for (let i = 0; i < 6; i++) html += '<span class="ee-pip' + (i < w ? ' ee-pip--on' : '') + '"></span>';
+  return html;
+}
+
+// (re)draw the offer cards; called on open and after every purchase so a bought
+// card is swapped for its replacement and affordability restyles across the row
+function renderEndgameCards() {
+  const data = loadEndlessCards();
+  const row = el('ee-cards');
+  if (!row) return;
+  row.replaceChildren();
+  for (let i = 0; i < data.shopSlots; i++) {
+    const card = CARDS[data.offer[i]];
+    if (!card) continue;   // an exhausted deck just leaves the slot out
+    row.appendChild(buildEndgameCard(card, data.medals));
+  }
+}
+
+// keep the "you hold N medals" line in step with the banked balance
+function syncEndgameBanked() {
+  const node = el('ee-banked');
+  if (node) node.textContent = loadEndlessCards().medals;
+}
+
+function showEndlessEndgame() {
+  const earned = G ? G.medalsEarned : 0;
+  const banked = loadEndlessCards().medals;
+  const sub = el('ee-sub');
+  if (sub) sub.textContent = `WAVE ${G ? G.wave : 0} · SECTOR COLLAPSED`;
+  const head = el('ee-head');
+  const count = el('ee-count');
+  const text = el('ee-text');
+  if (earned > 0) {
+    if (head) head.textContent = earned === 1 ? 'MEDAL AWARDED' : 'MEDALS AWARDED';
+    animateMedalCount(count, earned, '+');
+    if (text) text.innerHTML = `Every 10th wave banks a medal. You hold ` +
+      `<b id="ee-banked">${banked}</b> — the footlocker's open. Tap a card to read it before you buy.`;
+  } else {
+    if (head) head.textContent = 'MEDALS BANKED';
+    animateMedalCount(count, banked, '');
+    if (text) text.innerHTML = `No milestone reached this run. You hold ` +
+      `<b id="ee-banked">${banked}</b> to spend. Tap a card to read it before you buy.`;
+  }
+  // the leaderboard elements were populated by updateGameOverLeaderboard(); show
+  // the wrapper only when there's actually a board or a score-entry form in it
+  const lb = el('ee-lb');
+  if (lb) {
+    const board = el('go-leaderboard');
+    const entry = el('go-leaderboard-entry');
+    const anyLb = (board && !board.classList.contains('hidden')) ||
+                  (entry && !entry.classList.contains('hidden'));
+    lb.classList.toggle('hidden', !anyLb);
+  }
+  renderEndgameCards();
+  syncCardShopButton();
 }

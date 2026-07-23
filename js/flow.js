@@ -49,6 +49,7 @@ function returnToMenu() {
   pendingAlliedLevelId = null;
   el('pause').classList.add('hidden');
   el('gameover').classList.add('hidden');
+  el('endless-endgame').classList.add('hidden');
   el('codex').classList.add('hidden');
   el('changelog').classList.add('hidden');
   el('settings').classList.add('hidden');
@@ -153,6 +154,7 @@ function openAlliedBriefing(levelId) {
   el('intro').classList.add('hidden');
   el('allied-select').classList.add('hidden');
   el('gameover').classList.add('hidden');
+  el('endless-endgame').classList.add('hidden');
   el('allied-briefing').classList.remove('hidden');
 }
 
@@ -213,6 +215,7 @@ function openAxisBriefing(levelId) {
   el('axis-select').classList.add('hidden');
   el('axis-research').classList.add('hidden');
   el('gameover').classList.add('hidden');
+  el('endless-endgame').classList.add('hidden');
   el('axis-briefing').classList.remove('hidden');
 }
 
@@ -376,6 +379,7 @@ function finishTutorial() {
   }
   el('pause').classList.add('hidden');
   el('gameover').classList.add('hidden');
+  el('endless-endgame').classList.add('hidden');
   el('tutorial-complete').classList.remove('hidden');
   syncToolbarVisibility();
   syncMobileChrome();
@@ -426,6 +430,7 @@ function startGame(levelId, difficultyId) {
   buildToolbar(placeables);
   el('intro').classList.add('hidden');
   el('gameover').classList.add('hidden');
+  el('endless-endgame').classList.add('hidden');
   el('codex').classList.add('hidden');
   el('changelog').classList.add('hidden');
   el('settings').classList.add('hidden');

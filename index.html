@@ -392,22 +392,48 @@
       <h1 id="go-title">LINE OVERRUN</h1>
       <p id="go-stats"></p>
       <p class="quote">"The line is held one trench at a time, or not at all."</p>
-      <div id="go-leaderboard-entry" class="hidden">
-        <p class="go-leaderboard-hint">New leaderboard score! Enter a name if you want one on the board:</p>
-        <div class="go-score-form">
-          <input type="text" id="go-name-input" maxlength="16" placeholder="Anonymous">
-          <button id="go-save-score-btn" class="secondary">SAVE SCORE</button>
-        </div>
-      </div>
-      <div id="go-leaderboard" class="hidden">
-        <h2 id="go-leaderboard-title">LEADERBOARD</h2>
-        <ul id="go-leaderboard-list" class="leaderboard-list"></ul>
-      </div>
       <div class="intro-btns">
         <button id="next-mission-btn" class="hidden">NEXT MISSION</button>
         <button id="go-shop-btn" class="hidden">CARD SHOP</button>
         <button id="restart-btn">RE-ENLIST</button>
         <button id="menu-btn" class="secondary">MAIN MENU</button>
+      </div>
+    </div>
+
+    <!-- Endless game-over ceremony ("Spotlight Locker", design 2b): spotlight
+         medal + count-up, then the shop offer as tap-to-expand requisition
+         cards, then a shortcut into the full card shop. Shown in place of
+         #gameover whenever an endless run ends. -->
+    <div id="endless-endgame" class="overlay hidden">
+      <div class="ee-inner">
+        <div class="ee-sub" id="ee-sub">SECTOR COLLAPSED</div>
+        <div class="ee-medal">
+          <div class="ee-medal-glow"></div>
+          <div class="ee-ribbon"></div>
+          <div class="ee-disc"><span class="ee-star">★</span><div class="ee-shine"></div></div>
+        </div>
+        <div class="ee-count" id="ee-count">+0</div>
+        <h3 class="ee-head" id="ee-head">MEDALS AWARDED</h3>
+        <p class="ee-text" id="ee-text"></p>
+        <div id="ee-lb" class="ee-lb hidden">
+          <div id="go-leaderboard-entry" class="hidden">
+            <p class="go-leaderboard-hint">New leaderboard score! Enter a name if you want one on the board:</p>
+            <div class="go-score-form">
+              <input type="text" id="go-name-input" maxlength="16" placeholder="Anonymous">
+              <button id="go-save-score-btn" class="secondary">SAVE SCORE</button>
+            </div>
+          </div>
+          <div id="go-leaderboard" class="hidden">
+            <h2 id="go-leaderboard-title">LEADERBOARD</h2>
+            <ul id="go-leaderboard-list" class="leaderboard-list"></ul>
+          </div>
+        </div>
+        <div class="ee-cards" id="ee-cards"></div>
+        <button class="ee-shop-btn" id="ee-shop-btn">Open the Full Card Shop ▸</button>
+        <div class="ee-links">
+          <button class="ee-link" id="ee-restart">Re-enlist</button>
+          <button class="ee-link" id="ee-menu">Main Menu</button>
+        </div>
       </div>
     </div>
 

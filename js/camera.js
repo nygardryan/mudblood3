@@ -224,10 +224,12 @@ function syncViewStrip() {
   const strip = el('view-strip');
   const win = el('view-strip-window');
   if (!strip || !win) return;
-  const on = mobileViewActive() && isPlaying() && !paused;
+  const { viewW } = viewSize();
+  // only meaningful when the field is wider than the view — if it all fits,
+  // there's nothing to pan to, so the strip would just be a dead full-width bar
+  const on = mobileViewActive() && isPlaying() && !paused && viewW < W - 1;
   strip.classList.toggle('hidden', !on);
   if (!on) return;
-  const { viewW } = viewSize();
   win.style.width = (viewW / W * 100) + '%';
   win.style.left = (viewCam.x / W * 100) + '%';
 }

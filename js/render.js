@@ -339,6 +339,19 @@ function draw() {
   drawPlacementGhost();
   drawDragBox();
   drawHoverHighlight();
+
+  // curtain: when zoomed out to fit, the view shows the margins outside the
+  // 0..W×0..H field — including the staging strip above it where enemies spawn
+  // and march in. Paint those margins opaque *over* the scene so units and
+  // aircraft only appear once they cross into the field, never out in the void.
+  if (cullOn) {
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#0a0a06';
+    if (cullY0 < 0) ctx.fillRect(cullX0, cullY0, cullX1 - cullX0, -cullY0);
+    if (cullY1 > H) ctx.fillRect(cullX0, H, cullX1 - cullX0, cullY1 - H);
+    if (cullX0 < 0) ctx.fillRect(cullX0, 0, -cullX0, H);
+    if (cullX1 > W) ctx.fillRect(W, 0, cullX1 - W, H);
+  }
   ctx.restore();
 
   // the info panel sits in screen pixels so it stays legible under camera zoom

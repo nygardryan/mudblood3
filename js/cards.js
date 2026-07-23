@@ -63,6 +63,19 @@ const FRAG_SHRAPNEL_SPEED = 340;   // px/s
 const FRAG_SHRAPNEL_DMG = 15;      // per pellet, at point blank; falls off with range
 const FRAG_SHRAPNEL_HITR = 9;      // px radius a fragment sweeps for bodies
 
+// Shell Shocked: a unique mortarman card. Any enemy that survives a hit credited
+// to a US mortarman is dazed — frozen in place for a beat, no shooting or
+// advancing. Flag-only, read straight from G.cardsOwned; damageEnemy calls the
+// helper below and updateEnemy runs down the timer like it does prone.
+const SHELLSHOCK_DURATION = 1;   // seconds an enemy is stunned per hit
+
+function maybeShellShock(e, from) {
+  if (e.dead || !from || from.side !== 'us' || from.type !== 'mortarman') return;
+  if (!(G.cardsOwned && G.cardsOwned.has('shellshocked'))) return;
+  e.stun = Math.max(e.stun || 0, SHELLSHOCK_DURATION);
+  G.texts.push({ x: e.x, y: e.y - 24, text: 'SHELL SHOCKED', ttl: 1.2 });
+}
+
 // Vampiric Flame: a slow-burn siphon that returns some of the flamer's own
 // damage on enemies as healing. flameSpray reads this fraction directly.
 const VAMPIRIC_FLAME_LIFESTEAL = 0.18;
@@ -234,7 +247,7 @@ const CARD_COMMON_TEMPLATES = {
   // Desperate Measures: unitRangeMult reads `rangefinders_<type>` off
   // G.cardsOwned so the targeting scan and the drawn range ring lengthen together.
   rangefinders: {
-    name: 'Rangefinders', cost: 6, weight: 3, excludes: ['medic'],
+    name: 'Rangefinders', cost: 6, weight: 2, excludes: ['medic'],
     desc: t => `${t.name} engages targets 25% farther out.`,
     hooks: type => ({}),
   },
@@ -434,6 +447,13 @@ const CARD_UNIQUES = {
   clusterrounds: {
     unit: 'mortarman', name: 'Cluster Rounds', cost: 12, weight: 5,
     desc: `The mortarman rushes ${CLUSTER_ROUNDS_SHELLS} shells down the tube per fire order — but hurried crews scatter ${Math.round((CLUSTER_ROUNDS_SCATTER_MULT - 1) * 100)}% wider.`,
+    hooks: {},
+  },
+  // flag-only, like Cluster Rounds: damageEnemy calls maybeShellShock whenever a
+  // hit is credited to a mortarman, and updateEnemy freezes stunned enemies.
+  shellshocked: {
+    unit: 'mortarman', name: 'Shell Shocked', cost: 11, weight: 4,
+    desc: `Any enemy that survives a hit from the mortarman is stunned for ${SHELLSHOCK_DURATION} second${SHELLSHOCK_DURATION === 1 ? '' : 's'} — no moving, no firing.`,
     hooks: {},
   },
   warbonds: {

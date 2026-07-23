@@ -44,6 +44,13 @@ function updateEnemy(e, dt) {
   if (e.onCraft) return;
   if (e.tutHold) return;   // tutorial: frozen in place until the script releases him
 
+  // Shell Shocked: dazed by a mortar hit — no shooting, no advancing, and it
+  // overrides prone recovery so the daze runs its full second first
+  if (e.stun > 0) {
+    e.stun -= dt;
+    return;
+  }
+
   if (e.proneCd > 0) e.proneCd -= dt;
   if (e.prone > 0) {
     // a move order gets him up and running; otherwise he waits it out

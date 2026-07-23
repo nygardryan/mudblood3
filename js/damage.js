@@ -610,4 +610,6 @@ function damageEnemy(e, dmg, from) {
     if (si !== -1) G.selected.splice(si, 1);
   }
   if (dmg >= 3) tryGoProne(e, 0.65);
+  // Shell Shocked: a surviving enemy hit by a mortarman is dazed for a beat
+  maybeShellShock(e, from);
 }

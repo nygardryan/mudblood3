@@ -62,8 +62,9 @@ creation through the game's own `applyPlacement()` (in `js/input.js`), so a
 harness placement can never drift from a toolbar placement.
 
 The **Imperial Japanese Army** is the alternate endless foe (`faction:'jp'` in
-`ENEMY_TYPES`, keys `jrifle`/`jbanzai`/`jlmg`/`jsniper`/`jknee`/`jlunge`/`joff`/
-`jflame`/`jtank`). `deploy` spawns any of them (they're in
+`ENEMY_TYPES`, 15 keys: `jrifle`/`jbanzai`/`jsmg`/`jgren`/`jlmg`/`jhmg`/`jsniper`/
+`jknee`/`jmortar`/`jlunge`/`joff`/`jflame`/`jhago`/`jtank`/`jchinu`). `deploy`
+spawns any of them (they're in
 `TESTING_JAPANESE_PLACEABLES`); wave spawning routes through `japWaveComposition`
 and `JP_SPECIAL_WAVES` when `G.enemyFaction === 'jp'`. Japanese infantry are
 fanatics (never prone — see `tryGoProne`); `jbanzai` is a melee charger and

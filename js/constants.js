@@ -328,11 +328,31 @@ Object.assign(ENEMY_TYPES, {
     color: '#77712f', gun: 11, sfx: 'rifle', priority: 1, faction: 'jp',
     banzai: true,
   },
+  jsmg: {
+    // counterpart: gunner (range 179, speed 36) — Special Naval Landing Force
+    // trooper with a Type 100 SMG. Fast close-assault, deadly in short bursts.
+    name: 'SNLF Trooper', hp: 84, speed: 38, range: 90, dmg: 9, acc: 0.44,
+    rof: 0.9, burst: 3, burstGap: 0.08, reward: 2,
+    color: '#4f5a34', gun: 6, sfx: 'mg', priority: 1, faction: 'jp',
+  },
+  jgren: {
+    // counterpart: grenadier (range 231, speed 42) — carries Type 97 frags.
+    name: 'Grenadier', hp: 85, speed: 25, range: 101, dmg: 10, acc: 0.42,
+    rof: 1.45, burst: 1, burstGap: 0, reward: 3,
+    color: '#6a683a', gun: 8, sfx: 'rifle', priority: 2, faction: 'jp', grenade: true,
+  },
   jlmg: {
     // counterpart: gunner (range 179, speed 36) — Type 99 light machine gun.
     name: 'Nambu Gunner', hp: 105, speed: 15, range: 172, dmg: 10, acc: 0.36,
     rof: 1.7, burst: 5, burstGap: 0.08, reward: 3,
     color: '#5f5f34', gun: 10, sfx: 'mg', priority: 3, faction: 'jp',
+  },
+  jhmg: {
+    // counterpart: gunner (range 179, speed 36) — Type 92 "Woodpecker" HMG on a
+    // tripod. Slow to reposition and long-legged; pins a line with heavy fire.
+    name: 'Type 92 HMG', hp: 122, speed: 11, range: 178, dmg: 11, acc: 0.38,
+    rof: 1.9, burst: 5, burstGap: 0.09, reward: 4,
+    color: '#5c5c33', gun: 11, sfx: 'mg', priority: 3, faction: 'jp',
   },
   jsniper: {
     // counterpart: sniper (range 249, speed 38) — Type 97 in the treeline.
@@ -348,6 +368,15 @@ Object.assign(ENEMY_TYPES, {
     rof: 1.1, burst: 1, burstGap: 0, reward: 4,
     color: '#63633a', gun: 5, sfx: 'pistol', priority: 4, faction: 'jp',
     mortar: { range: 164, min: 70, cdMin: 5, cdMax: 7, r: 30, dmg: 55, flight: 1.3, scatter: 46 },
+  },
+  jmortar: {
+    // counterpart: mortarman (mortar range 348) — a real Type 97 81mm mortar
+    // team. Far longer reach and a heavier shell than the knee mortar, but slow
+    // to fire; blind up close.
+    name: 'Mortar Team', hp: 90, speed: 16, range: 78, dmg: 7, acc: 0.44,
+    rof: 1.0, burst: 1, burstGap: 0, reward: 5,
+    color: '#5f6036', gun: 5, sfx: 'pistol', priority: 4, faction: 'jp',
+    mortar: { range: 330, min: 120, cdMin: 9, cdMax: 12, r: 40, dmg: 80, flight: 1.6, scatter: 52 },
   },
   jlunge: {
     // NO allied counterpart — a suicide anti-tank charge (Type 99 lunge mine).
@@ -375,6 +404,15 @@ Object.assign(ENEMY_TYPES, {
     color: '#66642f', gun: 8, sfx: 'rifle', priority: 3, faction: 'jp',
     flame: { range: 76, arc: 0.45, dps: 40 }, blastResist: 0.5,
   },
+  jhago: {
+    // counterpart: sherman (range 262, speed 14) — Type 95 Ha-Go light tank.
+    // Thin armor and a small 37mm gun, but fast and it turns up early.
+    name: 'Ha-Go', hp: 520, speed: 18, range: 175, dmg: 0, acc: 0,
+    rof: 3.8, burst: 1, burstGap: 0, reward: 10, shellDmg: 58,
+    color: '#6a6a3e', gun: 0, sfx: 'boom', priority: 0, tank: true, light: true, faction: 'jp',
+    fireCone: { arc: 0.28 },
+    mg: { range: 138, dmg: 6, acc: 0.4, burst: 5, burstGap: 0.08, gun: 20, sfx: 'mg' },
+  },
   jtank: {
     // counterpart: sherman (range 262, speed 14) — Type 97 Chi-Ha. Lighter and
     // quicker than a Panzer IV, with a stubbier 57mm gun.
@@ -384,7 +422,23 @@ Object.assign(ENEMY_TYPES, {
     fireCone: { arc: 0.25 },
     mg: { range: 150, dmg: 7, acc: 0.4, burst: 5, burstGap: 0.08, gun: 22, sfx: 'mg' },
   },
+  jchinu: {
+    // counterpart: sherman (range 262, speed 14) — Type 3 Chi-Nu. The heaviest
+    // thing Japan fielded: a 75mm gun and real armor, but slow and it only
+    // shows up late.
+    name: 'Chi-Nu', hp: 1250, speed: 10, range: 220, dmg: 0, acc: 0,
+    rof: 4.6, burst: 1, burstGap: 0, reward: 18, shellDmg: 100,
+    color: '#63612f', gun: 0, sfx: 'boom', priority: 0, tank: true, faction: 'jp',
+    fireCone: { arc: 0.24 },
+    mg: { range: 155, dmg: 8, acc: 0.42, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
+  },
 });
+
+// +20% HP across the Japanese infantry — every foot soldier, tanks excluded —
+// so they hold up a little longer under fire while they close the distance.
+for (const t of Object.values(ENEMY_TYPES)) {
+  if (t.faction === 'jp' && !t.tank) t.hp = Math.round(t.hp * 1.2);
+}
 
 const ENEMY_INFO = {
   erifle: 'Standard Wehrmacht infantry. Slow, steady, and expendable — but there are always more of them.',
@@ -407,13 +461,19 @@ const ENEMY_INFO = {
   // fanatics: they never hit the dirt, closing the distance instead of pinning.
   jrifle: 'Imperial infantry with a Type 38 Arisaka and a long bayonet. Fanatical — never goes to ground, just keeps coming.',
   jbanzai: 'Screaming shock trooper. No rifle fire — he sprints straight into your line and cuts men down with the bayonet. Kill him before he closes.',
+  jsmg: 'Special Naval Landing Force trooper with a Type 100 SMG. A fast mover who shreds your line in close bursts.',
+  jgren: 'Carries Type 97 fragmentation grenades into the fray. The blast ignores friend and foe alike.',
   jlmg: 'Type 99 light machine gun. Rakes your line from range and never flinches under return fire.',
+  jhmg: 'Type 92 "Woodpecker" heavy machine gun on a tripod. Slow to move, but its long-range fire pins a whole line.',
+  jmortar: 'Type 97 81mm mortar team. Drops shells into your backfield from well beyond rifle range; blind up close.',
   jsniper: 'Marksman lashed into the treeline. Stays hidden until he fires, then picks off officers, medics, and gunners.',
   jknee: 'Type 89 grenade discharger — a "knee mortar." Short-ranged and light, but it lobs shells far faster than a Granatwerfer.',
   jlunge: 'Suicide anti-tank man with a Type 99 lunge mine. Charges your armor and emplacements and rams the charge home. Shoot him off before he connects.',
   joff: 'Sword-wielding officer. His presence hardens the troops, and on command he hurls every soldier around him into a banzai charge.',
   jflame: 'Type 100 flamethrower operator. Burns through wire, sandbags, and flesh — and his own men if they\'re in the way.',
+  jhago: 'Type 95 Ha-Go light tank. Thin-skinned and armed with only a 37mm gun, but fast — and it shows up long before the heavier armor.',
   jtank: 'Type 97 Chi-Ha. Lighter and faster than a Panzer, with a stubby 57mm gun and a hull MG. Small arms still bounce off it.',
+  jchinu: 'Type 3 Chi-Nu. The heaviest tank Japan fielded — a 75mm gun and thick armor. Slow, late, and ruinous. Use AT weapons.',
 };
 
 const EVENT_INFO = [
@@ -576,20 +636,32 @@ const TESTING_JAPANESE_PLACEABLES = [
     desc: 'Imperial rifleman with an Arisaka and long bayonet. Fanatical — never goes prone.' },
   { key: 'jbanzai', label: 'BANZAI', cost: 4, kind: 'egerman', hotkey: '',
     desc: 'Melee shock trooper. Sprints in and bayonets defenders — no ranged attack.' },
+  { key: 'jsmg', label: 'SNLF SMG', cost: 4, kind: 'egerman', hotkey: '',
+    desc: 'Naval landing trooper with a Type 100 SMG. Fast close-assault.' },
+  { key: 'jgren', label: 'JP GREN', cost: 10, kind: 'egerman', hotkey: '',
+    desc: 'Grenadier. Lobs Type 97 frags; the blast ignores friend and foe.' },
   { key: 'jlmg', label: 'NAMBU LMG', cost: 9, kind: 'egerman', hotkey: '',
     desc: 'Type 99 light machine gun. Long-range suppressive fire.' },
+  { key: 'jhmg', label: 'TYPE 92 HMG', cost: 9, kind: 'egerman', hotkey: '',
+    desc: 'Type 92 heavy MG on a tripod. Slow, long-range, heavy suppression.' },
   { key: 'jsniper', label: 'NEST SNIPER', cost: 10, kind: 'egerman', hotkey: '',
     desc: 'Camouflaged marksman lashed into the treeline.' },
   { key: 'jknee', label: 'KNEE MORTAR', cost: 14, kind: 'egerman', hotkey: '',
     desc: 'Type 89 grenade discharger. Short-ranged but very fast-firing.' },
+  { key: 'jmortar', label: 'MORTAR TEAM', cost: 14, kind: 'egerman', hotkey: '',
+    desc: 'Type 97 81mm mortar. Long-range indirect fire; blind up close.' },
   { key: 'jlunge', label: 'LUNGE MINE', cost: 18, kind: 'egerman', hotkey: '',
     desc: 'Suicide anti-tank charge. Rams armor and emplacements, detonating on contact.' },
   { key: 'joff', label: 'JP OFFICER', cost: 15, kind: 'egerman', hotkey: '',
     desc: 'Sword officer. Aura buff plus a banzai-charge command.' },
   { key: 'jflame', label: 'JP FLAMER', cost: 6, kind: 'egerman', hotkey: '',
     desc: 'Type 100 flamethrower. Burns everything in the cone.' },
+  { key: 'jhago', label: 'HA-GO', cost: 55, kind: 'egerman', hotkey: '',
+    desc: 'Type 95 Ha-Go light tank. Fast, thin-skinned, 37mm gun.' },
   { key: 'jtank', label: 'CHI-HA', cost: 80, kind: 'egerman', hotkey: '',
     desc: 'Type 97 Chi-Ha. Lighter, quicker armor with a 57mm gun.' },
+  { key: 'jchinu', label: 'CHI-NU', cost: 120, kind: 'egerman', hotkey: '',
+    desc: 'Type 3 Chi-Nu. Heavy armor and a 75mm gun. Slow and late.' },
 ];
 
 // testing-mode-only ability: an instant field promotion for every unit —

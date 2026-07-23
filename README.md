@@ -28,9 +28,11 @@ workflow.
   the top of the screen. Hold the line as long as you can — if **7 enemies** slip
   past the bottom edge, your sector collapses and it's game over. There is no
   victory, only a higher wave count.
-  - **The Japanese** field a wholly different roster: Arisaka riflemen with long
-    bayonets, Nambu machine guns, nest snipers, knee mortars, sword officers,
-    Type 100 flamethrowers, and the Chi-Ha tank. Two threats are unique to them —
+  - **The Japanese** field a wholly different 15-unit roster: Arisaka riflemen
+    with long bayonets, SNLF SMG troopers, grenadiers, Nambu light and Type 92
+    heavy machine guns, nest snipers, knee mortars and 81mm mortar teams, sword
+    officers, Type 100 flamethrowers, and three tanks — the fast Ha-Go, the
+    Chi-Ha, and the heavy Chi-Nu. Two threats are unique to them —
     **banzai chargers** who sprint in and bayonet your men (no ranged fire, so
     shoot them before they reach the line) and **lunge-mine** suicide men who
     ram your armor and emplacements and detonate on contact. Every Japanese

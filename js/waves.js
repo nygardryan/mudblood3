@@ -104,10 +104,14 @@ function japWaveComposition(w) {
   const size = Math.max(minSize, Math.round(baseSize * mult));
   const pool = ['jrifle', 'jrifle', 'jrifle'];
   if (w >= 3) pool.push('jbanzai', 'jbanzai');   // chargers early — the signature threat
+  if (w >= 4) pool.push('jsmg', 'jsmg');         // naval assault troops
   if (w >= 6) pool.push('jlmg');
+  if (w >= 7) pool.push('jgren');
   if (w >= 8) pool.push('jknee');
+  if (w >= 9) pool.push('jhmg');
   if (w >= 11) pool.push('jflame');
   if (w >= 13) pool.push('jsniper');
+  if (w >= 16) pool.push('jmortar');
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
   if (w >= 12 && Math.random() < (0.30 + late * 0.004) * mult) out.push('joff');
@@ -119,13 +123,17 @@ function japWaveComposition(w) {
     if (Math.random() < lungeChance) out.push('jlunge');
     if (hasArmor && w >= 40 && Math.random() < lungeChance * 0.7) out.push('jlunge');
   }
-  // the Chi-Ha grinds in from the mid game, more often as the run drags on
-  const tankChance = (0.10 + Math.max(0, w - 25) * 0.002) * (1 + late * 0.05) * mult;
-  if (w >= 25 && Math.random() < tankChance) out.push('jtank');
+  // armor arrives in tiers: the fast Ha-Go light tank first, the Chi-Ha from
+  // the mid game, and the heavy Chi-Nu only once the fighting is desperate
+  const armorChance = (0.10 + Math.max(0, w - 13) * 0.002) * (1 + late * 0.05) * mult;
+  if (w >= 13 && Math.random() < armorChance) out.push('jhago');
+  if (w >= 25 && Math.random() < armorChance) out.push('jtank');
+  if (w >= 45 && Math.random() < armorChance * 0.7) out.push('jchinu');
   if (late > 0) {
     const armorShare = Math.min(0.4, late * 0.012);
+    const armorPool = ['jhago', 'jtank', 'jtank', 'jchinu'];
     const armorCount = Math.round(size * armorShare);
-    for (let i = 0; i < armorCount; i++) out.push('jtank');
+    for (let i = 0; i < armorCount; i++) out.push(pick(armorPool));
   }
   return out;
 }

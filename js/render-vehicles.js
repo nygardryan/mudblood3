@@ -26,11 +26,12 @@ function tankTurretSprite(a) {
 function paintTankHull(c, a) {
   const us = (a.nation || a.side) === 'us';
   const heavy = !!a.t.heavy;
+  const light = !!a.t.light;
   const casemate = !!a.t.casemate;
-  const hw = heavy ? 20 : 17;
-  const hh = heavy ? 17 : 14;
-  const trackW = heavy ? 9 : 8;
-  const trackOff = heavy ? 27 : 24;
+  const hw = heavy ? 20 : light ? 14 : 17;
+  const hh = heavy ? 17 : light ? 11 : 14;
+  const trackW = heavy ? 9 : light ? 7 : 8;
+  const trackOff = heavy ? 27 : light ? 20 : 24;
   // tracks
   for (const tx of [-trackOff, trackOff - trackW]) {
     c.fillStyle = '#26261f';
@@ -95,9 +96,10 @@ function paintTankTurret(c, a) {
   const us = (a.nation || a.side) === 'us';
   const jp = a.nation === 'jp';
   const heavy = !!a.t.heavy;
-  const tr = heavy ? 12 : 10;
+  const light = !!a.t.light;
+  const tr = heavy ? 12 : light ? 8 : 10;
   c.fillStyle = us ? '#54634a' : jp ? '#57552f' : (heavy ? '#353530' : '#4c4c43');
-  c.fillRect(6, -2.5, heavy ? 28 : 24, heavy ? 6 : 5);          // barrel
+  c.fillRect(6, -2.5, heavy ? 28 : light ? 19 : 24, heavy ? 6 : light ? 4 : 5);          // barrel
   c.fillStyle = '#26261f';
   c.fillRect(heavy ? 32 : 28, -3, 2.6, heavy ? 7 : 6);          // muzzle brake
   c.fillStyle = us ? '#5b6b50' : jp ? '#6d6a3c' : (heavy ? '#3a3a34' : '#525249');

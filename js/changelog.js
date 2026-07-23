@@ -4,10 +4,18 @@
 const CHANGELOG = [
   {
     date: '2026-07-23',
+    title: 'Japanese Army: More Units',
+    changes: [
+      'Six more Japanese unit types: SNLF SMG troopers, grenadiers, the Type 92 heavy MG, an 81mm mortar team, the fast Ha-Go light tank, and the heavy Chi-Nu.',
+      'The Imperial Japanese Army now fields a full 15-unit roster, with armor arriving in tiers (Ha-Go, then Chi-Ha, then Chi-Nu).',
+    ],
+  },
+  {
+    date: '2026-07-23',
     title: 'New Faction: Imperial Japanese Army',
     changes: [
       'Endless runs now roll a foe: you face either the Wehrmacht or a brand-new Imperial Japanese Army.',
-      'Nine new units with their own art: Arisaka riflemen, Nambu LMGs, nest snipers, knee mortars, sword officers, Type 100 flamethrowers, and the Chi-Ha tank.',
+      'New units with their own art: Arisaka riflemen, Nambu LMGs, nest snipers, knee mortars, sword officers, Type 100 flamethrowers, and the Chi-Ha tank.',
       'Banzai chargers sprint in and cut your men down with the bayonet — no ranged attack, so drop them before they close.',
       'Lunge-mine suicide men rush your armor and emplacements and detonate on contact.',
       'Japanese infantry are fanatics — they never hit the dirt, they only close the distance. Officers can scream a banzai charge that surges every soldier around them.',

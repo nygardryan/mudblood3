@@ -357,6 +357,118 @@ function drawJpWebbing(c, fx, fy, face) {
   }
 }
 
+// Type 100 SMG: short perforated barrel, wooden stock, curved box magazine
+function drawType100Smg(c, fx, fy, gunLen, face) {
+  const px = -fy, py = fx;
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 2.4;
+  c.beginPath(); c.moveTo(fx * 2, fy * 2); c.lineTo(tipX, tipY); c.stroke();
+  // barrel-jacket vents
+  c.fillStyle = '#3a3830';
+  for (let tt = 0.55; tt <= 0.9; tt += 0.12) {
+    c.beginPath(); c.arc(fx * (gunLen * tt), fy * (gunLen * tt), 0.5, 0, 7); c.fill();
+  }
+  // wooden stock behind the grip
+  c.strokeStyle = '#5a4a30';
+  c.lineWidth = 2.2;
+  c.beginPath();
+  c.moveTo(fx * 0.6 - px * 2.4, fy * 0.6 + py * 2.4);
+  c.lineTo(fx * 2, fy * 2);
+  c.stroke();
+  // curved box magazine hanging under the receiver
+  const mX = fx * (gunLen * 0.34), mY = fy * (gunLen * 0.34);
+  c.strokeStyle = '#2a2a1e';
+  c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(mX, mY);
+  c.quadraticCurveTo(mX + px * 2.4 + fx * 0.6, mY + py * 2.4 + fy * 0.6,
+    mX + px * 3.8 + fx * 1.6, mY + py * 3.8 + fy * 1.6);
+  c.stroke();
+  // front sight
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 1;
+  c.beginPath(); c.moveTo(tipX - px * 0.9, tipY - py * 0.9); c.lineTo(tipX + px * 0.9, tipY + py * 0.9); c.stroke();
+}
+
+// Type 92 heavy machine gun: finned barrel, side feed strip, forward tripod
+function drawType92Hmg(c, fx, fy, gunLen, face) {
+  const px = -fy, py = fx;
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 3;
+  c.beginPath(); c.moveTo(fx * 2, fy * 2); c.lineTo(tipX, tipY); c.stroke();
+  // radial cooling fins
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 0.85;
+  for (let tt = 0.28; tt <= 0.68; tt += 0.07) {
+    const sx = fx * (gunLen * tt), sy = fy * (gunLen * tt);
+    c.beginPath();
+    c.moveTo(sx - px * 1.9, sy - py * 1.9);
+    c.lineTo(sx + px * 1.9, sy + py * 1.9);
+    c.stroke();
+  }
+  // brass feed strip jutting out one side
+  const fX = fx * (gunLen * 0.4) + px * 3, fY = fy * (gunLen * 0.4) + py * 3;
+  c.save();
+  c.translate(fX, fY);
+  c.rotate(face);
+  c.fillStyle = '#b09838';
+  c.fillRect(-3, -0.9, 6, 1.8);
+  c.restore();
+  // wooden spade grips at the rear
+  c.strokeStyle = '#5a4a30';
+  c.lineWidth = 1.8;
+  c.beginPath();
+  c.moveTo(fx * 1 - px * 2.4, fy * 1 + py * 2.4);
+  c.lineTo(fx * 1 + px * 2.4, fy * 1 - py * 2.4);
+  c.stroke();
+  // forward tripod
+  c.strokeStyle = '#2b2a22';
+  c.lineWidth = 1.4;
+  for (const s of [-0.85, 0, 0.85]) {
+    c.beginPath();
+    c.moveTo(fx * (gunLen - 2), fy * (gunLen - 2));
+    c.lineTo(fx * (gunLen + 1) + Math.cos(face + s + 0.5) * 5, fy * (gunLen + 1) + Math.sin(face + s + 0.5) * 5);
+    c.stroke();
+  }
+  // flash cone
+  c.strokeStyle = '#4a4038';
+  c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(tipX - px * 1.5, tipY - py * 1.5);
+  c.lineTo(tipX + fx * 1.4, tipY + fy * 1.4);
+  c.lineTo(tipX + px * 1.5, tipY + py * 1.5);
+  c.stroke();
+}
+
+// a full-size Type 97 81mm mortar on a bipod, planted beside the crouching crew
+function drawJpMortar(c, fireT) {
+  c.save();
+  c.translate(-4.2, 3);
+  c.rotate(-0.7);
+  // baseplate
+  c.fillStyle = '#3a3830';
+  c.beginPath(); c.ellipse(0, 5, 4, 1.7, 0, 0, 7); c.fill();
+  // tube
+  c.fillStyle = '#4a4a40';
+  c.fillRect(-1.7, -8, 3.4, 13);
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 0.8;
+  c.strokeRect(-1.7, -8, 3.4, 13);
+  c.fillStyle = '#2a2a22';
+  c.fillRect(-1.7, -8.6, 3.4, 1.3);
+  // bipod legs
+  c.strokeStyle = '#2b2a22';
+  c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(0, -3); c.lineTo(-4.5, 6); c.moveTo(0, -3); c.lineTo(4.5, 6); c.stroke();
+  if (fireT > 0) {
+    c.fillStyle = '#ffe08a';
+    c.beginPath(); c.arc(0, -9, 3 * clamp(fireT / 0.18, 0, 1), 0, 7); c.fill();
+  }
+  c.restore();
+}
+
 // twin fuel tanks for the flamethrower
 function drawJpFlamerTanks(c) {
   const tankX = -6.2;
@@ -380,9 +492,13 @@ function paintJapaneseSoldier(c, a) {
   const gunLen = t.gun;
   const fx = Math.cos(a.face), fy = Math.sin(a.face);
   const isLmg = type === 'jlmg';
+  const isHmg = type === 'jhmg';
+  const isSmg = type === 'jsmg';
+  const isGren = type === 'jgren';
   const isOfficer = type === 'joff';
   const isBanzai = type === 'jbanzai';
   const isFlamer = type === 'jflame';
+  const isTube = type === 'jknee' || type === 'jmortar';   // sidearm + a tube on the ground
   c.save();
 
   // shadow
@@ -390,28 +506,32 @@ function paintJapaneseSoldier(c, a) {
   c.beginPath(); c.ellipse(0, 3, 8, 4, 0, 0, 7); c.fill();
 
   // ---- weapon
-  if (type === 'jbanzai' || type === 'jrifle') {
+  if (type === 'jbanzai' || type === 'jrifle' || isGren) {
     drawArisaka(c, fx, fy, gunLen, true);
   } else if (type === 'jsniper') {
     drawArisakaSniper(c, fx, fy, gunLen, a.face);
   } else if (isLmg) {
     drawType99Lmg(c, fx, fy, gunLen, a.face);
+  } else if (isHmg) {
+    drawType92Hmg(c, fx, fy, gunLen, a.face);
+  } else if (isSmg) {
+    drawType100Smg(c, fx, fy, gunLen, a.face);
   } else if (isFlamer) {
     drawType100Flamer(c, fx, fy, gunLen, a.face, a.flameT > 0);
   } else if (type === 'jlunge') {
     drawLungeMine(c, fx, fy, gunLen);
   } else if (isOfficer) {
     drawGunto(c, fx, fy, gunLen, a.face);
-  } else if (type === 'jknee') {
-    // sidearm carbine plus the discharger braced by the feet
+  } else if (isTube) {
+    // sidearm carbine — the tube itself is drawn beside the feet as kit
     c.strokeStyle = JP_STEEL;
     c.lineWidth = 2;
     c.beginPath(); c.moveTo(fx * 2, fy * 2); c.lineTo(fx * gunLen, fy * gunLen); c.stroke();
   }
 
   // ---- body
-  const bodyW = isLmg ? 7.2 : isFlamer ? 7 : isBanzai ? 6.6 : 6.6;
-  const bodyH = isLmg ? 5 : isFlamer ? 5.3 : 5;
+  const bodyW = isLmg || isHmg ? 7.2 : isFlamer ? 7 : 6.6;
+  const bodyH = isLmg || isHmg ? 5 : isFlamer ? 5.3 : 5;
   c.fillStyle = t.color;
   c.beginPath(); c.ellipse(0, 0, bodyW, bodyH, a.face, 0, 7); c.fill();
   c.strokeStyle = 'rgba(14,15,11,0.6)';
@@ -469,6 +589,15 @@ function paintJapaneseSoldier(c, a) {
   } else if (type === 'jknee') {
     drawJpWebbing(c, fx, fy, a.face);
     drawKneeMortar(c, fx, fy, a.mortarFireT || 0);
+  } else if (type === 'jmortar') {
+    drawJpWebbing(c, fx, fy, a.face);
+    drawJpMortar(c, a.mortarFireT || 0);
+  } else if (isGren) {
+    drawJpWebbing(c, fx, fy, a.face);
+    // Type 97 frags clipped to the chest harness
+    for (const [gx, gy, s] of [[-fy * 4.4, fx * 4.4, 0.8], [fy * 3.8, -fx * 3.8, 0.75]]) {
+      drawFragGrenade(c, gx, gy, s, { rot: a.face });
+    }
   } else {
     drawJpWebbing(c, fx, fy, a.face);
   }
@@ -501,6 +630,17 @@ function paintJapaneseSoldier(c, a) {
     c.beginPath();
     c.arc(0, 0, reach, a.face - 0.5 * tp, a.face + 0.5 * tp);
     c.stroke();
+  }
+
+  // ---- grenadier wind-up: cocked arm and a frag in hand
+  if (a.grenThrowT > 0) {
+    const gt = clamp(a.grenThrowT / 0.35, 0, 1);
+    const arm = a.face - 0.55 + (1 - gt) * 0.35;
+    const ax = Math.cos(arm) * 5.5, ay = Math.sin(arm) * 5.5;
+    c.strokeStyle = t.color;
+    c.lineWidth = 2.6;
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(ax, ay); c.stroke();
+    drawFragGrenade(c, ax + Math.cos(arm) * 2.2, ay + Math.sin(arm) * 2.2, 0.95, { rot: arm - 0.4 });
   }
 
   c.restore();

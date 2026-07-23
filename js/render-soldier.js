@@ -60,6 +60,9 @@ function paintSoldierBody(c, a) {
   // the Imperial Japanese roster is drawn by its own self-contained painter —
   // distinct helmets, Arisakas, katanas, knee mortars and lunge charges
   if (a.nation === 'jp') { paintJapaneseSoldier(c, a); return; }
+  // the Regio Esercito roster has its own painter — M33 helmets, Carcanos,
+  // plumed Bersaglieri, bustina officers, Breda/Fiat guns and the Lanciafiamme
+  if (a.nation === 'it') { paintItalianSoldier(c, a); return; }
   const type = a.type;
   const us = (a.nation || a.side) === 'us';
   const isSniper = type === 'sniper' || type === 'esniper';

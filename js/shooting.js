@@ -31,9 +31,12 @@ function tryGoProne(u, chance) {
   if (u.t.faction === 'jp') return;
   if (u.prone > 0 || u.proneCd > 0 || u.moveTo) return;          // running men keep running
   if (braveStandsFast(u)) return;                                // brave-card men hold their ground
-  if (Math.random() >= chance) return;
+  // Italian regulars with no officer steadying them are jumpy: they dive for
+  // cover more readily and stay down longer than a steadier soldier would.
+  const jumpy = u.t.wavers && !u.steadied;
+  if (Math.random() >= (jumpy ? Math.min(1, chance * 1.7) : chance)) return;
   const rank = u.rank || 0;   // Germans carry no rank and eat dirt the longest
-  u.prone = rand(2.5, 4.5) * (1 - rank * 0.15);
+  u.prone = rand(2.5, 4.5) * (1 - rank * 0.15) * (jumpy ? 1.3 : 1);
 }
 
 function coverBlock(target) {

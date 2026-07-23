@@ -3,7 +3,7 @@
 'use strict';
 
 let G = null;         // game state
-let G_forceFaction = null; // test harness: pin the endless enemy faction roll ('de' | 'jp')
+let G_forceFaction = null; // test harness: pin the endless enemy faction roll ('de' | 'jp' | 'it')
 let placing = null;   // placeable currently being placed
 let mouse = { x: W / 2, y: H / 2, inside: false };
 let drag = null;      // marquee selection in progress: { x0, y0, x1, y1, active }
@@ -87,10 +87,12 @@ function enemyFaction() {
   return (G && G.enemyFaction) || 'de';
 }
 function factionAdjUpper() {
-  return enemyFaction() === 'jp' ? 'JAPANESE' : 'GERMAN';
+  const f = enemyFaction();
+  return f === 'jp' ? 'JAPANESE' : f === 'it' ? 'ITALIAN' : 'GERMAN';
 }
 function factionPlural() {
-  return enemyFaction() === 'jp' ? 'Japanese' : 'Germans';
+  const f = enemyFaction();
+  return f === 'jp' ? 'Japanese' : f === 'it' ? 'Italians' : 'Germans';
 }
 
 function syncMuteButtons() {
@@ -181,12 +183,12 @@ function newGame(level, difficulty) {
   G.cardsOwned = level.id === 'endless' ? new Set(equippedEndlessCards()) : null;
   // War Chest front-loads the run's opening TP balance
   if (G.cardsOwned && G.cardsOwned.has('warchest')) G.tp += WAR_CHEST_TP;
-  // endless-only: each run rolls whether the sector faces the Wehrmacht or the
-  // Imperial Japanese Army. Every other mode (tutorials, campaigns) stays
-  // German so their scripted enemy types keep working. A caller (test harness)
-  // may pre-set G_forceFaction to lock the roll.
+  // endless-only: each run rolls which enemy the sector faces — the Wehrmacht,
+  // the Imperial Japanese Army, or the Regio Esercito. Every other mode
+  // (tutorials, campaigns) stays German so their scripted enemy types keep
+  // working. A caller (test harness) may pre-set G_forceFaction to lock the roll.
   G.enemyFaction = level.id === 'endless'
-    ? (G_forceFaction || (Math.random() < 0.5 ? 'jp' : 'de'))
+    ? (G_forceFaction || pick(['de', 'jp', 'it']))
     : 'de';
   // starting an endless run refreshes the shop's reroll price back to base
   if (level.id === 'endless') resetRerollCost();

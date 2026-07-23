@@ -743,6 +743,9 @@ const TANK_SWAP_RELOAD = 2.0; // seconds between the cannon and the coax
 // Flame Tank swaps a US Sherman's cannon for a hull flamethrower — returns the
 // spec when the player owns the card, null otherwise.
 function tankFlame(a) {
+  // an enemy flame tankette (the Italian L3 Lf) carries its flame spec on its
+  // type; the player's Sherman gets one from the Flame Tank card
+  if (a.t.tankFlame) return a.t.tankFlame;
   return (a.side === 'us' && G.cardsOwned && G.cardsOwned.has('flametank'))
     ? FLAME_TANK_FLAME : null;
 }
@@ -770,6 +773,16 @@ function tankTargets(a) {
       // enemy armor is the cannon's priority target, inside the turret arc
       cannon: tieredEnemyTarget(a, cannonRange, [e => e.t.tank && inCone(e), inCone]),
       mg: nearestEnemyInRange(a, mgRange, e => !e.t.tank && inCone(e)),
+    };
+  }
+  // enemy flame tankette: the "cannon" slot is its flame stream (infantry only —
+  // the coax MG also can't touch armor), driven to short flame range
+  const eflame = tankFlame(a);
+  if (eflame) {
+    const flameRange = unitRange(a, eflame.range) * fog;
+    return {
+      cannon: nearestUnitInRange(a, flameRange, inCone),
+      mg: nearestUnitInRange(a, mgRange, u2 => !u2.t.tank && inCone(u2)),
     };
   }
   return {

@@ -78,6 +78,16 @@ function paintTankHull(c, a) {
     c.strokeStyle = 'rgba(255,255,255,0.35)';
     c.lineWidth = 0.7;
     c.beginPath(); c.arc(0, 8, 3, 0, 7); c.stroke();
+  } else if (a.nation === 'it') {
+    // Regio Esercito: a red squadron ID rectangle and a white cross marking
+    c.fillStyle = '#a83028';
+    c.fillRect(-hw + 3, 5, 6, 4);
+    c.strokeStyle = 'rgba(230,230,220,0.85)';
+    c.lineWidth = 1.1;
+    c.beginPath();
+    c.moveTo(6, 6); c.lineTo(6, 12);
+    c.moveTo(3, 9); c.lineTo(9, 9);
+    c.stroke();
   }
   if (casemate) {
     c.fillStyle = heavy ? '#3a3a34' : '#44443b';
@@ -95,14 +105,15 @@ function paintTankHull(c, a) {
 function paintTankTurret(c, a) {
   const us = (a.nation || a.side) === 'us';
   const jp = a.nation === 'jp';
+  const it = a.nation === 'it';
   const heavy = !!a.t.heavy;
   const light = !!a.t.light;
   const tr = heavy ? 12 : light ? 8 : 10;
-  c.fillStyle = us ? '#54634a' : jp ? '#57552f' : (heavy ? '#353530' : '#4c4c43');
+  c.fillStyle = us ? '#54634a' : jp ? '#57552f' : it ? '#655f3f' : (heavy ? '#353530' : '#4c4c43');
   c.fillRect(6, -2.5, heavy ? 28 : light ? 19 : 24, heavy ? 6 : light ? 4 : 5);          // barrel
   c.fillStyle = '#26261f';
   c.fillRect(heavy ? 32 : 28, -3, 2.6, heavy ? 7 : 6);          // muzzle brake
-  c.fillStyle = us ? '#5b6b50' : jp ? '#6d6a3c' : (heavy ? '#3a3a34' : '#525249');
+  c.fillStyle = us ? '#5b6b50' : jp ? '#6d6a3c' : it ? '#79734f' : (heavy ? '#3a3a34' : '#525249');
   c.beginPath(); c.arc(0, 0, tr, 0, 7); c.fill();
   c.strokeStyle = us ? '#2f3b26' : '#2b2b25';
   c.lineWidth = 1.4;

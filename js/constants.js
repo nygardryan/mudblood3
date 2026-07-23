@@ -440,6 +440,145 @@ for (const t of Object.values(ENEMY_TYPES)) {
   if (t.faction === 'jp' && !t.tank) t.hp = Math.round(t.hp * 1.2);
 }
 
+// ---- Regio Esercito roster: the third alternate endless-mode foe. Every type
+// carries faction:'it', routing it through makeEnemy's nation pick and the
+// Italian soldier renderer. Their signature is MORALE: most of the line-infantry
+// types carry `wavers:true` — with no officer steadying them they break under
+// pressure and fall back (see updateItalianMorale in js/update-enemies.js), the
+// mirror image of the Japanese fanatic. Their officer (`steady:true`) is the
+// linchpin that holds the line together, and two elite types (Bersaglieri,
+// Folgore) never waver and press hard. Range/speed never exceed the allied
+// counterpart, same discipline as the other rosters.
+Object.assign(ENEMY_TYPES, {
+  irifle: {
+    // counterpart: rifleman (range 154, speed 42). Carcano M91 + folding bayonet.
+    // The brittle backbone: cheap, numerous, and the first to break without an officer.
+    name: 'Fante', hp: 68, speed: 24, range: 140, dmg: 12, acc: 0.44,
+    rof: 1.4, burst: 1, burstGap: 0, reward: 2,
+    color: '#74775a', gun: 8, sfx: 'rifle', priority: 1, faction: 'it', wavers: true,
+  },
+  ibersa: {
+    // NO true counterpart — an elite close-assault shotgunner (Bersaglieri,
+    // plumed helmet). He runs the field fast to get inside shotgun reach, then
+    // STOPS and fights, hosing your line with buckshot at close quarters (the
+    // enemy-shotgun AI in js/update-enemies.js holds ground while a target is in
+    // range). Tough enough to cross the open, and a mobile `steadier` that holds
+    // the wavering Fanti around him firm even with no officer present.
+    name: 'Bersagliere', hp: 120, speed: 38, range: 0, dmg: 0, acc: 0,
+    rof: 1.4, burst: 1, burstGap: 0, reward: 4,
+    color: '#5f6347', gun: 8, sfx: 'shotgun', priority: 2, faction: 'it',
+    shotgun: { range: 90, arc: 0.5, pellets: 8, dmg: 11, spread: 0.46 },
+    steadier: true,
+  },
+  imab: {
+    // counterpart: gunner (range 179, speed 36) — Beretta MAB 38 SMG close-assault.
+    name: 'Moschettiere', hp: 82, speed: 34, range: 92, dmg: 9, acc: 0.45,
+    rof: 0.9, burst: 3, burstGap: 0.08, reward: 2,
+    color: '#6b6f52', gun: 6, sfx: 'mg', priority: 1, faction: 'it', wavers: true,
+  },
+  igren: {
+    // counterpart: grenadier (range 231, speed 42) — SRCM 35 "red devil" grenades.
+    name: 'Bombardiere', hp: 80, speed: 24, range: 100, dmg: 10, acc: 0.42,
+    rof: 1.45, burst: 1, burstGap: 0, reward: 3,
+    color: '#767a5c', gun: 8, sfx: 'rifle', priority: 2, faction: 'it', grenade: true, wavers: true,
+  },
+  ibreda: {
+    // counterpart: gunner (range 179, speed 36) — Breda 30 light machine gun,
+    // capped to 168. A twitchy, wide-spread automatic — and notoriously
+    // unreliable: `jams:true` gives it periodic stoppages mid-fire (it can still
+    // reposition, just not shoot) that no other automatic weapon suffers.
+    name: 'Breda Gunner', hp: 100, speed: 15, range: 168, dmg: 10, acc: 0.34,
+    rof: 1.8, burst: 4, burstGap: 0.10, reward: 3,
+    color: '#6a6e50', gun: 10, sfx: 'mg', priority: 3, faction: 'it', wavers: true, jams: true,
+  },
+  ifiat: {
+    // counterpart: gunner (range 179, speed 36) — Fiat-Revelli M35 on a tripod.
+    // A dug-in crew that mans the gun and doesn't waver.
+    name: 'Fiat HMG', hp: 120, speed: 10, range: 176, dmg: 11, acc: 0.37,
+    rof: 1.9, burst: 5, burstGap: 0.09, reward: 4,
+    color: '#666a4c', gun: 11, sfx: 'mg', priority: 3, faction: 'it',
+  },
+  icecc: {
+    // counterpart: sniper (range 249, speed 38) — scoped Carcano in the scrub.
+    name: 'Cecchino', hp: 66, speed: 12, range: 200, dmg: 44, acc: 0.70,
+    rof: 6.0, burst: 1, burstGap: 0, reward: 4,
+    color: '#5c6046', gun: 12, sfx: 'sniper', priority: 4, faction: 'it', wavers: true,
+  },
+  ibrixia: {
+    // Brixia Model 35 45mm light mortar — the Italian knee-mortar analogue. Short
+    // reach (20% under the Cecchino's, so a sniper outranges it) but fires often.
+    name: 'Brixia Mortar', hp: 80, speed: 16, range: 78, dmg: 7, acc: 0.42,
+    rof: 1.1, burst: 1, burstGap: 0, reward: 4,
+    color: '#717555', gun: 5, sfx: 'pistol', priority: 4, faction: 'it', wavers: true,
+    mortar: { range: 160, min: 70, cdMin: 5, cdMax: 7, r: 30, dmg: 55, flight: 1.3, scatter: 46 },
+  },
+  imortaio: {
+    // counterpart: mortarman (mortar range 348) — Mortaio da 81 team. Long reach,
+    // heavy shell, slow to fire; blind up close.
+    name: 'Mortaio 81', hp: 88, speed: 15, range: 78, dmg: 7, acc: 0.44,
+    rof: 1.0, burst: 1, burstGap: 0, reward: 5,
+    color: '#6d7153', gun: 5, sfx: 'pistol', priority: 4, faction: 'it', wavers: true,
+    mortar: { range: 330, min: 120, cdMin: 9, cdMax: 12, r: 40, dmg: 80, flight: 1.6, scatter: 52 },
+  },
+  iuff: {
+    // counterpart: officer (range 101, speed 44) — the linchpin. His aura not
+    // only stiffens fire (steady:true) but holds the wavering line together: any
+    // Italian regular inside it stops breaking. Kill him and the sector collapses.
+    name: 'Ufficiale', hp: 92, speed: 26, range: 96, dmg: 10, acc: 0.5,
+    rof: 0.9, burst: 1, burstGap: 0, reward: 6,
+    color: '#828763', gun: 6, sfx: 'pistol', priority: 5, faction: 'it',
+    aura: true, steady: true, avantiCmd: true,
+  },
+  iflame: {
+    // counterpart: flamer (flame range 78, speed 38) — Lanciafiamme Modello 40.
+    // A committed assault man; doesn't waver.
+    name: 'Lanciafiamme', hp: 100, speed: 32, range: 76, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 4,
+    color: '#6f7350', gun: 8, sfx: 'rifle', priority: 3, faction: 'it',
+    flame: { range: 76, arc: 0.45, dps: 40 }, blastResist: 0.5,
+  },
+  ifolgore: {
+    // NO true counterpart — an elite paratrooper/Arditi assault trooper. Tough,
+    // fast, grenade-armed, and utterly steady: the other unit that never breaks.
+    name: 'Folgore', hp: 112, speed: 36, range: 112, dmg: 11, acc: 0.46,
+    rof: 1.1, burst: 1, burstGap: 0, reward: 5,
+    color: '#565a40', gun: 9, sfx: 'rifle', priority: 3, faction: 'it',
+    grenade: true, steadier: true,
+  },
+  il3: {
+    // counterpart: sherman (range 262, speed 14) — L3/35 Lf flamethrower tankette.
+    // The ONLY flame-throwing armor any faction fields: no cannon, it drives into
+    // short range and washes the line in fire (`tankFlame`), backed by a hull MG.
+    // Tiny, thin-skinned, and fast — and it swarms in early. A wall of flame on
+    // tracks is the Italian answer to a dug-in line.
+    name: 'L3 Lf Tankette', hp: 360, speed: 20, range: 112, dmg: 0, acc: 0,
+    rof: 3.4, burst: 1, burstGap: 0, reward: 8,
+    color: '#7e7a5a', gun: 0, sfx: 'boom', priority: 0, tank: true, light: true, faction: 'it',
+    fireCone: { arc: 0.30 },
+    tankFlame: { range: 112, arc: 0.40, dps: 46 },
+    mg: { range: 128, dmg: 6, acc: 0.4, burst: 6, burstGap: 0.07, gun: 20, sfx: 'mg' },
+  },
+  im13: {
+    // counterpart: sherman (range 262, speed 14) — M13/40 medium. The heaviest tank
+    // Italy fielded in numbers: a 47mm gun and modest armor, riveted and slow.
+    name: 'M13/40', hp: 850, speed: 12, range: 200, dmg: 0, acc: 0,
+    rof: 4.4, burst: 1, burstGap: 0, reward: 14, shellDmg: 80,
+    color: '#847f5c', gun: 0, sfx: 'boom', priority: 0, tank: true, faction: 'it',
+    fireCone: { arc: 0.25 },
+    mg: { range: 150, dmg: 7, acc: 0.4, burst: 5, burstGap: 0.08, gun: 22, sfx: 'mg' },
+  },
+  isemo: {
+    // counterpart: sherman (range 262, speed 14) — Semovente 75/18 assault gun.
+    // Low casemate mount, no turret; a punchy 75mm and the best AT the Italians
+    // bring. Hunts your armor and strongpoints from range.
+    name: 'Semovente', hp: 780, speed: 12, range: 210, dmg: 0, acc: 0,
+    rof: 4.0, burst: 1, burstGap: 0, reward: 13, shellDmg: 108,
+    color: '#787454', gun: 0, sfx: 'boom', priority: 0, tank: true, casemate: true, faction: 'it',
+    fireCone: { arc: 0.20 },
+    mg: { range: 134, dmg: 6, acc: 0.38, burst: 4, burstGap: 0.08, gun: 20, sfx: 'mg' },
+  },
+});
+
 const ENEMY_INFO = {
   erifle: 'Standard Wehrmacht infantry. Slow, steady, and expendable — but there are always more of them.',
   esmg: 'Assault troops with MP40s. Fast movers who shred your line in close bursts.',
@@ -474,6 +613,24 @@ const ENEMY_INFO = {
   jhago: 'Type 95 Ha-Go light tank. Thin-skinned and armed with only a 37mm gun, but fast — and it shows up long before the heavier armor.',
   jtank: 'Type 97 Chi-Ha. Lighter and faster than a Panzer, with a stubby 57mm gun and a hull MG. Small arms still bounce off it.',
   jchinu: 'Type 3 Chi-Nu. The heaviest tank Japan fielded — a 75mm gun and thick armor. Slow, late, and ruinous. Use AT weapons.',
+  // Regio Esercito — the third alternate endless foe. Their regulars WAVER: with
+  // no officer nearby they break under pressure and fall back. Kill the officers
+  // and the line collapses on its own; leave them and it presses.
+  irifle: 'Carcano rifleman — the brittle backbone. Steady with an officer near, but the first to break and fall back once he isn\'t.',
+  ibersa: 'Bersagliere close-assault trooper in a plumed helmet. Elite and quick — he runs the field to get inside buckshot range, then stops and shreds your line up close. Never wavers, and steadies the shaky Fanti around him; killing him lets the nearby line crumble.',
+  imab: 'Beretta MAB 38 submachine-gunner. A fast close-assault trooper, but he wavers without an officer to steady him.',
+  igren: 'Bombardiere with SRCM "red devil" grenades. The blast ignores friend and foe. Wavers without an officer.',
+  ibreda: 'Breda 30 light machine gun. Rakes your line with a wide, twitchy spread — but the finicky gun jams often, falling silent mid-fight, and his nerve goes without a leader.',
+  ifiat: 'Fiat-Revelli heavy machine gun on a tripod. A dug-in crew that mans the gun and holds — long-range fire that pins a whole line.',
+  icecc: 'Cecchino marksman in the scrub. Picks off officers, medics, and gunners — but wavers under return fire without a leader.',
+  ibrixia: 'Brixia 45mm light mortar. Short-ranged but fast-firing; lobs shells over your front rank. Wavers without an officer.',
+  imortaio: 'Mortaio da 81 team. Drops heavy shells into your backfield from beyond rifle range; blind up close. Wavers without a leader.',
+  iuff: 'The linchpin. His presence stiffens the troops AND steadies the waverers around him — no rout while he lives. On a cadence he screams "AVANTI!", rallying any routing men and surging the whole knot around him into a charge. Kill him first and the sector caves in.',
+  iflame: 'Lanciafiamme operator. Burns through wire, sandbags, and flesh — his own men included. A committed assault man who doesn\'t break.',
+  ifolgore: 'Folgore paratrooper — elite, tough, grenade-armed, and utterly steady. Fast, aggressive, never wavers, and steadies the shaky men around him.',
+  il3: 'L3/35 Lf flamethrower tankette — the only flame-throwing armor on the field. It drives into short range and washes your line in fire. Thin-skinned and fast, and it comes in a swarm; kill it before it closes or burn with it.',
+  im13: 'M13/40 medium tank. A 47mm gun and riveted armor — the heaviest Italy fields in numbers. Slow. Use AT weapons.',
+  isemo: 'Semovente 75/18 assault gun. A low turretless casemate and a punchy 75mm — the best AT the Italians bring. Hunts your armor from range.',
 };
 
 const EVENT_INFO = [
@@ -662,6 +819,41 @@ const TESTING_JAPANESE_PLACEABLES = [
     desc: 'Type 97 Chi-Ha. Lighter, quicker armor with a 57mm gun.' },
   { key: 'jchinu', label: 'CHI-NU', cost: 120, kind: 'egerman', hotkey: '',
     desc: 'Type 3 Chi-Nu. Heavy armor and a 75mm gun. Slow and late.' },
+];
+
+// endless testing/deploy roster for the Regio Esercito. Same 'egerman' routing
+// as the German/Japanese test lists (makeEnemy reads faction:'it' off each type).
+const TESTING_ITALIAN_PLACEABLES = [
+  { key: 'irifle', label: 'FANTE', cost: 4, kind: 'egerman', hotkey: '',
+    desc: 'Carcano rifleman. Brittle — wavers and falls back without an officer.' },
+  { key: 'ibersa', label: 'BERSAGLIERE', cost: 5, kind: 'egerman', hotkey: '',
+    desc: 'Elite close-assault shotgunner. Runs in, then stops and shreds up close. Steadies nearby Fanti.' },
+  { key: 'imab', label: 'MAB SMG', cost: 4, kind: 'egerman', hotkey: '',
+    desc: 'Beretta MAB 38 close-assault trooper. Fast, but wavers.' },
+  { key: 'igren', label: 'BOMBARDIERE', cost: 10, kind: 'egerman', hotkey: '',
+    desc: 'Grenadier. Lobs "red devil" frags; blast ignores friend and foe. Wavers.' },
+  { key: 'ibreda', label: 'BREDA LMG', cost: 9, kind: 'egerman', hotkey: '',
+    desc: 'Breda 30 LMG. Wide-spread automatic that jams often. Wavers.' },
+  { key: 'ifiat', label: 'FIAT HMG', cost: 9, kind: 'egerman', hotkey: '',
+    desc: 'Fiat-Revelli heavy MG on a tripod. Long-range suppression; holds firm.' },
+  { key: 'icecc', label: 'CECCHINO', cost: 10, kind: 'egerman', hotkey: '',
+    desc: 'Scoped-Carcano marksman. Picks priority targets. Wavers.' },
+  { key: 'ibrixia', label: 'BRIXIA MTR', cost: 14, kind: 'egerman', hotkey: '',
+    desc: 'Brixia 45mm light mortar. Short-ranged, fast-firing. Wavers.' },
+  { key: 'imortaio', label: 'MORTAIO 81', cost: 14, kind: 'egerman', hotkey: '',
+    desc: 'Mortaio da 81 team. Long-range indirect fire; blind up close. Wavers.' },
+  { key: 'iuff', label: 'UFFICIALE', cost: 15, kind: 'egerman', hotkey: '',
+    desc: 'Officer. Aura buff, steadies waverers, and screams AVANTI to rally & surge them.' },
+  { key: 'iflame', label: 'LANCIAFIAMME', cost: 6, kind: 'egerman', hotkey: '',
+    desc: 'Lanciafiamme operator. Burns everything in the cone. Steady.' },
+  { key: 'ifolgore', label: 'FOLGORE', cost: 15, kind: 'egerman', hotkey: '',
+    desc: 'Elite paratrooper. Tough, grenade-armed, aggressive, never wavers.' },
+  { key: 'il3', label: 'L3 Lf TANKETTE', cost: 40, kind: 'egerman', hotkey: '',
+    desc: 'L3/35 Lf flame tankette. Fast, thin-skinned; washes the line in fire. Swarms early.' },
+  { key: 'im13', label: 'M13/40', cost: 80, kind: 'egerman', hotkey: '',
+    desc: 'M13/40 medium tank. 47mm gun and riveted armor. Slow.' },
+  { key: 'isemo', label: 'SEMOVENTE', cost: 110, kind: 'egerman', hotkey: '',
+    desc: 'Semovente 75/18 assault gun. Casemate 75mm — the Italians\' best AT.' },
 ];
 
 // testing-mode-only ability: an instant field promotion for every unit —

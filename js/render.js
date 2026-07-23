@@ -185,7 +185,10 @@ function draw() {
   }
 
   for (const e of G.enemies) {
-    if (!e.dead && e.t.flame && e.flameT > 0) drawFlameStream(e);
+    if (e.dead || !(e.flameT > 0)) continue;
+    if (e.t.flame) drawFlameStream(e);
+    // the L3 Lf tankette sprays down its turret bearing like the Flame Tank
+    else if (e.t.tankFlame) drawFlameStream(e, { flame: e.t.tankFlame, bearing: e.turret, originDist: 18 });
   }
   for (const u of G.units) {
     if (u.dead || !(u.flameT > 0)) continue;
@@ -197,6 +200,9 @@ function draw() {
   }
   for (const u of G.units) {
     if (!u.dead && u.t.shotgun && u.shotgunBlastT > 0) drawShotgunBlast(u);
+  }
+  for (const e of G.enemies) {
+    if (!e.dead && e.t.shotgun && e.shotgunBlastT > 0) drawShotgunBlast(e);
   }
 
   // tracers — the round races from muzzle to impact, then the streak fades

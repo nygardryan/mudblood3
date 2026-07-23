@@ -78,6 +78,16 @@ function updateEnemy(e, dt) {
   if (e.t.banzai) { updateBanzai(e, dt, buffed, command); return; }
   if (e.t.lunge) { updateLunge(e, dt, buffed, command); return; }
 
+  // Regio Esercito morale: a wavering regular breaks and falls back unless
+  // something steadies him — an officer's aura (buffed) OR a nearby elite
+  // (Bersagliere/Folgore), who act as roving morale anchors. `steadied` is read
+  // by tryGoProne so a leaderless man also dives for cover more readily.
+  if (e.t.wavers && !command) {
+    const steady = buffed || italianSteadierNear(e);
+    e.steadied = steady;
+    if (updateItalianMorale(e, dt, steady)) return;   // currently routing: skip combat
+  }
+
   // player-ordered movement: run to the marker, no shooting on the move
   if (command) {
     if (e.moveTo) {
@@ -140,6 +150,8 @@ function updateEnemy(e, dt) {
 
   // a Japanese officer periodically screams the charge order while he fights on
   if (e.t.banzaiCmd && !command) japBanzaiCommand(e, dt);
+  // an Italian officer screams AVANTI! — rallies routers and surges the men near him
+  if (e.t.avantiCmd && !command) italianAvantiCommand(e, dt);
 
   const target = nearestUnitInRange(e, range);
   let rocketTarget = null;
@@ -248,9 +260,11 @@ function updateEnemy(e, dt) {
 
   if (target) {
     rollEnemyPushUrge(e, engageTarget, dt, command);
-    runWeapon(e, target, dt, buffed ? { rofMult: 0.8 } : null);
-    // stormtroopers keep pushing even under fire
-    if (!command && e.t.speed >= 30 && dist2(e, target) > range * range * 0.25) {
+    // the Breda 30 seizes up periodically — it can still reposition, just not fire
+    if (!weaponJammed(e, dt)) runWeapon(e, target, dt, buffed ? { rofMult: 0.8 } : null);
+    // fast assault troops keep pushing under fire; a Bersagliere `runner` never
+    // stops to shoot from range at all — he's always closing the distance
+    if (!command && (e.t.runner || (e.t.speed >= 30 && dist2(e, target) > range * range * 0.25))) {
       advance(e, dt, buffed);
     }
   } else if (engageTarget) {
@@ -439,6 +453,100 @@ function japBanzaiCommand(e, dt) {
   if (roused > 0) {
     SFX.scream();
     G.texts.push({ x: e.x, y: e.y - 24, text: 'BANZAI!', ttl: 1.6 });
+  }
+}
+
+// ---- Regio Esercito: morale & wavering ----
+
+// A wavering Italian regular breaks when no officer is near to steady him: he
+// stops fighting and falls back up-field for a beat (routT). Being hurt makes a
+// break far likelier. An officer's aura (buffed) prevents it outright and cuts
+// short any rout already underway. Returns true while the man is routing, so the
+// caller skips his combat logic this frame.
+function updateItalianMorale(e, dt, buffed) {
+  if (buffed) { e.routT = 0; return false; }   // an officer nearby steels him
+  if (e.routT > 0) {
+    e.routT -= dt;
+    retreatUpfield(e, dt);
+    return true;
+  }
+  e.moraleCd = (e.moraleCd == null ? rand(2, 4) : e.moraleCd) - dt;
+  if (e.moraleCd > 0) return false;
+  e.moraleCd = rand(3, 6);
+  const hpFrac = e.hp / e.maxhp;
+  // healthy men mostly hold; a hurt and leaderless one is very likely to run
+  const chance = hpFrac < 0.4 ? 0.55 : hpFrac < 0.7 ? 0.30 : 0.10;
+  if (Math.random() < chance) {
+    e.routT = rand(1.1, 2.3);
+    if (Math.random() < 0.5) G.texts.push({ x: e.x, y: e.y - 22, text: 'RITIRATA!', ttl: 1.2 });
+  }
+  return false;
+}
+
+// falls back toward the top edge, weapon down; clamped so he doesn't flee off
+// the map — he rallies at the staging line and comes on again
+function retreatUpfield(e, dt) {
+  e.wobble += dt * 3;
+  e.face = -Math.PI / 2 + Math.sin(e.wobble) * 0.3;   // faced up-field, the wrong way
+  const speed = e.t.speed * 1.15;                       // a scared man moves quick
+  e.x = clamp(e.x + Math.cos(e.face) * speed * dt * 0.3, 14, W - 14);
+  e.y = Math.max(-20, e.y - speed * dt);
+}
+
+// an elite (Bersagliere / Folgore) within range steadies the wavering men around
+// him even with no officer present — a roving morale anchor. Cheap linear scan,
+// only run for a wavering man who has no officer aura already holding him.
+const ITALIAN_STEADY_RADIUS = 120;
+function italianSteadierNear(e) {
+  const r2 = ITALIAN_STEADY_RADIUS * ITALIAN_STEADY_RADIUS;
+  for (const o of G.enemies) {
+    if (o.dead || o === e || !o.t.steadier || o.chute > 0) continue;
+    if (dist2(o, e) < r2) return true;
+  }
+  return false;
+}
+
+// the finicky Breda 30: on a cadence its action seizes for a beat. While jammed
+// the gun can't fire (the caller skips runWeapon) but the man may still move.
+function weaponJammed(e, dt) {
+  if (!e.t.jams) return false;
+  if (e.jamT > 0) { e.jamT -= dt; return true; }
+  e.jamCd = (e.jamCd == null ? rand(3, 6) : e.jamCd) - dt;
+  if (e.jamCd <= 0) {
+    e.jamCd = rand(4, 8);
+    if (Math.random() < 0.5) {
+      e.jamT = rand(1.1, 2.2);
+      e.burstLeft = 0;   // drop any burst in progress
+      G.texts.push({ x: e.x, y: e.y - 20, text: 'inceppato!', ttl: 1.0 });
+      return true;
+    }
+  }
+  return false;
+}
+
+// AVANTI SAVOIA! On a cooldown the officer rallies every Italian soldier around
+// him: any man mid-rout snaps out of it, and the whole knot gets a forward surge
+// (chargeT) plus the push urge — the officer's active counter to his own faction's
+// brittle morale. Mirror of the Japanese banzai command.
+const AVANTI_CMD_RADIUS = 150;
+function italianAvantiCommand(e, dt) {
+  e.avantiCd = (e.avantiCd == null ? rand(7, 13) : e.avantiCd) - dt;
+  if (e.avantiCd > 0) return;
+  e.avantiCd = rand(13, 19);
+  let roused = 0;
+  const r2 = AVANTI_CMD_RADIUS * AVANTI_CMD_RADIUS;
+  for (const o of G.enemies) {
+    if (o === e || o.dead || o.t.tank || o.t.fixed || o.chute > 0) continue;
+    if (o.t.faction !== 'it') continue;
+    if (dist2(e, o) > r2) continue;
+    o.routT = 0;                              // rally anyone who was falling back
+    o.chargeT = rand(2.2, 3.6);
+    o.pushT = Math.max(o.pushT || 0, o.chargeT);
+    roused++;
+  }
+  if (roused > 0) {
+    SFX.scream();
+    G.texts.push({ x: e.x, y: e.y - 24, text: 'AVANTI!', ttl: 1.6 });
   }
 }
 

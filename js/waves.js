@@ -138,6 +138,52 @@ function japWaveComposition(w) {
   return out;
 }
 
+// Regio Esercito composition. Same size/tempo curve as the others, but its own
+// character: a brittle line of Fanti stiffened by Bersaglieri and led by the
+// all-important officer, plenty of automatic weapons and mortars, and — instead
+// of the German halftrack/bike or the Japanese banzai/lunge — a swarm of thin,
+// fast light tankettes that arrive early and in numbers.
+function itaWaveComposition(w) {
+  const late = wavesPast99(w);
+  const mult = enemySpawnMult(w);
+  const baseSize = Math.min(
+    2 + Math.floor(w / 2.5) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 4),
+    9 + Math.floor(w / 14) + Math.floor(late / 6),
+  );
+  const minSize = w > 4 ? 3 : 1;
+  const size = Math.max(minSize, Math.round(baseSize * mult));
+  const pool = ['irifle', 'irifle', 'irifle'];
+  if (w >= 3) pool.push('ibersa');               // elite skirmishers stiffen the line early
+  if (w >= 4) pool.push('imab', 'imab');
+  if (w >= 6) pool.push('ibreda');
+  if (w >= 7) pool.push('igren');
+  if (w >= 8) pool.push('ibrixia');
+  if (w >= 9) pool.push('ifiat');
+  if (w >= 11) pool.push('iflame');
+  if (w >= 13) pool.push('icecc');
+  if (w >= 15) pool.push('ifolgore');            // more elites as it scales
+  if (w >= 16) pool.push('imortaio');
+  const out = [];
+  for (let i = 0; i < size; i++) out.push(pick(pool));
+  // the officer is the linchpin of this faction — he shows a touch more often
+  // than the others, because without him the wave breaks itself
+  if (w >= 10 && Math.random() < (0.40 + late * 0.004) * mult) out.push('iuff');
+  // light-armor swarm: the L3 tankette arrives early and comes several at a time,
+  // the M13 medium from the mid game, and the Semovente assault gun late
+  const armorChance = (0.12 + Math.max(0, w - 11) * 0.0025) * (1 + late * 0.05) * mult;
+  if (w >= 11 && Math.random() < armorChance) out.push('il3');
+  if (w >= 16 && Math.random() < armorChance * 0.8) out.push('il3');   // they hunt in packs
+  if (w >= 24 && Math.random() < armorChance) out.push('im13');
+  if (w >= 42 && Math.random() < armorChance * 0.7) out.push('isemo');
+  if (late > 0) {
+    const armorShare = Math.min(0.45, late * 0.014);
+    const armorPool = ['il3', 'il3', 'il3', 'im13', 'isemo'];   // tankette-heavy
+    const armorCount = Math.round(size * armorShare);
+    for (let i = 0; i < armorCount; i++) out.push(pick(armorPool));
+  }
+  return out;
+}
+
 // ---- themed set-piece assaults: every 10th wave the enemy commits to a
 // scripted attack. Themes cycle; the tier (wave/10) keeps climbing forever,
 // so each theme returns bigger and meaner the next time around.
@@ -325,9 +371,95 @@ const JP_SPECIAL_WAVES = [
   },
 ];
 
+// Regio Esercito set-piece assaults — their own rotation, leaning on the
+// Bersaglieri spearhead, a tankette swarm, a massed mortar bombardment, and a
+// combined-arms push held together by officers.
+const ITA_SPECIAL_WAVES = [
+  {
+    key: 'avanti',
+    banner: 'AVANTI SAVOIA! BERSAGLIERI CHARGE!',
+    // a running line of elite skirmishers across the field, officers in support
+    spawn(t) {
+      const count = Math.floor(specialWaveMult(t) * (8 + 2 * t));
+      for (let i = 0; i < count; i++) {
+        const x = (W / (count + 1)) * (i + 1) + rand(-24, 24);
+        const roll = Math.random();
+        const type = roll < 0.6 ? 'ibersa' : roll < 0.78 ? 'imab' : 'irifle';
+        spawnEnemyAt(type, x, rand(-90, -20));
+      }
+      const officers = Math.floor(specialWaveMult(t) * (1 + t / 4));
+      for (let i = 0; i < officers; i++) {
+        spawnEnemyAt('iuff', rand(120, W - 120), rand(-120, -80));
+      }
+    },
+  },
+  {
+    key: 'carristi',
+    banner: 'CARRISTI! TANKETTE SWARM!',
+    // a rush of thin fast L3 tankettes with an M13 or two in the second echelon,
+    // a rifle screen out front — the Italian answer to the Panzerkeil
+    spawn(t) {
+      const cx = rand(140, W - 140);
+      const tankettes = Math.floor(specialWaveMult(t) * (3 + t));
+      for (let i = 0; i < tankettes; i++) {
+        spawnEnemyAt('il3', cx + rand(-180, 180), -30 - i * rand(40, 90));
+      }
+      const mediums = t < 4 ? 0 : Math.floor(specialWaveMult(t) * (t - 3) / 3);
+      for (let i = 0; i < mediums; i++) {
+        spawnEnemyAt('im13', cx + rand(-160, 160), -90 - i * 120);
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (4 + t / 2)); i++) {
+        spawnEnemyAt(pick(['irifle', 'imab', 'ibersa']), cx + rand(-200, 200), rand(-60, -20));
+      }
+    },
+  },
+  {
+    key: 'sbarramento',
+    banner: 'SBARRAMENTO! MORTAR BOMBARDMENT!',
+    // a cluster of Brixia and 81mm teams lobbing shells behind an automatic screen
+    spawn(t) {
+      const mortars = Math.floor(specialWaveMult(t) * (3 + t / 2));
+      for (let i = 0; i < mortars; i++) {
+        spawnEnemyAt(Math.random() < 0.6 ? 'ibrixia' : 'imortaio', rand(70, W - 70), rand(-120, -50));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (5 + t)); i++) {
+        spawnEnemyAt(pick(['irifle', 'irifle', 'ibreda', 'ifiat']), rand(50, W - 50), rand(-80, -20));
+      }
+      const officers = Math.floor(specialWaveMult(t) * (0.5 + t / 6));
+      for (let i = 0; i < officers; i++) {
+        spawnEnemyAt('iuff', rand(120, W - 120), rand(-110, -70));
+      }
+    },
+  },
+  {
+    key: 'folgore',
+    banner: 'FOLGORE! THE STEADY ONES COME!',
+    // everything at once: elite Folgore and flamers behind an armored spearhead,
+    // officers everywhere to hold the whole assault together
+    spawn(t) {
+      const count = Math.floor(specialWaveMult(t) * (9 + 2 * t));
+      for (let i = 0; i < count; i++) {
+        const x = (W / (count + 1)) * (i + 1) + rand(-24, 24);
+        const roll = Math.random();
+        const type = roll < 0.5 ? 'ifolgore' : roll < 0.68 ? 'ibersa' : roll < 0.82 && t >= 3 ? 'iflame' : 'irifle';
+        spawnEnemyAt(type, x, rand(-100, -20));
+      }
+      const tankettes = Math.floor(specialWaveMult(t) * (1 + t / 3));
+      for (let i = 0; i < tankettes; i++) {
+        spawnEnemyAt('il3', rand(100, W - 100), -40 - i * 90);
+      }
+      const officers = Math.floor(specialWaveMult(t) * (1 + t / 4));
+      for (let i = 0; i < officers; i++) {
+        spawnEnemyAt('iuff', rand(120, W - 120), rand(-130, -90));
+      }
+    },
+  },
+];
+
 function spawnSpecialWave(w) {
   const tier = w / 10;
-  const set = enemyFaction() === 'jp' ? JP_SPECIAL_WAVES : SPECIAL_WAVES;
+  const f = enemyFaction();
+  const set = f === 'jp' ? JP_SPECIAL_WAVES : f === 'it' ? ITA_SPECIAL_WAVES : SPECIAL_WAVES;
   const theme = set[(tier - 1) % set.length];
   showBanner(theme.banner);
   theme.spawn(tier);
@@ -340,7 +472,8 @@ function launchWave(w) {
     spawnSpecialWave(w);
     return;
   }
-  const comp = enemyFaction() === 'jp' ? japWaveComposition(w) : waveComposition(w);
+  const f = enemyFaction();
+  const comp = f === 'jp' ? japWaveComposition(w) : f === 'it' ? itaWaveComposition(w) : waveComposition(w);
   const cx = rand(100, W - 100);
   for (const type of comp) {
     const x = clamp(cx + rand(-90, 90), 30, W - 30);
@@ -359,7 +492,10 @@ function spawnWave() {
   awardWaveMedals();
   launchWave(G.wave);
   if (G.wave === 1) {
-    showBanner(enemyFaction() === 'jp' ? 'THE IMPERIAL ARMY ATTACKS' : 'HERE THEY COME');
+    const f = enemyFaction();
+    showBanner(f === 'jp' ? 'THE IMPERIAL ARMY ATTACKS'
+      : f === 'it' ? 'THE REGIO ESERCITO ATTACKS'
+      : 'HERE THEY COME');
   }
 }
 

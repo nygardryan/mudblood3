@@ -209,6 +209,25 @@ function fireJeepBazooka(u, dt) {
   });
 }
 
+// Armor Piercing: a unique gunner card. His BAR loads an AP belt that chews
+// through armor — enemy jeeps (Kübelwagen), halftracks/amtracks and motorcycles
+// take extra damage per round, and even tanks feel it. The tank multiplier is
+// larger because armored rounds start from the 0.04 armor floor in fireShot,
+// so a small factor there would vanish; even at this rate the gunner only chips
+// a tank down, never cracks one like the bazooka does. Flag-only, like Rifled
+// Slugs: fireShot reads G.cardsOwned when a gunner's round lands on a vehicle.
+const ARMOR_PIERCING_MULT = 3;        // jeeps, halftracks, motorcycles
+const ARMOR_PIERCING_TANK_MULT = 6;   // tanks, on top of their heavy armor floor
+
+function armorPiercingMult(shooter, target) {
+  if (shooter.side !== 'us' || shooter.type !== 'gunner') return 1;
+  if (!target.t) return 1;
+  if (!(G.cardsOwned && G.cardsOwned.has('armorpiercing'))) return 1;
+  if (target.t.tank) return ARMOR_PIERCING_TANK_MULT;
+  if (target.t.bike || target.t.vehicle) return ARMOR_PIERCING_MULT;
+  return 1;
+}
+
 // an instant reload is worth whatever the cooldown it erases is worth:
 // near-nothing on fast-cycling rifles, a run-warping 6 on the bazooka, whose
 // long rocket cooldown vanishes entirely against massed waves
@@ -380,6 +399,13 @@ const CARD_UNIQUES = {
   bazookarider: {
     unit: 'jeep', name: 'Bazooka Rider', cost: 12, weight: 4,
     desc: 'A bazooka gunner rides shotgun in every jeep, launching armor-piercing rockets on the move — the .50 keeps talking while he hunts tanks.',
+    hooks: {},
+  },
+  // flag-only, like Rifled Slugs: fireShot reads G.cardsOwned via
+  // armorPiercingMult and boosts a gunner's damage against light enemy vehicles
+  armorpiercing: {
+    unit: 'gunner', name: 'Armor Piercing', cost: 9, weight: 3,
+    desc: `The gunner loads AP rounds: his BAR deals ${ARMOR_PIERCING_MULT}x damage to enemy jeeps, halftracks, and motorcycles, and ${ARMOR_PIERCING_TANK_MULT}x against tanks — enough to chip armor, not to crack it like a bazooka.`,
     hooks: {},
   },
   crackshot: {

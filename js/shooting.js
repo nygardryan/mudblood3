@@ -144,6 +144,9 @@ function fireShot(shooter, target, opts) {
     let dmg = t.dmg * rand(0.75, 1.25) * (opts && opts.dmgMult ? opts.dmgMult : 1);
     if (target.t && target.t.tank) dmg *= 0.04;   // rifle rounds ping off armor
     else if (target.t && target.t.apc) dmg *= 0.3; // halftrack plate shrugs off most of it
+    // Armor Piercing (gunner unique): AP belt punches through light armor,
+    // so jeeps, halftracks and motorcycles take the multiplier on top
+    dmg *= armorPiercingMult(shooter, target);
     if (target.side === 'us') damageUnit(target, dmg, shooter);
     else damageEnemy(target, dmg, shooter);
   } else {

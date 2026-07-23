@@ -52,6 +52,17 @@ const EMERGENCY_REPAIR_COOLDOWN = 60;
 const CLUSTER_ROUNDS_SHELLS = 4;
 const CLUSTER_ROUNDS_SCATTER_MULT = 1.6;
 
+// Frag Grenades: a grenadier's frag now sprays fragments on detonation. Each
+// pellet flies out in a random direction, punches through anyone in its path
+// (friend or foe — this is unaimed shrapnel), and burns off over shotgun-ish
+// reach. spawnShrapnel (ordnance.js) reads these; the card is flag-only, gated
+// on G.cardsOwned.has('fraggrenades') at the grenade's explosion in update.js.
+const FRAG_SHRAPNEL_COUNT = 20;
+const FRAG_SHRAPNEL_RANGE = 200;   // px a fragment travels before it spends out
+const FRAG_SHRAPNEL_SPEED = 340;   // px/s
+const FRAG_SHRAPNEL_DMG = 15;      // per pellet, at point blank; falls off with range
+const FRAG_SHRAPNEL_HITR = 9;      // px radius a fragment sweeps for bodies
+
 // Vampiric Flame: a slow-burn siphon that returns some of the flamer's own
 // damage on enemies as healing. flameSpray reads this fraction directly.
 const VAMPIRIC_FLAME_LIFESTEAL = 0.18;
@@ -395,6 +406,13 @@ const CARD_UNIQUES = {
   impactfuze: {
     unit: 'grenadier', name: 'Impact Fuze', cost: 10, weight: 3,
     desc: 'Grenadier frags detonate the instant they land instead of cooking off after a fuse.',
+    hooks: {},
+  },
+  // flag-only, like Impact Fuze: the grenade explosion in update.js reads
+  // G.cardsOwned and calls spawnShrapnel when a grenadier's frag goes off.
+  fraggrenades: {
+    unit: 'grenadier', name: 'Frag Grenades', cost: 11, weight: 4,
+    desc: `Grenadier frags burst into ${FRAG_SHRAPNEL_COUNT} fragments flying in every direction — they tear through anything in their path, so mind your own men.`,
     hooks: {},
   },
   extendedtube: {

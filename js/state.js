@@ -134,6 +134,7 @@ function newGame(level, difficulty) {
     ammoCrates: [],
     shells: [],      // incoming ordnance {x,y,timer,r,dmg,big}
     grenades: [],    // thrown grenades in flight
+    shrapnel: [],    // Frag Grenades card: fragments flung from a grenadier blast
     rockets: [],     // bazooka rockets in flight
     planes: [],      // aircraft: friendly strafing runs, transports, enemy bombers
     flak: [],        // AA shells fused to burst in mid-air {x,y,timer,...}

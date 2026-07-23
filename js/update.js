@@ -180,12 +180,56 @@ function update(dt) {
       if (g.t >= g.dur) {
         g.landed = true;
         const impactFuze = g.by && g.by.type === 'grenadier' && G.cardsOwned && G.cardsOwned.has('impactfuze');
-        if (impactFuze) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); }
+        if (impactFuze) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); maybeFragShrapnel(g); }
         else g.fuse = 3;
       }
     } else {
       g.fuse -= dt;
-      if (g.fuse <= 0) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); }
+      if (g.fuse <= 0) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); maybeFragShrapnel(g); }
+    }
+  }
+
+  // Frag Grenades shrapnel: unaimed fragments streaking out of a grenadier's
+  // blast. Each pellet advances along its heading, peppering any body it
+  // sweeps over — friendly or enemy, once each — until it spends its reach.
+  for (const sh of G.shrapnel) {
+    const step = FRAG_SHRAPNEL_SPEED * dt;
+    sh.x += sh.vx * dt;
+    sh.y += sh.vy * dt;
+    sh.dist += step;
+    if (sh.dist >= sh.maxDist) { sh.done = true; continue; }
+    if (Math.random() < 0.5) {
+      G.particles.push({
+        x: sh.x, y: sh.y, vx: rand(-6, 6), vy: rand(-6, 6),
+        ttl: rand(0.1, 0.25), grav: 0, size: rand(0.8, 1.6), color: '#8a7d64',
+      });
+    }
+    // pellets fade over their travel, so a graze at the fringe barely stings
+    const falloff = 1 - (sh.dist / sh.maxDist) * 0.7;
+    const r2 = FRAG_SHRAPNEL_HITR * FRAG_SHRAPNEL_HITR;
+    for (const e of G.enemies) {
+      if (e.dead || e.chute > 0 || e.y < 0) continue;
+      const dx = e.x - sh.x, dy = e.y - sh.y;
+      if (dx * dx + dy * dy > r2) continue;
+      if (!sh.hit) sh.hit = new Set();
+      if (sh.hit.has(e)) continue;
+      sh.hit.add(e);
+      let dmg = FRAG_SHRAPNEL_DMG * falloff * rand(0.85, 1.15);
+      if (e.t.tank) dmg *= 0.05;
+      else if (e.t.vehicle || e.t.apc) dmg *= 0.3;
+      damageEnemy(e, dmg, sh.by || { x: sh.x, y: sh.y });
+    }
+    for (const u of G.units) {
+      if (u.dead) continue;
+      const dx = u.x - sh.x, dy = u.y - sh.y;
+      if (dx * dx + dy * dy > r2) continue;
+      if (!sh.hit) sh.hit = new Set();
+      if (sh.hit.has(u)) continue;
+      sh.hit.add(u);
+      let dmg = FRAG_SHRAPNEL_DMG * falloff * rand(0.85, 1.15);
+      if (u.t.tank) dmg *= 0.05;
+      else if (u.t.vehicle || u.t.apc) dmg *= 0.3;
+      damageUnit(u, dmg, { x: sh.x, y: sh.y });
     }
   }
 
@@ -233,6 +277,7 @@ function update(dt) {
   compactInPlace(G.mines, m => !m.dead);
   compactInPlace(G.shells, s => !s.done);
   compactInPlace(G.grenades, g => !g.done);
+  compactInPlace(G.shrapnel, sh => !sh.done);
   compactInPlace(G.rockets, r => !r.done);
   compactInPlace(G.planes, p => !p.done);
   compactInPlace(G.flak, f => !f.done);

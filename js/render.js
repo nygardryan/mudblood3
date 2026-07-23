@@ -125,6 +125,23 @@ function draw() {
     }
   }
 
+  // Frag Grenades shrapnel: hot little fragments streaking outward, each a
+  // short tracer smeared along its heading with a bright leading spark
+  for (const sh of G.shrapnel) {
+    const sp = Math.hypot(sh.vx, sh.vy) || 1;
+    const ux = sh.vx / sp, uy = sh.vy / sp;
+    ctx.strokeStyle = 'rgba(60,54,42,0.85)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(sh.x - ux * 5, sh.y - uy * 5);
+    ctx.lineTo(sh.x, sh.y);
+    ctx.stroke();
+    ctx.fillStyle = '#ffca5a';
+    ctx.beginPath();
+    ctx.arc(sh.x, sh.y, 1.4, 0, 7);
+    ctx.fill();
+  }
+
   for (const e of G.enemies) {
     if (!inView(e.x, e.y, 64)) continue;   // canopy/hull margin
     if (e.chute > 0) drawParatrooper(e);

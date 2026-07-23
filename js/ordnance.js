@@ -113,6 +113,32 @@ function explode(x, y, r, dmg, big, by) {
   }
 }
 
+// Frag Grenades card: fling a ring of fragments out of a grenadier's blast.
+// Each pellet is a short-lived traveling projectile (see the shrapnel loop in
+// update.js) that penetrates bodies — it damages friend and foe alike, once
+// per actor, then burns off at FRAG_SHRAPNEL_RANGE. `by` is credited for kills.
+function spawnShrapnel(x, y, by) {
+  for (let i = 0; i < FRAG_SHRAPNEL_COUNT; i++) {
+    const a = rand(0, Math.PI * 2);
+    const range = FRAG_SHRAPNEL_RANGE * rand(0.7, 1.1);
+    G.shrapnel.push({
+      x, y, sx: x, sy: y,
+      vx: Math.cos(a) * FRAG_SHRAPNEL_SPEED,
+      vy: Math.sin(a) * FRAG_SHRAPNEL_SPEED,
+      dist: 0, maxDist: range,
+      by, hit: null, done: false,
+    });
+  }
+}
+
+// gate for the Frag Grenades card, called wherever a grenade detonates: only a
+// grenadier's own grenade sprays fragments, and only when the card is equipped.
+function maybeFragShrapnel(g) {
+  if (!g.by || g.by.type !== 'grenadier') return;
+  if (!G.cardsOwned || !G.cardsOwned.has('fraggrenades')) return;
+  spawnShrapnel(g.tx, g.ty, g.by);
+}
+
 // the V2 warhead's flight profile, shared by the renderer and the trail
 // spawner: a hard boost climb off the pad, a high coast leg crossing most of
 // the map, then a terminal dive that accelerates into the impact point.

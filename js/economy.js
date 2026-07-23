@@ -5,6 +5,8 @@
 // Two income streams. Steady income (the supply trickle and officer pay) is
 // the backbone of the endless economy: it pays full rate so the player can
 // always save toward big-ticket AT purchases, scaled only by difficulty.
+// The trickle fires every TP_TRICKLE_INTERVAL seconds — kept deliberately
+// generous so the player can afford to place extra units and experiment.
 // Kill bounties are pocket change by design — they carry the war-economy
 // attrition (a smooth decay that reaches the 10% floor by wave 200) plus
 // the endless-wide 75% cut from the unit-count reduction pass. Campaign

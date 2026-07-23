@@ -7,8 +7,13 @@ function wavesPast99(w) {
 }
 
 function spawnIntervalForWave(w) {
-  if (w <= 99) return clamp(16 - w * 0.2, 6, 16);
-  return clamp(6 - wavesPast99(w) * 0.06, 3, 16);
+  // steeper ramp (0.26/wave) reaches the 6 s cadence floor by ~wave 38
+  // instead of wave 50, so the Germans hit full tempo sooner
+  const base = w <= 99
+    ? clamp(16 - w * 0.26, 6, 16)
+    : clamp(6 - wavesPast99(w) * 0.06, 3, 16);
+  // WAVE_BREATHER guarantees a fixed pause between every wave
+  return base + WAVE_BREATHER;
 }
 
 // enemy volume is cut 75% across the board (unit-count reduction pass), but
@@ -17,25 +22,31 @@ function spawnIntervalForWave(w) {
 // no sudden difficulty step at wave 11.
 function enemySpawnMult(w) {
   if (w <= 10) return 0.42;
-  return Math.max(0.25, 0.42 - (w - 10) * 0.034);
+  // slightly slower taper to a higher floor (0.28) keeps more of the
+  // faster-growing batches on the field as the run scales up
+  return Math.max(0.28, 0.42 - (w - 10) * 0.030);
 }
 
 function waveComposition(w) {
   const late = wavesPast99(w);
   const mult = enemySpawnMult(w);
+  // batches grow one man every 3 waves (was 4) and the cap keeps climbing
+  // through the run (9 + w/25 pre-99, plus late growth) instead of plateauing
+  // at 7 — so wave size keeps scaling up rather than flattening mid-game
   const baseSize = Math.min(
-    2 + Math.floor(w / 4) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 5),
-    7 + Math.floor(late / 10),
+    2 + Math.floor(w / 3) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 4),
+    9 + Math.floor(w / 25) + Math.floor(late / 8),
   );
   const size = Math.max(1, Math.round(baseSize * mult));
   const pool = ['erifle', 'erifle', 'erifle'];
+  // tougher types unlock earlier so the threat mix escalates faster
   if (w >= 4) pool.push('esmg', 'esmg');
   if (w >= 7) pool.push('egren');
-  if (w >= 10) pool.push('emg');
-  if (w >= 12) pool.push('eflame');
-  if (w >= 14) pool.push('esniper');
-  if (w >= 60) pool.push('emortar');
-  if (w >= 80) pool.push('ebazooka');
+  if (w >= 9) pool.push('emg');
+  if (w >= 11) pool.push('eflame');
+  if (w >= 13) pool.push('esniper');
+  if (w >= 42) pool.push('emortar');
+  if (w >= 58) pool.push('ebazooka');
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
   if (w >= 12 && Math.random() < (0.30 + late * 0.004) * mult) out.push('eoff');
@@ -45,12 +56,12 @@ function waveComposition(w) {
     ? Math.min(1, 0.9 + late * 0.006)
     : Math.min(0.9, w >= 9 ? 0.2 + (w - 9) * (0.7 / 90) : 0)) * mult;
   if (w >= 9 && Math.random() < bikeChance) out.push('ebike');
-  const vehChance = 0.11 * (1 + late * 0.04) * mult;
-  // a Kübelwagen gun car rolls in occasionally — not until mid-game
-  if (w >= 16 && Math.random() < vehChance) out.push('ejeep');
+  const vehChance = 0.13 * (1 + late * 0.04) * mult;
+  // a Kübelwagen gun car rolls in occasionally — armor arrives earlier now
+  if (w >= 15 && Math.random() < vehChance) out.push('ejeep');
   // an armored halftrack hauls a full squad to the front
-  if (w >= 18 && Math.random() < vehChance) out.push('ehalftrack');
-  if (w >= 30 && Math.random() < vehChance) out.push('panzer');
+  if (w >= 16 && Math.random() < vehChance) out.push('ehalftrack');
+  if (w >= 25 && Math.random() < vehChance) out.push('panzer');
   // V2 battery: one at a time, and only once the fighting is desperate. Not
   // scaled by `mult` — that's a general enemy-volume knob and was crushing
   // this down to a ~3% roll per wave even deep past 140; it's a rare

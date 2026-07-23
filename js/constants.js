@@ -39,6 +39,12 @@ const GRENADE_CATCH_RANGE = 34;         // how close a grenadier must be to a la
 const V2_ROCKET_ARC = 130;              // cruise altitude of the V2 warhead between boost and terminal dive
 const BOMB_FALL_ARC = 300;              // apparent release altitude of a bomber's stick as it falls onto the field
 
+// economy: seconds between +1 TP supply-trickle ticks. Lower = the player
+// banks TP faster to place more units and experiment with defenses.
+const TP_TRICKLE_INTERVAL = 3;
+// breather added between waves (endless) so the line has time to reset
+const WAVE_BREATHER = 3;
+
 // engine pacing
 const HUD_INTERVAL = 0.1;         // seconds between DOM HUD refreshes
 const AURA_CACHE_INTERVAL = 0.4;  // seconds between officer/watchtower aura cache rebuilds
@@ -179,87 +185,105 @@ function emplacementSpec(t) {
 }
 
 const ENEMY_TYPES = {
+  // German roster buffed for post-card difficulty. Rule held throughout:
+  // range and speed never exceed the allied counterpart (see comments);
+  // HP, damage, accuracy and rate of fire are the buffable stats.
   erifle: {
-    name: 'Rifleman', hp: 60, speed: 22, range: 141, dmg: 10, acc: 0.42,
-    rof: 1.5, burst: 1, burstGap: 0, reward: 2,
+    // counterpart: rifleman (range 154, speed 42)
+    name: 'Rifleman', hp: 75, speed: 22, range: 141, dmg: 12, acc: 0.46,
+    rof: 1.35, burst: 1, burstGap: 0, reward: 2,
     color: '#5f6470', gun: 7, sfx: 'rifle', priority: 1,
   },
   esmg: {
-    name: 'Stormtrooper', hp: 70, speed: 36, range: 87, dmg: 7, acc: 0.42,
-    rof: 1.0, burst: 3, burstGap: 0.08, reward: 2,
+    // counterpart: gunner (range 179, speed 36)
+    name: 'Stormtrooper', hp: 85, speed: 36, range: 87, dmg: 9, acc: 0.46,
+    rof: 0.9, burst: 3, burstGap: 0.08, reward: 2,
     color: '#4b515c', gun: 6, sfx: 'mg', priority: 1,
   },
   egren: {
-    name: 'Grenadier', hp: 70, speed: 27, range: 101, dmg: 8, acc: 0.385,
-    rof: 1.6, burst: 1, burstGap: 0, reward: 3,
+    // counterpart: grenadier (range 231, speed 42)
+    name: 'Grenadier', hp: 85, speed: 27, range: 101, dmg: 10, acc: 0.42,
+    rof: 1.45, burst: 1, burstGap: 0, reward: 3,
     color: '#555c68', gun: 5, sfx: 'pistol', priority: 2, grenade: true,
   },
   emg: {
-    name: 'MG Gunner', hp: 90, speed: 16, range: 184, dmg: 8, acc: 0.33,
-    rof: 1.9, burst: 5, burstGap: 0.08, reward: 3,
+    // counterpart: gunner (range 179, speed 36) — range capped to 179
+    name: 'MG Gunner', hp: 110, speed: 16, range: 179, dmg: 10, acc: 0.37,
+    rof: 1.7, burst: 5, burstGap: 0.08, reward: 3,
     color: '#4d545f', gun: 10, sfx: 'mg', priority: 3,
   },
   eoff: {
-    name: 'Officer', hp: 80, speed: 24, range: 94, dmg: 8, acc: 0.45,
-    rof: 1.0, burst: 1, burstGap: 0, reward: 4,
+    // counterpart: officer (range 101, speed 44)
+    name: 'Officer', hp: 95, speed: 24, range: 94, dmg: 9, acc: 0.48,
+    rof: 0.92, burst: 1, burstGap: 0, reward: 4,
     color: '#4f5661', gun: 5, sfx: 'pistol', priority: 5, aura: true,
   },
   esniper: {
-    name: 'Sniper', hp: 55, speed: 14, range: 209, dmg: 39, acc: 0.66,
-    rof: 6.8, burst: 1, burstGap: 0, reward: 4,
+    // counterpart: sniper (range 249, speed 38)
+    name: 'Sniper', hp: 70, speed: 14, range: 209, dmg: 44, acc: 0.70,
+    rof: 6.0, burst: 1, burstGap: 0, reward: 4,
     color: '#4a515c', gun: 12, sfx: 'sniper', priority: 4,
   },
   eflame: {
-    name: 'Flamethrower', hp: 85, speed: 34, range: 80, dmg: 0, acc: 0,
+    // counterpart: flamer (flame range 78, speed 38) — flame range capped to 78
+    name: 'Flamethrower', hp: 105, speed: 34, range: 78, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 4,
     color: '#4d5560', gun: 8, sfx: 'rifle', priority: 3,
-    flame: { range: 80, arc: 0.45, dps: 34 },
+    flame: { range: 78, arc: 0.45, dps: 40 },
     blastResist: 0.5,
   },
   emortar: {
-    name: 'Granatwerfer', hp: 75, speed: 18, range: 80, dmg: 8, acc: 0.45,
+    // counterpart: mortarman (mortar range 348, speed 38) — range held equal
+    name: 'Granatwerfer', hp: 90, speed: 18, range: 80, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, reward: 5,
     color: '#545b66', gun: 5, sfx: 'pistol', priority: 4,
-    mortar: { range: 348, min: 118, cdMin: 9, cdMax: 12, r: 40, dmg: 75, flight: 1.6, scatter: 52 },
+    mortar: { range: 348, min: 118, cdMin: 9, cdMax: 12, r: 40, dmg: 82, flight: 1.6, scatter: 52 },
   },
   ebazooka: {
-    name: 'Panzerfaust', hp: 75, speed: 20, range: 80, dmg: 8, acc: 0.45,
+    // counterpart: bazooka (rocket range 243, speed 40)
+    name: 'Panzerfaust', hp: 90, speed: 20, range: 80, dmg: 8, acc: 0.45,
     rof: 1.0, burst: 1, burstGap: 0, reward: 5,
     color: '#585f6a', gun: 5, sfx: 'pistol', priority: 4,
     rocket: { range: 206, cdMin: 7.4, cdMax: 10.1, r: 30, dmg: 120, speed: 380, armorMult: 2.75 },
   },
   ebike: {
-    name: 'Kradschützen', hp: 80, speed: 85, range: 0, dmg: 0, acc: 0,
+    // counterpart: jeep (speed 110) — melee breach unit, HP only
+    name: 'Kradschützen', hp: 95, speed: 85, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 5,
     color: '#596069', gun: 0, sfx: 'rifle', priority: 2, bike: true,
   },
   ejeep: {
-    name: 'Kübelwagen', hp: 220, speed: 45, range: 188, dmg: 11, acc: 0.38,
-    rof: 2.3, burst: 8, burstGap: 0.07, reward: 8,
+    // counterpart: jeep (range 201, speed 110)
+    name: 'Kübelwagen', hp: 250, speed: 45, range: 188, dmg: 13, acc: 0.42,
+    rof: 2.2, burst: 8, burstGap: 0.07, reward: 8,
     color: '#585f69', gun: 14, sfx: 'hmg', priority: 3, vehicle: true,
   },
   ehalftrack: {
-    name: 'Sd.Kfz. 251', hp: 1000, speed: 30, range: 161, dmg: 7, acc: 0.38,
+    // no allied counterpart (APC) — range/speed left as authored
+    name: 'Sd.Kfz. 251', hp: 1150, speed: 30, range: 161, dmg: 9, acc: 0.42,
     rof: 2.2, burst: 6, burstGap: 0.08, reward: 12,
     color: '#565d67', gun: 16, sfx: 'mg', priority: 3, vehicle: true, apc: true,
   },
   panzer: {
-    name: 'Panzer IV', hp: 1200, speed: 8, range: 228, dmg: 0, acc: 0,
-    rof: 4.5, burst: 1, burstGap: 0, reward: 15, shellDmg: 85,
+    // counterpart: sherman (range 262, speed 14)
+    name: 'Panzer IV', hp: 1400, speed: 8, range: 228, dmg: 0, acc: 0,
+    rof: 4.2, burst: 1, burstGap: 0, reward: 15, shellDmg: 95,
     color: '#586069', gun: 0, sfx: 'boom', priority: 0, tank: true,
     fireCone: { arc: 0.25 },
-    mg: { range: 154, dmg: 7, acc: 0.4, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
+    mg: { range: 154, dmg: 8, acc: 0.4, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
   },
   estug: {
-    name: 'StuG III', hp: 800, speed: 12, range: 201, dmg: 0, acc: 0,
-    rof: 3.8, burst: 1, burstGap: 0, reward: 12, shellDmg: 95,
+    // counterpart: sherman (range 262, speed 14)
+    name: 'StuG III', hp: 950, speed: 12, range: 201, dmg: 0, acc: 0,
+    rof: 3.6, burst: 1, burstGap: 0, reward: 12, shellDmg: 105,
     color: '#4e555f', gun: 0, sfx: 'boom', priority: 0, tank: true, casemate: true,
     fireCone: { arc: 0.2 },
     mg: { range: 134, dmg: 6, acc: 0.38, burst: 4, burstGap: 0.08, gun: 20, sfx: 'mg' },
   },
   etiger: {
-    name: 'Tiger I', hp: 1800, speed: 5, range: 241, dmg: 0, acc: 0,
-    rof: 5.2, burst: 1, burstGap: 0, reward: 22, shellDmg: 110,
+    // counterpart: sherman (range 262, speed 14)
+    name: 'Tiger I', hp: 2050, speed: 5, range: 241, dmg: 0, acc: 0,
+    rof: 4.9, burst: 1, burstGap: 0, reward: 22, shellDmg: 120,
     color: '#44454f', gun: 0, sfx: 'boom', priority: 0, tank: true, heavy: true,
     fireCone: { arc: 0.22 },
     mg: { range: 161, dmg: 8, acc: 0.42, burst: 6, burstGap: 0.08, gun: 26, sfx: 'mg' },

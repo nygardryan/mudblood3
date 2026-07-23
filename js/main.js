@@ -80,11 +80,6 @@ el('start-wave-btn').addEventListener('click', startAssaultCombat);
 el('pause-resume-btn').addEventListener('click', resumeGame);
 el('pause-codex-btn').addEventListener('click', openCodexFromPause);
 el('pause-menu-btn').addEventListener('click', returnToMenu);
-el('view-reset').addEventListener('click', () => {
-  if (!G || !mobileViewActive()) return;
-  resetViewCam(G.mode);
-});
-
 el('mobile-deselect').addEventListener('click', () => {
   if (!G) return;
   G.selected = [];

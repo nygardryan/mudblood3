@@ -19,19 +19,30 @@
     <canvas id="game" width="540" height="620"></canvas>
 
     <div id="hud">
-      <div class="hud-box" id="hud-tp" title="Tactical Points — earned from kills and over time">TP <span id="tp">0</span></div>
-      <div class="hud-box" id="wavebox">WAVE 0</div>
-      <div class="hud-box sandbox-wave-skip hidden" id="sandbox-wave-skip" title="Jump ahead and spawn that wave">
-        <button type="button" class="wave-skip-btn" data-wave-skip="1">+1</button>
-        <button type="button" class="wave-skip-btn" data-wave-skip="5">+5</button>
-        <button type="button" class="wave-skip-btn" data-wave-skip="10">+10</button>
+      <div class="hud-cluster hud-cluster--stats">
+        <div class="stat stat--tp" id="hud-tp" title="Tactical Points — earned from kills and over time">
+          <span class="stat__label">TP</span><span class="stat__val" id="tp">0</span>
+        </div>
+        <div class="stat" id="wavebox">
+          <span class="stat__label" id="wave-label">WAVE</span><span class="stat__val" id="wave-val">0</span>
+        </div>
+        <div class="stat sandbox-wave-skip hidden" id="sandbox-wave-skip" title="Jump ahead and spawn that wave">
+          <button type="button" class="wave-skip-btn" data-wave-skip="1">+1</button>
+          <button type="button" class="wave-skip-btn" data-wave-skip="5">+5</button>
+          <button type="button" class="wave-skip-btn" data-wave-skip="10">+10</button>
+        </div>
+        <div class="stat" id="killsbox">
+          <span class="stat__label">KILLS</span><span class="stat__val" id="kills">0</span>
+        </div>
+        <div class="stat stat--breach" id="breachbox" title="Breakthroughs past the bottom edge">
+          <span class="stat__label" id="breach-label">BREACH</span><span class="stat__val" id="breach-val">0/7</span>
+        </div>
       </div>
-      <div class="hud-box">KILLS <span id="kills">0</span></div>
-      <div class="hud-box breach" id="breachbox" title="Breakthroughs past the bottom edge">BREACH 0/7</div>
-      <button id="view-reset" class="hud-box hidden" title="Reset map zoom and position">MAP</button>
-      <button id="start-wave-btn" class="hud-box hidden" title="Begin the assault">START WAVE</button>
-      <button id="speed-btn" class="hud-box hidden" title="Game speed">1x</button>
-      <button id="pause-btn" class="hud-box hidden" title="Pause game">PAUSE</button>
+      <div class="hud-cluster hud-cluster--ctrl">
+        <button id="start-wave-btn" class="hud-btn hud-btn--go hidden" title="Begin the assault">START WAVE</button>
+        <button id="speed-btn" class="hud-btn hidden" title="Game speed">1x</button>
+        <button id="pause-btn" class="hud-btn hidden" title="Pause game">PAUSE</button>
+      </div>
     </div>
 
     <div id="banner"></div>

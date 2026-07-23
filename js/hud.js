@@ -158,8 +158,24 @@ function syncToolbarLayout() {
   bar.style.maxHeight = `calc(100% - ${top + (touchUI() ? 22 : 28)}px)`;
 }
 
-const hud = { tp: el('tp'), waveBox: el('wavebox'), kills: el('kills'), breachBox: el('breachbox') };
+// the wave/breach plates carry a static micro-label span + a dynamic value span
+// so the readout styles the label and value apart. Both label and value change
+// by mode (WAVE/TIME/MEN, BREACH/BREAK/MEN), so the updater sets each.
+const hud = {
+  tp: el('tp'), kills: el('kills'),
+  waveLabel: el('wave-label'), waveVal: el('wave-val'),
+  breachBox: el('breachbox'), breachLabel: el('breach-label'), breachVal: el('breach-val'),
+};
 const bannerEl = el('banner');
+
+// alerts that mean incoming fire or a broken line read red; everything else
+// (a wave starting, promotions, fog) reads in the neutral signal orange
+const BANNER_DANGER = /BREAKTHROUGH|AIR RAID|TAKE (COVER|FIRE)|ARTILLERIE|BOMBER|RAMPS DOWN|PARATROOPER|FALLSCHIRM|BARRAGE|MORTAR FIRE|STRAFING|INBOUND/i;
+
+function setStat(labelEl, valEl, label, val) {
+  labelEl.textContent = label;
+  valEl.textContent = val;
+}
 
 function updateHUD() {
   hud.tp.textContent = isSandbox() ? '∞' : Math.floor(G.tp);
@@ -167,22 +183,24 @@ function updateHUD() {
   if (G.mode === 'axis' || G.mode === 'assault') {
     const phase = G.phase === 'build' ? 'BUILD' : G.phase === 'landing' ? 'LANDING' : 'FIGHT';
     const waves = assaultWaves(G.level);
-    hud.waveBox.textContent = 'WAVE ' + G.wave + '/' + waves + ' ' + phase;
-    hud.breachBox.textContent = 'BREAK ' + G.breaches + '/' + G.level.winBreaches;
+    setStat(hud.waveLabel, hud.waveVal, 'WAVE', G.wave + '/' + waves + ' ' + phase);
+    setStat(hud.breachLabel, hud.breachVal, 'BREAK', G.breaches + '/' + G.level.winBreaches);
   } else if (G.mode === 'hitsquad') {
     const left = Math.max(0, G.level.timeLimit - G.time);
     const m = Math.floor(left / 60), s = Math.floor(left % 60);
-    hud.waveBox.textContent = 'TIME ' + m + ':' + String(s).padStart(2, '0');
+    setStat(hud.waveLabel, hud.waveVal, 'TIME', m + ':' + String(s).padStart(2, '0'));
     let alive = 0;
     for (const e of G.enemies) if (!e.dead) alive++;
-    hud.breachBox.textContent = 'MEN ' + alive + '/' + G.squadTotal;
+    setStat(hud.breachLabel, hud.breachVal, 'MEN', alive + '/' + G.squadTotal);
   } else if (G.mode === 'allied') {
-    hud.waveBox.textContent = 'WAVE ' + G.wave + '/' + G.level.waves.length;
-    hud.breachBox.textContent = 'BREACH ' + G.breaches + '/' + G.level.breachLimit;
+    setStat(hud.waveLabel, hud.waveVal, 'WAVE', G.wave + '/' + G.level.waves.length);
+    setStat(hud.breachLabel, hud.breachVal, 'BREACH', G.breaches + '/' + G.level.breachLimit);
   } else {
-    hud.waveBox.textContent = 'WAVE ' + G.wave;
-    hud.breachBox.textContent = 'BREACH ' + G.breaches + '/' + G.level.breachLimit;
+    setStat(hud.waveLabel, hud.waveVal, 'WAVE', String(G.wave));
+    setStat(hud.breachLabel, hud.breachVal, 'BREACH', G.breaches + '/' + G.level.breachLimit);
   }
+  // the breach plate runs hot the moment the line is first cracked
+  hud.breachBox.classList.toggle('stat--hot', G.breaches > 0);
 
   // selection also empties without a click — a selected man dying splices
   // himself out — so reconcile the collapsed bar here rather than only in the
@@ -200,10 +218,19 @@ function updateHUD() {
   }
 
   if (G.banner) {
-    bannerEl.textContent = G.banner.text;
+    // re-arm the slam-in animation only when the alert text actually changes,
+    // so a held banner doesn't restart every frame
+    if (bannerEl.dataset.txt !== G.banner.text) {
+      bannerEl.textContent = G.banner.text;
+      bannerEl.dataset.txt = G.banner.text;
+      bannerEl.classList.toggle('banner--danger', BANNER_DANGER.test(G.banner.text));
+      bannerEl.classList.remove('show');
+      void bannerEl.offsetWidth;   // force reflow to replay the entrance
+    }
     bannerEl.classList.add('show');
   } else {
     bannerEl.classList.remove('show');
+    bannerEl.dataset.txt = '';
   }
 
   for (const btn of toolButtons) {

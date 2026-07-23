@@ -236,8 +236,6 @@ function syncViewStrip() {
 
 function syncMobileViewUI() {
   const stage = el('stage');
-  const btn = el('view-reset');
   const on = mobileViewActive();
   if (stage) stage.classList.toggle('mobile-view', on);
-  if (btn) btn.classList.toggle('hidden', !on || !running);
 }

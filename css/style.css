@@ -901,11 +901,17 @@ body {
 #card-shop .cs-dot { width: 7px; height: 7px; border-radius: 50%; background: #6c6650; flex: 0 0 auto; }
 #plan-collection .cs-chit--unique { border-left-color: #e7b93d; }
 #plan-collection .cs-chit--unique .cs-chit__name { color: #e7b93d; }
-#plan-collection .cs-chit--deployed { border-left-color: #96c45c; background: linear-gradient(180deg, rgba(79, 107, 44, 0.16), #232418); }
-#plan-collection .cs-chit--deployed .cs-chit__name { color: #ddd5ad; }
-#plan-collection .cs-chit--deployed .cs-chit__state { color: #96c45c; }
+#plan-collection .cs-chit--deployed {
+  border-color: #96c45c;
+  border-left-color: #96c45c;
+  background: linear-gradient(180deg, rgba(79, 107, 44, 0.34), rgba(60, 82, 33, 0.22));
+  box-shadow: 0 0 0 1px rgba(150, 196, 92, 0.55), 0 4px 14px rgba(79, 107, 44, 0.35);
+}
+#plan-collection .cs-chit--deployed .cs-chit__name { color: #eef0d4; }
+#plan-collection .cs-chit--deployed .cs-chit__state { color: #b6e084; }
+#plan-collection .cs-chit--deployed .cs-chit__desc { color: #ccca9c; }
 #plan-collection .cs-chit--deployed .cs-dot { background: #96c45c; box-shadow: 0 0 6px rgba(150, 196, 92, 0.6); }
-#plan-collection .cs-chit--unique.cs-chit--deployed { border-left-color: #96c45c; }
+#plan-collection .cs-chit--unique.cs-chit--deployed { border-color: #96c45c; border-left-color: #96c45c; }
 #plan-collection .cs-chit--empty {
   grid-column: 1 / -1;
   text-align: center;

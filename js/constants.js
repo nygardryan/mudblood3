@@ -24,7 +24,7 @@ const PURGE_RADIUS = 150;   // testing-mode-only kill-everything ability
 const WATCHTOWER_RANGE_MULT = 1.25;
 const WATCHTOWER_RANGE_MULT_UPGRADED = 1.35;
 const WATCHTOWER_RANGE_MULT_HARDENED = 1.5;    // second-tier fortification (Hardened Works)
-const AMMOCRATE_AURA = 30;                      // radius that shares out its ammunition
+const AMMOCRATE_AURA = 60;                      // radius that shares out its ammunition
 // lower rofMult = faster cycling: nearby soldiers fire and reload quicker.
 // a fresh crate is +10%, an engineer-fortified one +20%, a hardened one +30%.
 const AMMOCRATE_ROF_MULT = 0.9;
@@ -124,8 +124,8 @@ const UNIT_TYPES = {
     desc: 'M2 flamethrower and flak vest. Burns everything in the cone — friend or foe.',
   },
   jeep: {
-    name: 'Jeep', hp: 250, range: 201, dmg: 13, acc: 0.42,
-    rof: 2.1, burst: 16, burstGap: 0.07, speed: 110,
+    name: 'Jeep', hp: 250, range: 221, dmg: 13, acc: 0.42,
+    rof: 6.0, burst: 32, burstGap: 0.07, speed: 110,
     color: '#566f44', gun: 14, sfx: 'hmg', vehicle: true, rankMult: 3,
     desc: 'Willys jeep, pintle-mounted .50 cal. Fast and hard-hitting, but unarmored.',
   },

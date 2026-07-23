@@ -26,8 +26,16 @@ function coverZoom() {
   return Math.max(1, canvasAspect() * W / H);
 }
 
+// zoom at which the ENTIRE field fits on screen: cover fills the screen and
+// crops the field's wider axis (leaving a sliver to pan across); contain zooms
+// out just enough to show it all, letterboxing the axis that comes up short.
+function containZoom() {
+  if (!mobileViewActive()) return 1;
+  return Math.min(1, canvasAspect() * W / H);
+}
+
 function viewZoomMin() {
-  return mobileViewActive() ? coverZoom() : 1;
+  return mobileViewActive() ? containZoom() : 1;
 }
 
 function viewZoomMax() {
@@ -47,8 +55,10 @@ function viewScale() {
 
 function clampCamera() {
   const { viewW, viewH } = viewSize();
-  viewCam.x = clamp(viewCam.x, 0, Math.max(0, W - viewW));
-  viewCam.y = clamp(viewCam.y, 0, Math.max(0, H - viewH));
+  // when the view is wider/taller than the field (zoomed out to fit), centre
+  // the field so it sits in the middle of the letterbox instead of the corner
+  viewCam.x = viewW >= W ? (W - viewW) / 2 : clamp(viewCam.x, 0, W - viewW);
+  viewCam.y = viewH >= H ? (H - viewH) / 2 : clamp(viewCam.y, 0, H - viewH);
 }
 
 function resetViewCam(mode) {
@@ -57,13 +67,12 @@ function resetViewCam(mode) {
     viewCam.x = 0;
     viewCam.y = 0;
   } else {
-    viewCam.zoom = coverZoom();
-    viewCam.x = (W - W / viewCam.zoom) / 2;
-    const { viewH } = viewSize();
-    if (mode === 'axis' || mode === 'assault') viewCam.y = 0;
-    else if (mode === 'hitsquad') viewCam.y = 120;
-    else if (canvasAspect() < W / H) viewCam.y = clamp((H - viewH) * 0.38, 0, Math.max(0, H - viewH));
-    else viewCam.y = DEPLOY_Y - viewH * 0.55;
+    // fit the whole field on screen, centred — clampCamera handles the
+    // letterbox centring for whichever axis the view overshoots
+    viewCam.zoom = containZoom();
+    const { viewW, viewH } = viewSize();
+    viewCam.x = (W - viewW) / 2;
+    viewCam.y = (H - viewH) / 2;
   }
   clampCamera();
   viewDirty = true;
@@ -86,8 +95,9 @@ function zoomToward(wx, wy, targetZoom) {
 
 function toggleZoomAt(wx, wy) {
   if (!mobileViewActive() || tutorialScriptActive()) return;
+  const out = containZoom();
   const mid = coverZoom() * 1.85;
-  const target = viewCam.zoom <= coverZoom() * 1.08 ? mid : coverZoom();
+  const target = viewCam.zoom <= out * 1.08 ? mid : out;
   zoomToward(wx, wy, target);
   mobileVibrate(6);
 }

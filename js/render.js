@@ -18,6 +18,11 @@ function draw() {
   if (viewTransformActive()) {
     // any part of the view outside the world would otherwise keep last frame's pixels
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // when zoomed out to fit the field on screen the view overshoots the world
+    // on one axis; paint those margins a deliberate dark frame so they read as
+    // letterboxing rather than a flat dead strip of bare field colour
+    ctx.fillStyle = '#0a0a06';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     const s = viewScale();
     ctx.scale(s, s);
     ctx.translate(-viewCam.x, -viewCam.y);

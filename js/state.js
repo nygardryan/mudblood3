@@ -23,7 +23,7 @@ let viewDirty = false;
 let viewGesture = null;   // two-finger pinch/pan snapshot
 const activePointers = new Map();
 const VIEW_ZOOM_MAX_MUL = 2.5;
-let lastCoverZoom = null;
+let lastFitZoom = null;
 
 function clearLongPress() {
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }

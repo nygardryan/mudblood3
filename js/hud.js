@@ -117,16 +117,16 @@ function fitLayout() {
     canvas.height = H;
   }
 
-  const newCover = mobile ? coverZoom() : 1;
+  const newFit = mobile ? containZoom() : 1;
   if (mobile) {
-    if (G && lastCoverZoom != null && Math.abs(newCover - lastCoverZoom) > 0.05) {
+    if (G && lastFitZoom != null && Math.abs(newFit - lastFitZoom) > 0.05) {
       resetViewCam(G.mode);
     } else {
       viewCam.zoom = clamp(viewCam.zoom, viewZoomMin(), viewZoomMax());
       clampCamera();
     }
   }
-  lastCoverZoom = newCover;
+  lastFitZoom = newFit;
 
   syncMobileViewUI();
   syncMobileChrome();

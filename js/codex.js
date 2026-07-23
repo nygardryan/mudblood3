@@ -4,6 +4,58 @@
 
 const CODEX_PW = 72, CODEX_PH = 72;
 let codexTab = 'troops';
+let codexOpenKey = null;   // key of the currently expanded card, if any
+
+// tab bar order + short labels for the Intel Database header
+const CODEX_TABS = [
+  { id: 'troops',   label: 'TROOPS' },
+  { id: 'defenses', label: 'DEFENSES' },
+  { id: 'enemies',  label: 'ENEMIES' },
+  { id: 'events',   label: 'EVENTS' },
+  { id: 'sounds',   label: 'SOUNDS' },
+];
+
+// short mono call-sign shown in each card's code box. Keyed by entry key so the
+// same abbreviation renders whether the entry comes from PLACEABLES, ENEMY_TYPES,
+// or EVENT_INFO. Falls back to the first three letters of the key.
+const CODEX_CODE = {
+  rifleman: 'RFL', gunner: 'GNR', grenadier: 'GRN', shotgunner: 'SHT', bazooka: 'BZK',
+  mortarman: 'MTR', sniper: 'SNP', medic: 'MED', engineer: 'ENG', officer: 'OFF',
+  flamer: 'FLM', jeep: 'JEP', sherman: 'SHM', atgun: 'ATG', aagun: 'AAG',
+  erifle: 'RFL', esmg: 'STM', egren: 'GRN', emg: 'MG', eoff: 'OFF', esniper: 'SNP',
+  eflame: 'FLM', emortar: 'GWF', ebazooka: 'PZF', ebike: 'KRD', ejeep: 'KBW',
+  ehalftrack: '251', panzer: 'PZ4', estug: 'STG', etiger: 'TGR', ev2: 'V2',
+  wire: 'WIR', sandbags: 'SBG', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
+  ammocrate: 'AMM', mine: 'MIN', mortar: 'MST', artillery: 'ART',
+  fog: 'FOG', fng: 'FNG', airraid: 'RAD', paradrop: 'PAR', airstrike: 'P47', special: 'SPC',
+};
+
+// per-side accent used for a card's code box, left border, and faction label
+const CODEX_GREEN = '#7c9a5a', CODEX_RED = '#a85a4a', CODEX_NEUTRAL = '#8a9a6a';
+// events pick sides — a friendly reinforcement reads green, a Luftwaffe raid red
+const CODEX_EVENT_COLOR = {
+  fog: CODEX_NEUTRAL, fng: CODEX_GREEN, airraid: CODEX_RED,
+  paradrop: CODEX_RED, airstrike: CODEX_GREEN, special: '#c08a3a',
+};
+
+function codexColor(tab, entry) {
+  if (tab === 'troops') return CODEX_GREEN;
+  if (tab === 'enemies') return CODEX_RED;
+  if (tab === 'events') return CODEX_EVENT_COLOR[entry.key] || CODEX_NEUTRAL;
+  return CODEX_NEUTRAL;
+}
+
+function codexFaction(tab, entry) {
+  if (tab === 'troops') return 'U.S. ARMY';
+  if (tab === 'enemies') return 'WEHRMACHT';
+  if (tab === 'defenses') return entry.kind || 'FIELD';
+  if (tab === 'events') return 'BATTLEFIELD EVENT';
+  return entry.category || 'AUDIO';
+}
+
+function codexCode(entry) {
+  return entry.code || CODEX_CODE[entry.key] || String(entry.key).slice(0, 3).toUpperCase();
+}
 
 // `group` names the audio.js CLIPS bank behind each sound, and `opts` the
 // playback treatment it gets in game. Sounds whose bank holds more than one
@@ -78,14 +130,25 @@ const SOUND_INFO = [
 // one codex entry per underlying random clip: a sound backed by N > 1 clips
 // becomes "<Name> 1" … "<Name> N", each auditioning that exact clip. Sounds
 // with a single clip (or synth-only) stay as one entry playing the in-game cue.
+// mono call-sign per sound bank, mirrored in the codex code box
+const SOUND_CODE = {
+  'sfx-rifle': 'RIF', 'sfx-mg': 'MG', 'sfx-hmg': 'HMG', 'sfx-sniper': 'SNP',
+  'sfx-pistol': 'PST', 'sfx-shotgun': 'SHT', 'sfx-flame': 'FLM', 'sfx-rocket': 'RKT',
+  'sfx-boom-small': 'BMS', 'sfx-boom-big': 'BMB', 'sfx-plane': 'PLN', 'sfx-planeflyby': 'FLY',
+  'sfx-hammer': 'HMR', 'sfx-scream': 'SCR', 'sfx-heal': 'HEL', 'sfx-promote': 'PRO',
+  'sfx-cash': 'CSH', 'sfx-event': 'EVT', 'sfx-click': 'CLK', 'sfx-error': 'ERR', 'sfx-thunk': 'THK',
+};
+
 function expandSoundInfo() {
   const out = [];
   for (const s of SOUND_INFO) {
+    const code = SOUND_CODE[s.key] || s.key.replace('sfx-', '').slice(0, 3).toUpperCase();
     const n = s.group ? SFX.clipCount(s.group) : 0;
     if (n > 1) {
       for (let i = 0; i < n; i++) {
         out.push({
           key: `${s.key}-${i + 1}`,
+          code,
           name: `${s.name} ${i + 1}`,
           category: s.category,
           desc: s.desc,
@@ -93,7 +156,7 @@ function expandSoundInfo() {
         });
       }
     } else {
-      out.push({ key: s.key, name: s.name, category: s.category, desc: s.desc, play: s.play });
+      out.push({ key: s.key, code, name: s.name, category: s.category, desc: s.desc, play: s.play });
     }
   }
   return out;
@@ -876,6 +939,7 @@ function codexEntries(tab) {
       return {
         key: p.key,
         side: 'us',
+        code: CODEX_CODE[p.key],
         name: ut.name,
         stats: formatUnitStats(p, ut),
         desc: p.desc,
@@ -886,6 +950,8 @@ function codexEntries(tab) {
     return PLACEABLES.filter(p => p.kind !== 'unit').map(p => ({
       key: p.key,
       side: null,
+      code: CODEX_CODE[p.key],
+      kind: p.kind.toUpperCase(),
       name: p.label,
       stats: `${p.cost} TP · [${p.hotkey}] · ${p.kind.toUpperCase()}`,
       desc: p.desc,
@@ -902,6 +968,7 @@ function codexEntries(tab) {
       return {
         key,
         side: 'de',
+        code: CODEX_CODE[key],
         name: t.name,
         stats: parts.join(' · '),
         desc: ENEMY_INFO[key],
@@ -912,6 +979,7 @@ function codexEntries(tab) {
     return SOUND_ENTRIES.map(s => ({
       key: s.key,
       side: null,
+      code: s.code,
       name: s.name,
       stats: s.category,
       desc: s.desc,
@@ -921,6 +989,7 @@ function codexEntries(tab) {
   return EVENT_INFO.map(ev => ({
     key: ev.key,
     side: null,
+    code: CODEX_CODE[ev.key],
     name: ev.name,
     stats: `FROM WAVE ${ev.wave}`,
     desc: ev.desc,
@@ -945,89 +1014,155 @@ function addCodexCollapsible(body, label, panel) {
   body.appendChild(panel);
 }
 
+// the tab bar with per-section record counts, rebuilt each time so the active
+// underline tracks codexTab
+function buildCodexTabs() {
+  const bar = el('codex-tabs');
+  bar.innerHTML = '';
+  for (const t of CODEX_TABS) {
+    const btn = document.createElement('button');
+    btn.className = 'cx-tab' + (t.id === codexTab ? ' active' : '');
+    btn.dataset.tab = t.id;
+    const label = document.createElement('span');
+    label.textContent = t.label;
+    const count = document.createElement('span');
+    count.className = 'cx-tab-count';
+    count.textContent = codexEntries(t.id).length;
+    btn.appendChild(label);
+    btn.appendChild(count);
+    btn.addEventListener('click', () => { codexOpenKey = null; buildCodex(t.id); });
+    bar.appendChild(btn);
+  }
+}
+
+// one expandable dossier card: collapsed shows the code box, name, faction, and
+// stat chips; clicking reveals the description plus the veterancy / fortification
+// payoff and (for sounds) an audition button
+function buildCodexCard(entry, tab) {
+  const color = codexColor(tab, entry);
+  const open = codexOpenKey === entry.key;
+
+  const card = document.createElement('div');
+  card.className = 'cx-card' + (open ? ' open' : '');
+  card.style.borderLeftColor = color;
+
+  const head = document.createElement('div');
+  head.className = 'cx-card-head';
+
+  // the code box carries the unit's real field art (troops/enemies/vehicles),
+  // an emplacement/event glyph, or a sound-category icon — same draw calls the
+  // player sees on the battlefield, scaled into the dossier's 46px slot
+  const icon = document.createElement('div');
+  icon.className = 'cx-code';
+  icon.style.borderColor = color;
+  icon.title = `${codexCode(entry)} · ${entry.name}`;
+  const portrait = document.createElement('canvas');
+  portrait.className = 'cx-portrait';
+  portrait.width = CODEX_PW;
+  portrait.height = CODEX_PH;
+  portrait.getContext('2d').drawImage(renderPortrait(entry.key, entry.side), 0, 0);
+  icon.appendChild(portrait);
+  head.appendChild(icon);
+
+  const id = document.createElement('div');
+  id.className = 'cx-id';
+  const name = document.createElement('div');
+  name.className = 'cx-name';
+  name.textContent = entry.name;
+  const faction = document.createElement('div');
+  faction.className = 'cx-faction';
+  faction.style.color = color;
+  faction.textContent = codexFaction(tab, entry);
+  id.appendChild(name);
+  id.appendChild(faction);
+  head.appendChild(id);
+
+  const chev = document.createElement('span');
+  chev.className = 'cx-chev';
+  chev.textContent = open ? '▾' : '▸';
+  head.appendChild(chev);
+  card.appendChild(head);
+
+  const chips = document.createElement('div');
+  chips.className = 'cx-chips';
+  for (const part of String(entry.stats).split(' · ')) {
+    const chip = document.createElement('span');
+    chip.className = 'cx-chip';
+    chip.textContent = part;
+    chips.appendChild(chip);
+  }
+  card.appendChild(chips);
+
+  const box = document.createElement('div');
+  box.className = 'cx-open';
+  const desc = document.createElement('div');
+  desc.className = 'cx-desc';
+  desc.textContent = entry.desc;
+  box.appendChild(desc);
+
+  // troops earn veterancy; emplacements earn fortification tiers — show exactly
+  // what the upgrade buys, right inside the opened dossier
+  if (tab === 'troops') {
+    const panel = buildVeterancyPanel(entry.key, UNIT_TYPES[entry.key]);
+    if (panel) box.appendChild(panel);
+  } else if (tab === 'defenses') {
+    const panel = buildFortPanel(entry.key);
+    if (panel) box.appendChild(panel);
+  }
+
+  if (entry.play) {
+    const playBtn = document.createElement('button');
+    playBtn.className = 'cx-play-btn';
+    playBtn.textContent = '▶ PLAY SAMPLE';
+    playBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      SFX.resume();
+      entry.play();
+    });
+    box.appendChild(playBtn);
+  }
+  card.appendChild(box);
+
+  head.addEventListener('click', () => {
+    codexOpenKey = codexOpenKey === entry.key ? null : entry.key;
+    buildCodex(tab);
+  });
+
+  return card;
+}
+
 function buildCodex(tab) {
   codexTab = tab;
-  for (const btn of document.querySelectorAll('.codex-tab')) {
-    btn.classList.toggle('active', btn.dataset.tab === tab);
-  }
+  buildCodexTabs();
   const list = el('codex-list');
   list.innerHTML = '';
   for (const entry of codexEntries(tab)) {
-    const card = document.createElement('div');
-    card.className = 'codex-entry';
-    if (entry.side) card.classList.add('codex-entry-' + entry.side);
-
-    const frame = document.createElement('div');
-    frame.className = 'codex-frame';
-    const portrait = document.createElement('canvas');
-    portrait.className = 'codex-portrait';
-    portrait.width = CODEX_PW;
-    portrait.height = CODEX_PH;
-    const pctx = portrait.getContext('2d');
-    pctx.drawImage(renderPortrait(entry.key, entry.side), 0, 0);
-    frame.appendChild(portrait);
-
-    const body = document.createElement('div');
-    body.className = 'codex-body';
-
-    const name = document.createElement('div');
-    name.className = 'codex-name';
-    name.textContent = entry.name;
-    body.appendChild(name);
-
-    const stats = document.createElement('div');
-    stats.className = 'codex-stats';
-    for (const part of String(entry.stats).split(' · ')) {
-      const chip = document.createElement('span');
-      chip.className = 'codex-chip';
-      chip.textContent = part;
-      stats.appendChild(chip);
-    }
-    body.appendChild(stats);
-
-    const desc = document.createElement('div');
-    desc.className = 'codex-desc';
-    desc.textContent = entry.desc;
-    body.appendChild(desc);
-
-    if (entry.play) {
-      const playBtn = document.createElement('button');
-      playBtn.className = 'codex-play-btn';
-      playBtn.textContent = 'PLAY';
-      playBtn.addEventListener('click', () => {
-        SFX.resume();
-        entry.play();
-      });
-      body.appendChild(playBtn);
-    }
-
-    // troops earn veterancy; emplacements earn fortification tiers — either way
-    // let players preview exactly what the upgrade buys before committing TP
-    if (tab === 'troops') {
-      addCodexCollapsible(body, 'VETERANCY',
-        buildVeterancyPanel(entry.key, UNIT_TYPES[entry.key]));
-    } else if (tab === 'defenses') {
-      addCodexCollapsible(body, 'FORTIFICATION', buildFortPanel(entry.key));
-    }
-
-    card.appendChild(frame);
-    card.appendChild(body);
-    list.appendChild(card);
+    list.appendChild(buildCodexCard(entry, tab));
   }
+}
+
+// total dossiers across every section, shown in the header
+function codexRecordCount() {
+  return CODEX_TABS.reduce((n, t) => n + codexEntries(t.id).length, 0);
+}
+
+function openCodexOverlay() {
+  codexOpenKey = null;
+  buildCodex(codexTab);
+  el('codex-records').textContent = `${codexRecordCount()} RECORDS · LIVE`;
+  el('codex').classList.remove('hidden');
 }
 
 function openCodex() {
   codexReturnTo = 'intro';
-  buildCodex(codexTab);
   el('intro').classList.add('hidden');
-  el('codex').classList.remove('hidden');
+  openCodexOverlay();
 }
 
 function openCodexFromPause() {
   codexReturnTo = 'pause';
-  buildCodex(codexTab);
   el('pause').classList.add('hidden');
-  el('codex').classList.remove('hidden');
+  openCodexOverlay();
 }
 
 function closeCodex() {
@@ -1041,6 +1176,3 @@ function closeCodex() {
 
 el('codex-btn').addEventListener('click', openCodex);
 el('codex-back-btn').addEventListener('click', closeCodex);
-for (const btn of document.querySelectorAll('.codex-tab')) {
-  btn.addEventListener('click', () => buildCodex(btn.dataset.tab));
-}

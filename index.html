@@ -305,16 +305,18 @@
     </div>
 
     <div id="codex" class="overlay hidden">
-      <h1>FIELD CODEX</h1>
-      <div id="codex-tabs">
-        <button class="codex-tab active" data-tab="troops">YOUR TROOPS</button>
-        <button class="codex-tab" data-tab="defenses">DEFENSES &amp; SUPPORT</button>
-        <button class="codex-tab" data-tab="enemies">ENEMY FORCES</button>
-        <button class="codex-tab" data-tab="events">EVENTS</button>
-        <button class="codex-tab" data-tab="sounds">SOUNDS</button>
+      <div id="codex-header">
+        <div class="cx-head-left">
+          <span class="cx-mark">&#9700; FIELD CODEX</span>
+          <div class="cx-title">INTEL DATABASE</div>
+        </div>
+        <div class="cx-head-right">
+          <span id="codex-records" class="cx-records"></span>
+          <button id="codex-back-btn" class="cx-close">CLOSE &#10005;</button>
+        </div>
       </div>
+      <div id="codex-tabs"></div>
       <div id="codex-list"></div>
-      <button id="codex-back-btn">BACK</button>
     </div>
 
     <div id="changelog" class="overlay hidden">

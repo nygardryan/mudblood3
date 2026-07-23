@@ -7,10 +7,10 @@ function wavesPast99(w) {
 }
 
 function spawnIntervalForWave(w) {
-  // steeper ramp (0.26/wave) reaches the 6 s cadence floor by ~wave 38
-  // instead of wave 50, so the Germans hit full tempo sooner
+  // steep ramp (0.32/wave) reaches the 7 s cadence floor by ~wave 28,
+  // so the Germans hit full tempo early in a run
   const base = w <= 99
-    ? clamp(16 - w * 0.26, 7, 16)
+    ? clamp(16 - w * 0.32, 7, 16)
     : clamp(7 - wavesPast99(w) * 0.06, 4, 16);
   // WAVE_BREATHER guarantees a fixed pause between every wave
   return base + WAVE_BREATHER;
@@ -25,20 +25,23 @@ function enemySpawnMult(w) {
   // ~1.5x the old band so each wave arrives as a bigger clump instead of a
   // steady dribble of pairs; the wider gaps in spawnIntervalForWave keep the
   // net volume in check
-  return Math.max(0.42, 0.60 - (w - 10) * 0.030);
+  return Math.max(0.46, 0.60 - (w - 10) * 0.024);
 }
 
 function waveComposition(w) {
   const late = wavesPast99(w);
   const mult = enemySpawnMult(w);
-  // batches grow one man every 3 waves (was 4) and the cap keeps climbing
-  // through the run (9 + w/25 pre-99, plus late growth) instead of plateauing
-  // at 7 — so wave size keeps scaling up rather than flattening mid-game
+  // batches grow one man every 2.5 waves and the cap climbs fast (9 + w/14
+  // pre-99, plus late growth), so wave size ramps up sharply through the
+  // early-mid game instead of easing in
   const baseSize = Math.min(
-    2 + Math.floor(w / 3) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 4),
-    9 + Math.floor(w / 25) + Math.floor(late / 8),
+    2 + Math.floor(w / 2.5) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 4),
+    9 + Math.floor(w / 14) + Math.floor(late / 6),
   );
-  const size = Math.max(1, Math.round(baseSize * mult));
+  // after wave 4, every wave fields at least 3 Germans so the assault never
+  // thins to a token dribble as the run scales up
+  const minSize = w > 4 ? 3 : 1;
+  const size = Math.max(minSize, Math.round(baseSize * mult));
   const pool = ['erifle', 'erifle', 'erifle'];
   // tougher types unlock earlier so the threat mix escalates faster
   if (w >= 4) pool.push('esmg', 'esmg');
@@ -46,8 +49,8 @@ function waveComposition(w) {
   if (w >= 9) pool.push('emg');
   if (w >= 11) pool.push('eflame');
   if (w >= 13) pool.push('esniper');
-  if (w >= 42) pool.push('emortar');
-  if (w >= 58) pool.push('ebazooka');
+  if (w >= 32) pool.push('emortar');
+  if (w >= 45) pool.push('ebazooka');
   const out = [];
   for (let i = 0; i < size; i++) out.push(pick(pool));
   if (w >= 12 && Math.random() < (0.30 + late * 0.004) * mult) out.push('eoff');
@@ -57,12 +60,24 @@ function waveComposition(w) {
     ? Math.min(1, 0.9 + late * 0.006)
     : Math.min(0.9, w >= 9 ? 0.2 + (w - 9) * (0.7 / 90) : 0)) * mult;
   if (w >= 9 && Math.random() < bikeChance) out.push('ebike');
-  const vehChance = 0.13 * (1 + late * 0.04) * mult;
+  // vehicle odds now climb with the wave too (from 0.13 at w20 upward), so
+  // gun cars, halftracks and armor show up sooner and more often as it scales
+  const vehChance = (0.13 + Math.max(0, w - 20) * 0.002) * (1 + late * 0.04) * mult;
   // a Kübelwagen gun car rolls in occasionally — armor arrives earlier now
-  if (w >= 15 && Math.random() < vehChance) out.push('ejeep');
+  if (w >= 13 && Math.random() < vehChance) out.push('ejeep');
   // an armored halftrack hauls a full squad to the front
-  if (w >= 16 && Math.random() < vehChance) out.push('ehalftrack');
-  if (w >= 25 && Math.random() < vehChance) out.push('panzer');
+  if (w >= 14 && Math.random() < vehChance) out.push('ehalftrack');
+  if (w >= 30 && Math.random() < vehChance) out.push('panzer');
+  // past wave 100 the assault mechanizes: on top of the `size` infantry (which
+  // is always spawned, so the wave never becomes pure armor) a growing share of
+  // vehicles rolls in. vehShare climbs 1.5%/wave past 99 up to a 0.5 cap, so
+  // vehicles top out at ~1/3 of the wave while infantry keeps the majority.
+  if (late > 0) {
+    const vehShare = Math.min(0.5, late * 0.015);
+    const vehPool = ['ejeep', 'ehalftrack', 'ehalftrack', 'panzer'];
+    const vehCount = Math.round(size * vehShare);
+    for (let i = 0; i < vehCount; i++) out.push(pick(vehPool));
+  }
   // V2 battery: one at a time, and only once the fighting is desperate. Not
   // scaled by `mult` — that's a general enemy-volume knob and was crushing
   // this down to a ~3% roll per wave even deep past 140; it's a rare

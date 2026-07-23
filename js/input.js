@@ -182,12 +182,26 @@ function place(p, x, y) {
   SFX.click();
   mobileVibrate(8);
 
+  applyPlacement(p, x, y);
+
+  // keep placing defenses if affordable; supports are one-shot
+  if (p.kind === 'support' || !canAffordTP(placeableCost(p)) || (p.key === 'officer' && officerCount() >= officerLimit())) clearPlacing();
+}
+
+// The raw "what does placing item p at (x,y) create" switch, split out of
+// place() so it can be reused by the test harness (js/test-api.js) without
+// re-implementing — and drifting from — the game's own creation logic. This
+// half is deliberately effect-only: it assumes the caller has already run
+// validation, affordability, and TP spend (place() does; the harness charges
+// or skips TP as appropriate). It never touches placing/UI state.
+function applyPlacement(p, x, y) {
   if (p.kind === 'unit') {
     const u = makeUnit(p.key, x, y);
     G.units.push(u);
     maybeSpawnPassenger(u);   // Passenger card: a deployed jeep drops a free grunt
+    return u;
   } else if (p.kind === 'eparadrop') {
-    placeAxisParatrooper(x, y);
+    return placeAxisParatrooper(x, y);
   } else if (p.kind === 'aunit') {
     const nation = levelAttackerNation(G.level);
     const u = makeAttacker(nation, p.key, x, y);
@@ -201,8 +215,11 @@ function place(p, x, y) {
       }
     }
     G.enemies.push(u);
+    return u;
   } else if (p.kind === 'eunit' || p.kind === 'egerman') {
-    G.enemies.push(makeEnemy(p.key, x, y));
+    const e = makeEnemy(p.key, x, y);
+    G.enemies.push(e);
+    return e;
   } else if (p.key === 'ebarrage') {
     showBanner('DEUTSCHE ARTILLERIE!');
     for (let i = 0; i < 10; i++) {
@@ -247,8 +264,7 @@ function place(p, x, y) {
     showBanner('AREA CLEARED');
     purgeRadius(x, y, PURGE_RADIUS);
   }
-  // keep placing defenses if affordable; supports are one-shot
-  if (p.kind === 'support' || !canAffordTP(placeableCost(p)) || (p.key === 'officer' && officerCount() >= officerLimit())) clearPlacing();
+  return null;
 }
 
 function updatePointer(e) {

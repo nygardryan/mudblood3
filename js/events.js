@@ -25,13 +25,16 @@ function paradropCount(w) {
 }
 
 const PARA_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];
+// Imperial airborne (Teishin Shudan) equivalent for the Japanese faction
+const PARA_POOL_JP = ['jrifle', 'jrifle', 'jbanzai', 'jbanzai'];
 
 function triggerParadrop() {
-  showBanner('FALLSCHIRMJÄGER! PARATROOPERS!');
+  const jp = enemyFaction() === 'jp';
+  showBanner(jp ? 'TEISHIN PARATROOPERS!' : 'FALLSCHIRMJÄGER! PARATROOPERS!');
   spawnTransportFlyby();
   const w = G.wave;
-  const pool = PARA_POOL.slice();
-  if (w >= 10) pool.push('emg');
+  const pool = (jp ? PARA_POOL_JP : PARA_POOL).slice();
+  if (w >= 10) pool.push(jp ? 'jlmg' : 'emg');
   const count = paradropCount(w);
   const cx = rand(120, W - 120);
   for (let i = 0; i < count; i++) {

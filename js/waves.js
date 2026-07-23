@@ -89,7 +89,48 @@ function waveComposition(w) {
   return out;
 }
 
-// ---- themed set-piece assaults: every 10th wave the Germans commit to a
+// Imperial Japanese Army composition. Same size/tempo curve as the Wehrmacht,
+// but a wholly different roster: banzai chargers arrive early and define the
+// threat, there are no bikes/halftracks/gun cars, and suicide lunge-mine men
+// scale up sharply once the player has armor or emplacements to hunt.
+function japWaveComposition(w) {
+  const late = wavesPast99(w);
+  const mult = enemySpawnMult(w);
+  const baseSize = Math.min(
+    2 + Math.floor(w / 2.5) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 4),
+    9 + Math.floor(w / 14) + Math.floor(late / 6),
+  );
+  const minSize = w > 4 ? 3 : 1;
+  const size = Math.max(minSize, Math.round(baseSize * mult));
+  const pool = ['jrifle', 'jrifle', 'jrifle'];
+  if (w >= 3) pool.push('jbanzai', 'jbanzai');   // chargers early — the signature threat
+  if (w >= 6) pool.push('jlmg');
+  if (w >= 8) pool.push('jknee');
+  if (w >= 11) pool.push('jflame');
+  if (w >= 13) pool.push('jsniper');
+  const out = [];
+  for (let i = 0; i < size; i++) out.push(pick(pool));
+  if (w >= 12 && Math.random() < (0.30 + late * 0.004) * mult) out.push('joff');
+  // lunge-mine suicide men: they only make sense against something worth ramming,
+  // so they show from wave 18 and come thicker when the player fields armor or guns
+  if (w >= 18) {
+    const hasArmor = G.units.some(u => !u.dead && (u.t.tank || u.t.vehicle || u.t.gunEmplacement));
+    const lungeChance = (hasArmor ? 0.55 : 0.22) * (1 + late * 0.03) * mult;
+    if (Math.random() < lungeChance) out.push('jlunge');
+    if (hasArmor && w >= 40 && Math.random() < lungeChance * 0.7) out.push('jlunge');
+  }
+  // the Chi-Ha grinds in from the mid game, more often as the run drags on
+  const tankChance = (0.10 + Math.max(0, w - 25) * 0.002) * (1 + late * 0.05) * mult;
+  if (w >= 25 && Math.random() < tankChance) out.push('jtank');
+  if (late > 0) {
+    const armorShare = Math.min(0.4, late * 0.012);
+    const armorCount = Math.round(size * armorShare);
+    for (let i = 0; i < armorCount; i++) out.push('jtank');
+  }
+  return out;
+}
+
+// ---- themed set-piece assaults: every 10th wave the enemy commits to a
 // scripted attack. Themes cycle; the tier (wave/10) keeps climbing forever,
 // so each theme returns bigger and meaner the next time around.
 
@@ -206,9 +247,80 @@ const SPECIAL_WAVES = [
   },
 ];
 
+// Imperial Japanese set-piece assaults — their own rotation of themed waves,
+// leaning on banzai charges, night infiltration, and knee-mortar bombardment.
+const JP_SPECIAL_WAVES = [
+  {
+    key: 'banzai',
+    banner: 'BANZAI! MASS CHARGE!',
+    // a shoulder-to-shoulder wall of chargers across the whole field, led by officers
+    spawn(t) {
+      const count = Math.floor(specialWaveMult(t) * (9 + 2 * t));
+      for (let i = 0; i < count; i++) {
+        const x = (W / (count + 1)) * (i + 1) + rand(-22, 22);
+        spawnEnemyAt(Math.random() < 0.75 ? 'jbanzai' : 'jrifle', x, rand(-90, -20));
+      }
+      const officers = Math.floor(specialWaveMult(t) * (1 + t / 4));
+      for (let i = 0; i < officers; i++) {
+        spawnEnemyAt('joff', rand(120, W - 120), rand(-120, -80));
+      }
+    },
+  },
+  {
+    key: 'infiltrate',
+    banner: 'NIGHT INFILTRATION — THEY COME IN THE FOG!',
+    // fog blankets the field while snipers and machine guns creep in with the riflemen
+    spawn(t) {
+      G.fog = Math.max(G.fog, Math.round((24 + t) * 1.15));
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 4)); i++) {
+        spawnEnemyAt('jsniper', rand(60, W - 60), rand(-140, -60));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (1 + t / 4)); i++) {
+        spawnEnemyAt('jlmg', rand(80, W - 80), rand(-110, -40));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (6 + t)); i++) {
+        spawnEnemyAt(pick(['jrifle', 'jrifle', 'jbanzai']), rand(50, W - 50), rand(-90, -20));
+      }
+    },
+  },
+  {
+    key: 'bombard',
+    banner: 'KNEE-MORTAR BOMBARDMENT!',
+    // a cluster of grenade-discharger teams lobbing shells behind a rifle screen
+    spawn(t) {
+      const mortars = Math.floor(specialWaveMult(t) * (3 + t / 2));
+      for (let i = 0; i < mortars; i++) {
+        spawnEnemyAt('jknee', rand(70, W - 70), rand(-120, -50));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (5 + t)); i++) {
+        spawnEnemyAt(pick(['jrifle', 'jrifle', 'jlmg']), rand(50, W - 50), rand(-80, -20));
+      }
+    },
+  },
+  {
+    key: 'gyokusai',
+    banner: 'GYOKUSAI! LAST CHARGE — NO SURRENDER!',
+    // everything at once: a screaming human wave with lunge mines mixed in
+    spawn(t) {
+      const count = Math.floor(specialWaveMult(t) * (10 + 2 * t));
+      for (let i = 0; i < count; i++) {
+        const x = (W / (count + 1)) * (i + 1) + rand(-24, 24);
+        const roll = Math.random();
+        const type = roll < 0.55 ? 'jbanzai' : roll < 0.7 ? 'jlunge' : roll < 0.85 && t >= 3 ? 'jflame' : 'jrifle';
+        spawnEnemyAt(type, x, rand(-100, -20));
+      }
+      const officers = Math.floor(specialWaveMult(t) * (1 + t / 4));
+      for (let i = 0; i < officers; i++) {
+        spawnEnemyAt('joff', rand(120, W - 120), rand(-130, -90));
+      }
+    },
+  },
+];
+
 function spawnSpecialWave(w) {
   const tier = w / 10;
-  const theme = SPECIAL_WAVES[(tier - 1) % SPECIAL_WAVES.length];
+  const set = enemyFaction() === 'jp' ? JP_SPECIAL_WAVES : SPECIAL_WAVES;
+  const theme = set[(tier - 1) % set.length];
   showBanner(theme.banner);
   theme.spawn(tier);
   // a breather while you police up the aftermath
@@ -220,7 +332,7 @@ function launchWave(w) {
     spawnSpecialWave(w);
     return;
   }
-  const comp = waveComposition(w);
+  const comp = enemyFaction() === 'jp' ? japWaveComposition(w) : waveComposition(w);
   const cx = rand(100, W - 100);
   for (const type of comp) {
     const x = clamp(cx + rand(-90, 90), 30, W - 30);
@@ -238,7 +350,9 @@ function spawnWave() {
   G.wave++;
   awardWaveMedals();
   launchWave(G.wave);
-  if (G.wave === 1) showBanner('HERE THEY COME');
+  if (G.wave === 1) {
+    showBanner(enemyFaction() === 'jp' ? 'THE IMPERIAL ARMY ATTACKS' : 'HERE THEY COME');
+  }
 }
 
 // sandbox only: skip ahead and spawn that wave's assault immediately. Not

@@ -3,6 +3,18 @@
 // Add a new object to the TOP of this array whenever you ship changes.
 const CHANGELOG = [
   {
+    date: '2026-07-23',
+    title: 'New Faction: Imperial Japanese Army',
+    changes: [
+      'Endless runs now roll a foe: you face either the Wehrmacht or a brand-new Imperial Japanese Army.',
+      'Nine new units with their own art: Arisaka riflemen, Nambu LMGs, nest snipers, knee mortars, sword officers, Type 100 flamethrowers, and the Chi-Ha tank.',
+      'Banzai chargers sprint in and cut your men down with the bayonet — no ranged attack, so drop them before they close.',
+      'Lunge-mine suicide men rush your armor and emplacements and detonate on contact.',
+      'Japanese infantry are fanatics — they never hit the dirt, they only close the distance. Officers can scream a banzai charge that surges every soldier around them.',
+      'New Japanese set-piece assaults (mass banzai, night infiltration, knee-mortar bombardment, and the gyokusai last charge).',
+    ],
+  },
+  {
     date: '2026-07-22',
     title: 'Cards, Settings & Visual Polish',
     changes: [

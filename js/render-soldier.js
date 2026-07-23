@@ -16,7 +16,7 @@ const SOLDIER_FACINGS = 48;
 // straight (uncached) so the animation still plays. Everything else is a steady
 // pose that hits the cache.
 function soldierCacheable(a) {
-  return !(a.grenThrowT > 0 || a.mortarFireT > 0 || a.shotgunBlastT > 0 || a.flameT > 0);
+  return !(a.grenThrowT > 0 || a.mortarFireT > 0 || a.shotgunBlastT > 0 || a.flameT > 0 || a.slashT > 0);
 }
 
 // The cached directional frame for this soldier's type/nation/facing. Baked from
@@ -57,6 +57,9 @@ function drawSoldier(a) {
 // Draws the body in local space (origin at the unit). Positioning is the caller's
 // job: the live path translates, the sprite bake pre-translates the offscreen ctx.
 function paintSoldierBody(c, a) {
+  // the Imperial Japanese roster is drawn by its own self-contained painter —
+  // distinct helmets, Arisakas, katanas, knee mortars and lunge charges
+  if (a.nation === 'jp') { paintJapaneseSoldier(c, a); return; }
   const type = a.type;
   const us = (a.nation || a.side) === 'us';
   const isSniper = type === 'sniper' || type === 'esniper';

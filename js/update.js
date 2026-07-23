@@ -243,7 +243,7 @@ function update(dt) {
         showBanner('BREAKTHROUGH! (' + G.breaches + '/' + G.level.winBreaches + ')');
         if (G.breaches >= G.level.winBreaches) victory();
       } else {
-        showBanner('GERMAN BREAKTHROUGH! (' + G.breaches + '/' + G.level.breachLimit + ')');
+        showBanner(factionAdjUpper() + ' BREAKTHROUGH! (' + G.breaches + '/' + G.level.breachLimit + ')');
         if (G.breaches >= G.level.breachLimit) gameOver();
       }
     }
@@ -347,7 +347,7 @@ function gameOver() {
   } else {
     const diffPrefix = G.mode === 'endless' && G.difficulty ? `${G.difficulty.name} — ` : '';
     let stats = `${diffPrefix}You held for ${G.wave} waves and ${t} seconds. ` +
-      `${G.kills} Germans will not go home.`;
+      `${G.kills} ${factionPlural()} will not go home.`;
     if (G.medalsEarned > 0) {
       stats += ` +${G.medalsEarned} medal${G.medalsEarned === 1 ? '' : 's'} earned — ` +
         `${loadEndlessCards().medals} banked for the card shop.`;
@@ -377,7 +377,7 @@ function victory() {
   } else {
     endRun(true, 'SECTOR HELD',
       `You stopped all ${G.wave} waves in ${t} seconds. ` +
-      `${G.kills} Germans will not go home. The line is yours.`);
+      `${G.kills} ${factionPlural()} will not go home. The line is yours.`);
   }
   if (campaignForLevel(G.level.id)) {
     markLevelComplete(G.level.id);

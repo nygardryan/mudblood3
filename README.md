@@ -23,10 +23,20 @@ workflow.
 
 ## Game modes
 
-- **Endless** — the classic. Germans attack in endless waves from the top of the
-  screen. Hold the line as long as you can — if **7 Germans** slip past the bottom
-  edge, your sector collapses and it's game over. There is no victory, only a
-  higher wave count. Pick a difficulty before you deploy:
+- **Endless** — the classic. Each run rolls its foe: you face either the
+  **Germans** or the **Imperial Japanese Army**, attacking in endless waves from
+  the top of the screen. Hold the line as long as you can — if **7 enemies** slip
+  past the bottom edge, your sector collapses and it's game over. There is no
+  victory, only a higher wave count.
+  - **The Japanese** field a wholly different roster: Arisaka riflemen with long
+    bayonets, Nambu machine guns, nest snipers, knee mortars, sword officers,
+    Type 100 flamethrowers, and the Chi-Ha tank. Two threats are unique to them —
+    **banzai chargers** who sprint in and bayonet your men (no ranged fire, so
+    shoot them before they reach the line) and **lunge-mine** suicide men who
+    ram your armor and emplacements and detonate on contact. Every Japanese
+    soldier is a fanatic: they never go prone, they only close the distance, and
+    an officer can scream a **banzai charge** that surges the men around him.
+  Pick a difficulty before you deploy:
   **Sandbox** (unlimited TP, free purchases; **+1 / +5 / +10** HUD buttons or **] / Shift+] / Ctrl+]** to jump ahead and spawn later waves), **Easy** (full income — the default),
   **Medium** (66% income from kills, trickle, and officers), or **Hard** (33%
   income). Wave attrition still applies on Easy, Medium, and Hard.
@@ -215,7 +225,8 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/update-enemies.js` — per-frame enemy unit logic
 - `js/tutorial.js` — tutorial scripts
 - `js/update.js` — main update loop
-- `js/render-units.js` — soldier, kit & weapon drawing
+- `js/render-soldier.js` — soldier, kit & weapon drawing
+- `js/render-japanese.js` — the Imperial Japanese Army soldier renderer
 - `js/render-world.js` — vehicle, emplacement & defense drawing
 - `js/render.js` — scene composition (main draw)
 - `js/camera.js` — view camera: mobile pan/zoom/pinch, world<->screen transforms

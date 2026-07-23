@@ -25,6 +25,8 @@ const CODEX_CODE = {
   erifle: 'RFL', esmg: 'STM', egren: 'GRN', emg: 'MG', eoff: 'OFF', esniper: 'SNP',
   eflame: 'FLM', emortar: 'GWF', ebazooka: 'PZF', ebike: 'KRD', ejeep: 'KBW',
   ehalftrack: '251', panzer: 'PZ4', estug: 'STG', etiger: 'TGR', ev2: 'V2',
+  jrifle: 'RFL', jbanzai: 'BNZ', jlmg: 'T99', jsniper: 'SNP', jknee: 'KNE',
+  jlunge: 'LNG', joff: 'OFF', jflame: 'FLM', jtank: 'CHI',
   wire: 'WIR', sandbags: 'SBG', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
   ammocrate: 'AMM', mine: 'MIN', mortar: 'MST', artillery: 'ART',
   fog: 'FOG', fng: 'FNG', airraid: 'RAD', paradrop: 'PAR', airstrike: 'P47', special: 'SPC',
@@ -47,7 +49,10 @@ function codexColor(tab, entry) {
 
 function codexFaction(tab, entry) {
   if (tab === 'troops') return 'U.S. ARMY';
-  if (tab === 'enemies') return 'WEHRMACHT';
+  if (tab === 'enemies') {
+    const et = entry && ENEMY_TYPES[entry.key];
+    return et && et.faction === 'jp' ? 'IMPERIAL JAPANESE ARMY' : 'WEHRMACHT';
+  }
   if (tab === 'defenses') return entry.kind || 'FIELD';
   if (tab === 'events') return 'BATTLEFIELD EVENT';
   return entry.category || 'AUDIO';

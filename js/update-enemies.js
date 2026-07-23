@@ -35,6 +35,8 @@ function updateEnemy(e, dt) {
   if (e.grenThrowT > 0) e.grenThrowT -= dt;
   if (e.mortarFireT > 0) e.mortarFireT -= dt;
   if (e.v2FireT > 0) e.v2FireT -= dt;
+  if (e.slashT > 0) e.slashT -= dt;          // banzai bayonet-swing animation
+  if (e.chargeT > 0) e.chargeT -= dt;        // banzai-command speed surge
 
   // still under canopy: drift down, sway in the wind, do nothing else
   if (e.chute > 0) {
@@ -73,6 +75,8 @@ function updateEnemy(e, dt) {
   if (e.t.bike) { updateBike(e, dt); return; }
   if (e.t.apc) { updateHalftrack(e, dt); return; }
   if (e.t.vehicle) { updateEnemyJeep(e, dt); return; }
+  if (e.t.banzai) { updateBanzai(e, dt, buffed, command); return; }
+  if (e.t.lunge) { updateLunge(e, dt, buffed, command); return; }
 
   // player-ordered movement: run to the marker, no shooting on the move
   if (command) {
@@ -133,6 +137,9 @@ function updateEnemy(e, dt) {
     }
     return;
   }
+
+  // a Japanese officer periodically screams the charge order while he fights on
+  if (e.t.banzaiCmd && !command) japBanzaiCommand(e, dt);
 
   const target = nearestUnitInRange(e, range);
   let rocketTarget = null;
@@ -305,7 +312,8 @@ function rollEnemyPushUrge(e, target, dt, command) {
 
 function advance(e, dt, buffed) {
   e.wobble += dt * 3;
-  let speed = e.t.speed * (buffed ? 1.25 : 1);
+  // a banzai-command surge drives men forward 40% faster until it wears off
+  let speed = e.t.speed * (buffed ? 1.25 : 1) * (e.chargeT > 0 ? 1.4 : 1);
   // barbed wire drag; fortified wire grips harder and wears slower, hardened more still
   for (const wr of G.wires) {
     if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
@@ -319,6 +327,119 @@ function advance(e, dt, buffed) {
   e.x += Math.cos(e.face) * speed * dt * 0.4;
   e.y += Math.sin(e.face) * speed * dt;
   e.x = clamp(e.x, 14, W - 14);
+}
+
+// ---- Imperial Japanese Army: banzai chargers, lunge mines, banzai command ----
+
+// run flat-out at a chosen point, dragging through wire like anyone else. Unlike
+// advance() this drives the full vector toward the target (both axes), so a
+// charger makes a beeline instead of the shuffling zig-zag of a line trooper.
+function pursuePoint(e, tx, ty, speed, dt) {
+  e.face = Math.atan2(ty - e.y, tx - e.x);
+  for (const wr of G.wires) {
+    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
+      speed *= wr.up2 ? 0.02 : wr.up ? 0.05 : 0.12;
+      wr.hp -= (wr.up2 ? 2 : wr.up ? 3 : 5) * dt;
+      wireBite(e, dt);
+      break;
+    }
+  }
+  e.x = clamp(e.x + Math.cos(e.face) * speed * dt, 14, W - 14);
+  e.y += Math.sin(e.face) * speed * dt;   // no top clamp — a charger can breach
+}
+
+// occasional battle-cry, throttled per man so a whole wave doesn't shriek at once
+function banzaiYell(e, dt) {
+  e.yellCd = (e.yellCd == null ? rand(0.5, 3) : e.yellCd) - dt;
+  if (e.yellCd <= 0) { e.yellCd = rand(3, 6); SFX.scream(); }
+}
+
+// Banzai charger: no gun. Sprint at the nearest defender and cut him down with
+// the bayonet at arm's reach, then move on to the next man. With nothing left
+// to charge he keeps driving for the bottom edge like any other attacker.
+const BANZAI_REACH = 15;
+function updateBanzai(e, dt, buffed, command) {
+  banzaiYell(e, dt);
+  if (command) { if (e.moveTo) advance(e, dt, buffed); return; }
+  const target = nearestUnitInRange(e, 4000);
+  if (!target) { advance(e, dt, buffed); return; }
+  const reach = BANZAI_REACH + (target.t.tank || target.t.vehicle ? 9 : 0);
+  if (dist(e, target) > reach) {
+    const speed = e.t.speed * (buffed ? 1.2 : 1) * (e.chargeT > 0 ? 1.2 : 1);
+    pursuePoint(e, target.x, target.y, speed, dt);
+    return;
+  }
+  e.face = Math.atan2(target.y - e.y, target.x - e.x);
+  e.cd -= dt;
+  if (e.cd <= 0) {
+    e.cd = e.t.rof * rand(0.85, 1.15);
+    meleeStrike(e, target);
+  }
+}
+
+// a bayonet slash lands its blow instantly — no projectile, no dodge roll
+function meleeStrike(e, target) {
+  e.slashT = 0.24;
+  SFX.rifle();
+  G.flashes.push({ x: target.x, y: target.y, r: 5, ttl: 0.08, max: 0.08 });
+  bloodSplat(target.x, target.y, 5);
+  let dmg = e.t.dmg * rand(0.85, 1.15);
+  if (target.t.tank) dmg *= 0.04;            // a blade does nothing to armor plate
+  else if (target.t.apc || target.t.vehicle) dmg *= 0.3;
+  damageUnit(target, dmg, e);
+}
+
+// Lunge mine: a suicide anti-tank charge. Hunts armor and emplacements first,
+// then any defender, sprints into contact and rams the pole charge home.
+function updateLunge(e, dt, buffed, command) {
+  if (command) { if (e.moveTo) advance(e, dt, buffed); return; }
+  const target = nearestUnitInRange(e, 4000, u => u.t.tank || u.t.vehicle || u.t.apc || u.t.gunEmplacement)
+    || nearestUnitInRange(e, 4000);
+  if (!target) { advance(e, dt, buffed); return; }
+  const reach = (target.t.tank ? 24 : target.t.vehicle || target.t.apc ? 20 : 16);
+  if (dist(e, target) > reach) {
+    const speed = e.t.speed * (buffed ? 1.15 : 1) * (e.chargeT > 0 ? 1.25 : 1);
+    pursuePoint(e, target.x, target.y, speed, dt);
+    return;
+  }
+  detonateLunge(e);
+}
+
+function detonateLunge(e) {
+  if (e.dead) return;
+  e.dead = true;   // vaporized by his own charge: no corpse, no reward
+  const lu = e.t.lunge;
+  // a synthetic shooter carries the armorMult so explode() treats this as the
+  // shaped anti-armor charge it is, not a bag of HE
+  const by = { x: e.x, y: e.y, t: { rocket: { armorMult: lu.armorMult } } };
+  explode(e.x, e.y, lu.r, lu.dmg, true, by);
+}
+
+function isJapaneseInfantry(e) {
+  return !e.dead && e.t.faction === 'jp' && !e.t.tank && !e.t.fixed;
+}
+
+// Banzai command: on a cooldown the officer hurls every Japanese soldier around
+// him into a charge — a burst of forward speed (chargeT) plus the push urge, so
+// a whole knot of men surges at the line at once.
+const BANZAI_CMD_RADIUS = 150;
+function japBanzaiCommand(e, dt) {
+  e.banzaiCd = (e.banzaiCd == null ? rand(6, 12) : e.banzaiCd) - dt;
+  if (e.banzaiCd > 0) return;
+  e.banzaiCd = rand(12, 18);
+  let roused = 0;
+  const r2 = BANZAI_CMD_RADIUS * BANZAI_CMD_RADIUS;
+  for (const o of G.enemies) {
+    if (o === e || !isJapaneseInfantry(o) || o.chute > 0) continue;
+    if (dist2(e, o) > r2) continue;
+    o.chargeT = rand(2.2, 3.6);
+    o.pushT = Math.max(o.pushT || 0, o.chargeT);
+    roused++;
+  }
+  if (roused > 0) {
+    SFX.scream();
+    G.texts.push({ x: e.x, y: e.y - 24, text: 'BANZAI!', ttl: 1.6 });
+  }
 }
 
 function updateTank(e, dt) {

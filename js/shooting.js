@@ -26,6 +26,9 @@ function braveStandsFast(u) {
 function tryGoProne(u, chance) {
   if (!u || u.dead || !u.t || u.chute > 0) return;
   if (u.t.tank || u.t.vehicle || u.t.apc || u.t.bike || u.t.fixed) return;   // crews don't dive
+  // Japanese infantry are fanatics: they never hit the dirt. Standing tall
+  // costs them — but it means they never stall, they only close the distance.
+  if (u.t.faction === 'jp') return;
   if (u.prone > 0 || u.proneCd > 0 || u.moveTo) return;          // running men keep running
   if (braveStandsFast(u)) return;                                // brave-card men hold their ground
   if (Math.random() >= chance) return;

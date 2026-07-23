@@ -34,7 +34,7 @@ const TEST = {
   help() {
     return {
       api: {
-        'start(levelId, difficulty?)': 'validated startGame; throws on unknown ids; returns state()',
+        'start(levelId, difficulty?, faction?)': "validated startGame; throws on unknown ids; returns state(). faction ('de'|'jp') pins the endless enemy roll",
         'state()': 'compact JSON snapshot of the current game',
         'roster()': 'detailed per-actor lists {units, enemies}: type, pos, hp, rank, kills',
         'catalog()': 'what the current mode can buy: {key, label, kind, cost, affordable, atCap}',
@@ -59,14 +59,20 @@ const TEST = {
     };
   },
 
-  start(levelId, difficultyId) {
+  start(levelId, difficultyId, faction) {
     if (!LEVELS[levelId]) {
       throw new Error('unknown level id "' + levelId + '" — valid: ' + Object.keys(LEVELS).join(', '));
     }
     if (difficultyId != null && !ENDLESS_DIFFICULTIES[difficultyId]) {
       throw new Error('unknown difficulty "' + difficultyId + '" — valid: ' + Object.keys(ENDLESS_DIFFICULTIES).join(', '));
     }
-    startGame(levelId, difficultyId);
+    if (faction != null && faction !== 'de' && faction !== 'jp') {
+      throw new Error('unknown faction "' + faction + '" — valid: de, jp');
+    }
+    // pin the endless enemy-faction roll for a deterministic test, then release
+    G_forceFaction = faction || null;
+    try { startGame(levelId, difficultyId); }
+    finally { G_forceFaction = null; }
     return this.state();
   },
 
@@ -88,6 +94,7 @@ const TEST = {
       levelId: G.level.id,
       difficulty: G.difficulty ? G.difficulty.id : null,
       phase: G.phase,
+      enemyFaction: G.enemyFaction,
       wave: G.wave,
       tp: G.tp,
       kills: G.kills,
@@ -181,6 +188,7 @@ const TEST = {
     const add = (list) => { for (const p of (list || [])) if (!m[p.key]) m[p.key] = p; };
     add(typeof PLACEABLES !== 'undefined' && PLACEABLES);
     add(typeof TESTING_GERMAN_PLACEABLES !== 'undefined' && TESTING_GERMAN_PLACEABLES);
+    add(typeof TESTING_JAPANESE_PLACEABLES !== 'undefined' && TESTING_JAPANESE_PLACEABLES);
     add(typeof TESTING_ABILITIES !== 'undefined' && TESTING_ABILITIES);
     this.__deployMap = m;
     return m;

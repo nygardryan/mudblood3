@@ -306,6 +306,86 @@ const ENEMY_TYPES = {
   },
 };
 
+// ---- Imperial Japanese Army roster: the alternate endless-mode foe. Every
+// type carries faction:'jp', which routes it through makeEnemy's nation pick,
+// the Japanese soldier renderer, and the fanatic no-prone rule (they never hit
+// the dirt under fire — they close the distance instead). Two behaviours are
+// unique to this faction: the banzai charger (melee shock trooper, no gun) and
+// the lunge-mine man (a suicide anti-tank charge).
+Object.assign(ENEMY_TYPES, {
+  jrifle: {
+    // counterpart: rifleman (range 154, speed 42). Type 38 Arisaka + long bayonet.
+    name: 'Arisaka Rifleman', hp: 72, speed: 26, range: 138, dmg: 12, acc: 0.45,
+    rof: 1.4, burst: 1, burstGap: 0, reward: 2,
+    color: '#6b6a3c', gun: 9, sfx: 'rifle', priority: 1, faction: 'jp',
+  },
+  jbanzai: {
+    // NO allied counterpart — a melee shock trooper. Sprints straight at the
+    // nearest defender and cuts him down with the bayonet. No ranged attack;
+    // `dmg` is the slash. Fast and fragile — they come in numbers.
+    name: 'Banzai Charger', hp: 62, speed: 54, range: 0, dmg: 26, acc: 0,
+    rof: 1.0, burst: 1, burstGap: 0, reward: 2,
+    color: '#77712f', gun: 11, sfx: 'rifle', priority: 1, faction: 'jp',
+    banzai: true,
+  },
+  jlmg: {
+    // counterpart: gunner (range 179, speed 36) — Type 99 light machine gun.
+    name: 'Nambu Gunner', hp: 105, speed: 15, range: 172, dmg: 10, acc: 0.36,
+    rof: 1.7, burst: 5, burstGap: 0.08, reward: 3,
+    color: '#5f5f34', gun: 10, sfx: 'mg', priority: 3, faction: 'jp',
+  },
+  jsniper: {
+    // counterpart: sniper (range 249, speed 38) — Type 97 in the treeline.
+    name: 'Nest Sniper', hp: 68, speed: 13, range: 205, dmg: 44, acc: 0.70,
+    rof: 6.0, burst: 1, burstGap: 0, reward: 4,
+    color: '#565a30', gun: 12, sfx: 'sniper', priority: 4, faction: 'jp',
+  },
+  jknee: {
+    // Type 89 grenade discharger. Deliberately short-legged: its lob range is
+    // 20% under the Nest Sniper's reach (205 -> 164), so a sniper outranges it —
+    // but it fires far more often than a Granatwerfer to make up for it.
+    name: 'Knee Mortar', hp: 82, speed: 18, range: 78, dmg: 7, acc: 0.42,
+    rof: 1.1, burst: 1, burstGap: 0, reward: 4,
+    color: '#63633a', gun: 5, sfx: 'pistol', priority: 4, faction: 'jp',
+    mortar: { range: 164, min: 70, cdMin: 5, cdMax: 7, r: 30, dmg: 55, flight: 1.3, scatter: 46 },
+  },
+  jlunge: {
+    // NO allied counterpart — a suicide anti-tank charge (Type 99 lunge mine).
+    // Runs down the nearest vehicle, emplacement, or (failing that) defender
+    // and rams the pole charge home, detonating on contact. One-shot: it never
+    // fires and never survives its own attack, so it pays no reward.
+    name: 'Lunge Mine', hp: 84, speed: 46, range: 0, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 5,
+    color: '#6e6a34', gun: 13, sfx: 'rifle', priority: 4, faction: 'jp',
+    lunge: { r: 42, dmg: 130, armorMult: 6 },
+  },
+  joff: {
+    // counterpart: officer (range 101, speed 44) — shin gunto sabre. His aura
+    // stiffens nearby troops, and on a cooldown he screams the banzai order,
+    // surging every Japanese soldier around him into a headlong charge.
+    name: 'Officer', hp: 92, speed: 24, range: 92, dmg: 10, acc: 0.5,
+    rof: 0.9, burst: 1, burstGap: 0, reward: 5,
+    color: '#7a763f', gun: 9, sfx: 'pistol', priority: 5, faction: 'jp',
+    aura: true, banzaiCmd: true,
+  },
+  jflame: {
+    // counterpart: flamer (flame range 78, speed 38) — Type 100 flamethrower.
+    name: 'Flamethrower', hp: 100, speed: 33, range: 76, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 4,
+    color: '#66642f', gun: 8, sfx: 'rifle', priority: 3, faction: 'jp',
+    flame: { range: 76, arc: 0.45, dps: 40 }, blastResist: 0.5,
+  },
+  jtank: {
+    // counterpart: sherman (range 262, speed 14) — Type 97 Chi-Ha. Lighter and
+    // quicker than a Panzer IV, with a stubbier 57mm gun.
+    name: 'Chi-Ha', hp: 900, speed: 12, range: 205, dmg: 0, acc: 0,
+    rof: 4.4, burst: 1, burstGap: 0, reward: 14, shellDmg: 82,
+    color: '#6d6a3c', gun: 0, sfx: 'boom', priority: 0, tank: true, faction: 'jp',
+    fireCone: { arc: 0.25 },
+    mg: { range: 150, dmg: 7, acc: 0.4, burst: 5, burstGap: 0.08, gun: 22, sfx: 'mg' },
+  },
+});
+
 const ENEMY_INFO = {
   erifle: 'Standard Wehrmacht infantry. Slow, steady, and expendable — but there are always more of them.',
   esmg: 'Assault troops with MP40s. Fast movers who shred your line in close bursts.',
@@ -323,6 +403,17 @@ const ENEMY_INFO = {
   estug: 'StuG III assault gun. Low-profile casemate mount; hunts bunkers and armor from range.',
   etiger: 'Tiger I heavy tank. Nearly impenetrable frontal armor and a devastating 88mm.',
   ev2: 'A20 rocket battery. Mostly holds position but pushes forward under fire like any infantry, covers most of the map, and hits hard where it lands — wildly inaccurate, but it hunts vehicles first and wrecks them fast. Doesn\'t show up until the fighting gets desperate.',
+  // Imperial Japanese Army — the alternate endless foe. All of them are
+  // fanatics: they never hit the dirt, closing the distance instead of pinning.
+  jrifle: 'Imperial infantry with a Type 38 Arisaka and a long bayonet. Fanatical — never goes to ground, just keeps coming.',
+  jbanzai: 'Screaming shock trooper. No rifle fire — he sprints straight into your line and cuts men down with the bayonet. Kill him before he closes.',
+  jlmg: 'Type 99 light machine gun. Rakes your line from range and never flinches under return fire.',
+  jsniper: 'Marksman lashed into the treeline. Stays hidden until he fires, then picks off officers, medics, and gunners.',
+  jknee: 'Type 89 grenade discharger — a "knee mortar." Short-ranged and light, but it lobs shells far faster than a Granatwerfer.',
+  jlunge: 'Suicide anti-tank man with a Type 99 lunge mine. Charges your armor and emplacements and rams the charge home. Shoot him off before he connects.',
+  joff: 'Sword-wielding officer. His presence hardens the troops, and on command he hurls every soldier around him into a banzai charge.',
+  jflame: 'Type 100 flamethrower operator. Burns through wire, sandbags, and flesh — and his own men if they\'re in the way.',
+  jtank: 'Type 97 Chi-Ha. Lighter and faster than a Panzer, with a stubby 57mm gun and a hull MG. Small arms still bounce off it.',
 };
 
 const EVENT_INFO = [
@@ -475,6 +566,30 @@ const TESTING_GERMAN_PLACEABLES = [
   // is exactly where you'd want to drop one in on demand.
   { key: 'ev2', label: 'V2 BATTERY', cost: 100, kind: 'egerman', hotkey: '',
     desc: 'A20 rocket battery. Normally locked behind wave 140 in endless — testing mode lets you place one immediately.' },
+];
+
+// endless testing/deploy roster for the Imperial Japanese Army. Reuses the
+// 'egerman' kind (which just routes placement through makeEnemy as an attacker);
+// makeEnemy reads each type's faction:'jp', so these spawn as Japanese units.
+const TESTING_JAPANESE_PLACEABLES = [
+  { key: 'jrifle', label: 'ARISAKA', cost: 4, kind: 'egerman', hotkey: '',
+    desc: 'Imperial rifleman with an Arisaka and long bayonet. Fanatical — never goes prone.' },
+  { key: 'jbanzai', label: 'BANZAI', cost: 4, kind: 'egerman', hotkey: '',
+    desc: 'Melee shock trooper. Sprints in and bayonets defenders — no ranged attack.' },
+  { key: 'jlmg', label: 'NAMBU LMG', cost: 9, kind: 'egerman', hotkey: '',
+    desc: 'Type 99 light machine gun. Long-range suppressive fire.' },
+  { key: 'jsniper', label: 'NEST SNIPER', cost: 10, kind: 'egerman', hotkey: '',
+    desc: 'Camouflaged marksman lashed into the treeline.' },
+  { key: 'jknee', label: 'KNEE MORTAR', cost: 14, kind: 'egerman', hotkey: '',
+    desc: 'Type 89 grenade discharger. Short-ranged but very fast-firing.' },
+  { key: 'jlunge', label: 'LUNGE MINE', cost: 18, kind: 'egerman', hotkey: '',
+    desc: 'Suicide anti-tank charge. Rams armor and emplacements, detonating on contact.' },
+  { key: 'joff', label: 'JP OFFICER', cost: 15, kind: 'egerman', hotkey: '',
+    desc: 'Sword officer. Aura buff plus a banzai-charge command.' },
+  { key: 'jflame', label: 'JP FLAMER', cost: 6, kind: 'egerman', hotkey: '',
+    desc: 'Type 100 flamethrower. Burns everything in the cone.' },
+  { key: 'jtank', label: 'CHI-HA', cost: 80, kind: 'egerman', hotkey: '',
+    desc: 'Type 97 Chi-Ha. Lighter, quicker armor with a 57mm gun.' },
 ];
 
 // testing-mode-only ability: an instant field promotion for every unit —

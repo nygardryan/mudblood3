@@ -272,7 +272,8 @@ function spawnGib(cp, kind, us) {
     vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd * 0.7, vz: rand(70, 130),
     rot: rand(0, 7), spin: rand(-14, 14),
     col: muteColor(cp.col, 0.32), limb: muteColor(cp.col, 0.5),
-    skin: us ? '#9a7350' : '#9c7a58', helmet: us ? '#43503a' : '#464b53',
+    skin: us ? '#9a7350' : '#9c7a58',
+    helmet: us ? '#43503a' : cp.nation === 'jp' ? '#585630' : '#464b53',
     landed: false, trail: 0, ttl: CORPSE_TTL,
   });
 }
@@ -356,7 +357,7 @@ function paintCorpse(c, cp) {
     tunic: muteColor(cp.col, 0.32),
     limb: muteColor(cp.col, 0.5),
     skin: us ? '#9a7350' : '#9c7a58',
-    helmet: us ? '#43503a' : '#464b53',
+    helmet: us ? '#43503a' : cp.nation === 'jp' ? '#585630' : '#464b53',
   };
   c.lineCap = 'round';
 

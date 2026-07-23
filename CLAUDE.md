@@ -30,6 +30,9 @@ Drive it via JS execution in the game tab; every call returns plain JSON.
 TEST.help()                        // API + valid level ids / difficulties / unit & enemy keys + buyableNow
 TEST.start('endless', 'easy')      // validated start — THROWS on bad ids
                                    // (bare startGame() silently falls back to endless!)
+TEST.start('endless','easy','jp')  // 3rd arg pins the endless enemy faction roll:
+                                   // 'de' (Wehrmacht) or 'jp' (Imperial Japanese Army).
+                                   // omitted = random per run. state().enemyFaction reports it.
 TEST.deploy('gunner', 0.5, 0.75)   // FREE god-mode spawn; (0..1] coords = fractions of field
 TEST.deploy('sandbags', 0.4, 0.7)  // deploys ANY placeable — defenses, supports, German test units
 TEST.buy('gunner', 0.5, 0.75)      // REALISTIC purchase: charges TP, checks cap/placement, runs place()
@@ -57,6 +60,15 @@ hooks, officer cap, radial placement fallback and all), and reports
 economy/difficulty *feels*; use `deploy` to force a board state. Both route
 creation through the game's own `applyPlacement()` (in `js/input.js`), so a
 harness placement can never drift from a toolbar placement.
+
+The **Imperial Japanese Army** is the alternate endless foe (`faction:'jp'` in
+`ENEMY_TYPES`, keys `jrifle`/`jbanzai`/`jlmg`/`jsniper`/`jknee`/`jlunge`/`joff`/
+`jflame`/`jtank`). `deploy` spawns any of them (they're in
+`TESTING_JAPANESE_PLACEABLES`); wave spawning routes through `japWaveComposition`
+and `JP_SPECIAL_WAVES` when `G.enemyFaction === 'jp'`. Japanese infantry are
+fanatics (never prone — see `tryGoProne`); `jbanzai` is a melee charger and
+`jlunge` a suicide anti-tank unit, both with their own AI in `js/update-enemies.js`.
+Their art lives in `js/render-japanese.js` (`paintJapaneseSoldier`).
 
 `deploy`/`spawnEnemy` accept off-field coords (they don't block) but return
 `offField: true` with a `warning` when a positional placement lands outside the

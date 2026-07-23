@@ -3,24 +3,34 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
-function drawTank(a) {
+// A tank splits into two rigid rotations about its centre: the hull (tracks,
+// plate, insignia — plus the fixed gun on a casemate) turns with the heading, the
+// turret with its own bearing. Each is one canonical frame per type/nation, blitted
+// rotated — hull by (hullAngle - home), turret always by a.turret — so no bucketing
+// and just two sprites per tank type (sprite-cache.js). The screen-fixed shadow and
+// the HUD overlays stay live.
+const TANK_SPR = 92, TANK_SPR_A = 46;
+
+function tankHullSprite(a) {
   const us = (a.nation || a.side) === 'us';
-  const c = ctx;
-  const home = vehicleHomeFace(a);
-  const hullAng = vehicleHullAngle(a);
-  const hullRot = hullAng - home;
+  return sprite('tankhull' + a.type + (us ? 'u' : 'e'),
+    TANK_SPR, TANK_SPR, TANK_SPR_A, TANK_SPR_A, (c) => paintTankHull(c, a));
+}
+
+function tankTurretSprite(a) {
+  const us = (a.nation || a.side) === 'us';
+  return sprite('tankturret' + a.type + (us ? 'u' : 'e'),
+    TANK_SPR, TANK_SPR, TANK_SPR_A, TANK_SPR_A, (c) => paintTankTurret(c, a));
+}
+
+function paintTankHull(c, a) {
+  const us = (a.nation || a.side) === 'us';
   const heavy = !!a.t.heavy;
   const casemate = !!a.t.casemate;
   const hw = heavy ? 20 : 17;
   const hh = heavy ? 17 : 14;
   const trackW = heavy ? 9 : 8;
   const trackOff = heavy ? 27 : 24;
-  c.save();
-  c.translate(a.x, a.y);
-  // shadow
-  c.fillStyle = 'rgba(0,0,0,0.3)';
-  c.beginPath(); c.ellipse(0, 4, heavy ? 30 : 26, heavy ? 21 : 18, 0, 0, 7); c.fill();
-  if (a.moveTo) c.rotate(hullRot);
   // tracks
   for (const tx of [-trackOff, trackOff - trackW]) {
     c.fillStyle = '#26261f';
@@ -67,29 +77,47 @@ function drawTank(a) {
     c.fillStyle = '#4c4c43';
     c.fillRect(20, -3, 18, 6);
     c.fillStyle = '#26261f'; c.fillRect(37, -3.4, 2.4, 6.8);
-  } else {
-    // turret — compensate for hull rotation so barrel stays at world bearing a.turret
-    c.rotate(a.turret - hullAng + home);
-    const tr = heavy ? 12 : 10;
-    c.fillStyle = us ? '#54634a' : (heavy ? '#353530' : '#4c4c43');
-    c.fillRect(6, -2.5, heavy ? 28 : 24, heavy ? 6 : 5);          // barrel
-    c.fillStyle = '#26261f';
-    c.fillRect(heavy ? 32 : 28, -3, 2.6, heavy ? 7 : 6);          // muzzle brake
-    c.fillStyle = us ? '#5b6b50' : (heavy ? '#3a3a34' : '#525249');
-    c.beginPath(); c.arc(0, 0, tr, 0, 7); c.fill();
-    c.strokeStyle = us ? '#2f3b26' : '#2b2b25';
-    c.lineWidth = 1.4;
-    c.beginPath(); c.arc(0, 0, tr, 0, 7); c.stroke();
-    c.strokeStyle = 'rgba(255,255,255,0.16)';
-    c.lineWidth = 1.4;
-    c.beginPath(); c.arc(0, 0, tr - 2, Math.PI * 1.05, Math.PI * 1.75); c.stroke();
-    c.fillStyle = 'rgba(0,0,0,0.22)';
-    c.beginPath(); c.arc(-tr * 0.28, 0, tr * 0.32, 0, 7); c.fill();
-    c.strokeStyle = us ? '#3a4630' : '#33332c';
-    c.lineWidth = 0.8;
-    c.beginPath(); c.arc(-tr * 0.28, 0, tr * 0.32, 0, 7); c.stroke();
   }
+}
+
+// turret at canonical bearing (barrel along +x); the blit applies a.turret
+function paintTankTurret(c, a) {
+  const us = (a.nation || a.side) === 'us';
+  const heavy = !!a.t.heavy;
+  const tr = heavy ? 12 : 10;
+  c.fillStyle = us ? '#54634a' : (heavy ? '#353530' : '#4c4c43');
+  c.fillRect(6, -2.5, heavy ? 28 : 24, heavy ? 6 : 5);          // barrel
+  c.fillStyle = '#26261f';
+  c.fillRect(heavy ? 32 : 28, -3, 2.6, heavy ? 7 : 6);          // muzzle brake
+  c.fillStyle = us ? '#5b6b50' : (heavy ? '#3a3a34' : '#525249');
+  c.beginPath(); c.arc(0, 0, tr, 0, 7); c.fill();
+  c.strokeStyle = us ? '#2f3b26' : '#2b2b25';
+  c.lineWidth = 1.4;
+  c.beginPath(); c.arc(0, 0, tr, 0, 7); c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,0.16)';
+  c.lineWidth = 1.4;
+  c.beginPath(); c.arc(0, 0, tr - 2, Math.PI * 1.05, Math.PI * 1.75); c.stroke();
+  c.fillStyle = 'rgba(0,0,0,0.22)';
+  c.beginPath(); c.arc(-tr * 0.28, 0, tr * 0.32, 0, 7); c.fill();
+  c.strokeStyle = us ? '#3a4630' : '#33332c';
+  c.lineWidth = 0.8;
+  c.beginPath(); c.arc(-tr * 0.28, 0, tr * 0.32, 0, 7); c.stroke();
+}
+
+function drawTank(a) {
+  const us = (a.nation || a.side) === 'us';
+  const c = ctx;
+  const heavy = !!a.t.heavy;
+  // shadow (screen-fixed)
+  c.save();
+  c.translate(a.x, a.y);
+  c.fillStyle = 'rgba(0,0,0,0.3)';
+  c.beginPath(); c.ellipse(0, 4, heavy ? 30 : 26, heavy ? 21 : 18, 0, 0, 7); c.fill();
   c.restore();
+  // hull, then turret — each a rigid rotation about the centre
+  const hullRot = vehicleHullAngle(a) - vehicleHomeFace(a);
+  blitSprite(c, tankHullSprite(a), a.x, a.y, hullRot, 1);
+  if (!a.t.casemate) blitSprite(c, tankTurretSprite(a), a.x, a.y, a.turret, 1);
 
   if (a.hp < a.maxhp) {
     const f = clamp(a.hp / a.maxhp, 0, 1);
@@ -299,27 +327,34 @@ function stampJeepWreck(a) {
   gctx.restore();
 }
 
-function drawJeep(a) {
+// A jeep is two rigid rotations about its centre, like a tank: the hull (wheels +
+// body) turns with the heading, the pintle MG and its gunner with a.face. One hull
+// frame and one gun frame per type/nation, blitted rotated.
+const JEEP_SPR = 44, JEEP_SPR_A = 22;
+
+function jeepHullSprite(a) {
   const us = (a.nation || a.side) === 'us';
-  const c = ctx;
-  const home = vehicleHomeFace(a);
-  const hullAng = vehicleHullAngle(a);
-  const hullRot = hullAng - home;
-  c.save();
-  c.translate(a.x, a.y);
+  return sprite('jeephull' + a.type + (us ? 'u' : 'e'),
+    JEEP_SPR, JEEP_SPR, JEEP_SPR_A, JEEP_SPR_A, (c) => paintJeepHull(c, a));
+}
 
-  c.fillStyle = 'rgba(0,0,0,0.28)';
-  c.beginPath(); c.ellipse(0, 4, 12, 15, 0, 0, 7); c.fill();
+function jeepGunSprite(a) {
+  const us = (a.nation || a.side) === 'us';
+  return sprite('jeepgun' + a.type + (us ? 'u' : 'e'),
+    JEEP_SPR, JEEP_SPR, JEEP_SPR_A, JEEP_SPR_A, (c) => paintJeepGun(c, a));
+}
 
-  c.rotate(hullRot);
-
+function paintJeepHull(c, a) {
+  const us = (a.nation || a.side) === 'us';
   for (const [wx, wy] of [[-8, -8], [8, -8], [-8, 8], [8, 8]]) {
     drawJeepWheel(c, wx, wy);
   }
-
   drawJeepBody(c, a.t.color, us);
+}
 
-  c.rotate(a.face - hullAng + home);
+// pintle MG + gunner at canonical bearing (barrel along +x); the blit applies a.face
+function paintJeepGun(c, a) {
+  const us = (a.nation || a.side) === 'us';
   drawVehicleHMG(c, a.t.gun, us);
   c.fillStyle = us ? '#63804d' : '#5c626c';
   c.beginPath(); c.ellipse(-5.5, 0, 3.6, 4.8, 0, 0, 7); c.fill();
@@ -329,7 +364,20 @@ function drawJeep(a) {
   c.strokeStyle = 'rgba(0,0,0,0.35)';
   c.lineWidth = 0.85;
   c.beginPath(); c.arc(-5.5, -2.8, 2.9, 0, 7); c.stroke();
+}
+
+function drawJeep(a) {
+  const us = (a.nation || a.side) === 'us';
+  const c = ctx;
+  // shadow (screen-fixed)
+  c.save();
+  c.translate(a.x, a.y);
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  c.beginPath(); c.ellipse(0, 4, 12, 15, 0, 0, 7); c.fill();
   c.restore();
+  const hullRot = vehicleHullAngle(a) - vehicleHomeFace(a);
+  blitSprite(c, jeepHullSprite(a), a.x, a.y, hullRot, 1);
+  blitSprite(c, jeepGunSprite(a), a.x, a.y, a.face, 1);
 
   if (a.hp < a.maxhp) {
     const f = clamp(a.hp / a.maxhp, 0, 1);
@@ -384,10 +432,38 @@ function stampHalftrackWreck(a) {
   gctx.restore();
 }
 
+// A halftrack's hull is screen-fixed (it only drives downfield) while its bow MG
+// swivels with e.face, so it isn't a single rigid rotation — the whole body is
+// baked per face bucket and per unloaded state, then blitted upright.
+const HALFTRACK_SPR = 48, HALFTRACK_SPR_A = 24, HALFTRACK_FACINGS = 32;
+
+function halftrackSprite(e) {
+  const us = (e.nation || e.side) === 'us';
+  const fb = faceBucket(e.face, HALFTRACK_FACINGS);
+  return sprite('halftrack' + e.type + (us ? 'u' : 'e') + (e.unloaded ? 'U' : 'L') + fb,
+    HALFTRACK_SPR, HALFTRACK_SPR, HALFTRACK_SPR_A, HALFTRACK_SPR_A, (c) => {
+      const sv = e.face;
+      e.face = fb / HALFTRACK_FACINGS * (Math.PI * 2);
+      paintHalftrackBody(c, e);
+      e.face = sv;
+    });
+}
+
 function drawHalftrack(e) {
-  const c = ctx;
+  blitSprite(ctx, halftrackSprite(e), e.x, e.y, 0, 1);
+
+  if (e.hp < e.maxhp) {
+    const f = clamp(e.hp / e.maxhp, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(e.x - 14, e.y - 24, 28, 3.5);
+    ctx.fillStyle = '#c0562e';
+    ctx.fillRect(e.x - 14, e.y - 24, 28 * f, 3.5);
+  }
+}
+
+// draws the halftrack body in local space (origin at the vehicle centre)
+function paintHalftrackBody(c, e) {
   c.save();
-  c.translate(e.x, e.y);
 
   // shadow
   c.fillStyle = 'rgba(0,0,0,0.28)';
@@ -442,14 +518,6 @@ function drawHalftrack(e) {
   c.fillStyle = '#5c626c';
   c.beginPath(); c.arc(0, 2.5, 2.8, 0, 7); c.fill();
   c.restore();
-
-  if (e.hp < e.maxhp) {
-    const f = clamp(e.hp / e.maxhp, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(e.x - 14, e.y - 24, 28, 3.5);
-    ctx.fillStyle = '#c0562e';
-    ctx.fillRect(e.x - 14, e.y - 24, 28 * f, 3.5);
-  }
 }
 
 function drawLandingCraft(c) {
@@ -506,15 +574,35 @@ function drawBikeWheel(c, x, y, body) {
   c.beginPath(); c.ellipse(x, y - 3, 3.1, 3.4, 0, Math.PI, 2 * Math.PI); c.fill(); c.stroke();
 }
 
+// The whole bike rig is drawn inside one rotate(lean) — a rigid rotation — so one
+// canonical frame per type/nation covers every lean angle, rotated at blit.
+const BIKE_SPR = 42, BIKE_SPR_A = 21;
+
+function bikeSprite(e) {
+  const us = (e.nation || e.side) === 'us';
+  return sprite('bike' + e.type + (us ? 'u' : 'e'),
+    BIKE_SPR, BIKE_SPR, BIKE_SPR_A, BIKE_SPR_A, (c) => paintBikeBody(c, e));
+}
+
 function drawBike(e) {
-  const c = ctx;
   const lean = Math.sin(e.y * 0.02) * 0.12; // matches the weave
+  blitSprite(ctx, bikeSprite(e), e.x, e.y, lean, 1);
+
+  if (e.hp < e.maxhp) {
+    const f = clamp(e.hp / e.maxhp, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(e.x - 10, e.y - 17, 20, 3);
+    ctx.fillStyle = '#c0562e';
+    ctx.fillRect(e.x - 10, e.y - 17, 20 * f, 3);
+  }
+}
+
+// draws the bike rig in local space (origin at the vehicle centre)
+function paintBikeBody(c, e) {
   const body = e.t.color;
   const dark = '#3d4249';
   const helmet = '#565c66';
   c.save();
-  c.translate(e.x, e.y);
-  c.rotate(lean);
 
   // ground shadow under the whole rig
   c.fillStyle = 'rgba(0,0,0,0.22)';
@@ -600,13 +688,5 @@ function drawBike(e) {
   c.fillStyle = 'rgba(255,255,255,0.16)';
   c.beginPath(); c.arc(-5, 0.7, 1.3, 0, 7); c.fill();
   c.restore();
-
-  if (e.hp < e.maxhp) {
-    const f = clamp(e.hp / e.maxhp, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(e.x - 10, e.y - 17, 20, 3);
-    ctx.fillStyle = '#c0562e';
-    ctx.fillRect(e.x - 10, e.y - 17, 20 * f, 3);
-  }
 }
 

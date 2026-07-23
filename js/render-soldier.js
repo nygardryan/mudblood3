@@ -2,13 +2,61 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
+// World footprint of a cached soldier frame; the box comfortably holds the
+// longest weapon (bazooka / Panzerfaust reach ~20 world units) swung to any
+// facing, plus screen-fixed belt kit and shadow.
+const SOLDIER_SPR = 48, SOLDIER_SPR_A = 24;
+// Facing is snapped to this many directions for the sprite cache. A soldier's
+// look is a pure function of type + facing (no walk cycle), and much of the kit
+// is screen-fixed rather than face-relative, so a directional frame per bucket
+// reproduces the live draw exactly; 48 keeps the gun's angular snap sub-pixel.
+const SOLDIER_FACINGS = 48;
+
+// Transient action poses read live timers that change every frame — draw those
+// straight (uncached) so the animation still plays. Everything else is a steady
+// pose that hits the cache.
+function soldierCacheable(a) {
+  return !(a.grenThrowT > 0 || a.mortarFireT > 0 || a.shotgunBlastT > 0 || a.flameT > 0);
+}
+
+// The cached directional frame for this soldier's type/nation/facing. Baked from
+// whichever unit first needs it — all instances of a (type, facing) look
+// identical — so the record is shared across the whole roster.
+function soldierSprite(a) {
+  const us = (a.nation || a.side) === 'us';
+  const fb = ((Math.round(a.face / (Math.PI * 2) * SOLDIER_FACINGS) % SOLDIER_FACINGS)
+    + SOLDIER_FACINGS) % SOLDIER_FACINGS;
+  // only a medic's weapon presence depends on `armed`; nothing else does
+  const armK = (a.type === 'medic' && !a.armed) ? 'n' : 'a';
+  const key = a.type + (us ? 'u' : 'e') + fb + armK;
+  return sprite(key, SOLDIER_SPR, SOLDIER_SPR, SOLDIER_SPR_A, SOLDIER_SPR_A, (c) => {
+    const saved = a.face;
+    a.face = fb / SOLDIER_FACINGS * (Math.PI * 2);   // bake at the bucket's exact angle
+    paintSoldierBody(c, a);
+    a.face = saved;
+  });
+}
+
 function drawSoldier(a) {
   if (a.prone > 0) {
     drawProneSoldier(a);
     drawSoldierOverlays(a);
     return;
   }
-  const c = ctx;
+  if (soldierCacheable(a)) {
+    blitSprite(ctx, soldierSprite(a), a.x, a.y, 0, 1);
+  } else {
+    ctx.save();
+    ctx.translate(a.x, a.y);
+    paintSoldierBody(ctx, a);
+    ctx.restore();
+  }
+  drawSoldierOverlays(a);
+}
+
+// Draws the body in local space (origin at the unit). Positioning is the caller's
+// job: the live path translates, the sprite bake pre-translates the offscreen ctx.
+function paintSoldierBody(c, a) {
   const type = a.type;
   const us = (a.nation || a.side) === 'us';
   const isSniper = type === 'sniper' || type === 'esniper';
@@ -23,7 +71,6 @@ function drawSoldier(a) {
   const isRifle = type === 'rifleman' || type === 'erifle';
   const fx = Math.cos(a.face), fy = Math.sin(a.face);
   c.save();
-  c.translate(a.x, a.y);
 
   // shadow
   c.fillStyle = 'rgba(0,0,0,0.25)';
@@ -904,8 +951,6 @@ function drawSoldier(a) {
   }
 
   c.restore();
-
-  drawSoldierOverlays(a);
 }
 
 // health bar, rank chevrons, selection ring: drawn whether standing or prone

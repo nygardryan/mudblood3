@@ -5,17 +5,29 @@
 // Point at anything hostile and get its name, condition, and the same blurb the
 // codex carries — without leaving the fight. Mouse only; there is no hovering
 // on touch.
-const HOVER_PANEL_W = 384;
-const HOVER_PAD = 13;
-// Panel typography, kept as named constants so the box height math (drawInfoPanel)
-// and the per-line text offsets stay in lockstep when the sizes are tuned.
-const HOVER_TITLE_FONT = 'bold 19px "Courier New", monospace';
-const HOVER_TITLE_LH = 23;   // title line height
-const HOVER_STAT_FONT = '17px "Courier New", monospace';
-const HOVER_STAT_LH = 19;    // stat line height
-const HOVER_DESC_FONT = '18px "Courier New", monospace';
-const HOVER_DESC_LH = 22;    // description line height
-const HOVER_DESC_GAP = 7;    // gap between the stat block and the description
+//
+// The panel is drawn in canvas pixels, but the canvas-to-screen scale differs
+// wildly between platforms: on desktop a fixed 540px world canvas is stretched
+// up to fill the window (so pixels bloat), while on mobile the canvas is sized
+// in device pixels (so a bigger panel is needed to stay legible). One fixed size
+// can't serve both — the touch build wants the large box, desktop the compact
+// one. Sizes are kept as named fields so the box-height math (drawInfoPanel) and
+// the per-line text offsets stay in lockstep when they're tuned.
+const HOVER_METRICS_TOUCH = {
+  panelW: 384, pad: 13,
+  titleFont: 'bold 19px "Courier New", monospace', titleLH: 23,
+  statFont: '17px "Courier New", monospace', statLH: 19,
+  descFont: '18px "Courier New", monospace', descLH: 22,
+  descGap: 7,
+};
+const HOVER_METRICS_DESKTOP = {
+  panelW: 182, pad: 6,
+  titleFont: 'bold 9px "Courier New", monospace', titleLH: 11,
+  statFont: '8px "Courier New", monospace', statLH: 9,
+  descFont: '8px "Courier New", monospace', descLH: 11,
+  descGap: 4,
+};
+const hoverMetrics = () => touchUI() ? HOVER_METRICS_TOUCH : HOVER_METRICS_DESKTOP;
 
 // whoever is shooting at the player: he runs the attackers (G.enemies) in the
 // assault campaigns and in hit-squad, and the defenders (G.units) in endless
@@ -132,21 +144,22 @@ function drawHoverHighlight() {
 // this box; pass whichever actor should be described
 function drawInfoPanel(a, own = false) {
   if (!a) return;
+  const m = hoverMetrics();
   const desc = a.t.desc || ENEMY_INFO[a.type] || '';
-  const innerW = HOVER_PANEL_W - HOVER_PAD * 2;
+  const innerW = m.panelW - m.pad * 2;
 
   ctx.save();
   ctx.globalAlpha = 1;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
-  ctx.font = HOVER_STAT_FONT;
+  ctx.font = m.statFont;
   const statLines = wrapCanvasText(hoverStats(a, own), innerW, ' · ');
-  ctx.font = HOVER_DESC_FONT;
+  ctx.font = m.descFont;
   const descLines = desc ? wrapCanvasText(desc.split(/\s+/), innerW) : [];
 
-  const h = HOVER_PAD * 2 + HOVER_TITLE_LH + statLines.length * HOVER_STAT_LH
-    + (descLines.length ? HOVER_DESC_GAP + descLines.length * HOVER_DESC_LH : 0);
+  const h = m.pad * 2 + m.titleLH + statLines.length * m.statLH
+    + (descLines.length ? m.descGap + descLines.length * m.descLH : 0);
 
   // the actor's position in canvas pixels — draw() has already unwound its
   // camera transform by the time we get here
@@ -155,31 +168,31 @@ function drawInfoPanel(a, own = false) {
   const py = viewTransformActive() ? (a.y - viewCam.y) * s : a.y;
 
   let x = px + 18;
-  if (x + HOVER_PANEL_W > canvas.width - 4) x = px - 18 - HOVER_PANEL_W;
-  x = clamp(x, 4, Math.max(4, canvas.width - HOVER_PANEL_W - 4));
+  if (x + m.panelW > canvas.width - 4) x = px - 18 - m.panelW;
+  x = clamp(x, 4, Math.max(4, canvas.width - m.panelW - 4));
   const y = clamp(py - h / 2, 4, Math.max(4, canvas.height - h - 4));
 
   ctx.fillStyle = 'rgba(20,20,12,0.94)';
-  ctx.fillRect(x, y, HOVER_PANEL_W, h);
+  ctx.fillRect(x, y, m.panelW, h);
   ctx.strokeStyle = '#4a4836';
   ctx.lineWidth = 1;
-  ctx.strokeRect(x + 0.5, y + 0.5, HOVER_PANEL_W - 1, h - 1);
+  ctx.strokeRect(x + 0.5, y + 0.5, m.panelW - 1, h - 1);
 
-  let ty = y + HOVER_PAD;
-  ctx.font = HOVER_TITLE_FONT;
+  let ty = y + m.pad;
+  ctx.font = m.titleFont;
   ctx.fillStyle = '#ffd94a';
-  ctx.fillText((a.t.name || a.type).toUpperCase(), x + HOVER_PAD, ty);
-  ty += HOVER_TITLE_LH;
+  ctx.fillText((a.t.name || a.type).toUpperCase(), x + m.pad, ty);
+  ty += m.titleLH;
 
-  ctx.font = HOVER_STAT_FONT;
+  ctx.font = m.statFont;
   ctx.fillStyle = '#8a8668';
-  for (const l of statLines) { ctx.fillText(l, x + HOVER_PAD, ty); ty += HOVER_STAT_LH; }
+  for (const l of statLines) { ctx.fillText(l, x + m.pad, ty); ty += m.statLH; }
 
   if (descLines.length) {
-    ty += HOVER_DESC_GAP;
-    ctx.font = HOVER_DESC_FONT;
+    ty += m.descGap;
+    ctx.font = m.descFont;
     ctx.fillStyle = '#d8d2b8';
-    for (const l of descLines) { ctx.fillText(l, x + HOVER_PAD, ty); ty += HOVER_DESC_LH; }
+    for (const l of descLines) { ctx.fillText(l, x + m.pad, ty); ty += m.descLH; }
   }
   ctx.restore();
 }

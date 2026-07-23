@@ -341,20 +341,23 @@ function drawGib(g) {
   c.restore();
 }
 
-function drawCorpse(cp) {
-  const alpha = clamp(cp.ttl / 8, 0, 1); // fade out over the last seconds
+// A corpse is fully static once it falls — pose, rotation, palette and any
+// dismemberment are all fixed at spawn; only its fade alpha changes. So the body
+// is traced once into a per-corpse bitmap and blitted every frame thereafter,
+// with rotation and fade applied as a cheap transform. This is the same seam
+// living units and, later, sprite-file art will draw through (sprite-cache.js).
+// Footprint in world units, comfortably enclosing every pose's flung limbs.
+const CORPSE_SPR_W = 40, CORPSE_SPR_H = 36, CORPSE_SPR_AX = 18, CORPSE_SPR_AY = 17;
+
+// paint the body in local space (origin at the torso) — no translate/rotate/alpha
+function paintCorpse(c, cp) {
   const us = (cp.nation || cp.side) === 'us';
-  const c = ctx;
   const P = {
     tunic: muteColor(cp.col, 0.32),
     limb: muteColor(cp.col, 0.5),
     skin: us ? '#9a7350' : '#9c7a58',
     helmet: us ? '#43503a' : '#464b53',
   };
-  c.save();
-  c.globalAlpha = alpha;
-  c.translate(cp.x, cp.y);
-  c.rotate(cp.rot);
   c.lineCap = 'round';
 
   // soft ground shadow beneath the body
@@ -363,8 +366,16 @@ function drawCorpse(cp) {
 
   if (cp.missing) poseDismembered(c, cp, P);
   else (CORPSE_POSES[cp.pose] || poseSprawl)(c, cp, P);
+}
 
-  c.restore();
+function drawCorpse(cp) {
+  const alpha = clamp(cp.ttl / 8, 0, 1); // fade out over the last seconds
+  // (re)bake if missing or the display density changed under us
+  if (!cp._sprite || cp._sprite.ss !== spriteSupersample()) {
+    cp._sprite = makeSprite(CORPSE_SPR_W, CORPSE_SPR_H, CORPSE_SPR_AX, CORPSE_SPR_AY,
+      (c) => paintCorpse(c, cp));
+  }
+  blitSprite(ctx, cp._sprite, cp.x, cp.y, cp.rot, alpha);
 }
 
 function stampWreck(e) {

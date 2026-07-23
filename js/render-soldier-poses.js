@@ -3,15 +3,30 @@
 'use strict';
 
 // a man flat in the dirt: long low silhouette, rifle grounded beside him
+// A prone body is a rigid rotation about the unit — everything, shadow included,
+// is drawn inside one rotate(a.face) — so one canonical frame per type/nation/armed
+// rotates to any facing exactly at blit (sprite-cache.js); no facing buckets.
+const PRONE_SPR = 52, PRONE_SPR_A = 26;
+
+function proneSprite(a) {
+  const us = (a.nation || a.side) === 'us';
+  const armK = (a.type === 'medic' && !a.armed) ? 'n' : 'a';   // only a medic's weapon depends on `armed`
+  return sprite('prone' + a.type + (us ? 'u' : 'e') + armK,
+    PRONE_SPR, PRONE_SPR, PRONE_SPR_A, PRONE_SPR_A, (c) => paintProneBody(c, a));
+}
+
 function drawProneSoldier(a) {
-  const c = ctx;
+  blitSprite(ctx, proneSprite(a), a.x, a.y, a.face, 1);
+}
+
+// draws the prone body in local space (origin at the unit); the caller/bake handles
+// positioning and the a.face rotation
+function paintProneBody(c, a) {
   const us = (a.nation || a.side) === 'us';
   const isBar = a.type === 'gunner';
   const isEmg = a.type === 'emg';
   const isMG = isBar || isEmg;
   c.save();
-  c.translate(a.x, a.y);
-  c.rotate(a.face);
   // ground shadow
   c.fillStyle = 'rgba(0,0,0,0.2)';
   c.beginPath(); c.ellipse(-1, 1.5, isMG ? 11.5 : 10.5, 4, 0, 0, 7); c.fill();

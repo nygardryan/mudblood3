@@ -442,6 +442,21 @@ const CARD_UNIQUES = {
     desc: `${EXTENDED_TUBE_SHELLS} shells per clip; reload takes 3x after emptying.`,
     hooks: {},
   },
+  // flag-only, like Rifled Slugs: braveStandsFast (in tryGoProne) reads
+  // G.cardsOwned directly so a shotgunner with a target in buckshot range never
+  // hits the dirt.
+  pointblank: {
+    unit: 'shotgunner', name: 'Point Blank', cost: 8, weight: 3,
+    desc: 'The shotgunner refuses to go prone while any enemy stands within his buckshot range — he stays up and keeps blasting.',
+    hooks: {},
+  },
+  // flag-only, like Point Blank: braveStandsFast keeps a flamer on his feet
+  // whenever an enemy is inside flame range.
+  trialbyfire: {
+    unit: 'flamer', name: 'Trial by Fire', cost: 8, weight: 3,
+    desc: 'The flamer never hits the dirt while an enemy is within reach of his stream — he stands his ground and keeps burning.',
+    hooks: {},
+  },
   // flag-only, like Rifled Slugs: the mortar fire block in updateFriendly reads
   // G.cardsOwned directly to swap the single shell for a wider, wilder stick
   clusterrounds: {

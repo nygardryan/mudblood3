@@ -4,12 +4,30 @@
 
 function fogMult() { return G.fog > 0 ? 0.6 : 1; }
 
+// Brave uniques: a shotgunner (Point Blank) or flamer (Trial by Fire) with an
+// enemy inside his own weapon's reach stands and fires rather than diving — a
+// prone man of either can't use his short-range weapon, so ducking would just
+// let the enemy close. Player units only, and only the type the card is tied to.
+function braveStandsFast(u) {
+  if (u.side !== 'us' || !G.cardsOwned) return false;
+  const t = u.t;
+  if (t.shotgun && G.cardsOwned.has('pointblank')) {
+    const slug = G.cardsOwned.has('rifledslugs');
+    return !!nearestEnemyInRange(u, unitRange(u, t.shotgun.range) * (slug ? 1.6 : 1));
+  }
+  if (t.flame && G.cardsOwned.has('trialbyfire')) {
+    return !!nearestEnemyInRange(u, unitRange(u, t.flame.range));
+  }
+  return false;
+}
+
 // infantry under fire hit the dirt: prone men can't shoot but dodge 60% of
 // incoming rounds. Veterans get back up fast; green troops stay down a while.
 function tryGoProne(u, chance) {
   if (!u || u.dead || !u.t || u.chute > 0) return;
   if (u.t.tank || u.t.vehicle || u.t.apc || u.t.bike || u.t.fixed) return;   // crews don't dive
   if (u.prone > 0 || u.proneCd > 0 || u.moveTo) return;          // running men keep running
+  if (braveStandsFast(u)) return;                                // brave-card men hold their ground
   if (Math.random() >= chance) return;
   const rank = u.rank || 0;   // Germans carry no rank and eat dirt the longest
   u.prone = rand(2.5, 4.5) * (1 - rank * 0.15);

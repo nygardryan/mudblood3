@@ -68,6 +68,20 @@ function draw() {
       ctx.beginPath(); ctx.arc(s.x, s.y, cr, 0, 7); ctx.stroke();
       ctx.fillStyle = 'rgba(255,120,40,0.9)';
       ctx.beginPath(); ctx.arc(s.x, s.y, 2.2, 0, 7); ctx.fill();
+    } else if (s.kind === 'bomb') {
+      // a bomb's telegraph is the shadow of the thing itself rushing up to
+      // meet it: a soft ellipse on the marked ground that tightens and darkens
+      // as the bomb comes down, so the impact reads before it lands
+      const st = bombFlightState(s);
+      const grow = 1 - st.altN;                       // 0 high up, 1 at impact
+      const sr = (s.big ? 8 : 6) + st.altN * 14;      // wide and faint at altitude
+      ctx.fillStyle = `rgba(0,0,0,${0.10 + grow * 0.22})`;
+      ctx.beginPath(); ctx.ellipse(s.x, s.y, sr, sr * 0.55, 0, 0, 7); ctx.fill();
+      // spotting ring, contracting onto the aim point
+      const rr = (s.big ? 15 : 11) + st.altN * 10;
+      ctx.strokeStyle = `rgba(200,60,40,${0.28 + grow * 0.4})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(s.x, s.y, rr, 0, 7); ctx.stroke();
     } else {
       ctx.strokeStyle = 'rgba(200,60,40,0.5)';
       ctx.lineWidth = 1;
@@ -274,6 +288,7 @@ function draw() {
   // V2 warheads in flight — airborne, so drawn above every ground effect
   for (const s of G.shells) {
     if (s.kind === 'v2' && s.sx != null) drawV2RocketInFlight(s);
+    else if (s.kind === 'bomb' && s.sx != null) drawFallingBomb(s);
   }
 
   // AA shells climbing toward their fuse point

@@ -325,8 +325,23 @@ function dropBombStick(p, victim) {
     const bx = clamp(aimX + fx * (i - (count - 1) / 2) * spacing + rand(-35, 35), 14, W - 14);
     const by = clamp(aimY + fy * (i - (count - 1) / 2) * spacing + rand(-35, 35), 14, H - 14);
     // release-to-impact, staggered so the stick walks rather than landing flat
-    scheduleShell(bx, by, rand(1.15, 1.45) + i * 0.14, p.bombR, p.bombDmg, p.bombBig);
+    const sh = scheduleShell(bx, by, rand(1.15, 1.45) + i * 0.14, p.bombR, p.bombDmg, p.bombBig, null, 'bomb');
+    // where it left the bay, so the renderer can arc it down onto the marker
+    // from behind the bomber rather than dropping it straight out of the sky
+    sh.sx = p.x - fx * 26; sh.sy = p.y - fy * 26;
+    sh.spin = rand(0, 7); sh.big = p.bombBig;
   }
+}
+
+// a falling bomb's screen state: it tips out behind the bomber and tumbles
+// down onto the target marker, its apparent altitude bleeding off toward zero
+// at impact. Returns ground track, screen position, and normalized altitude.
+function bombFlightState(s) {
+  const f = clamp(1 - s.timer / s.dur, 0, 1);
+  const gx = s.sx + (s.x - s.sx) * f;          // ground track walks to the marker
+  const gy = s.sy + (s.y - s.sy) * f;
+  const altN = Math.pow(1 - f, 1.5);           // free-fall: slow to lose height, then plummets
+  return { f, gx, gy, altN, x: gx, y: gy - altN * BOMB_FALL_ARC };
 }
 
 // flak finds the airframe: it comes apart in the air and what's left of it

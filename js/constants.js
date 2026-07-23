@@ -37,6 +37,7 @@ const CAMONEST_REVEAL_HARDENED = 0.5;   // second-tier fortification (Hardened W
 const CAMONEST_EXPLOSIVE_MULT = 1.2;    // weak to explosives — no reduction like a bunker's concrete
 const GRENADE_CATCH_RANGE = 34;         // how close a grenadier must be to a landed enemy grenade to heave it back
 const V2_ROCKET_ARC = 130;              // cruise altitude of the V2 warhead between boost and terminal dive
+const BOMB_FALL_ARC = 300;              // apparent release altitude of a bomber's stick as it falls onto the field
 
 // engine pacing
 const HUD_INTERVAL = 0.1;         // seconds between DOM HUD refreshes

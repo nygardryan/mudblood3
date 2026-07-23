@@ -386,13 +386,27 @@ function drawAAGun(a) {
 // The rail trains toward the last firing solution; the round is craned on
 // over the few seconds before each launch window, so an empty rail means the
 // crew is still reloading.
-function drawV2Launcher(a) {
-  const c = ctx;
-  const fireT = a.v2FireT || 0;
-  c.save();
-  c.translate(a.x, a.y);
+// The launcher splits like a tank: a screen-fixed hull (tracks + armored deck)
+// and a turntable rail that rigidly rotates to the firing bearing. Each is one
+// canonical sprite per type/nation (sprite-cache.js), blitted rotated. The reload
+// round and the launch flame animate every frame, so they're drawn live in the
+// rail's frame.
+const V2_SPR = 64, V2_SPR_A = 32;
 
-  // shadow
+function v2HullSprite(a) {
+  const us = (a.nation || a.side) === 'us';
+  return sprite('v2hull' + a.type + (us ? 'u' : 'e'),
+    V2_SPR, V2_SPR, V2_SPR_A, V2_SPR_A, (c) => paintV2Hull(c, a));
+}
+
+function v2RailSprite(a) {
+  const us = (a.nation || a.side) === 'us';
+  return sprite('v2rail' + a.type + (us ? 'u' : 'e'),
+    V2_SPR, V2_SPR, V2_SPR_A, V2_SPR_A, (c) => paintV2Rail(c, a));
+}
+
+function paintV2Hull(c, a) {
+  // shadow (screen-fixed)
   c.fillStyle = 'rgba(0,0,0,0.3)';
   c.beginPath(); c.ellipse(0, 6, 24, 18, 0, 0, 7); c.fill();
 
@@ -428,11 +442,10 @@ function drawV2Launcher(a) {
   c.beginPath(); c.arc(-8, 16, 3.4, 0, 7); c.fill();
   c.strokeStyle = '#23231c';
   c.stroke();
+}
 
-  // turntable and rail, trained on the firing solution
-  c.save();
-  c.rotate(a.face != null ? a.face : Math.PI / 2);
-
+// turntable + deflector + rail at canonical bearing; the blit applies a.face
+function paintV2Rail(c, a) {
   c.fillStyle = '#3a3d33';
   c.beginPath(); c.arc(0, 0, 9, 0, 7); c.fill();
   c.strokeStyle = '#23231c';
@@ -458,6 +471,21 @@ function drawV2Launcher(a) {
   for (let rx = -14; rx <= 24; rx += 7) {
     c.beginPath(); c.moveTo(rx, -3); c.lineTo(rx, 3); c.stroke();
   }
+}
+
+function drawV2Launcher(a) {
+  const c = ctx;
+  const fireT = a.v2FireT || 0;
+  const face = a.face != null ? a.face : Math.PI / 2;
+
+  // hull (static, screen-fixed) then rail (trained on the firing solution)
+  blitSprite(c, v2HullSprite(a), a.x, a.y, 0, 1);
+  blitSprite(c, v2RailSprite(a), a.x, a.y, face, 1);
+
+  // the reload round and launch flame animate, so draw them live in the rail frame
+  c.save();
+  c.translate(a.x, a.y);
+  c.rotate(face);
 
   // the round on the rail — craned on from the tail as the crew reloads
   const loadP = fireT > 0 ? 0 : (a.v2Cd == null ? 1 : clamp((8 - a.v2Cd) / 3, 0, 1));
@@ -505,7 +533,6 @@ function drawV2Launcher(a) {
     c.shadowBlur = 0;
   }
 
-  c.restore();
   c.restore();
 
   if (a.hp < a.maxhp) {
@@ -579,6 +606,60 @@ function drawV2RocketInFlight(s) {
   c.fillRect(0, -2.4, 3.5, 4.8);
   c.fillStyle = dive ? '#161610' : '#23231c';
   c.beginPath(); c.moveTo(9, -2.4); c.lineTo(14.5, 0); c.lineTo(9, 2.4); c.closePath(); c.fill();
+
+  c.restore();
+}
+
+// a bomb tumbling out of the sky onto its marker: a finned iron shape seen
+// nose-down, swelling as it drops and screaming in with a thin whistle-streak
+// trailing back up toward the release point
+function drawFallingBomb(s) {
+  const c = ctx;
+  const st = bombFlightState(s);
+  const scale = (s.big ? 1.15 : 0.9) * (0.7 + (1 - st.altN) * 0.6);   // near speck at altitude, full-size at impact
+
+  // the whistle-streak: a faint tapering blur back along the fall path,
+  // longest at speed near the ground
+  const streak = 22 + (1 - st.altN) * 40;
+  const dx = s.x - s.sx, dy = (s.y - st.altN * BOMB_FALL_ARC) - s.sy;
+  const dl = Math.hypot(dx, dy) || 1;
+  c.strokeStyle = `rgba(220,220,225,${0.06 + (1 - st.altN) * 0.12})`;
+  c.lineWidth = 1.4 * scale;
+  c.beginPath();
+  c.moveTo(st.x, st.y);
+  c.lineTo(st.x - dx / dl * streak, st.y - dy / dl * streak);
+  c.stroke();
+
+  c.save();
+  c.translate(st.x, st.y);
+  // nose points along the fall, tumbling slowly as it goes
+  c.rotate(Math.atan2(dy, dx) + Math.PI / 2 + Math.sin(s.spin + st.f * 6) * 0.12);
+  c.scale(scale, scale);
+
+  // body: a stubby iron teardrop, lit down one flank
+  c.fillStyle = '#2b2a24';
+  c.beginPath();
+  c.moveTo(0, 9);                       // nose (pointing down-field)
+  c.quadraticCurveTo(4.2, 2, 3.6, -5);
+  c.lineTo(-3.6, -5);
+  c.quadraticCurveTo(-4.2, 2, 0, 9);
+  c.closePath(); c.fill();
+  c.fillStyle = '#454338';              // sunlit flank
+  c.beginPath();
+  c.moveTo(0, 9);
+  c.quadraticCurveTo(4.2, 2, 3.6, -5);
+  c.lineTo(1.2, -5);
+  c.quadraticCurveTo(1.6, 2, 0, 9);
+  c.closePath(); c.fill();
+
+  // tail fins, splayed cruciform
+  c.fillStyle = '#22211b';
+  c.beginPath();
+  c.moveTo(-3.6, -5); c.lineTo(-5.6, -9); c.lineTo(-1.4, -6); c.closePath(); c.fill();
+  c.beginPath();
+  c.moveTo(3.6, -5); c.lineTo(5.6, -9); c.lineTo(1.4, -6); c.closePath(); c.fill();
+  c.fillStyle = '#33322a';
+  c.fillRect(-0.8, -8.5, 1.6, 4);
 
   c.restore();
 }

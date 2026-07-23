@@ -482,6 +482,49 @@ function paintProneBody(c, a) {
 // a Fallschirmjäger under canopy, seen from directly above: a paneled
 // disc overhead that shrinks and fades as the chute timer burns down,
 // revealing the jumper beneath as he nears touchdown
+// The canopy — a radially symmetric paneled disc — is a pure function of the
+// descent fraction p (its radius and fade) and is identical for every jumper type,
+// so it's cached as one small set of frames bucketed by p and blitted with the
+// sway spin applied as rotation (the pattern is symmetric, so that's exact). The
+// jumper beneath is tiny, type-coloured and must stay upright, so it's drawn live.
+const CANOPY_SPR = 34, CANOPY_SPR_A = 17, CANOPY_P_BUCKETS = 32;
+
+function canopySprite(p) {
+  const pb = clamp(Math.round(p * CANOPY_P_BUCKETS), 0, CANOPY_P_BUCKETS);
+  return sprite('canopy' + pb, CANOPY_SPR, CANOPY_SPR, CANOPY_SPR_A, CANOPY_SPR_A,
+    (c) => paintCanopy(c, pb / CANOPY_P_BUCKETS));
+}
+
+// the canopy at descent fraction p, drawn at canonical bearing (sway applied at blit)
+function paintCanopy(c, p) {
+  const canopyR = 4.5 + p * 10.5;
+  const canopyA = 0.3 + p * 0.6;
+  const n = 8;
+  // shroud lines: spokes from the jumper up to the canopy skirt
+  c.strokeStyle = `rgba(60,58,48,${0.15 + canopyA * 0.4})`;
+  c.lineWidth = 0.6;
+  for (let i = 0; i < n; i++) {
+    const ang = (i / n) * Math.PI * 2;
+    c.beginPath();
+    c.moveTo(0, 0);
+    c.lineTo(Math.cos(ang) * canopyR, Math.sin(ang) * canopyR);
+    c.stroke();
+  }
+  // canopy: a paneled disc directly overhead
+  c.fillStyle = `rgba(139,133,112,${canopyA})`;
+  c.beginPath(); c.arc(0, 0, canopyR, 0, 7); c.fill();
+  c.strokeStyle = `rgba(50,48,38,${canopyA * 0.6})`;
+  c.lineWidth = 0.8;
+  c.beginPath(); c.arc(0, 0, canopyR, 0, 7); c.stroke();
+  for (let i = 0; i < n; i++) {
+    const ang = (i / n) * Math.PI * 2;
+    c.beginPath();
+    c.moveTo(Math.cos(ang) * canopyR * 0.3, Math.sin(ang) * canopyR * 0.3);
+    c.lineTo(Math.cos(ang) * canopyR, Math.sin(ang) * canopyR);
+    c.stroke();
+  }
+}
+
 function drawParatrooper(e) {
   const c = ctx;
   const p = clamp(e.chute / (e.chuteMax || 3), 0, 1);   // 1 = high, 0 = touchdown
@@ -493,46 +536,17 @@ function drawParatrooper(e) {
   c.fillStyle = `rgba(0,0,0,${0.08 + (1 - p) * 0.17})`;
   c.beginPath(); c.ellipse(e.x, e.y + 1, 4 + (1 - p) * 5, 3 + (1 - p) * 4, 0, 0, 7); c.fill();
 
+  // canopy overhead — cached by descent fraction, spun to the sway bearing
+  blitSprite(c, canopySprite(p), e.x + wobX, e.y + wobY, wob * 0.15, 1);
+
+  // the jumper below, seen from above: shoulders and helmet, sharpening as he drops
   c.save();
   c.translate(e.x + wobX, e.y + wobY);
-
-  const canopyR = 4.5 + p * 10.5;
-  const canopyA = 0.3 + p * 0.6;
-  const n = 8;
-
-  // shroud lines: spokes from the jumper up to the canopy skirt
-  c.strokeStyle = `rgba(60,58,48,${0.15 + canopyA * 0.4})`;
-  c.lineWidth = 0.6;
-  for (let i = 0; i < n; i++) {
-    const ang = (i / n) * Math.PI * 2 + wob * 0.15;
-    c.beginPath();
-    c.moveTo(0, 0);
-    c.lineTo(Math.cos(ang) * canopyR, Math.sin(ang) * canopyR);
-    c.stroke();
-  }
-
-  // canopy: a paneled disc directly overhead
-  c.fillStyle = `rgba(139,133,112,${canopyA})`;
-  c.beginPath(); c.arc(0, 0, canopyR, 0, 7); c.fill();
-  c.strokeStyle = `rgba(50,48,38,${canopyA * 0.6})`;
-  c.lineWidth = 0.8;
-  c.beginPath(); c.arc(0, 0, canopyR, 0, 7); c.stroke();
-  for (let i = 0; i < n; i++) {
-    const ang = (i / n) * Math.PI * 2 + wob * 0.15;
-    c.beginPath();
-    c.moveTo(Math.cos(ang) * canopyR * 0.3, Math.sin(ang) * canopyR * 0.3);
-    c.lineTo(Math.cos(ang) * canopyR, Math.sin(ang) * canopyR);
-    c.stroke();
-  }
-
-  // the jumper below, seen from above: shoulders and helmet sharpening into focus as he drops
   c.globalAlpha = 0.35 + (1 - p) * 0.65;
   c.fillStyle = e.t.color;
   c.beginPath(); c.ellipse(0, 0.5, 3.3, 4, 0, 0, 7); c.fill();
   c.fillStyle = '#5a5a4c';
   c.beginPath(); c.arc(0, -0.5, 2.6, 0, 7); c.fill();
-  c.globalAlpha = 1;
-
   c.restore();
 }
 

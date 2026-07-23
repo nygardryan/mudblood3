@@ -127,7 +127,52 @@ function placementValid(p, x, y) {
       if (dist(u, { x, y }) < gap) return false;
     }
   }
+  // emplacements can't be stacked on one another. They aren't uniform discs
+  // like units — most are wide, shallow rectangles — so overlap is an
+  // axis-aligned box test against every existing defense (each mine of a
+  // minefield gets its own small box).
+  if (p.kind === 'defense') {
+    const nb = emplacementBox(p.key);
+    let clear = true;
+    forEachEmplacement((obj, key) => {
+      if (!clear) return;
+      const ob = emplacementBox(key);
+      for (const pos of positions) {
+        if (Math.abs(obj.x - pos.x) < nb.hw + ob.hw &&
+            Math.abs(obj.y - pos.y) < nb.hh + ob.hh) { clear = false; return; }
+      }
+    });
+    if (!clear) return false;
+  }
   return true;
+}
+
+// half-extents of a placed emplacement's physical body (the drawn footprint,
+// not its cover/effect zone), used to keep defenses from being dropped on top
+// of one another. Values trace the shapes in js/render-defenses.js.
+function emplacementBox(key) {
+  switch (key) {
+    case 'wire':       return { hw: 34, hh: 8 };   // long, thin belt
+    case 'bunker':     return { hw: 28, hh: 13 };  // concrete slab
+    case 'camonest':   return { hw: 28, hh: 13 };  // same footprint as the bunker
+    case 'sandbags':   return { hw: 22, hh: 12 };
+    case 'ammocrate':  return { hw: 16, hh: 11 };
+    case 'watchtower': return { hw: 15, hh: 15 };  // square platform
+    case 'mine':       return { hw: 6,  hh: 6 };
+    default:           return { hw: 16, hh: 12 };
+  }
+}
+
+// walk every emplacement currently on the field, tagging each with its key so
+// callers can resolve its footprint
+function forEachEmplacement(fn) {
+  for (const s of G.sandbags) fn(s, 'sandbags');
+  for (const b of G.bunkers) fn(b, 'bunker');
+  for (const w of G.watchtowers) fn(w, 'watchtower');
+  for (const c of G.camoNests) fn(c, 'camonest');
+  for (const a of G.ammoCrates) fn(a, 'ammocrate');
+  for (const w of G.wires) fn(w, 'wire');
+  for (const m of G.mines) { if (!m.dead) fn(m, 'mine'); }
 }
 
 function placementMinY(p) {
@@ -152,7 +197,7 @@ function findNearestValidRadial(p, x, y) {
 function place(p, x, y) {
   if (isAssaultMode() && G.phase !== 'build') { SFX.error(); mobileVibrate(14); return; }
   if (!placementValid(p, x, y)) {
-    const fallback = p.kind === 'unit' ? findNearestValidRadial(p, x, y) : null;
+    const fallback = (p.kind === 'unit' || p.kind === 'defense') ? findNearestValidRadial(p, x, y) : null;
     if (!fallback) { SFX.error(); mobileVibrate(14); return; }
     x = fallback.x;
     y = fallback.y;

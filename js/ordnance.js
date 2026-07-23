@@ -5,9 +5,6 @@
 function scheduleShell(x, y, delay, r, dmg, big, by, kind) {
   const s = { x, y, timer: delay, dur: delay, r, dmg, big, by, kind };
   G.shells.push(s);
-  // arcing ordnance whistles on the way down — only shells with real airtime,
-  // and only if it'll still be falling when the whistle would land (self-throttled)
-  if (delay >= 0.6) SFX.whistle();
   return s;
 }
 

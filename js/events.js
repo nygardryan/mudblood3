@@ -28,7 +28,6 @@ const PARA_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];
 
 function triggerParadrop() {
   showBanner('FALLSCHIRMJÄGER! PARATROOPERS!');
-  SFX.alarm();
   spawnTransportFlyby();
   const w = G.wave;
   const pool = PARA_POOL.slice();
@@ -53,7 +52,6 @@ function triggerParadrop() {
 function triggerAirRaid(w) {
   const cfg = raidForWave(w);
   showBanner(w >= 40 ? 'HEAVY BOMBER RAID!' : w >= 20 ? 'BOMBERS INBOUND!' : 'AIR RAID! TAKE COVER!');
-  SFX.alarm();
   SFX.planeFlyby();
 
   // spread the formation across the field in lanes, then jitter so it doesn't

@@ -9,8 +9,8 @@ const SFX = (() => {
     hmg:          ['hmg_1.ogg', 'hmg_2.ogg', 'hmg_3.ogg'],
     pistol:       ['pistol_1.ogg', 'pistol_2.ogg', 'pistol_3.ogg'],
     shotgun:      ['shotgun_1.ogg', 'shotgun_2.ogg', 'shotgun_3.ogg'],
-    boomSmall:    ['boom_small_1.ogg', 'boom_small_2.ogg', 'boom_small_3.ogg'],
-    boomBig:      ['boom_big_1.ogg', 'boom_big_2.ogg'],
+    boomSmall:    ['boom_small_1.ogg', 'boom_small_3.ogg'],
+    boomBig:      ['boom_big_2.ogg'],
     rocket:       ['rocket_1.ogg', 'rocket_2.ogg', 'rocket_3.ogg'],
     plane:        ['plane_1.ogg', 'plane_2.ogg'],
     planeFlyby:   ['plane_flyby_1.ogg', 'plane_flyby_2.ogg'],
@@ -20,11 +20,9 @@ const SFX = (() => {
     error:        ['error_1.ogg'],
     hammer:       ['hammer_1.ogg'],
     scream:       ['scream_1.ogg', 'scream_2.ogg', 'scream_3.ogg'],
-    heal:         ['heal_1.ogg', 'heal_2.ogg'],
-    cash:         ['cash_1.ogg', 'cash_2.ogg'],
+    heal:         ['heal_2.ogg'],
+    cash:         ['cash_1.ogg'],
     promote:      ['promote_1.ogg', 'promote_2.ogg'],
-    alarm:        ['alarm_1.ogg', 'alarm_2.ogg'],
-    whistle:      ['whistle_1.ogg', 'whistle_2.ogg', 'whistle_3.ogg'],
     event:        ['event_1.ogg'],
   };
   let master = null;
@@ -261,16 +259,6 @@ const SFX = (() => {
     promote() {
       if (!throttled('promote', 0.15)) return;
       playOrSynth('promote', () => { tone(523, 0.1, 0.12, 'triangle'); tone(659, 0.1, 0.12, 'triangle'); tone(784, 0.18, 0.12, 'triangle'); }, { vol: 0.6, jitter: true });
-    },
-    // klaxon warning for a major inbound threat (air raid, paratroopers)
-    alarm() {
-      if (!throttled('alarm', 1.2)) return;
-      playOrSynth('alarm', () => { tone(680, 0.3, 0.14, 'sawtooth', 460); tone(680, 0.3, 0.12, 'sawtooth', 460); }, { vol: 0.5 });
-    },
-    // incoming-shell whistle as ordnance arcs toward the field
-    whistle() {
-      if (!throttled('whistle', 0.45)) return;
-      playOrSynth('whistle', () => { tone(1800, 0.6, 0.1, 'sine', 500); }, { vol: 0.5, jitter: true });
     },
     // stinger for a battlefield event banner (fog, reinforcements, strafing run)
     event() {

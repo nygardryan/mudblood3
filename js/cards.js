@@ -229,6 +229,15 @@ const CARD_COMMON_TEMPLATES = {
     desc: t => `${t.name} lands 25% more of their shots.`,
     hooks: type => ({ accMult: 1.25 }),
   },
+  // stretches every unit's engagement range by 25% — the one type it can't help
+  // is the medic, whose reach is a heal radius, not a gun. Flag-only, like
+  // Desperate Measures: unitRangeMult reads `rangefinders_<type>` off
+  // G.cardsOwned so the targeting scan and the drawn range ring lengthen together.
+  rangefinders: {
+    name: 'Rangefinders', cost: 6, weight: 3, excludes: ['medic'],
+    desc: t => `${t.name} engages targets 25% farther out.`,
+    hooks: type => ({}),
+  },
   flakarmor: {
     name: 'Flak Armor', cost: 6, excludes: ['jeep', 'sherman', 'atgun', 'aagun'],
     // the flamer already halves blast damage on his own vest

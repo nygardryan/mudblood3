@@ -107,6 +107,11 @@ function unitRangeMult(u) {
   const rank = u.rank || 0;
   let mult = rank <= 0 ? 1 : 1 + rank * unitRangeRankRate(u.type);
   mult *= watchtowerRangeMult(u);
+  // Rangefinders: a common per-type flag that stretches engagement range 25%.
+  // Stamped for every US type but the medic; flag-only like Desperate Measures.
+  if (u.side === 'us' && G.cardsOwned && G.cardsOwned.has('rangefinders_' + u.type)) {
+    mult *= 1.25;
+  }
   // Desperate Measures: a wounded flamethrower throws his stream farther. The
   // targeting scan, the burn in flameSpray, and the drawn cone all read this,
   // so they lengthen in lockstep.

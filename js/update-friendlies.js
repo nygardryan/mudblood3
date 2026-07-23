@@ -206,6 +206,8 @@ function updateUnit(u, dt) {
     }
     const vt = nearestEnemyInRange(u, unitRange(u, u.t.range) * fogMult());
     runWeapon(u, vt, dt, unitBuffs(u));
+    // Bazooka Rider: the passenger works his own tube on a separate cooldown
+    fireJeepBazooka(u, dt);
     return;
   }
 

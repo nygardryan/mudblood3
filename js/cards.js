@@ -135,6 +135,56 @@ function maybeSpawnPassenger(jeep) {
   G.texts.push({ x: u.x, y: u.y - 22, text: 'PASSENGER: ' + UNIT_TYPES[type].name.toUpperCase(), ttl: 2 });
 }
 
+// Bazooka Rider: a unique jeep card that straps a rocket gunner into the
+// passenger seat. The jeep keeps its pintle .50 (runWeapon in the vehicle
+// branch of updateFriendly) and the rider adds rocket fire on the move —
+// armor-piercing punch riding a fast, unarmored chassis. Its own cooldown and
+// aim live on the jeep instance (jbazCd / jbazFace / jbazFlash) so the drawn
+// tube tracks whatever the rider is shooting at, independent of the .50's swing.
+// Flag-only, like Rifled Slugs: fireJeepBazooka runs from updateFriendly and
+// drawJeep paints the rider, both reading G.cardsOwned.
+const JEEP_BAZOOKA = { range: 220, cdMin: 4.6, cdMax: 6.4, r: 30, dmg: 120, speed: 380 };
+
+function jeepHasBazookaRider() {
+  return !!(G.cardsOwned && G.cardsOwned.has('bazookarider'));
+}
+
+function fireJeepBazooka(u, dt) {
+  if (u.type !== 'jeep' || !jeepHasBazookaRider()) return;
+  if (u.jbazFlash > 0) u.jbazFlash -= dt;
+  if (u.jbazCd == null) u.jbazCd = rand(JEEP_BAZOOKA.cdMin, JEEP_BAZOOKA.cdMax);
+  u.jbazCd -= dt;
+  if (u.jbazCd > 0) return;
+  const rk = JEEP_BAZOOKA;
+  const rr = unitRange(u, rk.range) * fogMult();
+  // tanks first, then soft vehicles, infantry only when nothing's on wheels —
+  // and never so close the blast catches the jeep itself
+  const safeR2 = (rk.r + 20) * (rk.r + 20);
+  const safe = e => dist2(u, e) > safeR2;
+  const rt = tieredEnemyTarget(u, rr, [
+    e => e.t.tank && safe(e),
+    e => (e.t.vehicle || e.t.bike) && safe(e),
+    safe,
+  ]);
+  if (!rt || friendlyNearPoint(rt.x, rt.y, 40, u)) return;
+  // a veteran jeep crew reloads the tube faster and walks its shots in
+  u.jbazCd = rand(rk.cdMin, rk.cdMax) * (1 - u.rank * 0.08);
+  u.jbazFace = Math.atan2(rt.y - u.y, rt.x - u.x);
+  u.jbazFlash = 0.08;
+  SFX.rocket();
+  const d = dist(u, rt);
+  let scatter = 8 + d * 0.11;
+  if (rt.t.tank) scatter *= 0.45;
+  scatter = Math.max(6, scatter * (1 - u.rank * 0.08));
+  const tx = rt.x + rand(-scatter, scatter), ty = rt.y + rand(-scatter, scatter);
+  G.rockets.push({
+    sx: u.x, sy: u.y, x: u.x, y: u.y, tx, ty,
+    t: 0, dur: Math.max(dist(u, { x: tx, y: ty }) / rk.speed, 0.15),
+    r: rk.r, dmg: rk.dmg * (1 + u.rank * 0.04), by: u,
+    kind: 'rocket',
+  });
+}
+
 // an instant reload is worth whatever the cooldown it erases is worth:
 // near-nothing on fast-cycling rifles, a run-warping 6 on the bazooka, whose
 // long rocket cooldown vanishes entirely against massed waves
@@ -289,6 +339,14 @@ const CARD_UNIQUES = {
   passenger: {
     unit: 'jeep', name: 'Passenger', cost: 10, weight: 3,
     desc: 'Every jeep rolls in carrying one free infantryman — cheap grunts far likelier than pricey specialists, so a rifleman rides most often.',
+    hooks: {},
+  },
+  // flag-only, like Rifled Slugs: fireJeepBazooka (called from the vehicle
+  // branch of updateFriendly) reads G.cardsOwned to launch rockets, and drawJeep
+  // paints the rider in the passenger seat
+  bazookarider: {
+    unit: 'jeep', name: 'Bazooka Rider', cost: 12, weight: 4,
+    desc: 'A bazooka gunner rides shotgun in every jeep, launching armor-piercing rockets on the move — the .50 keeps talking while he hunts tanks.',
     hooks: {},
   },
   crackshot: {

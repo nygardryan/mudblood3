@@ -366,6 +366,46 @@ function paintJeepGun(c, a) {
   c.beginPath(); c.arc(-5.5, -2.8, 2.9, 0, 7); c.stroke();
 }
 
+// Bazooka Rider card: a rocket gunner belted into the front-right seat. He sits
+// square in the hull (seat offset rotates with the heading) but swings his tube
+// onto a.jbazFace — whatever the rocket code last locked, independent of the
+// .50's swing. A short muzzle flash fires off a.jbazFlash.
+function drawJeepBazookaRider(a) {
+  const c = ctx;
+  const hf = vehicleHullAngle(a);
+  const fwd = hf, right = hf + Math.PI / 2;
+  // seat: forward of centre and off to the right of the driver
+  const sx = a.x + Math.cos(fwd) * 2.5 + Math.cos(right) * 4.5;
+  const sy = a.y + Math.sin(fwd) * 2.5 + Math.sin(right) * 4.5;
+  const face = a.jbazFace != null ? a.jbazFace : hf;
+  // launch tube across his shoulder, trained on the target
+  c.save();
+  c.translate(sx, sy);
+  c.rotate(face);
+  c.fillStyle = '#3f4a34';
+  c.fillRect(-6, -1.6, 18, 3.2);
+  c.strokeStyle = 'rgba(0,0,0,0.4)';
+  c.lineWidth = 0.7;
+  c.strokeRect(-6, -1.6, 18, 3.2);
+  c.fillStyle = '#2b3325';
+  c.beginPath(); c.arc(12, 0, 2.1, 0, 7); c.fill();   // muzzle bell
+  if (a.jbazFlash > 0) {
+    c.fillStyle = 'rgba(255,150,40,0.85)';
+    c.beginPath(); c.arc(15, 0, 3.4, 0, 7); c.fill();
+    c.fillStyle = 'rgba(255,225,150,0.9)';
+    c.beginPath(); c.arc(14, 0, 1.8, 0, 7); c.fill();
+  }
+  c.restore();
+  // seated soldier: shoulders then helmet, drawn over the tube's near end
+  c.fillStyle = '#5c6b45';
+  c.beginPath(); c.ellipse(sx, sy, 3.2, 3.8, 0, 0, 7); c.fill();
+  c.fillStyle = '#47552f';
+  c.beginPath(); c.arc(sx, sy, 2.4, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.35)';
+  c.lineWidth = 0.7;
+  c.stroke();
+}
+
 function drawJeep(a) {
   const us = (a.nation || a.side) === 'us';
   const c = ctx;
@@ -377,6 +417,7 @@ function drawJeep(a) {
   c.restore();
   const hullRot = vehicleHullAngle(a) - vehicleHomeFace(a);
   blitSprite(c, jeepHullSprite(a), a.x, a.y, hullRot, 1);
+  if (a.type === 'jeep' && jeepHasBazookaRider()) drawJeepBazookaRider(a);
   blitSprite(c, jeepGunSprite(a), a.x, a.y, a.face, 1);
 
   if (a.hp < a.maxhp) {

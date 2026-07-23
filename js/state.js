@@ -148,7 +148,6 @@ function newGame(level, difficulty) {
 
     spawnTimer: level.mode === 'allied' ? level.waves[0].delay : 6,
     tpTrickle: TP_TRICKLE_INTERVAL,
-    catchupDebt: 0,   // endless: fractional TP-value of allied units lost, not yet refunded
     officerTick: (level.id === 'endless' && equippedEndlessCards().includes('rushorder')) ? 15 : 30,
     eventTimer: rand(40, 60),
     fog: 0,

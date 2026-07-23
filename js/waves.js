@@ -10,8 +10,8 @@ function spawnIntervalForWave(w) {
   // steeper ramp (0.26/wave) reaches the 6 s cadence floor by ~wave 38
   // instead of wave 50, so the Germans hit full tempo sooner
   const base = w <= 99
-    ? clamp(16 - w * 0.26, 6, 16)
-    : clamp(6 - wavesPast99(w) * 0.06, 3, 16);
+    ? clamp(16 - w * 0.26, 7, 16)
+    : clamp(7 - wavesPast99(w) * 0.06, 4, 16);
   // WAVE_BREATHER guarantees a fixed pause between every wave
   return base + WAVE_BREATHER;
 }
@@ -21,10 +21,11 @@ function spawnIntervalForWave(w) {
 // toward 0.42 and then taper smoothly down to the 0.25 floor by wave 15 —
 // no sudden difficulty step at wave 11.
 function enemySpawnMult(w) {
-  if (w <= 10) return 0.42;
-  // slightly slower taper to a higher floor (0.28) keeps more of the
-  // faster-growing batches on the field as the run scales up
-  return Math.max(0.28, 0.42 - (w - 10) * 0.030);
+  if (w <= 10) return 0.60;
+  // ~1.5x the old band so each wave arrives as a bigger clump instead of a
+  // steady dribble of pairs; the wider gaps in spawnIntervalForWave keep the
+  // net volume in check
+  return Math.max(0.42, 0.60 - (w - 10) * 0.030);
 }
 
 function waveComposition(w) {
@@ -208,9 +209,11 @@ function launchWave(w) {
   const cx = rand(100, W - 100);
   for (const type of comp) {
     const x = clamp(cx + rand(-90, 90), 30, W - 30);
+    // tighter vertical spawn band (was -70..-20) so a wave crosses the top
+    // edge as one group instead of stringing out into a trickle
     // the V2 battery holds position by default, so it's staked out in view
     // from the start instead of off the top edge with the rest of the wave
-    const y = type === 'ev2' ? rand(30, 85) : rand(-70, -20);
+    const y = type === 'ev2' ? rand(30, 85) : rand(-52, -20);
     G.enemies.push(makeEnemy(type, x, y));
   }
   G.spawnTimer = spawnIntervalForWave(w);

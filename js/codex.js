@@ -111,7 +111,7 @@ const SOUND_INFO = [
     desc: 'Short fanfare when an allied unit earns a new rank.',
     group: 'promote', opts: { vol: 0.6 }, play: () => SFX.promote() },
   { key: 'sfx-cash', name: 'Payout', category: 'GAME EVENTS',
-    desc: 'Points ping for a payout — research purchases and catch-up salvage refunds.',
+    desc: 'Points ping for a payout — e.g. a research purchase.',
     group: 'cash', opts: { vol: 0.6 }, play: () => SFX.cash() },
   { key: 'sfx-event', name: 'Event Stinger', category: 'GAME EVENTS',
     desc: 'Cue for a battlefield event — fog, reinforcements, and strafing runs.',

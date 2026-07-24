@@ -401,6 +401,20 @@ function drawPlacementGhost() {
     // shade the invalid zone
     ctx.fillStyle = 'rgba(200,50,40,0.12)';
     ctx.fillRect(0, 0, W, placementMinY(p));
+    // engineers extend the build zone forward: carve green pockets into the red
+    // for each engineer's radius, between the forward line and the deploy limit
+    if (p.kind === 'defense' && placementMinY(p) > FORWARD_Y) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, FORWARD_Y, W, placementMinY(p) - FORWARD_Y);
+      ctx.clip();
+      ctx.fillStyle = 'rgba(90,180,110,0.20)';
+      for (const u of G.units) {
+        if (u.dead || u.type !== 'engineer' || u.side !== 'us') continue;
+        ctx.beginPath(); ctx.arc(u.x, u.y, ENGINEER_RANGE, 0, 7); ctx.fill();
+      }
+      ctx.restore();
+    }
     const ghostPositions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
     for (const pos of ghostPositions) {
       if (p.kind === 'unit') {

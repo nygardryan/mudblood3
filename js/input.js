@@ -110,7 +110,12 @@ function placementValid(p, x, y) {
   const positions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
   const minY = placementMinY(p);
   for (const pos of positions) {
-    if (pos.y < minY || pos.y > H - 14 || pos.x < 16 || pos.x > W - 16) return false;
+    // engineers extend the build zone: an emplacement sited inside a friendly
+    // engineer's work radius may be placed forward of the deploy line — but
+    // never past the forward line.
+    const posMin = (p.kind === 'defense' && minY > FORWARD_Y && engineerBuildReach(pos.x, pos.y))
+      ? FORWARD_Y : minY;
+    if (pos.y < posMin || pos.y > H - 14 || pos.x < 16 || pos.x > W - 16) return false;
   }
   if (p.kind === 'unit') {
     const bulk = k => k === 'sherman' ? 34 : k === 'jeep' ? 26 : (k === 'atgun' || k === 'aagun') ? 24 : 16;
@@ -167,6 +172,22 @@ function forEachEmplacement(fn) {
   for (const d of G.dummies) fn(d, 'dummy');
   for (const w of G.wires) fn(w, 'wire');
   for (const m of G.mines) { if (!m.dead) fn(m, 'mine'); }
+}
+
+// An engineer extends the build zone: an emplacement sited inside a friendly
+// engineer's work radius may be placed forward of the deploy line (up to the
+// forward line). Returns true if any live US engineer covers (x, y). Uses the
+// same fixed ENGINEER_RANGE as the engineer's repair reach and its selection
+// overlay, so the buildable pocket matches the ring the player sees.
+function engineerBuildReach(x, y) {
+  if (!G) return false;
+  const R2 = ENGINEER_RANGE * ENGINEER_RANGE;
+  const pt = { x, y };
+  for (const u of G.units) {
+    if (u.dead || u.type !== 'engineer' || u.side !== 'us') continue;
+    if (dist2(u, pt) <= R2) return true;
+  }
+  return false;
 }
 
 function placementMinY(p) {

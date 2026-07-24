@@ -103,7 +103,7 @@ const UNIT_TYPES = {
     name: 'Engineer', hp: 95, range: 74, dmg: 7, acc: 0.45,
     rof: 1.1, burst: 4, burstGap: 0.07, speed: 44,
     color: '#5d7a44', gun: 6, sfx: 'mg',
-    desc: 'Repairs fortifications, upgrades emplacements, and can wrench on damaged vehicles and AT guns (very slowly). M3 grease gun up close.',
+    desc: 'Repairs fortifications, upgrades emplacements, extends the build zone forward within his radius, and can wrench on damaged vehicles and AT guns (very slowly). M3 grease gun up close.',
   },
   officer: {
     name: 'Officer', hp: 95, range: 101, dmg: 9, acc: 0.5,
@@ -682,7 +682,7 @@ const PLACEABLES = [
     { key: 'medic', label: 'MEDIC', cost: 12, kind: 'unit', hotkey: '5',
       desc: 'Unarmed. Heals the most wounded nearby soldier. Faster with rank. Snipers hunt him. Can\'t repair vehicles or fortifications.' },
     { key: 'engineer', label: 'ENGINEER', cost: 14, kind: 'unit', hotkey: 'E',
-      desc: 'Repairs and upgrades fortifications. Slowly patches vehicles and AT guns. SMG close range. Rank: faster repairs, extended range.' },
+      desc: 'Repairs and upgrades fortifications, and lets you build emplacements forward of the deploy line within his radius. Slowly patches vehicles and AT guns. SMG close range. Rank: faster repairs, extended range.' },
     { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
       desc: 'Sidearm. Aura boosts nearby soldiers\' fire. Bonus grows with rank. Earns bonus TP. Snipers hunt him.' },
     { key: 'flamer', label: 'FLAMER', cost: 7, kind: 'unit', hotkey: 'F',

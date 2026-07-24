@@ -36,6 +36,53 @@ function tryGoProne(u, chance) {
   u.prone = rand(2.5, 4.5) * (1 - rank * 0.15);
 }
 
+// suppression proper: an MG's beaten zone, not a flinch. Unlike tryGoProne it
+// REFRESHES a standing pin and ignores proneCd — that bypass is the mechanic
+// (one near miss can't hold a man down; a gun that keeps firing can). Same
+// men are exempt: crews, runners (moveTo clears prone anyway), brave-card
+// holders. Tuning lives in the SUP_ block in constants.js.
+// `hold` is how long the gun will keep firing this burst: a man stays down for
+// that whole time plus a tail (SUP_PIN_MIN..MAX) before he dares lift his head.
+// Tying the pin to burst LENGTH is what makes a long belt worth more than a
+// short one — roll once, hold for as long as the gun talks.
+function suppress(u, chance, hold) {
+  if (!u || u.dead || !u.t || u.chute > 0) return;
+  if (u.t.tank || u.t.vehicle || u.t.apc || u.t.bike || u.t.fixed) return;
+  // fanatics don't take cover for a machine gun any more than for a near miss
+  // (same rule as tryGoProne) — a BAR cannot pin Japanese infantry
+  if (u.t.faction === 'jp') return;
+  if (u.moveTo) return;
+  if (braveStandsFast(u)) return;
+  if (Math.random() >= chance) return;
+  const rank = u.rank || 0;   // veterans shrug off the pin faster (codex: cover)
+  const pin = (hold || 0) + rand(SUP_PIN_MIN, SUP_PIN_MAX);
+  u.prone = Math.max(u.prone, pin * (1 - rank * 0.15));
+}
+
+// a sup-flagged gun opening a burst beats the zone around its aim point: every
+// man on the RECEIVING side inside SUP_RADIUS rolls a pin, and extra tracers
+// walk the dirt so the player can read where the gun is holding. Runs off the
+// burst's real target (see runWeapon), so a gun that smoke has blinded
+// suppresses nothing — targeting never hands it a target to beat a zone around.
+// Symmetric: the MG42/Nambu/Type 92 pin the player's line, the BAR gunner pins
+// theirs, and both are read off the same flag.
+function suppressArea(actor, target, hold) {
+  const r2 = SUP_RADIUS * SUP_RADIUS;
+  const receiving = actor.side === 'us' ? G.enemies : G.units;
+  for (const u of receiving) {
+    if (!u.dead && dist2(u, target) < r2) suppress(u, SUP_PIN_CHANCE, hold);
+  }
+  actor.face = Math.atan2(target.y - actor.y, target.x - actor.x);
+  const mx = actor.x + Math.cos(actor.face) * (actor.t.gun + 3);
+  const my = actor.y + Math.sin(actor.face) * (actor.t.gun + 3);
+  for (let i = 0; i < SUP_FIRE_TRACERS; i++) {
+    const hx = target.x + rand(-SUP_FIRE_SPREAD, SUP_FIRE_SPREAD);
+    const hy = target.y + rand(-SUP_FIRE_SPREAD * 0.7, SUP_FIRE_SPREAD * 0.7);
+    G.tracers.push({ x1: mx, y1: my, x2: hx, y2: hy, ttl: 0.09, life: 0.09 });
+    G.particles.push({ x: hx, y: hy, vx: rand(-18, 18), vy: rand(-55, -15), ttl: 0.3, grav: 200, size: 1.3, color: '#6e6046' });
+  }
+}
+
 function coverBlock(target) {
   // friendly units near sandbags dodge some incoming fire (vehicles don't duck)
   if (target.side !== 'us' || target.t.tank || target.t.vehicle) return false;
@@ -182,6 +229,8 @@ function runWeapon(actor, target, dt, buffs) {
     if (t.burst > 1) {
       actor.burstLeft = t.burst;
       actor.burstTimer = 0;
+      // the pin runs as long as this burst will (see suppress)
+      if (t.sup) suppressArea(actor, target, t.burst * t.burstGap * rofMult);
     } else {
       fireShot(actor, target, buffs);
     }

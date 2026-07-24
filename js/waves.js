@@ -195,10 +195,11 @@ function zomWaveComposition(w) {
 // so each theme returns bigger and meaner the next time around.
 
 // Endless: how likely a freshly spawned man is to be wearing armor this wave.
-// Squared ramp from ~0% at wave 1 to ENEMY_ARMOR_MAX_CHANCE by ENEMY_ARMOR_FULL_WAVE.
+// Linear ramp from ENEMY_ARMOR_MIN_CHANCE at wave 1 to ENEMY_ARMOR_MAX_CHANCE by
+// ENEMY_ARMOR_FULL_WAVE. Body and flak share this exact curve — see armorEnemy.
 function enemyArmorChance(w) {
   const frac = clamp((w - 1) / (ENEMY_ARMOR_FULL_WAVE - 1), 0, 1);
-  return Math.min(ENEMY_ARMOR_MAX_CHANCE, frac * frac);
+  return ENEMY_ARMOR_MIN_CHANCE + (ENEMY_ARMOR_MAX_CHANCE - ENEMY_ARMOR_MIN_CHANCE) * frac;
 }
 
 // Roll body/flak armor onto an endless enemy. Only plain foot soldiers qualify:
@@ -218,7 +219,7 @@ function armorEnemy(e, w) {
     const body = Math.round(ENEMY_ARMOR_BODY_MIN + (ENEMY_ARMOR_BODY_MAX - ENEMY_ARMOR_BODY_MIN) * frac);
     e.maxBodyArmor = e.bodyArmor = body;
   }
-  if (Math.random() < chance * ENEMY_ARMOR_FLAK_RATIO) {
+  if (Math.random() < chance) {
     const flak = Math.round(ENEMY_ARMOR_FLAK_MIN + (ENEMY_ARMOR_FLAK_MAX - ENEMY_ARMOR_FLAK_MIN) * frac);
     e.maxFlakArmor = e.flakArmor = flak;
   }

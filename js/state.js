@@ -192,14 +192,25 @@ function makeUnit(type, x, y, nation = 'us') {
   return u;
 }
 
+// how much tougher than his catalog HP a man spawning THIS wave is. Read at
+// spawn only, so a ramp change never heals or wounds anyone already on the
+// field. Endless only — the tutorials script their own HP.
+function enemyHpRamp() {
+  if (!G || G.mode !== 'endless' || !G.difficulty) return 1;
+  const ramp = G.difficulty.hpRamp || 0;
+  if (!ramp) return 1;
+  return Math.min(ENEMY_HP_RAMP_CAP, 1 + ramp * (G.wave || 0));
+}
+
 function makeEnemy(type, x, y, nation) {
   const t = ENEMY_TYPES[type];
+  const hp = Math.round(t.hp * enemyHpRamp());
   // an enemy's nation follows its type unless a caller forces one: alternate
   // rosters carry their own faction ('jp'/'zo'), everything else is Wehrmacht ('de')
   if (nation == null) nation = t.faction || 'de';
   return {
     side: 'de', nation, type, t, x, y,
-    hp: t.hp, maxhp: t.hp,
+    hp, maxhp: hp,
     // Body/Flak Armor pools: 0 unless the endless spawner plates this man (see
     // armorEnemy in waves.js). Bullets chip body armor, explosions chip flak.
     bodyArmor: 0, maxBodyArmor: 0, flakArmor: 0, maxFlakArmor: 0,

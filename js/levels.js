@@ -6,16 +6,21 @@
 // levels script their own forces, waves and win conditions.
 
 const ENDLESS_DIFFICULTIES = {
-  sandbox: { id: 'sandbox', name: 'SANDBOX', incomeMult: 1, sandbox: true,
+  // hpRamp: extra enemy HP per wave, applied at spawn (see makeEnemy in
+  // js/state.js) and capped at ENEMY_HP_RAMP_CAP. Income alone made the tiers
+  // indistinguishable past the opening minutes — this is what makes a harder
+  // setting a harder WAR rather than just a slower start. The sandboxes hold
+  // enemies at their catalog HP so test results stay readable.
+  sandbox: { id: 'sandbox', name: 'SANDBOX', incomeMult: 1, hpRamp: 0, sandbox: true,
     desc: 'Unlimited TP. Experiment with any loadout.' },
-  testing: { id: 'testing', name: 'TESTING', incomeMult: 1, sandbox: true, testing: true,
+  testing: { id: 'testing', name: 'TESTING', incomeMult: 1, hpRamp: 0, sandbox: true, testing: true,
     desc: 'Unlimited TP. No Germans spawn on their own — build them yourself with the GERMANS button.' },
-  easy: { id: 'easy', name: 'EASY', incomeMult: 1, sandbox: false,
+  easy: { id: 'easy', name: 'EASY', incomeMult: 1, hpRamp: 0.00625, sandbox: false,
     desc: 'Full supply rate. The classic experience.' },
-  medium: { id: 'medium', name: 'MEDIUM', incomeMult: 0.66, sandbox: false,
-    desc: '66% income. Tighter logistics.' },
-  hard: { id: 'hard', name: 'HARD', incomeMult: 0.33, sandbox: false,
-    desc: '33% income. Every TP counts.' },
+  medium: { id: 'medium', name: 'MEDIUM', incomeMult: 0.66, hpRamp: 0.01, sandbox: false,
+    desc: '66% income, and the enemy hardens as the war drags on.' },
+  hard: { id: 'hard', name: 'HARD', incomeMult: 0.33, hpRamp: 0.0125, sandbox: false,
+    desc: '33% income. Every TP counts, and every German is tougher than the last.' },
 };
 
 // Emplacement HP constants (hoisted) — read by input.js placement, the codex,

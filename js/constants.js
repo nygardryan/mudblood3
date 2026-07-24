@@ -35,6 +35,37 @@ const GRENADE_CATCH_RANGE = 34;         // how close a grenadier must be to a la
 const V2_ROCKET_ARC = 130;              // cruise altitude of the V2 warhead between boost and terminal dive
 const BOMB_FALL_ARC = 300;              // apparent release altitude of a bomber's stick as it falls onto the field
 
+// --- suppression ----------------------------------------------------------
+// A sup-flagged MG (MG42, Type 99, Type 92) doesn't just shoot its target —
+// each burst beats a ZONE. Every defender near the aim point risks being
+// pinned, and unlike the near-miss flinch in fireShot a pin REFRESHES and
+// ignores proneCd: sustained fire holds a sector down (a prone man doesn't
+// shoot, see tryGoProne) while the assault crosses. The gun suppresses only
+// what its normal target pick can see, so smoke that blinds the gun silences
+// the beaten zone with it — no firing at ghosts through the murk.
+const SUP_RADIUS = 30;          // beaten-zone radius around the aim point
+const SUP_PIN_CHANCE = 0.9;     // per burst, per man in the zone
+// the pin lasts the burst's whole length plus this tail, so a longer belt
+// holds a sector down for longer — see suppress() in js/shooting.js
+const SUP_PIN_MIN = 1.3;        // seconds a man stays down AFTER the gun lifts
+const SUP_PIN_MAX = 2.4;
+const SUP_FIRE_SPREAD = 26;     // px of scatter on where a suppressive burst walks
+const SUP_FIRE_TRACERS = 3;     // rounds drawn per suppressive burst
+// an officer in aura drags his men back onto their guns: a pin burns down this
+// much FASTER than real time on top of it, so 1s of cover clears 4s of pin.
+// The counter-play to a base of fire — mirrors the medic vs infection. Tuned
+// against a dug-in MG42: unrallied men sit pinned ~100% of the time and never
+// fire a shot, so anything gentler than this doesn't read as an answer at all.
+const OFFICER_RALLY_MULT = 3;
+
+// --- difficulty: enemy toughness ramp ---------------------------------------
+// Difficulty used to be income-only (ENDLESS_DIFFICULTIES in js/levels.js), so
+// "hard" meant a slower start rather than a harder war — measurably, it did not
+// survive fewer waves than easy. Each tier now also grows enemy HP per wave.
+// Deliberately shallow (hard reaches +25% at wave 20) and capped, so the late
+// game scales on wave VOLUME and composition rather than on bullet sponges.
+const ENEMY_HP_RAMP_CAP = 3;    // hard reaches this ceiling around wave 160
+
 // economy: seconds between +1 TP supply-trickle ticks. Lower = the player
 // banks TP faster to place more units and experiment with defenses.
 const TP_TRICKLE_INTERVAL = 3;
@@ -55,9 +86,9 @@ const UNIT_TYPES = {
   },
   gunner: {
     name: 'Gunner', hp: 100, range: 179, dmg: 9, acc: 0.32,
-    rof: 1.36, burst: 6, burstGap: 0.09, speed: 36,
+    rof: 1.36, burst: 6, burstGap: 0.09, speed: 36, sup: true,
     color: '#476837', gun: 10, sfx: 'mg',
-    desc: 'BAR automatic rifle. Suppressive bursts.',
+    desc: 'BAR automatic rifle. Long bursts beat the ground around whatever he fires on, pinning everything near it.',
   },
   grenadier: {
     // 50% more gun range than the rifleman (154): the better all-rounder
@@ -168,18 +199,17 @@ const UNIT_TYPES = {
 const ARMOR_POINTS = UNIT_TYPES.rifleman.hp;
 
 // Endless only: enemy infantry increasingly turn up wearing body/flak armor as
-// the waves climb. The chance ramps on a squared curve from ~0% at wave 1 to a
-// near-certainty by ENEMY_ARMOR_FULL_WAVE, so the early game stays clean and
-// plated troops only become the norm deep into a run. The plate itself also
-// grows a little with the wave (heavier late-war kit).
+// the waves climb. The chance ramps on a linear curve from ENEMY_ARMOR_MIN_CHANCE
+// at wave 1 to a near-certainty by ENEMY_ARMOR_FULL_WAVE, so plated troops are
+// already a real threat early and the norm well before a run gets deep. The
+// plate itself also grows a little with the wave (heavier late-war kit).
 // Body and flak armor are rolled INDEPENDENTLY, so a man can turn up with just
-// body, just flak, both, or neither. Body armor follows the full wave curve;
-// flak is the rarer, more specialised kit, so its odds are that curve scaled by
-// ENEMY_ARMOR_FLAK_RATIO.
-const ENEMY_ARMOR_FULL_WAVE = 400;   // wave by which body armor is near-guaranteed
+// body, just flak, both, or neither — but they share the same odds curve, so
+// neither kind is rarer than the other.
+const ENEMY_ARMOR_FULL_WAVE = 120;   // wave by which body/flak armor is near-guaranteed
+const ENEMY_ARMOR_MIN_CHANCE = 0.05; // floor odds even at wave 1
 const ENEMY_ARMOR_MAX_CHANCE = 0.98; // "nearing 100%", never a dead certainty
 const ENEMY_ARMOR_BODY_MIN = 30, ENEMY_ARMOR_BODY_MAX = 75; // body plate points (lerp'd by wave)
-const ENEMY_ARMOR_FLAK_RATIO = 0.35; // flak odds relative to the body-armor curve
 const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points (lerp'd by wave)
 
 // both staked guns share a traverse cone, a crew that never goes prone, and
@@ -223,8 +253,10 @@ const ENEMY_TYPES = {
   },
   emg: {
     // counterpart: gunner (range 179, speed 36) — range capped to 179
+    // long belt-fed bursts: fires ~3x as long as a rifle-calibre burst but at
+    // half the cyclic rate, and gets back on the gun in half the time
     name: 'MG Gunner', hp: 110, speed: 16, range: 179, dmg: 10, acc: 0.37,
-    rof: 1.7, burst: 5, burstGap: 0.08, reward: 3,
+    rof: 0.85, burst: 8, burstGap: 0.16, reward: 3, sup: true,
     color: '#4d545f', gun: 10, sfx: 'mg', priority: 3,
   },
   eoff: {
@@ -359,14 +391,14 @@ Object.assign(ENEMY_TYPES, {
   jlmg: {
     // counterpart: gunner (range 179, speed 36) — Type 99 light machine gun.
     name: 'Nambu Gunner', hp: 105, speed: 15, range: 172, dmg: 10, acc: 0.36,
-    rof: 1.7, burst: 5, burstGap: 0.08, reward: 3,
+    rof: 0.85, burst: 8, burstGap: 0.16, reward: 3, sup: true,
     color: '#5f5f34', gun: 10, sfx: 'mg', priority: 3, faction: 'jp',
   },
   jhmg: {
     // counterpart: gunner (range 179, speed 36) — Type 92 "Woodpecker" HMG on a
     // tripod. Slow to reposition and long-legged; pins a line with heavy fire.
     name: 'Type 92 HMG', hp: 122, speed: 11, range: 178, dmg: 11, acc: 0.38,
-    rof: 1.9, burst: 5, burstGap: 0.09, reward: 4,
+    rof: 0.95, burst: 8, burstGap: 0.18, reward: 4, sup: true,
     color: '#5c5c33', gun: 11, sfx: 'mg', priority: 3, faction: 'jp',
   },
   jsniper: {
@@ -868,6 +900,13 @@ const SMOKE_PUFF_CAP = 52;     // live puffs, oldest dropped — bounds draw AND
 const SMOKE_PUFF_R0 = 16;      // radius fresh off the pot
 const SMOKE_PUFF_R = 44;       // radius once it's fully bloomed
 const SMOKE_SWIRL = 7;         // px/sec of cross-wind wander, so the plume isn't a ruler
+// Enemy mortars keep a few smoke rounds in the rack: this fraction of shells
+// cracks open into a pot instead of bursting (see the mortar block in
+// js/update-enemies.js). A round's pot burns far shorter than the event
+// canister's (9-49s) — a patch of blindness the wind drags around, not a wall.
+const MORTAR_SMOKE_CHANCE = 0.07;
+const MORTAR_SMOKE_BURN_MIN = 10;
+const MORTAR_SMOKE_BURN_MAX = 18;
 const SMOKE_ALPHA = 0.85;      // draw opacity of a puff at full density
 // How deep into smoke a man can see, in px of smoke ON the sight line (NOT the
 // gap between the two men — see smokeBlocksLOS). Men in contact have almost no

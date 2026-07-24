@@ -213,10 +213,17 @@ function updateEnemy(e, dt) {
       e.face = Math.atan2(mortarTarget.y - e.y, mortarTarget.x - e.x);
       e.mortarFireT = 0.18;
       G.flashes.push({ x: e.x, y: e.y - 6, r: 5, ttl: 0.07, max: 0.07 });
-      scheduleShell(
-        mortarTarget.x + rand(-mt.scatter, mt.scatter),
-        mortarTarget.y + rand(-mt.scatter, mt.scatter),
-        mt.flight, mt.r, mt.dmg, false, e);
+      const tx = mortarTarget.x + rand(-mt.scatter, mt.scatter);
+      const ty = mortarTarget.y + rand(-mt.scatter, mt.scatter);
+      // a few rounds in the rack are smoke, not HE: the shell carries no
+      // charge and cracks into a burning pot on landing (update.js), blinding
+      // whichever line the wind favors — the crew doesn't get to choose.
+      if (Math.random() < MORTAR_SMOKE_CHANCE) {
+        const s = scheduleShell(tx, ty, mt.flight, 0, 0, false, e, 'smoke');
+        s.burn = rand(MORTAR_SMOKE_BURN_MIN, MORTAR_SMOKE_BURN_MAX);
+      } else {
+        scheduleShell(tx, ty, mt.flight, mt.r, mt.dmg, false, e);
+      }
     }
   }
 

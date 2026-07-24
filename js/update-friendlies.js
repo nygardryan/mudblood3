@@ -163,6 +163,10 @@ function updateUnit(u, dt) {
   if (u.prone > 0) {
     // a move order gets him up and running; otherwise he waits it out
     u.prone -= dt;
+    // an officer in aura shouts him back onto his gun: the pin burns down
+    // faster than real time, so a base of fire holds a rallied sector for a
+    // fraction as long. This is the answer to massed MGs — see OFFICER_RALLY_MULT.
+    if (officerBuff(u)) u.prone -= dt * OFFICER_RALLY_MULT;
     if (u.prone <= 0 || u.moveTo) {
       u.prone = 0;
       u.proneCd = rand(4, 6);

@@ -171,7 +171,7 @@ function drawInfoPanel(a, own = false) {
   x = clamp(x, 4, Math.max(4, canvas.width - m.panelW - 4));
   const y = clamp(py - h / 2, 4, Math.max(4, canvas.height - h - 4));
 
-  ctx.fillStyle = 'rgba(20,20,12,0.94)';
+  ctx.fillStyle = 'rgba(20,20,12,0.30)';
   ctx.fillRect(x, y, m.panelW, h);
   ctx.strokeStyle = '#4a4836';
   ctx.lineWidth = 1;

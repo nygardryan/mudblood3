@@ -255,8 +255,11 @@ function place(p, x, y) {
 
   applyPlacement(p, x, y);
 
-  // keep placing defenses if affordable; supports are one-shot
-  if (p.kind === 'support' || !canAffordTP(placeableCost(p)) || (p.key === 'officer' && officerCount() >= officerLimit())) clearPlacing();
+  // keep placing defenses if affordable; strikes are one-shot, but the armor
+  // abilities stay selected (like defenses) so the player can kit out several
+  // men in a row and deselect when done.
+  const oneShotSupport = p.kind === 'support' && p.key !== 'bodyarmor' && p.key !== 'flakarmor';
+  if (oneShotSupport || !canAffordTP(placeableCost(p)) || (p.key === 'officer' && officerCount() >= officerLimit())) clearPlacing();
 }
 
 // The raw "what does placing item p at (x,y) create" switch, split out of

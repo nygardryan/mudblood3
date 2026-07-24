@@ -87,6 +87,22 @@ const VAMPIRIC_FLAME_LIFESTEAL = 0.18;
 const FLAME_TANK_FLAME = { range: 150, arc: 0.42, dps: 92 };
 const FLAME_TANK_BURST = 1.1; // seconds of sustained spray before the coax swap
 
+// Sloped Armor: a unique Sherman card. Angled plate deflects the two AT threats
+// that actually kill a tank — enemy cannon shells and rocket/AT launchers — for
+// half damage. Flag-only, read straight from G.cardsOwned: explode()'s unit
+// loop (ordnance.js) halves the blast when the Sherman is hit and the shot came
+// from a tank shell (by.t.tank) or a rocket/AT weapon (by.t.rocket). It does
+// nothing against flame (which flows over armor) or small arms.
+const SLOPED_ARMOR_REDUCTION = 0.5;
+
+// true when the given blast should be softened by Sloped Armor: the target is a
+// tank carrying the card and the shot came off an enemy cannon or rocket tube.
+function slopedArmorSoftens(u, by) {
+  if (!u.t.tank || !by || !by.t) return false;
+  if (!(G.cardsOwned && G.cardsOwned.has('slopedarmor'))) return false;
+  return !!(by.t.tank || by.t.rocket);
+}
+
 // Level the Barrels: the flak mount learns to depress. It keeps its full air
 // role, but anything that closes inside this range on the ground catches a
 // 40mm HE round. Deliberately short — this is a last-ditch self-defence wedge,
@@ -384,6 +400,14 @@ const CARD_UNIQUES = {
   flametank: {
     unit: 'sherman', name: 'Flame Tank', cost: 14, weight: 5,
     desc: `Rip out the 75mm for a hull flamethrower: a wide cone of fire torches infantry — friend or foe — at close range. It still scorches armor, but only for chip damage, never the cannon's punch.`,
+    hooks: {},
+  },
+  // flag-only, like Flame Tank: explode() reads G.cardsOwned via
+  // slopedArmorSoftens and halves the blast when an enemy shell or rocket lands
+  // on the Sherman
+  slopedarmor: {
+    unit: 'sherman', name: 'Sloped Armor', cost: 12, weight: 5,
+    desc: `Angled plate deflects the tank's real killers: the Sherman takes ${Math.round(SLOPED_ARMOR_REDUCTION * 100)}% less damage from enemy tank shells and rocket launchers.`,
     hooks: {},
   },
   // flag-only: maybeSpawnPassenger (called from input.js placement) reads

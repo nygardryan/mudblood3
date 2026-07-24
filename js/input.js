@@ -202,7 +202,11 @@ function forEachEmplacement(fn) {
 }
 
 function placementMinY(p) {
-  return (p.key === 'mine' || p.key === 'wire') ? FORWARD_Y : DEPLOY_Y + 12;
+  // mines/wire lay up to the forward line; the camo nest and dummy are forward
+  // pieces too (a hidden ambush position and a decoy to draw fire), so they get
+  // the same reach — everything else holds behind the deploy line.
+  return (p.key === 'mine' || p.key === 'wire'
+          || p.key === 'camonest' || p.key === 'dummy') ? FORWARD_Y : DEPLOY_Y + 12;
 }
 
 // units search outward in expanding rings for the closest open spot in any direction

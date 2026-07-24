@@ -79,6 +79,8 @@ function explode(x, y, r, dmg, big, by) {
         hd *= blastArmorMult;
       } else if (u.t.blastResist) hd *= (1 - u.t.blastResist);
       if (G.cardsOwned && G.cardsOwned.has('shrapnelvest_' + u.type)) hd *= 0.7;
+      // Sloped Armor: angled plate deflects enemy shells and rockets for half
+      if (slopedArmorSoftens(u, by)) hd *= (1 - SLOPED_ARMOR_REDUCTION);
       damageUnit(u, hd, { x, y }, 'blast');
     }
   }

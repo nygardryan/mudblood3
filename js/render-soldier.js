@@ -970,6 +970,18 @@ function drawSoldierOverlays(a) {
     ctx.fillRect(a.x - 9, a.y - 13, 18 * f, 3);
   }
 
+  // Body/Flak Armor bars, stacked just above the HP bar, shown while armor holds
+  if (a.bodyArmor > 0) {
+    const f = clamp(a.bodyArmor / a.maxBodyArmor, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(a.x - 9, a.y - 16, 18, 2);
+    ctx.fillStyle = '#8fb3d9';          ctx.fillRect(a.x - 9, a.y - 16, 18 * f, 2); // steel-blue = body armor
+  }
+  if (a.flakArmor > 0) {
+    const f = clamp(a.flakArmor / a.maxFlakArmor, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(a.x - 9, a.y - 19, 18, 2);
+    ctx.fillStyle = '#b7a94e';          ctx.fillRect(a.x - 9, a.y - 19, 18 * f, 2); // olive = flak armor
+  }
+
   // rank chevrons for veterans (visual nation — US kit only)
   if ((a.nation || a.side) === 'us' && a.rank > 0) {
     ctx.strokeStyle = '#ffd94a';

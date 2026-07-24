@@ -31,7 +31,7 @@ const CODEX_CODE = {
   irifle: 'FNT', ibersa: 'BRS', imab: 'MAB', igren: 'BMB', ibreda: 'BRD',
   ifiat: 'FIA', icecc: 'CEC', ibrixia: 'BRX', imortaio: 'M81', iuff: 'OFF',
   iflame: 'FLM', ifolgore: 'FLG', il3: 'L3', im13: 'M13', isemo: 'SMV',
-  wire: 'WIR', sandbags: 'SBG', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
+  wire: 'WIR', sandbags: 'SBG', dummy: 'DMY', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
   ammocrate: 'AMM', mine: 'MIN', mortar: 'MST', artillery: 'ART',
   fog: 'FOG', fng: 'FNG', airraid: 'RAD', paradrop: 'PAR', airstrike: 'P47', special: 'SPC',
 };
@@ -297,6 +297,9 @@ function drawCodexIcon(key) {
   } else if (key === 'sandbags') {
     codexGroundPatch(10, 30, 8);
     codexStamp(1.25, 0, 4, () => drawSandbag({ x: 0, y: 0, up: false }));
+  } else if (key === 'dummy') {
+    codexGroundPatch(10, 30, 8);
+    codexStamp(1.25, 0, 4, () => drawDummy({ x: 0, y: 0, up: false, up2: false }));
   } else if (key === 'bunker') {
     codexStamp(1.15, 0, 4, () =>
       drawBunker({ x: 0, y: 0, up: false, hp: BUNKER_HP, maxhp: BUNKER_HP }));
@@ -443,7 +446,7 @@ function renderPortrait(typeKey, side) {
   ctx = pc.getContext('2d');
   G = { selected: [] };
 
-  const defenseKeys = ['wire', 'sandbags', 'bunker', 'watchtower', 'camonest', 'ammocrate', 'mine', 'mortar', 'artillery'];
+  const defenseKeys = ['wire', 'sandbags', 'dummy', 'bunker', 'watchtower', 'camonest', 'ammocrate', 'mine', 'mortar', 'artillery'];
   const eventKeys = EVENT_INFO.map(e => e.key);
   const soundKeys = SOUND_ENTRIES.map(s => s.key);
   if (defenseKeys.includes(typeKey) || eventKeys.includes(typeKey) || soundKeys.includes(typeKey)) {
@@ -831,6 +834,13 @@ const FORT_TIERS = {
       { label: 'HP',           v: ['660', '990', '1,485'] },
       { label: 'Dodge chance', v: ['50%', '65%', '78%'] },
       { label: 'Cover radius', v: ['26', '30', '33'] },
+    ],
+  },
+  dummy: {
+    rows: [
+      { label: 'HP',              v: ['660', '1,320', '1,980'] },
+      { label: 'Disguise',        v: ['scarecrow', 'helmet', 'body armor'] },
+      { label: 'Enemy sees ruse', v: ['40%/hit', '30%/hit', '20%/hit'] },
     ],
   },
   bunker: {

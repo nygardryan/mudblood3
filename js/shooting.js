@@ -42,6 +42,8 @@ function tryGoProne(u, chance) {
 function coverBlock(target) {
   // friendly units near sandbags dodge some incoming fire (vehicles don't duck)
   if (target.side !== 'us' || target.t.tank || target.t.vehicle) return false;
+  // a scarecrow doesn't take cover — it just soaks the round (see damageDummy)
+  if (target.isDummy) return false;
   // bunker walls first: they stop more fire and barely notice small arms
   for (const b of G.bunkers) {
     const r = b.up2 ? 38 : b.up ? 34 : 30;
@@ -153,7 +155,7 @@ function fireShot(shooter, target, opts) {
     // Armor Piercing (gunner unique): AP belt punches through light armor,
     // so jeeps, halftracks and motorcycles take the multiplier on top
     dmg *= armorPiercingMult(shooter, target);
-    if (target.side === 'us') damageUnit(target, dmg, shooter);
+    if (target.side === 'us') damageUnit(target, dmg, shooter, 'bullet');
     else damageEnemy(target, dmg, shooter);
   } else {
     G.particles.push({ x: hx, y: hy, vx: rand(-15, 15), vy: rand(-50, -10), ttl: 0.25, grav: 200, size: 1.2, color: '#6e6046' });
@@ -251,7 +253,7 @@ function flameSpray(actor, dt, opts) {
     if (a2.t.tank) dmg *= 0.6;
     // creditKill ignores German shooters, so passing actor is always safe
     if (a2.side === 'us') {
-      damageUnit(a2, dmg, actor);
+      damageUnit(a2, dmg, actor, 'flame');   // flame bypasses body/flak armor
     } else {
       damageEnemy(a2, dmg, actor);
       if (vampiric) actor.hp = Math.min(actor.maxhp, actor.hp + dmg * VAMPIRIC_FLAME_LIFESTEAL);
@@ -346,7 +348,7 @@ function fireShotgun(actor, buffs) {
     let dmg = sg.dmg * pelletsHit * falloff * (1 + rank * 0.09) * rand(0.9, 1.1);
     if (e.t.tank) dmg *= 0.06;
     else if (e.t.apc) dmg *= 0.2;
-    if (e.side === 'us') damageUnit(e, dmg, actor);
+    if (e.side === 'us') damageUnit(e, dmg, actor, 'bullet');
     else damageEnemy(e, dmg, actor);
   }
 }

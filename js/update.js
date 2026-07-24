@@ -229,7 +229,7 @@ function update(dt) {
       let dmg = FRAG_SHRAPNEL_DMG * falloff * rand(0.85, 1.15);
       if (u.t.tank) dmg *= 0.05;
       else if (u.t.vehicle || u.t.apc) dmg *= 0.3;
-      damageUnit(u, dmg, { x: sh.x, y: sh.y });
+      damageUnit(u, dmg, { x: sh.x, y: sh.y }, 'blast');   // frag shrapnel → flak armor
     }
   }
 
@@ -273,6 +273,7 @@ function update(dt) {
   compactDefenses(G.watchtowers, stampWatchtowerRubble);
   compactDefenses(G.camoNests, stampCamoNestRubble);
   compactDefenses(G.ammoCrates, stampAmmoCrateRubble);
+  compactDefenses(G.dummies, stampDummyRubble);
   compactInPlace(G.wires, w => w.hp > 0);
   compactInPlace(G.mines, m => !m.dead);
   compactInPlace(G.shells, s => !s.done);

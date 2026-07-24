@@ -400,7 +400,7 @@ function meleeStrike(e, target) {
   let dmg = e.t.dmg * rand(0.85, 1.15);
   if (target.t.tank) dmg *= 0.04;            // a blade does nothing to armor plate
   else if (target.t.apc || target.t.vehicle) dmg *= 0.3;
-  damageUnit(target, dmg, e);
+  damageUnit(target, dmg, e, 'melee');   // bayonet bypasses body/flak armor
 }
 
 // Lunge mine: a suicide anti-tank charge. Hunts armor and emplacements first,

@@ -78,8 +78,8 @@ function explode(x, y, r, dmg, big, by) {
       } else if ((u.t.vehicle || u.t.apc) && blastArmorMult != null) {
         hd *= blastArmorMult;
       } else if (u.t.blastResist) hd *= (1 - u.t.blastResist);
-      if (G.cardsOwned && G.cardsOwned.has('flakarmor_' + u.type)) hd *= 0.7;
-      damageUnit(u, hd, { x, y });
+      if (G.cardsOwned && G.cardsOwned.has('shrapnelvest_' + u.type)) hd *= 0.7;
+      damageUnit(u, hd, { x, y }, 'blast');
     }
   }
   // Mines are immune to explosives — they only ever detonate when something
@@ -91,6 +91,9 @@ function explode(x, y, r, dmg, big, by) {
     const pt = { x, y };
     for (const s of G.sandbags) {
       if (dist2(s, pt) < r2) s.hp -= dmg * 0.8;
+    }
+    for (const d of G.dummies) {
+      if (dist2(d, pt) < r2) d.hp -= dmg * 0.8;
     }
     for (const b of G.bunkers) {
       // reinforced concrete: blast does far less than it would to sandbags

@@ -290,7 +290,7 @@ const TEST = {
     if (!G) return 0;
     let n = 0;
     for (const k of ['units', 'enemies', 'sandbags', 'bunkers', 'wires', 'mines',
-      'watchtowers', 'camoNests', 'ammoCrates', 'shells']) {
+      'watchtowers', 'camoNests', 'ammoCrates', 'dummies', 'shells']) {
       if (G[k]) n += G[k].length;
     }
     return n;

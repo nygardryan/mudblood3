@@ -30,6 +30,7 @@ function axisWavePayout(level, wave) {
 
 // US defender placement helpers for the Axis campaign setups (hoisted).
 const SANDBAG_HP = 660;
+const DUMMY_HP = SANDBAG_HP;   // decoy scarecrow: as tough as a sandbag wall, +this per fortify tier
 const BUNKER_HP = 2040;
 const WATCHTOWER_HP = 500;
 const CAMONEST_HP = 280;

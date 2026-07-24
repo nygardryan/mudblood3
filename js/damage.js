@@ -396,6 +396,19 @@ function stampSandbagRubble(s) {
   gctx.fill();
 }
 
+// a shot-apart scarecrow leaves a scatter of straw and a snapped post
+function stampDummyRubble(d) {
+  gctx.strokeStyle = 'rgba(94,74,44,0.6)';
+  gctx.lineWidth = 2;
+  gctx.beginPath(); gctx.moveTo(d.x - 4, d.y + 4); gctx.lineTo(d.x + 3, d.y - 6); gctx.stroke();
+  gctx.fillStyle = 'rgba(190,160,90,0.45)';
+  for (let i = 0; i < 5; i++) {
+    gctx.beginPath();
+    gctx.ellipse(d.x + rand(-12, 12), d.y + rand(-6, 6), rand(2, 4), rand(1, 2.5), rand(0, 3), 0, 7);
+    gctx.fill();
+  }
+}
+
 function stampBunkerRubble(b) {
   // shattered concrete slab plus scattered chunks
   gctx.fillStyle = 'rgba(105,102,92,0.6)';
@@ -458,7 +471,62 @@ function stampAmmoCrateRubble(t) {
   }
 }
 
-function damageUnit(u, dmg, from) {
+// A hit on a decoy scarecrow. It takes the damage (no cover dodge, no death
+// scream — it's straw and burlap), puffs a little debris, and then the shooter
+// rolls to see through the ruse. A plain scarecrow fools a man for only so long
+// (40% per hit he wises up); a fortified one wearing a helmet, or a hardened
+// one in body armor, sells the disguise longer (30% / 20%). Once he's wise he
+// permanently ignores THIS decoy and moves on to a real target.
+function damageDummy(d, dmg, from) {
+  d.hp -= dmg;
+  for (let i = 0; i < 3; i++) {
+    G.particles.push({
+      x: d.x + rand(-6, 6), y: d.y + rand(-14, 6), vx: rand(-30, 30), vy: rand(-50, -10),
+      ttl: rand(0.2, 0.5), grav: 180, size: rand(1, 1.8),
+      color: pick(['#c9a24a', '#b58a34', '#8a6f2c', '#e0c56a']),
+    });
+  }
+  if (d.hp <= 0) { d.dead = true; return; }   // swept up by compactDefenses in update()
+  // only an attributed direct attack from an enemy can see through the ruse
+  if (from && from.t) {
+    const seeThrough = d.up2 ? 0.20 : d.up ? 0.30 : 0.40;
+    if (Math.random() < seeThrough) {
+      (from.dummyBlind || (from.dummyBlind = new Set())).add(d.id);
+    }
+  }
+}
+
+// a light metallic spark thrown off when body/flak armor eats a hit
+function armorPing(u) {
+  for (let i = 0; i < 3; i++) {
+    G.particles.push({
+      x: u.x + rand(-6, 6), y: u.y + rand(-10, 4), vx: rand(-45, 45), vy: rand(-70, -15),
+      ttl: rand(0.12, 0.3), grav: 200, size: rand(1, 1.8),
+      color: pick(['#d8e0ea', '#aab4c0', '#f0f2d8']),
+    });
+  }
+}
+
+function damageUnit(u, dmg, from, kind) {
+  if (u.isDummy) return damageDummy(u, dmg, from);
+  const incoming = dmg;
+  // Body/Flak Armor: the matching pool soaks damage before HP is touched.
+  // Bullets chip Body Armor, explosions chip Flak Armor; a hit bigger than the
+  // bar breaks it and the remainder spills through to HP. Flame and melee carry
+  // no such `kind`, so they bypass both pools and strike HP directly.
+  if (kind === 'bullet' && u.bodyArmor > 0) {
+    const absorbed = Math.min(u.bodyArmor, dmg);
+    u.bodyArmor -= absorbed; dmg -= absorbed;
+    armorPing(u);
+  } else if (kind === 'blast' && u.flakArmor > 0) {
+    const absorbed = Math.min(u.flakArmor, dmg);
+    u.flakArmor -= absorbed; dmg -= absorbed;
+    armorPing(u);
+  }
+  if (dmg <= 0) {                            // fully soaked — no HP loss, no blood
+    if (incoming >= 3) tryGoProne(u, 0.65);  // still flinch from being shot at
+    return;
+  }
   u.hp -= dmg;
   if (u.t.tank || u.t.vehicle || u.t.gunEmplacement) {
     G.particles.push({
@@ -498,8 +566,9 @@ function damageUnit(u, dmg, from) {
     }
   }
   // taking real fire (bullets, shells) sends a man diving; flame's tiny
-  // per-tick damage is handled in flameSpray with a time-scaled roll
-  if (dmg >= 3) tryGoProne(u, 0.65);
+  // per-tick damage is handled in flameSpray with a time-scaled roll.
+  // Keyed on `incoming` so an armored man still reacts to fire his plate ate.
+  if (incoming >= 3) tryGoProne(u, 0.65);
 }
 
 function gainXP(u) {
@@ -549,6 +618,7 @@ function purgeRadius(x, y, r) {
   for (const wt of G.watchtowers) if (dist(wt, at) < r) wt.hp = 0;
   for (const cn of G.camoNests) if (dist(cn, at) < r) cn.hp = 0;
   for (const ac of G.ammoCrates) if (dist(ac, at) < r) ac.hp = 0;
+  for (const d of G.dummies) if (dist(d, at) < r) d.hp = 0;
   for (const wr of G.wires) if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp = 0;
   for (const m of G.mines) if (!m.dead && dist(m, at) < r) m.dead = true;
 }

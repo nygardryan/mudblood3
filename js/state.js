@@ -146,6 +146,7 @@ function newGame(level, difficulty) {
     watchtowers: [],
     camoNests: [],
     ammoCrates: [],
+    dummies: [],     // decoy scarecrows: enemies waste fire on them, then may wise up
     shells: [],      // incoming ordnance {x,y,timer,r,dmg,big}
     grenades: [],    // thrown grenades in flight
     shrapnel: [],    // Frag Grenades card: fragments flung from a grenadier blast
@@ -202,6 +203,8 @@ function makeUnit(type, x, y, nation = 'us') {
   const u = {
     side: 'us', nation, type, t, x, y,
     hp: t.hp, maxhp: t.hp,
+    // Body/Flak Armor abilities: separate depleting pools, 0 until purchased
+    bodyArmor: 0, maxBodyArmor: 0, flakArmor: 0, maxFlakArmor: 0,
     cd: rand(0.2, 1.0), burstLeft: 0, burstTimer: 0,
     face: -Math.PI / 2,
     turret: -Math.PI / 2,
@@ -283,6 +286,8 @@ function makeDefender(nation, type, x, y) {
   const u = {
     side: 'us', nation, type, t, x, y,
     hp: t.hp, maxhp: t.hp,
+    // Body/Flak Armor abilities: separate depleting pools, 0 until purchased
+    bodyArmor: 0, maxBodyArmor: 0, flakArmor: 0, maxFlakArmor: 0,
     cd: rand(0.2, 1.0), burstLeft: 0, burstTimer: 0,
     face: -Math.PI / 2,
     turret: -Math.PI / 2,

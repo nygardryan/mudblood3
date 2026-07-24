@@ -125,7 +125,7 @@ const UNIT_TYPES = {
   },
   jeep: {
     name: 'Jeep', hp: 250, range: 221, dmg: 13, acc: 0.42,
-    rof: 6.0, burst: 32, burstGap: 0.07, speed: 110,
+    rof: 12.0, burst: 64, burstGap: 0.07, speed: 110,
     color: '#566f44', gun: 14, sfx: 'hmg', vehicle: true, rankMult: 3,
     desc: 'Willys jeep, pintle-mounted .50 cal. Fast and hard-hitting, but unarmored.',
   },
@@ -166,6 +166,10 @@ const UNIT_TYPES = {
     desc: '40mm Bofors. Immobile; elevated barrels engage aircraft and descending paratroopers only.',
   },
 };
+
+// Body/Flak Armor abilities: each grants a depleting armor bar worth a
+// rifleman's HP (bullets chip Body Armor, explosions chip Flak Armor).
+const ARMOR_POINTS = UNIT_TYPES.rifleman.hp;
 
 // both staked guns share a traverse cone, a crew that never goes prone, and
 // the engineer-repairs-but-medics-don't rule; this returns whichever spec a
@@ -719,6 +723,8 @@ const PLACEABLES = [
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
   { key: 'sandbags', label: 'SANDBAGS', cost: 4, kind: 'defense', hotkey: '8',
     desc: 'Cover. Soldiers behind it dodge half of incoming fire.' },
+  { key: 'dummy', label: 'DUMMY', cost: 3, kind: 'defense', hotkey: 'D',
+    desc: 'Straw decoy. Enemies waste fire on it, but each hit they may see the ruse and move on (40%). Fortify for a helmet, harden for body armor — a better disguise holds their attention longer (30%/20%) and each tier adds a sandbag\'s worth of HP.' },
   { key: 'bunker', label: 'BUNKER', cost: 15, kind: 'defense', hotkey: 'K',
     desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },
   { key: 'watchtower', label: 'WATCH TOWER', cost: 10, kind: 'defense', hotkey: 'W',
@@ -733,6 +739,10 @@ const PLACEABLES = [
     desc: '6 mortar shells on target. DANGER CLOSE — friendly fire is real.' },
   { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 12, kind: 'support', hotkey: 'A',
     desc: '105mm barrage: 16 heavy shells, wide spread. Devastating. Indiscriminate.' },
+  { key: 'bodyarmor', label: 'BODY ARMOR', cost: 1, kind: 'support', hotkey: '',
+    desc: 'Straps a plate carrier on one infantryman. Its own bar soaks up bullet damage until it breaks — HP is untouched while it holds. Re-buy to refill.' },
+  { key: 'flakarmor', label: 'FLAK ARMOR', cost: 1, kind: 'support', hotkey: '',
+    desc: 'Fits a flak vest on one infantryman. Its own bar soaks up explosion damage until it breaks — HP is untouched while it holds. Re-buy to refill.' },
 ];
 
 // axis campaign toolbar: you buy German units, drop them in the top strip,

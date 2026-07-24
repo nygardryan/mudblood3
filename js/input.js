@@ -6,6 +6,14 @@
 // inspect — generous, since a fingertip covers a small, moving target
 const LONGPRESS_SNAP_R = 40;
 
+// A dummy scarecrow is duck-typed enough to ride the enemy targeting and
+// direct-fire damage paths (which read target.t and target.side): it looks like
+// a fixed friendly with no weapon. Its real handling lives in damageDummy and
+// the dummy branches of the target scans. A monotonic id tags each decoy so an
+// enemy can permanently ignore the one it has seen through.
+const DUMMY_T = { fixed: true, dummy: true };
+let dummySeq = 0;
+
 function minefieldPositions(cx, cy) {
   // Tight X pattern: center mine plus one on each diagonal. Mines are immune
   // to explosives now, so there's no chain radius to space them around.
@@ -44,6 +52,20 @@ function unitAtWorld(x, y) {
   return null;
 }
 
+// nearest friendly INFANTRYMAN under a point — the target for the Body/Flak
+// Armor abilities. Vehicles, tanks and gun emplacements can't be armored.
+function nearestArmorableUnit(x, y) {
+  if (!G) return null;
+  let best = null, bd = Infinity;
+  const pt = { x, y };
+  for (const u of G.units) {
+    if (u.dead || u.isDummy || u.t.tank || u.t.vehicle || u.t.gunEmplacement) continue;
+    const d = dist(u, pt);
+    if (d < touchHitRadius(16) && d < bd) { bd = d; best = u; }
+  }
+  return best;
+}
+
 // nearest live enemy under a tap, for focus-fire orders (normal defense modes)
 function enemyAtWorld(x, y) {
   if (!G || isAssaultMode()) return null;
@@ -76,6 +98,8 @@ function attackerTypeStats(p) {
 }
 
 function placementValid(p, x, y) {
+  // armor abilities are only valid over an eligible infantryman — no wasted TP on empty ground
+  if (p.key === 'bodyarmor' || p.key === 'flakarmor') return !!nearestArmorableUnit(x, y);
   if (p.kind === 'support') return y > 20 && y < H - 10;
   if (p.kind === 'egerman') {
     // testing mode: German units go anywhere on the field, not confined to
@@ -156,6 +180,7 @@ function emplacementBox(key) {
     case 'bunker':     return { hw: 28, hh: 13 };  // concrete slab
     case 'camonest':   return { hw: 28, hh: 13 };  // same footprint as the bunker
     case 'sandbags':   return { hw: 22, hh: 12 };
+    case 'dummy':      return { hw: 10, hh: 16 };  // a lone post — narrow, tall
     case 'ammocrate':  return { hw: 16, hh: 11 };
     case 'watchtower': return { hw: 15, hh: 15 };  // square platform
     case 'mine':       return { hw: 6,  hh: 6 };
@@ -171,6 +196,7 @@ function forEachEmplacement(fn) {
   for (const w of G.watchtowers) fn(w, 'watchtower');
   for (const c of G.camoNests) fn(c, 'camonest');
   for (const a of G.ammoCrates) fn(a, 'ammocrate');
+  for (const d of G.dummies) fn(d, 'dummy');
   for (const w of G.wires) fn(w, 'wire');
   for (const m of G.mines) { if (!m.dead) fn(m, 'mine'); }
 }
@@ -270,6 +296,14 @@ function applyPlacement(p, x, y) {
     for (let i = 0; i < 10; i++) {
       scheduleShell(x + rand(-80, 80), y + rand(-65, 65), 1.6 + i * 0.5, 50, 95, true);
     }
+  } else if (p.key === 'dummy') {
+    // decoy: fortifyAdd makes each engineer tier add a flat sandbag's worth of
+    // HP (660 -> 1320 -> 1980) instead of the usual multiplier. isDummy routes
+    // its damage through the scarecrow path (damageDummy) and its id lets an
+    // enemy that has seen through the ruse ignore this specific decoy.
+    G.dummies.push({ x, y, hp: DUMMY_HP, maxhp: DUMMY_HP, up: false, up2: false,
+      workProg: 0, fortifyAdd: DUMMY_HP, isDummy: true, side: 'us', type: 'dummy',
+      t: DUMMY_T, id: ++dummySeq });
   } else if (p.key === 'sandbags') {
     G.sandbags.push({ x, y, hp: SANDBAG_HP, maxhp: SANDBAG_HP, up: false, workProg: 0 });
   } else if (p.key === 'bunker') {
@@ -308,6 +342,16 @@ function applyPlacement(p, x, y) {
   } else if (p.key === 'purge') {
     showBanner('AREA CLEARED');
     purgeRadius(x, y, PURGE_RADIUS);
+  } else if (p.key === 'bodyarmor' || p.key === 'flakarmor') {
+    // fit armor on the single infantryman under the cursor; re-buying refills
+    // his bar. placementValid already guaranteed there's a man here.
+    const u = nearestArmorableUnit(x, y);
+    if (u) {
+      if (p.key === 'bodyarmor') { u.maxBodyArmor = ARMOR_POINTS; u.bodyArmor = ARMOR_POINTS; }
+      else { u.maxFlakArmor = ARMOR_POINTS; u.flakArmor = ARMOR_POINTS; }
+      G.texts.push({ x: u.x, y: u.y - 22, text: p.label, ttl: 2.0 });
+    }
+    return u;
   }
   return null;
 }

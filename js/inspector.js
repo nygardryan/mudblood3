@@ -359,6 +359,7 @@ function drawPlacementDefenseGhost(key, x, y, valid) {
   const buf = ghostBuffer('def|' + key, valid, () => {
     if (key === 'wire') drawWire({ x: 0, y: 0, up: false });
     else if (key === 'sandbags') drawSandbag({ x: 0, y: 0, up: false });
+    else if (key === 'dummy') drawDummy({ x: 0, y: 0, up: false, up2: false });
     else if (key === 'bunker') drawBunker({ x: 0, y: 0, up: false, hp: BUNKER_HP, maxhp: BUNKER_HP });
     else if (key === 'watchtower') drawWatchtower({ x: 0, y: 0, up: false, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP });
     else if (key === 'camonest') drawCamoNest({ x: 0, y: 0, up: false, hp: CAMONEST_HP, maxhp: CAMONEST_HP });
@@ -375,7 +376,22 @@ function drawPlacementGhost() {
   const valid = placementValid(p, x, y);
   ctx.globalAlpha = 0.55;
 
-  if (p.kind === 'support') {
+  if (p.key === 'bodyarmor' || p.key === 'flakarmor') {
+    // single-target reticle: ring the man who'd get the armor (red X if none)
+    const target = nearestArmorableUnit(x, y);
+    const col = p.key === 'bodyarmor' ? '#8fb3d9' : '#b7a94e';
+    ctx.lineWidth = 1.5;
+    if (target) {
+      ctx.strokeStyle = col;
+      ctx.beginPath(); ctx.arc(target.x, target.y, 15, 0, 7); ctx.stroke();
+    } else {
+      ctx.strokeStyle = '#d04030';
+      ctx.beginPath();
+      ctx.moveTo(x - 8, y - 8); ctx.lineTo(x + 8, y + 8);
+      ctx.moveTo(x + 8, y - 8); ctx.lineTo(x - 8, y + 8);
+      ctx.stroke();
+    }
+  } else if (p.kind === 'support') {
     ctx.strokeStyle = valid
       ? (p.key === 'rankup' ? '#7fe0a0' : p.key === 'purge' ? '#ff3b3b' : '#ffd94a')
       : '#d04030';

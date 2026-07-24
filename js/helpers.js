@@ -40,6 +40,7 @@ function forEachDefense(fn) {
   for (const t of G.watchtowers) fn(t);
   for (const c of G.camoNests) fn(c);
   for (const a of G.ammoCrates) fn(a);
+  for (const d of G.dummies) fn(d);
 }
 
 function compactDefenses(arr, onDestroy) {

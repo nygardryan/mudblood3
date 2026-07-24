@@ -487,8 +487,10 @@ function updateEngineer(u, dt) {
     sparks(target.x, target.y);
     if (target.workProg >= 6) {
       target.workProg = 0;   // reset so a hardened second tier accrues fresh
-      // camo nests get double HP per tier; everything else gets 1.5x
-      target.maxhp = Math.round(target.maxhp * (target.fortifyMult || 1.5));
+      // the dummy gains a flat sandbag's worth of HP per tier; camo nests get
+      // double HP per tier; everything else gets 1.5x
+      if (target.fortifyAdd) target.maxhp += target.fortifyAdd;
+      else target.maxhp = Math.round(target.maxhp * (target.fortifyMult || 1.5));
       target.hp = target.maxhp;
       gainXP(u); gainXP(u); // a fortification is worth two points of pride
       if (!target.up) {

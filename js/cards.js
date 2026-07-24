@@ -270,8 +270,8 @@ const CARD_COMMON_TEMPLATES = {
     desc: t => `${t.name} engages targets 25% farther out.`,
     hooks: type => ({}),
   },
-  flakarmor: {
-    name: 'Flak Armor', cost: 6, excludes: ['jeep', 'sherman', 'atgun', 'aagun'],
+  shrapnelvest: {
+    name: 'Shrapnel Vest', cost: 6, excludes: ['jeep', 'sherman', 'atgun', 'aagun'],
     // the flamer already halves blast damage on his own vest
     weight: type => type === 'flamer' ? 1 : 2,
     desc: t => `${t.name} takes 30% less damage from explosions.`,
@@ -288,7 +288,7 @@ const CARD_COMMON_TEMPLATES = {
   // support units carry weak short-range sidearms; this trades one for a
   // full M1 rifle. Restricted to the three support types via `excludes` so
   // the common stamps out exactly one card each for officer/engineer/medic.
-  // Flag-only, like Flak Armor: makeUnit reads `riflearm_<type>` at spawn.
+  // Flag-only, like Shrapnel Vest: makeUnit reads `riflearm_<type>` at spawn.
   riflearm: {
     name: 'Standard Issue', cost: 6, weight: 2,
     excludes: ['rifleman', 'gunner', 'grenadier', 'shotgunner', 'bazooka',
@@ -503,7 +503,7 @@ const CARD_UNIQUES = {
     hooks: {},
   },
   // not tied to a unit type: carries a `label` so its chip reads EMPLACEMENTS
-  // rather than a UNIT_TYPES name. Flag-only, like Flak Armor — explode() reads
+  // rather than a UNIT_TYPES name. Flag-only, like Shrapnel Vest — explode() reads
   // G.cardsOwned directly and skips every defense structure's blast damage.
   blastshelter: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Blast Shelter', cost: 16, weight: 6,

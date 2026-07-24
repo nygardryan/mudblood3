@@ -350,6 +350,80 @@ function drawAmmoCrate(t) {
   ctx.restore();
 }
 
+// A decoy scarecrow, drawn top-down at the same footprint as an infantryman:
+// a straw-stuffed torso in a ragged GI jacket with arms lashed out on a
+// cross-bar and a burlap sack head. Fortifying it (up) claps an M1 helmet on so
+// it reads like a real soldier from above; hardening it (up2) straps a flak
+// vest over the torso. Both disguises make enemies waste more fire before they
+// wise up. It has no facing, so it's drawn axis-aligned (arms east-west).
+function drawDummy(d) {
+  const c = ctx;
+  c.save();
+  c.translate(d.x, d.y);
+
+  // ground shadow — matches an infantryman's (ellipse at 0,3 sized 8x4)
+  c.fillStyle = 'rgba(0,0,0,0.25)';
+  c.beginPath(); c.ellipse(0, 3, 8, 4, 0, 0, 7); c.fill();
+
+  // outstretched arms: the cross-bar the scarecrow is lashed to, straw at the cuffs
+  c.strokeStyle = '#6b512f';
+  c.lineWidth = 2.2;
+  c.beginPath(); c.moveTo(-8.5, 0.5); c.lineTo(8.5, 0.5); c.stroke();
+  c.strokeStyle = '#c9a24a';
+  c.lineWidth = 0.9;
+  for (const sx of [-8.5, 8.5]) {
+    const dir = sx < 0 ? -1 : 1;
+    for (let i = -1; i <= 1; i++) {
+      c.beginPath(); c.moveTo(sx, 0.5); c.lineTo(sx + dir * 2.6, 0.5 + i * 1.8); c.stroke();
+    }
+  }
+
+  // torso — a ragged jacket, same body ellipse a rifleman carries (6.4 x 4.9)
+  c.fillStyle = d.up2 ? '#4c5531' : '#5f6a3a';
+  c.beginPath(); c.ellipse(0, 0, 6.4, 4.9, 0, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(14,15,11,0.6)'; c.lineWidth = 1.1; c.stroke();
+  // straw poking out of the hem
+  c.strokeStyle = '#c9a24a'; c.lineWidth = 0.9;
+  for (const [ox, oy] of [[-2.4, 4.2], [0, 4.7], [2.4, 4.2]]) {
+    c.beginPath(); c.moveTo(ox, oy); c.lineTo(ox, oy + 1.7); c.stroke();
+  }
+
+  // hardened: a flak vest plate strapped over the torso
+  if (d.up2) {
+    c.fillStyle = '#726b4a'; c.strokeStyle = '#2f2c1e'; c.lineWidth = 1;
+    c.beginPath(); c.ellipse(0, 0.3, 4.5, 3.6, 0, 0, 7); c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(0, -3); c.lineTo(0, 3.7); c.stroke();
+  }
+
+  // burlap sack head, seen straight down: the crown of the sack, no face —
+  // same head circle a soldier gets (r 4.2 at 0,-1)
+  c.fillStyle = '#c8b48a'; c.strokeStyle = '#8a7654'; c.lineWidth = 1;
+  c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill(); c.stroke();
+  // the gathered, tied-off top of the sack puckers into a little knot at center
+  c.strokeStyle = 'rgba(120,101,70,0.6)'; c.lineWidth = 0.7;
+  for (let i = 0; i < 6; i++) {
+    const a = i * Math.PI / 3;
+    c.beginPath(); c.moveTo(Math.cos(a) * 1.4, -1 + Math.sin(a) * 1.4);
+    c.lineTo(Math.cos(a) * 3.6, -1 + Math.sin(a) * 3.6); c.stroke();
+  }
+  c.fillStyle = '#9a8256';
+  c.beginPath(); c.arc(0, -1, 1.3, 0, 7); c.fill();
+  c.strokeStyle = '#6f5c3c'; c.lineWidth = 0.6;
+  c.beginPath(); c.arc(0, -1, 1.3, 0, 7); c.stroke();
+
+  // fortified: an M1 helmet over the sack head — the same green dome the GIs wear
+  if (d.up) {
+    c.fillStyle = '#63804d';
+    c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 1;
+    c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,0.12)';
+    c.beginPath(); c.arc(-1.3, -2.2, 1.5, 0, 7); c.fill();
+  }
+
+  c.restore();
+}
+
 function drawDefenses() {
   for (const wr of G.wires) drawWire(wr);
   for (const s of G.sandbags) drawSandbag(s);
@@ -357,6 +431,7 @@ function drawDefenses() {
   for (const t of G.watchtowers) drawWatchtower(t);
   for (const cn of G.camoNests) drawCamoNest(cn);
   for (const ac of G.ammoCrates) drawAmmoCrate(ac);
+  for (const dm of G.dummies) drawDummy(dm);
   for (const m of G.mines) drawMine(m);
 }
 

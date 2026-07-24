@@ -445,5 +445,13 @@ function nearestUnitInRange(e, range, pred) {
     const d = dist2(e, u);
     if (d < bd) { bd = d; best = u; }
   }
+  // decoy scarecrows draw fire like any body on the field, unless this enemy
+  // has already put rounds into one and seen through the ruse (damageDummy)
+  for (const dm of G.dummies) {
+    if (dm.hp <= 0 || (e.dummyBlind && e.dummyBlind.has(dm.id))) continue;
+    if (pred && !pred(dm)) continue;
+    const d = dist2(e, dm);
+    if (d < bd) { bd = d; best = dm; }
+  }
   return best;
 }

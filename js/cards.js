@@ -26,7 +26,11 @@ const REROLL_BASE_COST = 1;
 // hard it warps a run; the player's command capacity starts at 6 and can be
 // raised a point at a time for medals (5, then +20% compounding, rounded up).
 const PLAN_SLOTS = 3;
-const PLAN_NAMES = ['PLAN A', 'PLAN B', 'PLAN C'];
+const PLAN_NAMES = ['LOADOUT A', 'LOADOUT B', 'LOADOUT C'];
+
+// collection grid filter: a UNIT_TYPES key, 'other' for cards with no unit
+// tie, or null to show everything. Reset whenever the card shop is (re)opened.
+let collectionFilter = null;
 const BASE_COMMAND_CAP = 6;
 const COMMAND_UPGRADE_BASE_COST = 5;
 
@@ -49,7 +53,8 @@ const EMERGENCY_REPAIR_COOLDOWN = 60;
 // Cluster Rounds: the mortarman drops a stick of shells per fire order instead
 // of one, but rushing the tube costs precision — every shell in the stick rolls
 // its scatter against the widened spread. The mortar fire block reads both.
-const CLUSTER_ROUNDS_SHELLS = 4;
+const CLUSTER_ROUNDS_SHELLS_MIN = 1;
+const CLUSTER_ROUNDS_SHELLS_MAX = 3;
 const CLUSTER_ROUNDS_SCATTER_MULT = 1.6;
 
 // Frag Grenades: a grenadier's frag now sprays fragments on detonation. Each
@@ -373,7 +378,7 @@ const CARD_UNIQUES = {
   rifledslugs: {
     unit: 'shotgunner', name: 'Rifled Slugs', cost: 9, weight: 3,
     // flag-only: fireShotgun reads G.cardsOwned directly, like Extended Tube
-    desc: 'Load slugs, not buckshot: one hard, long-range round with almost no spread.',
+    desc: 'Load slugs, not buckshot: one hard, long-range round, but a wider cone than the buckshot pattern gave up.',
     hooks: {},
   },
   // flag-only, like Rifled Slugs: unitRangeMult reads G.cardsOwned to stretch a
@@ -511,7 +516,7 @@ const CARD_UNIQUES = {
   // G.cardsOwned directly to swap the single shell for a wider, wilder stick
   clusterrounds: {
     unit: 'mortarman', name: 'Cluster Rounds', cost: 12, weight: 5,
-    desc: `The mortarman rushes ${CLUSTER_ROUNDS_SHELLS} shells down the tube per fire order — but hurried crews scatter ${Math.round((CLUSTER_ROUNDS_SCATTER_MULT - 1) * 100)}% wider.`,
+    desc: `The mortarman rushes ${CLUSTER_ROUNDS_SHELLS_MIN}-${CLUSTER_ROUNDS_SHELLS_MAX} shells down the tube per fire order — but hurried crews scatter ${Math.round((CLUSTER_ROUNDS_SCATTER_MULT - 1) * 100)}% wider.`,
     hooks: {},
   },
   // flag-only, like Cluster Rounds: damageEnemy calls maybeShellShock whenever a
@@ -893,6 +898,7 @@ function applyCardShopMode() {
 function openCardShop(fromScreen) {
   cardShopMode = 'shop';
   pendingLoadoutDiff = null;
+  collectionFilter = null;
   cardShopReturnScreen = fromScreen || 'endless-select';
   el(cardShopReturnScreen).classList.add('hidden');
   applyCardShopMode();
@@ -910,6 +916,7 @@ function openEndlessLoadout(difficultyId) {
   }
   cardShopMode = 'loadout';
   pendingLoadoutDiff = difficultyId;
+  collectionFilter = null;
   cardShopReturnScreen = 'endless-select';
   el('endless-select').classList.add('hidden');
   applyCardShopMode();
@@ -944,6 +951,12 @@ function medalLabel(n) {
 // emplacement/ability card carries its own label (no UNIT_TYPES entry)
 function cardUnitLabel(card) {
   return (card.label != null ? card.label : UNIT_TYPES[card.unitType].name).toUpperCase();
+}
+
+// collection filter bucket: real soldiers/vehicles group by their unit type,
+// everything else (emplacements, HQ, war surplus on placeables) is 'other'
+function cardFilterKey(card) {
+  return UNIT_TYPES[card.unitType] ? card.unitType : 'other';
 }
 
 // six command pips, the first `w` of them lit — a card's loadout weight read
@@ -1055,7 +1068,9 @@ function buildBattlePlanUI() {
   upBtn.textContent = `+1 COMMAND — ${medalLabel(upCost)}`;
   upBtn.disabled = upCost > data.medals;
   const grid = el('plan-collection');
+  const filterRow = el('plan-filter');
   grid.replaceChildren();
+  filterRow.replaceChildren();
   if (!data.owned.length) {
     const none = document.createElement('div');
     none.className = 'cs-chit cs-chit--empty';
@@ -1063,7 +1078,42 @@ function buildBattlePlanUI() {
     grid.appendChild(none);
     return;
   }
+  // one chip per unit type actually owned, plus ALL to clear and OTHER for
+  // cards with no unit tie; skip the row entirely when there's nothing to split
+  const cats = new Map();
   for (const id of data.owned) {
+    const key = cardFilterKey(CARDS[id]);
+    if (!cats.has(key)) cats.set(key, key === 'other' ? 'OTHER' : UNIT_TYPES[key].name.toUpperCase());
+  }
+  if (cats.size > 1) {
+    const entries = [...cats.entries()].sort((a, b) =>
+      a[0] === 'other' ? 1 : b[0] === 'other' ? -1 : a[1].localeCompare(b[1]));
+    entries.unshift([null, 'ALL']);
+    for (const [key, label] of entries) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'cs-filter' + (collectionFilter === key ? ' cs-filter--active' : '');
+      chip.textContent = label;
+      chip.addEventListener('click', () => {
+        if (collectionFilter === key) return;
+        collectionFilter = key;
+        SFX.click();
+        buildBattlePlanUI();
+      });
+      filterRow.appendChild(chip);
+    }
+  } else {
+    collectionFilter = null;
+  }
+  const visible = data.owned.filter(id => collectionFilter === null || cardFilterKey(CARDS[id]) === collectionFilter);
+  if (!visible.length) {
+    const none = document.createElement('div');
+    none.className = 'cs-chit cs-chit--empty';
+    none.textContent = 'NO CARDS MATCH THIS FILTER.';
+    grid.appendChild(none);
+    return;
+  }
+  for (const id of visible) {
     const card = CARDS[id];
     const equipped = plan.includes(id);
     const btn = document.createElement('button');
@@ -1125,7 +1175,7 @@ function buildEndgameCard(card, medals) {
       '<span class="ee-card__chev">▾ requisition</span>' +
     '</div>' +
     '<div class="ee-card__body">' +
-      '<div class="ee-card__full">Costs ' + card.weight + ' command in your battle plan.</div>' +
+      '<div class="ee-card__full">Costs ' + card.weight + ' command in your loadout.</div>' +
       '<button class="ee-buy"' + (afford ? '' : ' disabled') + '>Requisition — ' + medalLabel(card.cost) + '</button>' +
     '</div>';
   // tapping the card body toggles the detail drawer; the chevron flips with it

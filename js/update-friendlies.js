@@ -386,7 +386,7 @@ function updateUnit(u, dt) {
         // its own aim against the card's widened scatter and landing in sequence
         const cluster = u.side === 'us' && G.cardsOwned && G.cardsOwned.has('clusterrounds');
         const sc = mt.scatter * (1 - u.rank * 0.08) * (cluster ? CLUSTER_ROUNDS_SCATTER_MULT : 1);
-        const shells = cluster ? CLUSTER_ROUNDS_SHELLS : 1;
+        const shells = cluster ? Math.floor(rand(CLUSTER_ROUNDS_SHELLS_MIN, CLUSTER_ROUNDS_SHELLS_MAX + 1)) : 1;
         for (let i = 0; i < shells; i++) {
           scheduleShell(target.x + rand(-sc, sc), target.y + rand(-sc, sc),
             mt.flight + i * 0.15, mt.r, mt.dmg * (1 + u.rank * 0.05), false, u);

@@ -632,11 +632,12 @@ body {
    way to spend medals — the ON OFFER shop, the reroll/slot controls, the medal
    tag and the command upgrade all go, leaving just the battle plans to pick and
    swap. The DEPLOY button only exists in this mode. */
-#card-shop-deploy { display: none; }
+#card-shop-deploy, #card-shop-deploy-top { display: none; }
 #card-shop.cs--loadout #cs-shop-section,
 #card-shop.cs--loadout .cs-tag,
 #card-shop.cs--loadout #plan-upgrade { display: none; }
 #card-shop.cs--loadout #card-shop-deploy { display: inline-block; }
+#card-shop.cs--loadout #card-shop-deploy-top { display: inline-block; }
 
 /* header row: title + dog-tag medal balance */
 #card-shop .cs-head {
@@ -671,6 +672,15 @@ body {
   letter-spacing: 2px;
   color: #968f6c;
   font-weight: bold;
+}
+#card-shop-deploy-top {
+  margin-left: auto;
+  padding: 8px 22px;
+  font-size: 13px;
+  letter-spacing: 2px;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 /* intro dispatch lines */
@@ -934,6 +944,30 @@ body {
 }
 #card-shop .cs-upg:hover:not(:disabled) { border-color: #e7b93d; color: #e7b93d; }
 #card-shop .cs-upg:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* collection filter: unit-type chips above the grid; ALL clears, OTHER covers
+   cards with no unit tie (emplacements, HQ, war surplus on placeables) */
+.cs-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.cs-filters:empty { display: none; margin: 0; }
+.cs-filters .cs-filter {
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  color: #968f6c;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid #3a3b28;
+  border-radius: 999px;
+  padding: 6px 12px;
+  transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+.cs-filters .cs-filter:hover:not(.cs-filter--active) { border-color: #50512f; color: #ddd5ad; }
+.cs-filters .cs-filter--active {
+  border-color: #e7b93d;
+  color: #1a160a;
+  background: linear-gradient(180deg, #e7b93d, #b78e22);
+}
 
 /* collection grid: compact chits with a deployed/reserve state stripe */
 #plan-collection {
@@ -2386,7 +2420,8 @@ input[type="range"]::-moz-range-track {
 #start-wave-btn:not(:disabled),
 .intro-btns:not(.modes) button:not(.secondary),
 .mm-action,
-#card-shop-deploy {
+#card-shop-deploy,
+#card-shop-deploy-top {
   background: repeating-linear-gradient(45deg, #f2c53d 0 12px, #d9ae2a 12px 24px);
   border: 2px solid #1a1710;
   color: #1a1710;
@@ -2395,7 +2430,8 @@ input[type="range"]::-moz-range-track {
 #start-wave-btn:not(:disabled):hover,
 .intro-btns:not(.modes) button:not(.secondary):hover,
 .mm-action:hover,
-#card-shop-deploy:hover {
+#card-shop-deploy:hover,
+#card-shop-deploy-top:hover {
   background: repeating-linear-gradient(45deg, #f7d152 0 12px, #e3b833 12px 24px);
 }
 
@@ -2484,7 +2520,8 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
 #start-wave-btn:not(:disabled),
 .intro-btns:not(.modes) button:not(.secondary),
 .mm-action,
-#card-shop-deploy {
+#card-shop-deploy,
+#card-shop-deploy-top {
   background: #e8873a;
   border: 1px solid #f2a45f;
   color: #17140f;
@@ -2494,14 +2531,16 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
 #start-wave-btn:not(:disabled):hover,
 .intro-btns:not(.modes) button:not(.secondary):hover,
 .mm-action:hover,
-#card-shop-deploy:hover {
+#card-shop-deploy:hover,
+#card-shop-deploy-top:hover {
   background: #f2a45f;
   box-shadow: 0 3px 0 #7a4415;
 }
 #start-wave-btn:not(:disabled):active,
 .intro-btns:not(.modes) button:not(.secondary):active,
 .mm-action:active,
-#card-shop-deploy:active {
+#card-shop-deploy:active,
+#card-shop-deploy-top:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 #7a4415;
 }

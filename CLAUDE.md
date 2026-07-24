@@ -32,8 +32,8 @@ TEST.start('endless', 'easy')      // validated start — THROWS on bad ids
                                    // (bare startGame() silently falls back to endless!)
 TEST.start('endless','easy','jp')  // 3rd arg pins the endless enemy faction roll:
                                    // 'de' (Wehrmacht), 'jp' (Imperial Japanese Army),
-                                   // 'it' (Regio Esercito), or 'zo' (The Horde — undead).
-                                   // omitted = random per run (1-in-4 each).
+                                   // or 'zo' (The Horde — undead).
+                                   // omitted = random per run (1-in-3 each).
                                    // state().enemyFaction reports it.
 TEST.deploy('gunner', 0.5, 0.75)   // FREE god-mode spawn; (0..1] coords = fractions of field
 TEST.deploy('sandbags', 0.4, 0.7)  // deploys ANY placeable — defenses, supports, German test units
@@ -73,37 +73,7 @@ fanatics (never prone — see `tryGoProne`); `jbanzai` is a melee charger and
 `jlunge` a suicide anti-tank unit, both with their own AI in `js/update-enemies.js`.
 Their art lives in `js/render-japanese.js` (`paintJapaneseSoldier`).
 
-The **Regio Esercito** is the third endless foe (`faction:'it'` in `ENEMY_TYPES`,
-15 keys: `irifle`/`ibersa`/`imab`/`igren`/`ibreda`/`ifiat`/`icecc`/`ibrixia`/
-`imortaio`/`iuff`/`iflame`/`ifolgore`/`il3`/`im13`/`isemo`). Their signature is
-the mirror image of the Japanese fanatic: **morale**. Most line-infantry types
-carry `wavers:true` and, with nothing steadying them, may break and fall back
-(`updateItalianMorale`/`retreatUpfield` in `js/update-enemies.js`; a jumpy man
-also dives for cover more readily — see `tryGoProne`). What steadies them is an
-officer aura OR a nearby elite (`italianSteadierNear`). Several units carry their
-own signature trait, so they aren't reskins:
-- `iuff` (officer) — `steady:true` + `avantiCmd:true`: on a cooldown he screams
-  AVANTI (`italianAvantiCommand`), rallying routers and surging the men near him.
-  The linchpin; kill him and the line collapses.
-- `ibersa` (Bersagliere) — an elite close-assault `shotgun` unit: runs the field
-  fast to get inside buckshot range, then STOPS and fights (the enemy-shotgun AI
-  branch). Also `steadier:true` — a mobile morale anchor for the Fanti near him.
-- `ifolgore` (Folgore) — elite, tough, grenade-armed, and also a `steadier`.
-- `ibreda` (Breda 30) — `jams:true`: periodic stoppages (`weaponJammed`) — it
-  can reposition but not fire. The only unreliable automatic weapon in the game.
-- `il3` (L3 Lf) — a **flamethrower tankette** (`tankFlame` spec): the only
-  flame-throwing armor any faction fields. Routes through the same `tankFlame`/
-  `updateTankCombat` path as the player's Flame Tank card, generalized to enemies.
-  Because its weapon is point-blank, `updateTank` HALTS it (`flameTankHalts`) once
-  a defender is inside flame reach so it burns from a standstill instead of
-  driving through the line; it rolls on again when nothing's in range.
-It tops out at the M13/40 medium (`im13`) and casemate Semovente (`isemo`) — no
-heavy tank; the armor threat is the early flame-tankette swarm. `deploy` spawns any of them
-(they're in `TESTING_ITALIAN_PLACEABLES`); wave spawning routes through
-`itaWaveComposition` and `ITA_SPECIAL_WAVES` when `G.enemyFaction === 'it'`.
-Their art lives in `js/render-italian.js` (`paintItalianSoldier`).
-
-**The Horde** is the fourth endless foe (`faction:'zo'` in `ENEMY_TYPES`, 10 keys:
+**The Horde** is the third endless foe (`faction:'zo'` in `ENEMY_TYPES`, 10 keys:
 `zshambler`/`zrunner`/`zcrawler`/`zhound`/`zbrute`/`zspitter`/`zbloater`/
 `zscreamer`/`zrevenant`/`zabom`) — the only foe that isn't a national army, and
 the only one built around **infection** rather than a discipline mechanic. Most of

@@ -24,7 +24,7 @@ workflow.
 ## Game modes
 
 - **Endless** — the classic. Each run rolls its foe: you face the **Germans**,
-  the **Imperial Japanese Army**, the **Regio Esercito**, or **The Horde** (the
+  the **Imperial Japanese Army**, or **The Horde** (the
   undead), attacking in endless waves from the top of the screen. Hold the line as
   long as you can — if **7 enemies** slip past the bottom edge, your sector
   collapses and it's game over. There is no victory, only a higher wave count.
@@ -38,28 +38,6 @@ workflow.
     ram your armor and emplacements and detonate on contact. Every Japanese
     soldier is a fanatic: they never go prone, they only close the distance, and
     an officer can scream a **banzai charge** that surges the men around him.
-  - **The Italians** field their own 15-unit roster and play the exact opposite
-    way — where the Japanese never break, the Regio Esercito lives and dies on
-    **morale**. Carcano *Fanti*, Beretta SMG *moschettieri*, *cecchino* snipers,
-    Brixia and 81mm mortars — most of the line **wavers**: with nothing to steady
-    them, men under pressure lose their nerve, dive for cover, and fall back
-    up-field. What holds them together is leadership, so several units have their
-    own signature role:
-    - The **Ufficiale** is the linchpin — his presence steadies the waverers, and
-      on a cadence he screams **"AVANTI!"**, rallying anyone mid-rout and surging
-      the whole knot into a charge. Shoot him first and watch the sector cave in.
-    - The plumed **Bersaglieri** are elite **close-assault shotgunners** — they
-      run the field to get inside buckshot range, then stop and shred your line at
-      point-blank. They also double as **mobile morale anchors**, steadying the
-      Fanti around them even with no officer. The tough **Folgore** paratroopers
-      steady the line too, and neither ever breaks.
-    - The **Breda 30** machine gun is authentically unreliable: it **jams** often,
-      falling silent mid-fight while it clears the stoppage.
-    - Their armor is the **L3 Lf flame tankette** — the only flame-throwing armor
-      on the field. Thin-skinned and swarming in early, it grinds up to your line,
-      halts at point-blank, and washes the trench in fire. Heavier threats (the
-      M13/40 medium, the casemate Semovente assault gun) show up later, but
-      there's no heavy tank — the danger is the wall of fire on tracks.
   - **The Horde** is the odd one out — not an army but a rising tide of the dead,
     and the only foe that grows itself out of *your* casualties. There's no armor
     and almost no gunfire; the whole faction is melee, and its signature is the

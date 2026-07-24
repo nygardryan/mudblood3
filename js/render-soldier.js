@@ -60,9 +60,6 @@ function paintSoldierBody(c, a) {
   // the Imperial Japanese roster is drawn by its own self-contained painter —
   // distinct helmets, Arisakas, katanas, knee mortars and lunge charges
   if (a.nation === 'jp') { paintJapaneseSoldier(c, a); return; }
-  // the Regio Esercito roster has its own painter — M33 helmets, Carcanos,
-  // plumed Bersaglieri, bustina officers, Breda/Fiat guns and the Lanciafiamme
-  if (a.nation === 'it') { paintItalianSoldier(c, a); return; }
   // The Horde has its own painter — rotted, groping walking dead: shamblers,
   // brutes, spitters, bloaters, hounds, the Abomination and the rest
   if (a.nation === 'zo') { paintZombieSoldier(c, a); return; }

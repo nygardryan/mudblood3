@@ -27,22 +27,19 @@ function paradropCount(w) {
 const PARA_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];
 // Imperial airborne (Teishin Shudan) equivalent for the Japanese faction
 const PARA_POOL_JP = ['jrifle', 'jrifle', 'jbanzai', 'jbanzai'];
-// Folgore/Nembo airborne equivalent for the Italian faction — elite steady types
-const PARA_POOL_IT = ['ifolgore', 'ifolgore', 'ibersa', 'imab'];
 
 function triggerParadrop() {
   const f = enemyFaction();
   // The Horde doesn't drop from the sky — the dead claw their way up out of the
   // ground behind your line. Same "behind you" pressure, no transport, no canopy.
   if (f === 'zo') { triggerHordeRising(); return; }
-  const jp = f === 'jp', it = f === 'it';
+  const jp = f === 'jp';
   showBanner(jp ? 'TEISHIN PARATROOPERS!'
-    : it ? 'FOLGORE PARACADUTISTI!'
     : 'FALLSCHIRMJÄGER! PARATROOPERS!');
   spawnTransportFlyby();
   const w = G.wave;
-  const pool = (jp ? PARA_POOL_JP : it ? PARA_POOL_IT : PARA_POOL).slice();
-  if (w >= 10) pool.push(jp ? 'jlmg' : it ? 'ibreda' : 'emg');
+  const pool = (jp ? PARA_POOL_JP : PARA_POOL).slice();
+  if (w >= 10) pool.push(jp ? 'jlmg' : 'emg');
   const count = paradropCount(w);
   const cx = rand(120, W - 120);
   for (let i = 0; i < count; i++) {

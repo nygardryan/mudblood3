@@ -251,7 +251,6 @@ const TOOLBAR_CATEGORIES = [
   { id: 'emplacements', label: 'EMPLACEMENTS', filter: p => p.kind === 'defense' },
   { id: 'germans', label: 'GERMANS', filter: p => p.kind === 'egerman' && p.key.startsWith('e') },
   { id: 'japanese', label: 'JAPANESE', filter: p => p.kind === 'egerman' && p.key.startsWith('j') },
-  { id: 'italian', label: 'ITALIAN', filter: p => p.kind === 'egerman' && p.key.startsWith('i') },
   { id: 'events', label: 'EVENTS', filter: p => p.kind === 'event' },
 ];
 

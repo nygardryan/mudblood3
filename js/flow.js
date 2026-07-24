@@ -425,7 +425,7 @@ function startGame(levelId, difficultyId) {
     ? axisPlaceablesForResearch()
     : (level.mode === 'assault' ? (level.placeables || ASSAULT_PLACEABLES)
       : (difficulty && difficulty.testing
-        ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES, ...TESTING_JAPANESE_PLACEABLES, ...TESTING_ITALIAN_PLACEABLES, ...TESTING_ABILITIES, ...TESTING_EVENTS]
+        ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES, ...TESTING_JAPANESE_PLACEABLES, ...TESTING_ABILITIES, ...TESTING_EVENTS]
         : level.placeables));
   buildToolbar(placeables);
   el('intro').classList.add('hidden');

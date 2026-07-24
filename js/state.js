@@ -3,7 +3,7 @@
 'use strict';
 
 let G = null;         // game state
-let G_forceFaction = null; // test harness: pin the endless enemy faction roll ('de' | 'jp' | 'it')
+let G_forceFaction = null; // test harness: pin the endless enemy faction roll ('de' | 'jp' | 'zo')
 let placing = null;   // placeable currently being placed
 let mouse = { x: W / 2, y: H / 2, inside: false };
 let drag = null;      // marquee selection in progress: { x0, y0, x1, y1, active }
@@ -88,11 +88,11 @@ function enemyFaction() {
 }
 function factionAdjUpper() {
   const f = enemyFaction();
-  return f === 'jp' ? 'JAPANESE' : f === 'it' ? 'ITALIAN' : f === 'zo' ? 'HORDE' : 'GERMAN';
+  return f === 'jp' ? 'JAPANESE' : f === 'zo' ? 'HORDE' : 'GERMAN';
 }
 function factionPlural() {
   const f = enemyFaction();
-  return f === 'jp' ? 'Japanese' : f === 'it' ? 'Italians' : f === 'zo' ? 'undead' : 'Germans';
+  return f === 'jp' ? 'Japanese' : f === 'zo' ? 'undead' : 'Germans';
 }
 
 function syncMuteButtons() {
@@ -190,7 +190,7 @@ function newGame(level, difficulty) {
   // other mode (tutorials, campaigns) stays German so their scripted enemy types
   // keep working. A caller (test harness) may pre-set G_forceFaction to lock the roll.
   G.enemyFaction = level.id === 'endless'
-    ? (G_forceFaction || pick(['de', 'jp', 'it', 'zo']))
+    ? (G_forceFaction || pick(['de', 'jp', 'zo']))
     : 'de';
   // starting an endless run refreshes the shop's reroll price back to base
   if (level.id === 'endless') resetRerollCost();
@@ -230,7 +230,7 @@ function makeUnit(type, x, y, nation = 'us') {
 function makeEnemy(type, x, y, nation) {
   const t = ENEMY_TYPES[type];
   // an enemy's nation follows its type unless a caller forces one: alternate
-  // rosters carry their own faction ('jp'/'it'/'zo'), everything else is Wehrmacht ('de')
+  // rosters carry their own faction ('jp'/'zo'), everything else is Wehrmacht ('de')
   if (nation == null) nation = t.faction || 'de';
   return {
     side: 'de', nation, type, t, x, y,

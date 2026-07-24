@@ -28,9 +28,6 @@ const CODEX_CODE = {
   jrifle: 'RFL', jbanzai: 'BNZ', jsmg: 'SNL', jgren: 'GRN', jlmg: 'T99',
   jhmg: 'T92', jsniper: 'SNP', jknee: 'KNE', jmortar: 'MTR', jlunge: 'LNG',
   joff: 'OFF', jflame: 'FLM', jhago: 'HGO', jtank: 'CHI', jchinu: 'CHN',
-  irifle: 'FNT', ibersa: 'BRS', imab: 'MAB', igren: 'BMB', ibreda: 'BRD',
-  ifiat: 'FIA', icecc: 'CEC', ibrixia: 'BRX', imortaio: 'M81', iuff: 'OFF',
-  iflame: 'FLM', ifolgore: 'FLG', il3: 'L3', im13: 'M13', isemo: 'SMV',
   zshambler: 'SHM', zrunner: 'RUN', zcrawler: 'CRW', zhound: 'HND', zbrute: 'BRT',
   zspitter: 'SPT', zbloater: 'BLT', zscreamer: 'SCR', zrevenant: 'REV', zabom: 'ABM',
   wire: 'WIR', sandbags: 'SBG', dummy: 'DMY', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
@@ -58,7 +55,6 @@ function codexFaction(tab, entry) {
   if (tab === 'enemies') {
     const et = entry && ENEMY_TYPES[entry.key];
     return et && et.faction === 'jp' ? 'IMPERIAL JAPANESE ARMY'
-      : et && et.faction === 'it' ? 'REGIO ESERCITO'
       : et && et.faction === 'zo' ? 'THE HORDE'
       : 'WEHRMACHT';
   }

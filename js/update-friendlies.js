@@ -72,9 +72,11 @@ function ammoCrateRofMult(u) {
 
 // a watch tower's raised vantage extends the sightline of nearby riflemen —
 // but a mortar crew fires indirect and blind, so the tower does nothing for them.
-// an engineer-fortified tower (t.up) sees further and boosts the effect further.
+// crews buttoned up in a vehicle or tank don't get the spotter's call either —
+// only the ammo crate (a resupply) helps armor. an engineer-fortified tower
+// (t.up) sees further and boosts the effect further.
 function watchtowerRangeMult(u) {
-  if (u.side !== 'us' || u.t.mortar || !G.watchtowers.length) return 1;
+  if (u.side !== 'us' || u.t.mortar || u.t.tank || u.t.vehicle || !G.watchtowers.length) return 1;
   let mult = 1;
   for (const wt of G.watchtowers) {
     if (dist2(wt, u) < WATCHTOWER_AURA * WATCHTOWER_AURA) {

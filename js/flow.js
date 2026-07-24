@@ -425,7 +425,7 @@ function startGame(levelId, difficultyId) {
     ? axisPlaceablesForResearch()
     : (level.mode === 'assault' ? (level.placeables || ASSAULT_PLACEABLES)
       : (difficulty && difficulty.testing
-        ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES, ...TESTING_ABILITIES, ...TESTING_EVENTS]
+        ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES, ...TESTING_JAPANESE_PLACEABLES, ...TESTING_ITALIAN_PLACEABLES, ...TESTING_ABILITIES, ...TESTING_EVENTS]
         : level.placeables));
   buildToolbar(placeables);
   el('intro').classList.add('hidden');
@@ -466,8 +466,8 @@ function startGame(levelId, difficultyId) {
         : 'Click or drag-select your men, click ground to move them. Kill the marked officer. Right-click / Esc deselects.'
     : difficulty && difficulty.testing
       ? touchUI()
-        ? 'Testing: unlimited TP, no Germans spawn on their own. Open GERMANS to build them for the enemy side, or EVENTS to summon one on demand.'
-        : 'Testing: unlimited TP, no Germans spawn on their own. Open GERMANS to build them for the enemy side, or EVENTS to summon one on demand; right-click / Esc cancels placement.'
+        ? 'Testing: unlimited TP, no enemies spawn on their own. Open GERMANS, JAPANESE, or ITALIAN to place enemy units, or EVENTS to summon one on demand.'
+        : 'Testing: unlimited TP, no enemies spawn on their own. Open GERMANS, JAPANESE, or ITALIAN to place enemy units, or EVENTS to summon one on demand; right-click / Esc cancels placement.'
     : difficulty && difficulty.sandbox
       ? touchUI()
         ? 'Sandbox: unlimited TP. Use +1 / +5 / +10 in the HUD to jump ahead in waves.'

@@ -2,6 +2,13 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
+// ---- smoke and sight -------------------------------------------------------
+// A smokescreen (js/smoke.js) doesn't just spoil aim — it takes the target away.
+// Every pick below refuses a candidate whose sight line runs through the cloud,
+// so two sides separated by a screen simply stop fighting until one blunders
+// inside SMOKE_SEE_THROUGH of the other. The scans read smokeOnField() ONCE and
+// only test candidates that would otherwise win, keeping a clear day free.
+
 // the player can click an enemy to mark it as a focus target: any troop that
 // could otherwise shoot it (in range, matches its own weapon's target filter)
 // prefers it over its default pick, so a whole line concentrates fire on cue.
@@ -10,18 +17,23 @@ function focusPick(u, range, pred) {
   if (!f || f.dead || f.y < 0 || f.chute > 0) return null;
   if (pred && !pred(f)) return null;
   if (dist2(u, f) > range * range) return null;
+  // a marked enemy is still an order, not x-ray vision: smoke voids it
+  if (smokeBlocksLOS(u, f)) return null;
   return f;
 }
 
 function nearestEnemyInRange(u, range, pred) {
   const f = focusPick(u, range, pred);
   if (f) return f;
+  const sm = smokeOnField();
   let best = null, bd = range * range;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
     if (pred && !pred(e)) continue;
     const d = dist2(u, e);
-    if (d < bd) { bd = d; best = e; }
+    // the smoke test runs only on a candidate that would take the lead, and
+    // leaves bd alone when it fails, so a farther *visible* enemy still wins
+    if (d < bd && !(sm && smokeBlocksLOS(u, e))) { bd = d; best = e; }
   }
   return best;
 }
@@ -29,11 +41,12 @@ function nearestEnemyInRange(u, range, pred) {
 function firstEnemyInRange(u, range, pred) {
   const f = focusPick(u, range, pred);
   if (f) return f;
+  const sm = smokeOnField();
   const r2 = range * range;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
     if (pred && !pred(e)) continue;
-    if (dist2(u, e) <= r2) return e;
+    if (dist2(u, e) <= r2 && !(sm && smokeBlocksLOS(u, e))) return e;
   }
   return null;
 }
@@ -45,16 +58,24 @@ function tieredEnemyTarget(u, range, tiers) {
   const n = tiers.length;
   const best = new Array(n).fill(null);
   const bd = new Array(n).fill(range * range);
+  const sm = smokeOnField();
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
     const d2 = dist2(u, e);
+    let vis = -1;   // this candidate's sight line: -1 untested, 0 smoked out, 1 clear
     for (let i = 0; i < n; i++) {
-      if (d2 < bd[i] && tiers[i](e)) { bd[i] = d2; best[i] = e; }
+      if (d2 < bd[i] && tiers[i](e)) {
+        if (sm) {
+          if (vis < 0) vis = smokeBlocksLOS(u, e) ? 0 : 1;
+          if (!vis) break;
+        }
+        bd[i] = d2; best[i] = e;
+      }
     }
   }
   const f = G && G.focusTarget;
   const focusOk = f && !f.dead && f.y >= 0 && !(f.chute > 0) &&
-    dist2(u, f) <= range * range;
+    dist2(u, f) <= range * range && !smokeBlocksLOS(u, f);
   for (let i = 0; i < n; i++) {
     if (focusOk && tiers[i](f)) return f;
     if (best[i]) return best[i];
@@ -67,11 +88,19 @@ function tieredUnitTarget(e, range, tiers) {
   const n = tiers.length;
   const best = new Array(n).fill(null);
   const bd = new Array(n).fill(range * range);
+  const sm = smokeOnField();
   for (const u of G.units) {
     if (u.dead || isCamouflaged(u)) continue;
     const d2 = dist2(e, u);
+    let vis = -1;
     for (let i = 0; i < n; i++) {
-      if (d2 < bd[i] && tiers[i](u)) { bd[i] = d2; best[i] = u; }
+      if (d2 < bd[i] && tiers[i](u)) {
+        if (sm) {
+          if (vis < 0) vis = smokeBlocksLOS(e, u) ? 0 : 1;
+          if (!vis) break;
+        }
+        bd[i] = d2; best[i] = u;
+      }
     }
   }
   for (let i = 0; i < n; i++) if (best[i]) return best[i];
@@ -81,6 +110,7 @@ function tieredUnitTarget(e, range, tiers) {
 function sniperTarget(u, range) {
   const f = focusPick(u, range, e => !e.t.tank);
   if (f) return f;
+  const sm = smokeOnField();
   let best = null, bp = -1, bd = Infinity;
   const r2 = range * range;
   for (const e of G.enemies) {
@@ -88,6 +118,7 @@ function sniperTarget(u, range) {
     const d = dist2(u, e);
     if (d > r2) continue;
     if (e.t.priority > bp || (e.t.priority === bp && d < bd)) {
+      if (sm && smokeBlocksLOS(u, e)) continue;
       bp = e.t.priority; bd = d; best = e;
     }
   }
@@ -114,15 +145,16 @@ function primaryEnemyTarget(u, range) {
   if (focus) return focus;
   const c = u._tgt;
   if (c && u._tgtUntil > G.time && !c.dead && !(c.y < 0) && !(c.chute > 0)
-      && dist2(u, c) <= range * range) {
+      && dist2(u, c) <= range * range && !smokeBlocksLOS(u, c)) {
     return c;
   }
   // cache miss: full scan (focus already handled above)
+  const sm = smokeOnField();
   let best = null, bd = range * range;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
     const d = dist2(u, e);
-    if (d < bd) { bd = d; best = e; }
+    if (d < bd && !(sm && smokeBlocksLOS(u, e))) { bd = d; best = e; }
   }
   u._tgt = best;
   u._tgtUntil = G.time + RETARGET_INTERVAL;
@@ -134,6 +166,7 @@ function primaryEnemyTarget(u, range) {
 // eligibility so a cached pick can never be one the fresh scan would reject.
 function stillTargetableUnit(e, c, r2) {
   if (!c) return false;
+  if (smokeBlocksLOS(e, c)) return false;
   if (c.isDummy) {
     return c.hp > 0 && !(e.dummyBlind && e.dummyBlind.has(c.id)) && dist2(e, c) <= r2;
   }
@@ -492,12 +525,13 @@ function friendlyNearPoint(x, y, r, except) {
 }
 
 function nearestUnitInRange(e, range, pred) {
+  const sm = smokeOnField();
   let best = null, bd = range * range;
   for (const u of G.units) {
     if (u.dead || isCamouflaged(u)) continue;
     if (pred && !pred(u)) continue;
     const d = dist2(e, u);
-    if (d < bd) { bd = d; best = u; }
+    if (d < bd && !(sm && smokeBlocksLOS(e, u))) { bd = d; best = u; }
   }
   // decoy scarecrows draw fire like any body on the field, unless this enemy
   // has already put rounds into one and seen through the ruse (damageDummy)
@@ -505,7 +539,7 @@ function nearestUnitInRange(e, range, pred) {
     if (dm.hp <= 0 || (e.dummyBlind && e.dummyBlind.has(dm.id))) continue;
     if (pred && !pred(dm)) continue;
     const d = dist2(e, dm);
-    if (d < bd) { bd = d; best = dm; }
+    if (d < bd && !(sm && smokeBlocksLOS(e, dm))) { bd = d; best = dm; }
   }
   return best;
 }

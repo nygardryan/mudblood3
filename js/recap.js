@@ -148,6 +148,7 @@ function recapOppositionName() {
 
 const RECAP_EVENT_LABELS = {
   fog: 'Fog bank', fng: 'FNG reinforcement', airraid: 'Air raid',
+  smokescreen: 'Smokescreen',
   airstrike: 'P-47 strafing run', paradrop: 'Paradrop behind the line',
 };
 
@@ -194,8 +195,8 @@ function recapRemark(r, won, totals) {
   if (totals.lost === 0 && totals.kills >= 20) return 'Not one man lost. The quartermaster wants to know how.';
   if (G.enemyFaction === 'zo' && totals.turned > 0) {
     return totals.turned === 1
-      ? 'One of the names below finished the battle on the other side of it.'
-      : `${totals.turned} of the names below finished the battle on the other side of it.`;
+      ? 'One name on this roll finished the battle on the other side of it.'
+      : `${totals.turned} names on this roll finished the battle on the other side of it.`;
   }
   if (spk > 150) return 'Ammunition was treated as a renewable resource.';
   if (G.breaches >= 10) return 'The wire needs work. So does everything behind it.';
@@ -222,11 +223,19 @@ function showRecap(won, nextId) {
   const next = (step = 0.18) => (d += step) - step;
   const parts = [];
 
-  // -- letterhead + verdict stamp --
+  // -- letterhead + verdict stamp. The stamp shares a flex row with the
+  //    masthead rather than floating over it, so long strip text can't collide.
+  const fileNo = '2/' + String(Math.max(1, G.wave)).padStart(2, '0') + '/' +
+    String(Math.floor(G.time) % 1000).padStart(3, '0');
   parts.push(recapSection(
     `<div class="aar-strip">FIELD COPY · HQ 2ND BATTALION · NOT FOR CIRCULATION</div>
-     <h1 class="aar-title">AFTER-ACTION REPORT</h1>
-     <div class="aar-stamp ${won ? 'held' : 'lost'}">${won ? 'SECTOR HELD' : 'OVERRUN'}</div>`,
+     <div class="aar-head">
+       <div class="aar-head-main">
+         <h1 class="aar-title">AFTER-ACTION REPORT</h1>
+         <div class="aar-file">FILE No. ${fileNo} · TYPED IN THE FIELD · 1 OF 1</div>
+       </div>
+       <div class="aar-stamp ${won ? 'held' : 'lost'}">${won ? 'SECTOR HELD' : 'OVERRUN'}</div>
+     </div>`,
     next()));
 
   // -- typed meta block --
@@ -242,19 +251,21 @@ function showRecap(won, nextId) {
 
   // -- headline numbers --
   const spk = totals.kills > 0 && r.shotsFired > 0 ? Math.round(r.shotsFired / totals.kills) : null;
+  // third field tints the tile: the four headline figures carry the verdict,
+  // the four ledger figures stay neutral
   const tiles = [
-    ['WAVES HELD', G.wave],
-    ['TIME IN ACTION', recapTime(G.time)],
-    ['CONFIRMED KILLS', totals.kills],
-    ['MEN LOST', totals.lost],
-    ['ROUNDS EXPENDED', r.shotsFired],
-    ['ROUNDS / KILL', spk == null ? '—' : spk],
-    ['TP RAISED', Math.floor(r.tpEarned)],
-    ['TP SPENT', Math.floor(r.tpSpent)],
+    ['WAVES HELD', G.wave, 'hero'],
+    ['TIME IN ACTION', recapTime(G.time), 'hero'],
+    ['CONFIRMED KILLS', totals.kills, 'good'],
+    ['MEN LOST', totals.lost, totals.lost ? 'bad' : 'good'],
+    ['ROUNDS EXPENDED', r.shotsFired, ''],
+    ['ROUNDS / KILL', spk == null ? '—' : spk, ''],
+    ['TP RAISED', Math.floor(r.tpEarned), ''],
+    ['TP SPENT', Math.floor(r.tpSpent), ''],
   ];
   parts.push(recapSection(
-    `<div class="aar-tiles">` + tiles.map(([k, v]) =>
-      `<div class="aar-tile"><b>${recapEsc(v)}</b><span>${k}</span></div>`).join('') + `</div>`,
+    `<div class="aar-tiles">` + tiles.map(([k, v, tone]) =>
+      `<div class="aar-tile ${tone}"><b>${recapEsc(v)}</b><span>${k}</span></div>`).join('') + `</div>`,
     next()));
 
   // -- the two kill ledgers, side by side: what we shot vs who did the shooting --
@@ -277,12 +288,19 @@ function showRecap(won, nextId) {
   const firstWave = Math.max(1, lastWave - 29);
   let tempoHtml = '';
   let maxTempo = 1;
-  for (let w = firstWave; w <= lastWave; w++) maxTempo = Math.max(maxTempo, r.waveKills[w] || 0);
+  let peakWave = firstWave;
+  for (let w = firstWave; w <= lastWave; w++) {
+    if ((r.waveKills[w] || 0) > maxTempo) { maxTempo = r.waveKills[w]; peakWave = w; }
+  }
   for (let w = firstWave; w <= lastWave; w++) {
     const n = r.waveKills[w] || 0;
     const hp = Math.max(4, Math.round(n / maxTempo * 100));
-    tempoHtml += `<div class="aar-tempo-bar" style="height:${hp}%" title="wave ${w}: ${n} kill${n === 1 ? '' : 's'}"></div>`;
+    // the busiest wave is called out in gold so the chart has a reading anchor
+    tempoHtml += `<div class="aar-tempo-bar${w === peakWave && n > 0 ? ' peak' : ''}" style="height:${hp}%" title="wave ${w}: ${n} kill${n === 1 ? '' : 's'}"></div>`;
   }
+  const tempoAxis = `<div class="aar-tempo-axis"><span>WAVE ${firstWave}</span>` +
+    (maxTempo > 1 ? `<span class="peak">HEAVIEST: WAVE ${peakWave}, ${maxTempo} KILLS</span>` : '<span></span>') +
+    `<span>WAVE ${lastWave}</span></div>`;
   parts.push(recapSection(
     `<div class="aar-cols">
        <div class="aar-col"><h3>ENEMY LOSSES BY TYPE</h3>${lossHtml}</div>
@@ -291,7 +309,7 @@ function showRecap(won, nextId) {
     next()));
   parts.push(recapSection(
     `<div class="aar-tempo-wrap"><h3>TEMPO OF BATTLE <small>kills/wave${firstWave > 1 ? ', last 30' : ''}</small></h3>
-       <div class="aar-tempo">${tempoHtml}</div></div>`,
+       <div class="aar-tempo">${tempoHtml}</div>${tempoAxis}</div>`,
     next()));
 
   // -- citations --
@@ -329,7 +347,7 @@ function showRecap(won, nextId) {
     ? `<p class="aar-none">No men lost. Every name that marched out marched back.</p>`
     : `<div class="aar-honor-list">` + shown.map(f => {
         const rank = RANKS[Math.min(f.rank, RANKS.length - 1)].name;
-        return `<div class="aar-honor-name">${rank} ${recapEsc(f.name)}<small>${recapEsc(f.label)}, wave ${f.wave}${f.turned ? ' — turned' : ''}</small></div>`;
+        return `<div class="aar-honor-name${f.turned ? ' turned' : ''}">${rank} ${recapEsc(f.name)}<small>${recapEsc(f.label)}, wave ${f.wave}${f.turned ? ' — turned' : ''}</small></div>`;
       }).join('') + `</div>` +
       (extra > 0 ? `<p class="aar-none">…and ${extra} more. The full roll is with Graves Registration.</p>` : '');
   parts.push(recapSection(
@@ -346,8 +364,9 @@ function showRecap(won, nextId) {
     `<div class="aar-foot-notes">
        <div><span>REQUISITIONS</span>${depRows ? recapEsc(depRows) : 'none logged'}</div>
        <div><span>EVENTS LOGGED</span>${evRows ? recapEsc(evRows) : 'no unusual activity'}</div>
-       <div><span>CORRESPONDENT</span>${recapEsc(recapRemark(r, won, totals))}</div>
-     </div>`,
+     </div>
+     <blockquote class="aar-remark">${recapEsc(recapRemark(r, won, totals))}
+       <cite>war correspondent, attached 2nd Battalion</cite></blockquote>`,
     next()));
 
   // -- continue --

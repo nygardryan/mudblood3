@@ -118,7 +118,7 @@ function triggerAirRaid(w) {
 
 function triggerEvent() {
   const w = G.wave;
-  const events = ['fog', 'fng'];
+  const events = ['fog', 'fng', 'smokescreen'];
   if (w >= 4) events.push('airraid');
   if (w >= 12) events.push('airraid');
   if (w >= 24) events.push('airraid');
@@ -140,6 +140,8 @@ function runEvent(ev, w) {
     showBanner('FOG ROLLS IN');
     SFX.event();
     G.fog = 25.3;
+  } else if (ev === 'smokescreen') {
+    triggerSmokescreen();
   } else if (ev === 'fng') {
     showBanner('REINFORCEMENTS: FNG REPORTING');
     SFX.event();

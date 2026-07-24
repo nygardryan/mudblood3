@@ -33,13 +33,14 @@ const CODEX_CODE = {
   wire: 'WIR', sandbags: 'SBG', dummy: 'DMY', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
   ammocrate: 'AMM', mine: 'MIN', mortar: 'MST', artillery: 'ART',
   fog: 'FOG', fng: 'FNG', airraid: 'RAD', paradrop: 'PAR', airstrike: 'P47', special: 'SPC',
+  smokescreen: 'SMK',
 };
 
 // per-side accent used for a card's code box, left border, and faction label
 const CODEX_GREEN = '#7c9a5a', CODEX_RED = '#a85a4a', CODEX_NEUTRAL = '#8a9a6a';
 // events pick sides — a friendly reinforcement reads green, a Luftwaffe raid red
 const CODEX_EVENT_COLOR = {
-  fog: CODEX_NEUTRAL, fng: CODEX_GREEN, airraid: CODEX_RED,
+  fog: CODEX_NEUTRAL, fng: CODEX_GREEN, airraid: CODEX_RED, smokescreen: CODEX_NEUTRAL,
   paradrop: CODEX_RED, airstrike: CODEX_GREEN, special: '#c08a3a',
 };
 
@@ -355,6 +356,18 @@ function drawCodexIcon(key) {
       c.ellipse(12 + i * 14, cy + Math.sin(i) * 8, 16, 10, 0, 0, 7);
       c.fill();
     }
+  } else if (key === 'smokescreen') {
+    // a canister on the deck with its plume streaming off downwind
+    c.fillStyle = 'rgba(205,203,193,0.4)';
+    for (let i = 0; i < 6; i++) {
+      c.beginPath();
+      c.ellipse(20 + i * 12, cy - 2 - i * 2.5, 8 + i * 2.5, 6 + i * 2, 0, 0, 7);
+      c.fill();
+    }
+    c.fillStyle = '#5a5c4c';
+    c.fillRect(15, cy + 6, 6, 11);
+    c.fillStyle = '#8a8c78';
+    c.fillRect(15, cy + 6, 6, 3);
   } else if (key === 'fng') {
     // a lone green rifleman reporting for duty: helmet, face, shoulders
     c.fillStyle = '#5b6b4a';                     // shoulders / torso

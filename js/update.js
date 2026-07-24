@@ -49,6 +49,9 @@ function update(dt) {
     }
   }
   if (G.fog > 0) G.fog -= dt;
+  // smokescreen: burning pots, drifting puffs, and the sight-line bbox the
+  // targeting scans reject against — must run before anyone picks a target
+  updateSmoke(dt);
 
   // drop a focus-fire mark once its target is dead or off the field
   if (G.focusTarget && (G.focusTarget.dead || G.focusTarget.y < 0)) G.focusTarget = null;
@@ -107,6 +110,8 @@ function update(dt) {
     if (s.timer <= 0) {
       s.done = true;
       if (s.kind === 'v2') explodeV2(s.x, s.y, s.r, s.dmg, s.by);
+      // a smoke round carries no charge: it cracks open into a burning pot
+      else if (s.kind === 'smoke') plantSmokePot(s.x, s.y, s.burn);
       else explode(s.x, s.y, s.r, s.dmg, s.big, s.by);
     }
   }
@@ -261,6 +266,8 @@ function update(dt) {
   compactInPlace(G.shrapnel, sh => !sh.done);
   compactInPlace(G.rockets, r => !r.done);
   compactInPlace(G.biles, b => !b.done);
+  compactInPlace(G.smoke, s => s.ttl > 0);
+  compactInPlace(G.smokePots, p => p.ttl > 0);
   compactInPlace(G.planes, p => !p.done);
   compactInPlace(G.flak, f => !f.done);
   compactInPlace(G.particles, p => p.ttl > 0);

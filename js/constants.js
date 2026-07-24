@@ -621,6 +621,12 @@ const EVENT_INFO = [
     desc: 'Battlefield visibility drops. Your men and the enemy fight blind until the fog lifts.',
   },
   {
+    key: 'smokescreen',
+    name: 'Smokescreen',
+    wave: 3,
+    desc: 'A smoke round lands on the field and pumps out a screen that rides the wind. Nobody can see through it: troops on either side cannot target each other at all until they are almost touching. Lasts 20-60 seconds, and the wind shifts every wave.',
+  },
+  {
     key: 'fng',
     name: 'FNG Reinforcements',
     wave: 3,
@@ -840,6 +846,38 @@ const INFECT_DOT = 3;          // HP lost per rot tick
 const INFECT_DOT_INTERVAL = 1.5;
 const INFECT_CURE_PER_SEC = 4; // a tending medic burns down this much infection timer per second (on top of real time)
 
+// ---- Wind & the smokescreen event (js/smoke.js). One wind vector per run
+// carries every puff a smoke round throws off; each wave the wind backs or
+// veers a little, so where a screen ends up is never quite the same twice.
+const WIND_SPEED_MIN = 19.25;  // px/sec a puff drifts at (a screen carries 75% further than it first shipped: +25%, then +40%)
+const WIND_SPEED_MAX = 45.5;
+const WIND_SHIFT_MAX = 0.2;    // per wave, the direction turns by up to this fraction of a full circle
+
+const SMOKE_DUR_MIN = 20;      // seconds a screen stands, start to last wisp
+const SMOKE_DUR_MAX = 60;
+const SMOKE_ROUND_FLIGHT = 1.6; // fuse on the incoming canister — a moment's warning
+// Puffs are laid by DISTANCE, not on a fixed clock: the pot drops one every
+// SMOKE_EMIT_SPACING px of drift, so a stiff wind can't stretch the plume into a
+// dotted line with holes shooters can see through. The clamps keep a dead calm
+// from spamming puffs and a gale from outrunning the emitter.
+const SMOKE_EMIT_SPACING = 13; // px of drift between puffs
+const SMOKE_EMIT_MIN = 0.2;    // seconds — floor on the emit interval
+const SMOKE_EMIT_MAX = 0.6;    // seconds — ceiling, for very light winds
+const SMOKE_PUFF_TTL = 11;     // seconds one puff lives after it leaves the pot
+const SMOKE_PUFF_CAP = 52;     // live puffs, oldest dropped — bounds draw AND line-of-sight cost
+const SMOKE_PUFF_R0 = 16;      // radius fresh off the pot
+const SMOKE_PUFF_R = 44;       // radius once it's fully bloomed
+const SMOKE_SWIRL = 7;         // px/sec of cross-wind wander, so the plume isn't a ruler
+const SMOKE_ALPHA = 0.85;      // draw opacity of a puff at full density
+// How deep into smoke a man can see, in px of smoke ON the sight line (NOT the
+// gap between the two men — see smokeBlocksLOS). Men in contact have almost no
+// smoke between them and always find each other; men with a bank of it between
+// them never do, however close they're standing.
+const SMOKE_SEE_THROUGH = 26;
+// the puff art is inset inside its bitmap; blit at this multiple of the blocking
+// radius so what the player sees is the volume that actually screens
+const SMOKE_SPRITE_FIT = 2.06;
+
 // testing-mode-only ability: an instant field promotion for every unit —
 // American and German alike — caught inside the blast-style radius.
 const TESTING_ABILITIES = [
@@ -858,6 +896,8 @@ const TESTING_EVENTS = [
     desc: 'Rolls the wave-appropriate random event, exactly as the game would.' },
   { key: 'fog', label: 'FOG', cost: 0, kind: 'event', hotkey: '',
     desc: 'Rolls fog across the field — everyone shoots worse until it lifts.' },
+  { key: 'smokescreen', label: 'SMOKE', cost: 0, kind: 'event', hotkey: '',
+    desc: 'Drops a smoke round that screens the field downwind — nobody can target through it.' },
   { key: 'fng', label: 'FNG', cost: 0, kind: 'event', hotkey: '',
     desc: 'A replacement rifleman reports to the back line.' },
   { key: 'paradrop', label: 'PARADROP', cost: 0, kind: 'event', hotkey: '',

@@ -2680,191 +2680,392 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
 .ee-lb { width: 100%; max-width: 480px; margin-top: 20px; animation: egRise .5s .75s both; }
 .ee-lb.hidden { display: none; }
 
-/* ---- After-Action Report (post-game recap, js/recap.js) ---- */
-#recap { justify-content: flex-start; }
+/* ---- After-Action Report (post-game recap, js/recap.js) ----
+   Styled as a typed carbon copy: warm paper tone, typewriter ruling, corner
+   file marks, and a strict two-weight type scale (Courier body, Oswald/stencil
+   for anything a clerk would have stamped or set in metal).
+   The overlay lives inside the scaled stage, so — as with the card shop above —
+   viewport media queries and `vw` sizing can't be trusted here: a 1280px window
+   still only gives the stage ~570px. Every size below is container-driven off
+   #recap instead (`cqi` units and `@container aar`), so the report reads the
+   same whether the stage is a phone or a desktop. */
+#recap {
+  justify-content: flex-start;
+  container-type: inline-size;
+  container-name: aar;
+  /* the verdict stamp slams in from scale(2.2) — without this it can push a
+     horizontal scrollbar onto the overlay for the length of the animation */
+  overflow-x: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(40, 36, 20, .55), transparent 70%),
+    rgba(6, 6, 3, .93);
+}
 .aar-doc {
+  --aar-ink: #c9c19a;
+  --aar-faint: #6e6a52;
+  --aar-rule: #2f2c1e;
+  --aar-gold: #ffd94a;
+  --aar-rust: #a1553f;
+  --aar-olive: #7d8f5e;
   width: 100%;
-  max-width: 640px;
+  max-width: 660px;
   margin: auto;               /* centres when short, scrolls when tall */
-  background: #14130c;
-  border: 1px solid #3a3728;
-  box-shadow: 0 0 0 4px #0c0b06, 0 12px 40px rgba(0, 0, 0, .6);
-  padding: clamp(16px, 4vw, 30px);
+  background-color: #16150d;
+  /* faint typewriter ruling + a warm lamp wash from the top of the page */
+  background-image:
+    repeating-linear-gradient(0deg, rgba(201, 193, 154, .022) 0 1px, transparent 1px 4px),
+    radial-gradient(120% 70% at 50% -10%, rgba(150, 130, 70, .12), transparent 65%),
+    radial-gradient(90% 60% at 110% 110%, rgba(0, 0, 0, .5), transparent 70%);
+  border: 1px solid #443f2c;
+  box-shadow:
+    inset 0 0 0 1px #0d0c07,
+    inset 0 1px 0 rgba(201, 193, 154, .06),
+    0 0 0 5px #0b0a05,
+    0 16px 50px rgba(0, 0, 0, .75);
+  padding: clamp(15px, 3.6cqi, 30px);
   text-align: left;
   font-family: 'Courier New', monospace;
-  color: #c9c19a;
+  color: var(--aar-ink);
   position: relative;
+}
+/* L-brackets in the four corners — the crop marks of a duplicated form */
+.aar-doc::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  pointer-events: none;
+  --c: #55503a;
+  background:
+    linear-gradient(var(--c), var(--c)) left top / 13px 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) left top / 1px 13px no-repeat,
+    linear-gradient(var(--c), var(--c)) right top / 13px 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) right top / 1px 13px no-repeat,
+    linear-gradient(var(--c), var(--c)) left bottom / 13px 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) left bottom / 1px 13px no-repeat,
+    linear-gradient(var(--c), var(--c)) right bottom / 13px 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) right bottom / 1px 13px no-repeat;
 }
 .aar-reveal { animation: aarRise .45s both; }
 @keyframes aarRise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
 }
+
+/* -- masthead: strip + title on the left, verdict stamp held in its own
+      column so it can never sit on top of the letterhead text -- */
+.aar-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 2px solid var(--aar-rule);
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+.aar-head-main { min-width: 0; }
 .aar-strip {
-  font-size: 10px;
-  letter-spacing: 3px;
-  color: #6e6a52;
+  font-size: 9.5px;
+  letter-spacing: 2.5px;
+  color: var(--aar-faint);
   border-bottom: 1px dashed #3a3728;
   padding-bottom: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 .aar-doc .aar-title {
   font-family: 'Saira Stencil One', 'Oswald', sans-serif;
-  font-size: clamp(22px, 6vw, 34px);
-  letter-spacing: clamp(2px, 1.5vw, 6px);
-  color: #d8cfa8;
+  /* sized so the masthead still fits on one line beside the widest stamp
+     ("SECTOR HELD"), from a phone stage up to the document's 660px cap */
+  font-size: clamp(17px, 4.4cqi, 28px);
+  letter-spacing: clamp(.5px, 0.5cqi, 3px);
+  line-height: 1.05;
+  color: #ded4ab;
   text-shadow: 2px 2px 0 #000;
-  margin: 0 0 4px;
+  margin: 0 0 6px;
 }
+.aar-file { font-size: 9.5px; letter-spacing: 1.5px; color: #55523e; }
 .aar-stamp {
-  position: absolute;
-  top: clamp(14px, 4vw, 26px);
-  right: clamp(10px, 3vw, 24px);
-  transform: rotate(8deg);
+  flex: none;
+  align-self: center;
+  text-align: center;
+  transform: rotate(7deg);
   font-family: 'Saira Stencil One', 'Oswald', sans-serif;
-  font-size: clamp(13px, 3.4vw, 19px);
-  letter-spacing: 3px;
-  padding: 5px 10px;
+  font-size: clamp(10.5px, 2.3cqi, 15px);
+  letter-spacing: 1.5px;
+  white-space: nowrap;
+  padding: 6px 10px;
   border: 3px double currentColor;
   border-radius: 4px;
-  opacity: .92;
+  opacity: .9;
   animation: aarSlam .3s .55s both;
 }
-.aar-stamp.lost { color: #c34a3e; }
-.aar-stamp.held { color: #7fae5a; }
+.aar-stamp.lost { color: #c34a3e; box-shadow: 0 0 18px rgba(195, 74, 62, .18); }
+.aar-stamp.held { color: #7fae5a; box-shadow: 0 0 18px rgba(127, 174, 90, .18); }
 @keyframes aarSlam {
-  from { opacity: 0; transform: rotate(8deg) scale(2.2); }
-  70% { opacity: 1; transform: rotate(8deg) scale(.94); }
-  to { opacity: .92; transform: rotate(8deg) scale(1); }
+  from { opacity: 0; transform: rotate(7deg) scale(2.2); }
+  70% { opacity: 1; transform: rotate(7deg) scale(.94); }
+  to { opacity: .9; transform: rotate(7deg) scale(1); }
 }
-.aar-meta { margin: 10px 0 4px; font-size: 12px; line-height: 1.8; }
+
+/* -- typed meta block: leader dots run from each label to its value -- */
+.aar-meta { margin: 0 0 4px; font-size: 12px; }
+.aar-meta div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1.85;
+}
 .aar-meta span, .aar-foot-notes span {
-  display: inline-block;
-  min-width: 118px;
-  color: #6e6a52;
+  flex: none;
+  min-width: 108px;
+  color: var(--aar-faint);
   letter-spacing: 1px;
   font-size: 10px;
 }
+
+/* -- headline figures -- */
 .aar-tiles {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  margin: 14px 0;
+  margin: 14px 0 16px;
 }
 .aar-tile {
-  background: #0f0e08;
-  border: 1px solid #2c291c;
-  padding: 8px 4px 6px;
+  position: relative;
+  background: linear-gradient(#131208, #0d0c06);
+  border: 1px solid var(--aar-rule);
+  border-top: 2px solid #3d3a27;
+  padding: 9px 4px 7px;
   text-align: center;
 }
+.aar-tile.hero { border-top-color: var(--aar-gold); }
+.aar-tile.good { border-top-color: var(--aar-olive); }
+.aar-tile.bad { border-top-color: var(--aar-rust); }
 .aar-tile b {
   display: block;
   font-family: 'Oswald', sans-serif;
-  font-size: clamp(15px, 4vw, 20px);
-  color: #ffd94a;
+  font-size: clamp(15px, 3.5cqi, 21px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  color: #cfc7a0;
 }
-.aar-tile span { font-size: 8.5px; letter-spacing: 1px; color: #6e6a52; }
+.aar-tile.hero b { color: var(--aar-gold); }
+.aar-tile.good b { color: #a3bd76; }
+.aar-tile.bad b { color: #d0705c; }
+.aar-tile span {
+  display: block;
+  margin-top: 2px;
+  font-size: 8.5px;
+  letter-spacing: 1px;
+  color: var(--aar-faint);
+}
 .aar-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin: 6px 0 14px;
+  gap: 18px;
+  margin: 6px 0 16px;
 }
 .aar-doc h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   font-family: 'Oswald', sans-serif;
   font-size: 11px;
   letter-spacing: 2px;
-  color: #8a8668;
-  border-bottom: 1px solid #2c291c;
-  padding-bottom: 4px;
-  margin: 0 0 8px;
+  color: #9c9773;
+  border-bottom: 1px solid var(--aar-rule);
+  padding-bottom: 5px;
+  margin: 0 0 9px;
+}
+.aar-doc h3::before {
+  content: '';
+  flex: none;
+  width: 4px;
+  height: 10px;
+  background: #6b6344;
 }
 .aar-doc h3 small { color: #55523e; font-size: 9px; letter-spacing: 1px; }
+
+/* -- kill ledgers -- */
 .aar-bar-row {
   display: grid;
-  grid-template-columns: 86px 1fr 30px;
+  /* the label column outweighs the bar: at a ~470px stage the two ledgers sit
+     side by side, and a name like "Infected Hound" still has to fit unclipped */
+  grid-template-columns: minmax(0, 1.3fr) 1fr 24px;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
-  margin-bottom: 5px;
+  font-size: 10.5px;
+  margin-bottom: 6px;
 }
 .aar-bar-row i { font-style: normal; color: #b0a883; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.aar-bar-row b { color: #ffd94a; text-align: right; }
-.aar-bar { background: #0f0e08; border: 1px solid #2c291c; height: 10px; }
+.aar-bar-row b {
+  color: var(--aar-gold);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.aar-bar {
+  background: #0c0b06;
+  box-shadow: inset 0 0 0 1px var(--aar-rule);
+  height: 11px;
+  overflow: hidden;
+}
 .aar-bar-fill {
   height: 100%;
-  background: #7a3d33;
+  /* solid rust with a diagonal service-stripe hatch laid over it */
+  background:
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, .16) 0 4px, transparent 4px 9px),
+    linear-gradient(#b25f47, #8d4634);
+  box-shadow: inset -1px 0 0 rgba(255, 220, 180, .35);
   transform-origin: left;
   animation: aarGrow .7s .35s both;
 }
+.aar-bar-fill.us {
+  background:
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, .16) 0 4px, transparent 4px 9px),
+    linear-gradient(#8b9d68, #66774b);
+  box-shadow: inset -1px 0 0 rgba(233, 255, 200, .35);
+}
 @keyframes aarGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* -- tempo chart -- */
+.aar-tempo-wrap { margin-bottom: 16px; }
 .aar-tempo {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 84px;
-  border-bottom: 1px solid #2c291c;
-  padding: 2px 1px;
+  height: 88px;
+  padding: 2px 2px 0;
+  border-bottom: 1px solid #4a4530;
+  /* four faint gridlines so bar heights can be read against something */
+  background: repeating-linear-gradient(0deg, transparent 0 21px, rgba(201, 193, 154, .1) 21px 22px);
 }
 .aar-tempo-bar {
   flex: 1;
   min-width: 3px;
-  background: #5c6b48;
+  background: linear-gradient(#7d8f5e, #4e5a3a);
   transform-origin: bottom;
   animation: aarGrowY .7s .35s both;
 }
+.aar-tempo-bar.peak { background: linear-gradient(#ffd94a, #9a7d1c); }
 @keyframes aarGrowY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-.aar-cits { margin-bottom: 14px; }
+.aar-tempo-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 5px;
+  font-size: 8.5px;
+  letter-spacing: 1.2px;
+  color: #55523e;
+}
+.aar-tempo-axis .peak { color: #97803a; }
+
+/* -- citations -- */
+.aar-cits { margin-bottom: 16px; }
 .aar-cit {
   border-left: 3px solid #8a7a3a;
-  background: #171509;
-  padding: 7px 10px;
+  background: linear-gradient(90deg, #1b1809, rgba(27, 24, 9, 0));
+  padding: 8px 10px;
   font-size: 12px;
   line-height: 1.5;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
 }
-.aar-cit.threat { border-left-color: #7a3d33; }
+.aar-cit.threat { border-left-color: #8d4634; }
 .aar-cit span {
   display: block;
   font-size: 9px;
   letter-spacing: 2px;
-  color: #ffd94a;
-  margin-bottom: 2px;
+  color: var(--aar-gold);
+  margin-bottom: 3px;
 }
-.aar-cit.threat span { color: #c34a3e; }
-.aar-honor { margin-bottom: 14px; }
+.aar-cit.threat span { color: #d0705c; }
+
+/* -- honor roll: every name carries a grave mark -- */
+.aar-honor { margin-bottom: 16px; }
 .aar-honor-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 3px 14px;
+  gap: 6px 16px;
 }
-.aar-honor-name { font-size: 11.5px; color: #b0a883; line-height: 1.35; }
-.aar-honor-name small { display: block; font-size: 9px; color: #55523e; }
-.aar-doc .aar-none { font-size: 11px; color: #6e6a52; font-style: italic; margin: 6px 0 0; max-width: none; }
-.aar-foot-notes { font-size: 11px; line-height: 1.7; border-top: 1px dashed #3a3728; padding-top: 10px; }
-.aar-foot-notes div { margin-bottom: 2px; }
+.aar-honor-name {
+  font-size: 11.5px;
+  color: #b0a883;
+  line-height: 1.35;
+  padding-left: 13px;
+  text-indent: -13px;
+}
+/* † for the buried; the same mark in sickly green for the men who got back up */
+.aar-honor-name::before { content: '† '; color: #6b6344; }
+.aar-honor-name.turned::before { color: #6d8a4a; }
+.aar-honor-name small { display: block; font-size: 9px; color: #55523e; text-indent: 0; padding-left: 13px; }
+.aar-doc .aar-none { font-size: 11px; color: var(--aar-faint); font-style: italic; margin: 8px 0 0; max-width: none; }
+
+/* -- footnotes + the correspondent's line, set as a pull-quote -- */
+.aar-foot-notes {
+  font-size: 11px;
+  line-height: 1.7;
+  border-top: 1px dashed #3a3728;
+  padding-top: 11px;
+}
+.aar-foot-notes div { display: flex; gap: 6px; margin-bottom: 2px; }
+.aar-remark {
+  margin: 12px 0 0;
+  padding: 10px 12px 10px 34px;
+  position: relative;
+  background: #100f08;
+  border-top: 1px solid var(--aar-rule);
+  border-bottom: 1px solid var(--aar-rule);
+  font-size: 12.5px;
+  font-style: italic;
+  line-height: 1.55;
+  color: #cbc39c;
+}
+.aar-remark::before {
+  content: '“';
+  position: absolute;
+  left: 9px;
+  top: 4px;
+  font-family: 'Oswald', serif;
+  font-size: 30px;
+  font-style: normal;
+  line-height: 1;
+  color: #4a4530;
+}
+.aar-remark cite {
+  display: block;
+  margin-top: 5px;
+  font-style: normal;
+  font-size: 9.5px;
+  letter-spacing: 1.5px;
+  color: #55523e;
+}
+.aar-remark cite::before { content: '— '; }
+
 #aar-continue {
   display: block;
   width: 100%;
-  margin-top: 16px;
+  margin-top: 20px;
   font-family: 'Oswald', sans-serif;
-  font-size: clamp(14px, 4vw, 16px);
+  font-size: clamp(13px, 3cqi, 16px);
   font-weight: 600;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   text-transform: uppercase;
-  color: #17140f;
-  background: #e8873a;
-  border: 1px solid #f2a45f;
-  border-radius: 7px;
-  box-shadow: 0 4px 0 #7a4415;
+  color: var(--aar-gold);
+  background: #2f2b13;
+  border: 2px solid #8a7a3a;
   padding: 13px;
   cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
 }
-#aar-continue:hover { background: #f2a45f; }
-@media (max-width: 560px) {
+#aar-continue:hover { background: #46401c; border-color: var(--aar-gold); color: #fff0a8; }
+
+/* narrow stage: drop the ledgers to one column, then the tiles to two */
+@container aar (max-width: 470px) {
+  .aar-cols { grid-template-columns: 1fr; gap: 12px; }
+  .aar-tempo-axis .peak { display: none; }
+}
+@container aar (max-width: 400px) {
   .aar-tiles { grid-template-columns: repeat(2, 1fr); }
-  .aar-cols { grid-template-columns: 1fr; }
-  .aar-meta span, .aar-foot-notes span { display: block; min-width: 0; }
+  .aar-head { flex-direction: column; align-items: stretch; }
+  .aar-stamp { align-self: flex-start; }
+  .aar-meta div, .aar-foot-notes div { flex-direction: column; gap: 0; }
+  .aar-meta span, .aar-foot-notes span { min-width: 0; }
 }
-.aar-bar-fill.us { background: #5c6b48; }
-.aar-tempo-wrap { margin-bottom: 14px; }

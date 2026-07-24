@@ -4,6 +4,27 @@
 const CHANGELOG = [
   {
     date: '2026-07-24',
+    title: 'After-Action Report Redesign',
+    changes: [
+      'The recap now reads like a typed field document — aged paper, corner file marks, a file number, and the verdict stamp moved off the letterhead so it stops covering the header text.',
+      'Headline figures are colour-coded: waves and time in gold, kills in olive, men lost in red.',
+      'The tempo chart gained a scale — gridlines, wave markers at each end, and the heaviest wave called out in gold.',
+      'The correspondent\'s closing line is now set as a pull-quote instead of a footnote, and the honor roll marks each name with a cross.',
+      'The whole report resizes off the stage rather than the window, so the type is no longer oversized on desktop and the layout stacks properly on a phone.',
+    ],
+  },
+  {
+    date: '2026-07-24',
+    title: 'New Event: Smokescreen',
+    changes: [
+      'New random event — a smoke round lands on the field and burns for 20-60 seconds, pumping out a screen that drifts downwind.',
+      'Smoke blocks line of sight, not just aim: a man only sees a little way into it, so troops with a bank of smoke between them stay blind to each other even at close quarters. It can smother your firing line or cover an assault walking right into it.',
+      'The battlefield now has WIND. It holds one direction all run but backs or veers a little every wave, so a screen never drifts quite the same way twice — a wind arrow shows which way while smoke is up.',
+      'Smoke carries 75% further downwind than it first did, so a screen can now sweep most of the field.',
+    ],
+  },
+  {
+    date: '2026-07-24',
     title: 'July 24 Updates',
     changes: [
       'Body armor mechanic added — some units carry armour that reduces incoming damage until cracked.',

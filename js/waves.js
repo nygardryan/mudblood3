@@ -525,6 +525,7 @@ function launchWave(w) {
 
 function spawnWave() {
   G.wave++;
+  shiftWindForWave();
   awardWaveMedals();
   launchWave(G.wave);
   if (G.wave === 1) {

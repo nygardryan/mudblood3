@@ -84,7 +84,8 @@ function draw() {
       ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.arc(s.x, s.y, rr, 0, 7); ctx.stroke();
     } else {
-      ctx.strokeStyle = 'rgba(200,60,40,0.5)';
+      // a smoke round carries no charge, so its marker reads grey, not red
+      ctx.strokeStyle = s.kind === 'smoke' ? 'rgba(215,213,203,0.55)' : 'rgba(200,60,40,0.5)';
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(s.x, s.y, 6 + Math.sin(G.time * 10) * 2, 0, 7); ctx.stroke();
       ctx.beginPath();
@@ -349,6 +350,12 @@ function draw() {
     ctx.fillStyle = 'rgba(255,240,190,0.95)';
     ctx.beginPath(); ctx.arc(x, y, 1.6, 0, 7); ctx.fill();
   }
+
+  // the smokescreen lies over the whole ground scene — men, effects, the lot —
+  // since it's what's stealing their sight of each other. Aircraft still fly
+  // above it, and so does everything they see (js/smoke.js blocks ground sight
+  // lines only, never a bomber's).
+  drawSmoke();
 
   // aircraft overhead, above every ground effect
   for (const p of G.planes) drawPlane(p);

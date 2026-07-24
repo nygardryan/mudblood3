@@ -175,6 +175,17 @@ barrages from wave 4 (more shells, heavier hits, and tighter salvos as waves
 climb), fog, **Fallschirmjäger** paradrops from wave 6, strafing runs from a
 friendly P-47 from wave 8, and the occasional fresh replacement wandering in.
 
+A **smokescreen** can also drop on you: a smoke round lands somewhere on the
+field and burns for 20-60 seconds, throwing off a plume that rides the wind.
+Smoke doesn't just spoil aim — it takes the target away. Nobody can shoot at
+what they can't see, and a man only sees a little way into the murk: with a bank
+of smoke between them, two soldiers stay blind to each other even at close
+quarters, and only find each other once they're near enough that there's barely
+any smoke left in between. A screen can smother your firing line or cover an
+advance straight into it. The wind blows a fixed direction all run but backs or veers a little
+every wave, so where the plume ends up is never quite the same twice; a small
+arrow at the top-left shows which way it's carrying while smoke is on the field.
+
 ### Mobile / touch
 
 On phones and tablets the field scales to fill the screen. **Drag** to pan,
@@ -201,6 +212,7 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/economy.js` — TP economy
 - `js/waves.js` — waves & spawning
 - `js/events.js` — random events
+- `js/smoke.js` — wind, the smokescreen event & the line of sight it blocks
 - `js/ordnance.js` — shells, grenades, rockets & bombs
 - `js/damage.js` — damage & death
 - `js/shooting.js` — shooting

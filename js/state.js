@@ -115,6 +115,9 @@ function newGame(level, difficulty) {
     shrapnel: [],    // Frag Grenades card: fragments flung from a grenadier blast
     rockets: [],     // bazooka rockets in flight
     biles: [],       // Spitter corrosive-bile globs in flight (Horde faction)
+    smoke: [],       // drifting smokescreen puffs — visible cloud AND line-of-sight blockers
+    smokePots: [],   // burning smoke canisters still pumping the screen out
+    smokeBox: null,  // bbox over every blocking puff, rebuilt per frame (js/smoke.js)
     planes: [],      // aircraft: friendly strafing runs, transports, enemy bombers
     flak: [],        // AA shells fused to burst in mid-air {x,y,timer,...}
     tracers: [],
@@ -131,6 +134,7 @@ function newGame(level, difficulty) {
     officerTick: (level.id === 'endless' && equippedEndlessCards().includes('rushorder')) ? 15 : 30,
     eventTimer: rand(40, 60),
     fog: 0,
+    wind: rollWind(),    // smoke rides this; it veers a little every wave (js/smoke.js)
     banner: null,
     selected: [],
     focusTarget: null,   // an enemy the player clicked: troops in range prefer it

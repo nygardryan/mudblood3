@@ -44,7 +44,7 @@ TEST.roster()                      // per-actor detail {units,enemies}: type, po
 TEST.catalog()                     // what's buyable now: {key,label,kind,cost,affordable,atCap}
 TEST.costs()                       // {key: resolved TP cost} (honours difficulty/cards/overrides)
 TEST.inspect(x, y)                 // hover blurb for the actor at a point: name, hp, rank, stats, desc
-TEST.event('paradrop')             // fire a random event on demand, ignoring its wave gate
+TEST.event('smokescreen')          // fire a random event on demand, ignoring its wave gate
 TEST.setTP(100) / TEST.addTP(20)   // script TP for a scenario
 TEST.autoplay({ seconds: 240 })    // autonomous endless player: spends+steps, returns {over,waves,log}
 TEST.stepUntil(g => g.kills > 0, 60)
@@ -109,6 +109,33 @@ routes through `zomWaveComposition` and `ZOM_SPECIAL_WAVES` when
 (`triggerHordeRising` in `js/events.js`). Their art lives in `js/render-zombie.js`
 (`paintZombieSoldier`). Infected defenders get a green overlay/rot bar in
 `drawSoldierOverlays` (`js/render-soldier.js`).
+
+**Smoke blocks target acquisition, not just aim.** The smokescreen event
+(`js/smoke.js`) drops a canister that burns 20-60s, spitting puffs that ride
+`G.wind` (one vector per run, veered up to `WIND_SHIFT_MAX` of a full turn per
+wave by `shiftWindForWave` in `spawnWave`). Every puff in `G.smoke` is both the
+drawn cloud and a line-of-sight blocker: `smokeBlocksLOS(a, b)` sums how much
+smoke lies *on the sight line* (the chord each puff cuts out of the segment,
+overlaps double-counted) and blocks once that passes `SMOKE_SEE_THROUGH` (26px,
+how deep a man sees into murk). Every target pick in `js/targeting.js` consults
+it. Note it is a smoke DEPTH, not a distance between the two men — a flat
+distance exemption was tried first and was wrong: at 46px it let two men buried
+in the same bank shoot each other, which reads in-game as "they're firing
+through the smoke". Depth keeps contact fighting working (men in contact have
+almost no smoke between them) without that hole. The scans read `smokeOnField()` once
+and only test candidates that would otherwise win, and `G.smokeBox` (a bbox over
+the blocking puffs, rebuilt each frame in `updateSmoke`) rejects distant sight
+lines — measured ~1.07→1.62 ms/frame in the worst case (52 puffs, max wind) on a
+40v150 board, and free when no smoke is up.
+
+Two invariants hold the screen together; both were bugs before they were rules.
+A puff's blocking radius is `r * a` (its own density) and the renderer blits at
+exactly that radius — so smoke can never look solid while blocking nothing, or
+vice versa. And the pot emits by DISTANCE (`smokeEmitInterval` keeps puffs
+`SMOKE_EMIT_SPACING` px apart at any wind) with `drift` jitter held to a narrow
+band — otherwise a fast wind stretches the plume into a dotted line and troops
+shoot clean through the gaps (measured 15% of the plume body before this). Air paths are deliberately NOT blocked: bombers and AA pick
+targets with their own scans, since smoke screens the ground, not the sky.
 
 `deploy`/`spawnEnemy` accept off-field coords (they don't block) but return
 `offField: true` with a `warning` when a positional placement lands outside the

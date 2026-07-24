@@ -218,84 +218,138 @@ function drawWatchtower(t) {
   ctx.restore();
 }
 
-function drawCamoNest(cn) {
+// Camo nest, reworked as a raised tan scrim net. It's drawn in two layers so it
+// can straddle the men it shelters: drawCamoNestBase lays the ground shadow and
+// the support stakes *under* the units (in drawDefenses), while
+// drawCamoNestCanopy paints the gappy overhead netting *over* them in a later
+// pass (see render.js) — so a sheltered soldier shows through the holes in the
+// weave. drawCamoNest stacks both for the static codex / placement previews.
+
+// the drape outline: an irregular, gently scalloped blob ~ the concealment zone
+const CAMONET_EDGE = [
+  [-32, -4], [-24, -13], [-12, -15], [0, -16], [13, -15], [24, -12], [32, -3],
+  [30, 6], [20, 11], [8, 13], [-6, 13], [-19, 11], [-29, 7]
+];
+
+function drawCamoNestBase(cn) {
   ctx.save();
   ctx.translate(cn.x, cn.y);
-  // drop shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.22)';
-  ctx.beginPath(); ctx.ellipse(0, 5, 30, 11, 0, 0, 7); ctx.fill();
-  // layered foliage clump: dark base -> mid body -> lit crown
-  const tuft = (x, y, r) => {
-    ctx.fillStyle = '#33472a';
-    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-    ctx.fillStyle = '#4c6234';
-    ctx.beginPath(); ctx.arc(x - r * 0.2, y - r * 0.25, r * 0.72, 0, 7); ctx.fill();
-    ctx.fillStyle = 'rgba(124,152,82,0.85)';
-    ctx.beginPath(); ctx.arc(x - r * 0.34, y - r * 0.42, r * 0.34, 0, 7); ctx.fill();
+  // soft ground shadow of the raised net — the gap under it sells the overhead read
+  ctx.fillStyle = 'rgba(0,0,0,0.20)';
+  ctx.beginPath(); ctx.ellipse(0, 7, 30, 11, 0, 0, 7); ctx.fill();
+  // support stakes the net is lashed to, driven in around the rim. Kept sparse
+  // so they don't occlude a man standing under the canopy.
+  const stake = (x, y, lean) => {
+    ctx.strokeStyle = '#5f4d30';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + lean, y - 9); ctx.stroke();
+    ctx.strokeStyle = 'rgba(196,176,124,0.5)';
+    ctx.lineWidth = 0.9;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + lean, y - 9); ctx.stroke();
   };
-  // dug-in earthwork, same footprint as the bunker slab
-  ctx.fillStyle = '#454d34';
-  ctx.strokeStyle = '#2c3123';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(-28, 8);
-  ctx.lineTo(-28, -6);
-  ctx.quadraticCurveTo(-28, -14, -18, -14);
-  ctx.lineTo(18, -14);
-  ctx.quadraticCurveTo(28, -14, 28, -6);
-  ctx.lineTo(28, 8);
-  ctx.closePath();
-  ctx.fill(); ctx.stroke();
-  // raised-lip highlight along the parapet + dug shade at the base
-  ctx.fillStyle = 'rgba(120,132,86,0.28)';
-  ctx.fillRect(-24, -13.5, 44, 2);
-  ctx.fillStyle = 'rgba(0,0,0,0.22)';
-  ctx.fillRect(-27, 5.5, 54, 2.5);
-  // scrim netting lattice over the top — two-tone weave for depth
-  ctx.strokeStyle = 'rgba(30,38,20,0.6)';
-  ctx.lineWidth = 1.4;
-  for (let i = -20; i <= 20; i += 8) {
-    ctx.beginPath(); ctx.moveTo(i, -13); ctx.lineTo(i + 10, 7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(i, 7); ctx.lineTo(i + 10, -13); ctx.stroke();
-  }
-  ctx.strokeStyle = 'rgba(96,108,68,0.55)';
-  ctx.lineWidth = 0.7;
-  for (let i = -20; i <= 20; i += 8) {
-    ctx.beginPath(); ctx.moveTo(i - 0.8, -13); ctx.lineTo(i + 9.2, 7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(i - 0.8, 7); ctx.lineTo(i + 9.2, -13); ctx.stroke();
-  }
-  // foliage tufts break up the outline, fuller cover along the crest
-  for (const [fx, fy, fr] of [[-23, -11, 5.5], [-14, -14, 5], [-4, -15, 6], [7, -14, 5.5], [16, -13, 5], [23, -9, 4.5], [-25, -1, 4.5], [25, 0, 4.5], [-18, 4, 4], [17, 4, 4]]) tuft(fx, fy, fr);
-  // fortified nests dig in deeper: a denser net weave and thicker brush
-  if (cn.up) {
-    ctx.strokeStyle = 'rgba(40,48,28,0.75)';
-    ctx.lineWidth = 1;
-    for (let i = -22; i <= 22; i += 5) {
-      ctx.beginPath(); ctx.moveTo(i, -13); ctx.lineTo(i + 6, 7); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(i, 7); ctx.lineTo(i + 6, -13); ctx.stroke();
-    }
-    for (const [fx, fy, fr] of [[-14, -16, 5], [4, -17, 5], [18, -14, 4], [-26, -4, 4], [26, -3, 4]]) tuft(fx, fy, fr);
-  }
-  // hardened nests pile on a darker overgrowth crown
-  if (cn.up2) {
-    for (const [fx, fy, fr] of [[-20, -18, 5.5], [-6, -20, 5.5], [10, -19, 5.5], [22, -16, 4.5]]) tuft(fx, fy, fr);
-  }
-  // firing slit, screened by brush
-  ctx.fillStyle = '#161810';
-  ctx.fillRect(-16, -9, 32, 4);
-  // battle damage: the earthworks crack and the brush burns off
+  for (const [sx, sy, sl] of [[-29, 8, -2], [-12, 12, -1.5], [12, 12, 1.5], [29, 8, 2], [0, -13, 0]]) stake(sx, sy, sl);
+  ctx.restore();
+}
+
+function drawCamoNestCanopy(cn) {
+  ctx.save();
+  ctx.translate(cn.x, cn.y);
   const f = cn.hp / cn.maxhp;
+  const edge = CAMONET_EDGE;
+  // the net sags toward the ground as it's shot up
+  const droop = f < 0.33 ? 4 : f < 0.66 ? 2 : 0;
+
+  // clip to the drape so the weave stays inside the net's silhouette
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(edge[0][0], edge[0][1] + droop);
+  for (let i = 1; i < edge.length; i++) ctx.lineTo(edge[i][0], edge[i][1] + droop);
+  ctx.closePath();
+  ctx.clip();
+
+  // the weave: two diagonal families of tan strands, wide open cells between
+  // them so the man underneath reads clearly. Cell spacing tightens on
+  // fortified nests. Shadow strands first, lit strands offset a hair on top —
+  // two-tone depth.
+  const step = cn.up ? 9 : 12;
+  ctx.strokeStyle = 'rgba(120,104,68,0.5)';
+  ctx.lineWidth = 1.3;
+  for (let i = -44; i <= 40; i += step) {
+    ctx.beginPath(); ctx.moveTo(i, -20 + droop); ctx.lineTo(i + 30, 16 + droop); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i + 30, -20 + droop); ctx.lineTo(i, 16 + droop); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(206,188,138,0.55)';
+  ctx.lineWidth = 0.8;
+  for (let i = -44; i <= 40; i += step) {
+    ctx.beginPath(); ctx.moveTo(i - 0.8, -21 + droop); ctx.lineTo(i + 29.2, 15 + droop); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i + 29.2, -21 + droop); ctx.lineTo(i - 0.8, 15 + droop); ctx.stroke();
+  }
+
+  // knots where the strands cross
+  ctx.fillStyle = 'rgba(150,132,88,0.7)';
+  let row = 0;
+  for (let gy = -14; gy <= 12; gy += step, row++) {
+    for (let gx = -30; gx <= 30; gx += step) {
+      ctx.beginPath(); ctx.arc(gx + (row & 1 ? step / 2 : 0), gy + droop, 0.8, 0, 7); ctx.fill();
+    }
+  }
+
+  // sparse garnish: faded scrim rags woven in to break up the outline
+  const rag = (x, y, s, rot) => {
+    ctx.save(); ctx.translate(x, y + droop); ctx.rotate(rot);
+    ctx.fillStyle = 'rgba(150,140,95,0.5)';
+    ctx.beginPath();
+    ctx.moveTo(-s, -s * 0.5); ctx.lineTo(s * 0.6, -s * 0.7);
+    ctx.lineTo(s, s * 0.4); ctx.lineTo(-s * 0.5, s * 0.7);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  };
+  const rags = [[-18, -6, 4, 0.3], [6, -9, 4.5, -0.4], [20, 2, 3.5, 0.6], [-8, 7, 4, -0.2]];
+  if (cn.up) { rags.push([-24, 3, 3.5, 0.5], [14, -12, 3.5, -0.5]); }
+  for (const [rx, ry, rs, rr] of rags) rag(rx, ry, rs, rr);
+
+  // hardened nests pile on an extra, darker weave layer
+  if (cn.up2) {
+    ctx.strokeStyle = 'rgba(96,82,52,0.5)';
+    ctx.lineWidth = 1.6;
+    for (let i = -44; i <= 40; i += 8) {
+      ctx.beginPath(); ctx.moveTo(i, -20 + droop); ctx.lineTo(i + 30, 16 + droop); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(i + 30, -20 + droop); ctx.lineTo(i, 16 + droop); ctx.stroke();
+    }
+  }
+
+  // battle damage: blown holes with snapped, curling strand stubs at the rim
   if (f < 0.66) {
-    ctx.strokeStyle = 'rgba(20,18,12,0.7)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(-12, -14); ctx.lineTo(-8, -4); ctx.lineTo(-11, 4); ctx.stroke();
+    ctx.strokeStyle = 'rgba(90,78,50,0.85)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(-14, -8); ctx.lineTo(-9, -2); ctx.lineTo(-13, 3); ctx.lineTo(-7, 5); ctx.stroke();
   }
   if (f < 0.33) {
-    ctx.strokeStyle = 'rgba(20,18,12,0.7)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(14, -14); ctx.lineTo(10, -2); ctx.lineTo(16, 6); ctx.stroke();
+    ctx.strokeStyle = 'rgba(90,78,50,0.85)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(10, -9); ctx.lineTo(7, -1); ctx.lineTo(13, 2); ctx.lineTo(8, 7); ctx.stroke();
+  }
+  ctx.restore();   // drop the clip
+
+  // frayed, scalloped rim with little hanging strand stubs past the edge
+  ctx.strokeStyle = 'rgba(182,164,118,0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(edge[0][0], edge[0][1] + droop);
+  for (let i = 1; i < edge.length; i++) ctx.lineTo(edge[i][0], edge[i][1] + droop);
+  ctx.closePath(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(150,132,88,0.55)';
+  ctx.lineWidth = 0.8;
+  for (const [ex, ey] of edge) {
+    ctx.beginPath(); ctx.moveTo(ex, ey + droop); ctx.lineTo(ex + (ex > 0 ? 1.5 : -1.5), ey + droop + 2.5); ctx.stroke();
   }
   ctx.restore();
+}
+
+// full stack for the static previews (codex, placement ghost) — no unit under it
+function drawCamoNest(cn) {
+  drawCamoNestBase(cn);
+  drawCamoNestCanopy(cn);
 }
 
 // a stack of ammunition crates, seen from above: a few wooden boxes with
@@ -429,7 +483,7 @@ function drawDefenses() {
   for (const s of G.sandbags) drawSandbag(s);
   for (const b of G.bunkers) drawBunker(b);
   for (const t of G.watchtowers) drawWatchtower(t);
-  for (const cn of G.camoNests) drawCamoNest(cn);
+  for (const cn of G.camoNests) drawCamoNestBase(cn);
   for (const ac of G.ammoCrates) drawAmmoCrate(ac);
   for (const dm of G.dummies) drawDummy(dm);
   for (const m of G.mines) drawMine(m);

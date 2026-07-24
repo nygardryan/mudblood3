@@ -574,46 +574,6 @@ function paintHalftrackBody(c, e) {
   c.restore();
 }
 
-function drawLandingCraft(c) {
-  const ctx2 = ctx;
-  ctx2.save();
-  ctx2.translate(c.x, c.y);
-  // shadow
-  ctx2.fillStyle = 'rgba(0,0,0,0.22)';
-  ctx2.beginPath(); ctx2.ellipse(0, 4, c.w / 2 - 4, c.h / 2 - 2, 0, 0, 7); ctx2.fill();
-  // hull
-  ctx2.fillStyle = '#5a5e52';
-  ctx2.beginPath();
-  ctx2.moveTo(-c.w / 2 + 4, -c.h / 2 + 2);
-  ctx2.lineTo(c.w / 2 - 4, -c.h / 2 + 2);
-  ctx2.lineTo(c.w / 2 - 2, c.h / 2 - 4);
-  ctx2.lineTo(0, c.h / 2 + 2);
-  ctx2.lineTo(-c.w / 2 + 2, c.h / 2 - 4);
-  ctx2.closePath();
-  ctx2.fill();
-  ctx2.strokeStyle = '#3a3e36';
-  ctx2.lineWidth = 1.2;
-  ctx2.stroke();
-  // deck well
-  ctx2.fillStyle = '#6a6e60';
-  ctx2.fillRect(-c.w / 2 + 10, -c.h / 2 + 6, c.w - 20, c.h - 16);
-  // ramp (closed when waiting/approach; drops during ramp/done)
-  const rampOpen = c.state === 'ramp' ? c.rampT : (c.state === 'done' ? 1 : 0);
-  ctx2.save();
-  ctx2.translate(0, c.h / 2 - 2);
-  ctx2.rotate(rampOpen * 1.15);
-  ctx2.fillStyle = '#7a7e70';
-  ctx2.fillRect(-14, 0, 28, 16);
-  ctx2.strokeStyle = '#4a4e46';
-  ctx2.strokeRect(-14, 0, 28, 16);
-  ctx2.restore();
-  // bow gunwales
-  ctx2.fillStyle = '#4a4e46';
-  ctx2.fillRect(-c.w / 2 + 6, -c.h / 2 + 4, 4, c.h - 12);
-  ctx2.fillRect(c.w / 2 - 10, -c.h / 2 + 4, 4, c.h - 12);
-  ctx2.restore();
-}
-
 // a bike tire seen from above: narrow dark oval with a rim highlight,
 // plus a body-coloured fender arching over its leading half
 function drawBikeWheel(c, x, y, body) {

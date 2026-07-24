@@ -120,17 +120,10 @@ To fast-forward a whole difficulty read, `autoplay` runs a scaling default build
 (pass a `plan: (G) => [{type,x,y},...]` for a custom one) — it pumps the sim like
 `step`, so it returns immediately with a per-interval `log`, no wall-clock wait.
 
-Assault/axis campaign levels (attacker modes — sides are **inverted**: your
-men live in `G.enemies`, scripted defenders in `G.units`):
-
-```js
-TEST.start('axis1')                // build phase; attacker types come from ENEMY_TYPES ('erifle', ...)
-TEST.deploy('erifle', 0.5, 0.05)   // deploy attackers in the top strip
-TEST.startWave()                   // diagnoses instead of silently no-oping
-// note: G.kills does NOT count attacker deaths in these modes — watch
-// unit/enemy counts, breaches, or G.over instead:
-TEST.stepUntil(g => g.over || g.breaches > 0 || !g.enemies.some(e => !e.dead), 120)
-```
+The only modes are **endless** (with its `easy`/`medium`/`hard`/`sandbox`/`testing`
+difficulties) and the three **tutorial** lessons (`tutorial1`/`2`/`3`), which are
+just `endless`-mode levels with a scripted intro. There are no attacker/campaign
+modes — your men always live in `G.units`, the foe in `G.enemies`.
 
 Useful internals when TEST isn't enough: game state is the global `G`
 (`js/state.js:105` for its shape), `update(dt)` steps the sim, `draw()`

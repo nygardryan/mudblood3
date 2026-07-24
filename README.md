@@ -74,44 +74,6 @@ workflow.
     exist for every type (e.g. **Frenzy** — a kill instantly reloads that
     unit's weapon); uniques belong to a single type (e.g. the sniper's
     **Crack Shot** — every miss guarantees his next shot connects).
-- **Allied Campaign — 6 levels** — American battles from Normandy to the Bulge.
-  Levels unlock in order; progress is saved in your browser.
-  - **Omaha Beach → Carentan → Operation Cobra → Nijmegen → Hürtgen → Bastogne**
-  - Assault missions (levels 1–5): spend **TP** each wave to deploy US troops in
-    the top strip (or on **landing craft** at Omaha), hit **START WAVE**, and
-    push south. Win by getting enough men **past the bottom edge** or wiping
-    every German defender; lose if you run out of waves. Unused TP does **not**
-    carry over.
-  - **D-Day (Omaha):** deploy only on Higgins-boat decks. On START the craft
-    motor ashore, drop their ramps, and German beach defenses open fire.
-  - **Bastogne (finale):** defend against **12 scripted German waves**. 7
-    breaches and the crossroads falls.
-- **Axis Campaign — 13 levels** — a tour of famous German offensives from Poland
-  1939 to the Ardennes 1944. Levels unlock in order; progress is saved in your
-  browser. Between battles, spend **Research Points (RP)** in the **Research**
-  screen to permanently unlock unit types (rifle, stormtrooper, and grenadier are
-  free starters). Each wave then gives you **TP** to deploy individuals from your
-  researched roster in the top strip — hit **START WAVE** and the assault steps
-  off. Unused TP does **not** carry over. Win by getting enough men **past the
-  bottom edge** (5–7) or wiping every defender; lose if you run out of waves.
-  - **Mokra → Sedan → Crete → Brest → Kasserine → Kursk → Cassino → Belarus →
-    Hürtgen → Aachen → Arnhem → St. Vith → Bastogne** — each briefing shows a
-    map of Europe with the attack arrow.
-  - **Earn RP** on first victory per mission (20 RP at Mokra up to 116 at
-    Bastogne, plus bonuses for wiping defenders or saving waves). Re-clearing
-    missions awards nothing.
-  - **Campaign-exclusive units** appear in research at Crete (Fallschirmjäger),
-    Kursk (StuG III), and Bastogne (Tiger I).
-- **Commando Campaign — Level 1: Hit Squad** — a separate direct-control campaign.
-  You command a fixed six-man squad (officer, sniper, MG gunner, two stormtroopers,
-  a grenadier) exactly like US soldiers: click or drag-select, then click ground to
-  move. Nobody advances without orders. Your men are hand-picked veterans — tougher,
-  deadlier, and longer-armed than line infantry — but six guns cannot win a stand-up
-  fight against the whole detail. **Kill the marked US officer** at the bottom of
-  the map within **5 minutes**. The direct approach is wired and mined; the flanks are
-  thin — work around the line and let the sniper finish the job from range. Lose if
-  the clock runs out or the whole squad dies. No TP, no purchases — the six men are
-  all you get. Completion is tracked locally like the Axis campaign.
 
 ## How to play
 
@@ -121,7 +83,7 @@ France, 1944. Pick a mode from the main menu.
   every 8 s**, and living officers (**+1 TP / 30 s** each — up to **3 TP** for a
   max-rank officer; **5 officers** max on the field). In Endless, supply lines thin
   out as the battle drags on: all income shrinks ~1% per wave, dropping to a hard
-  10% floor from wave 90 on. Campaign levels pay full rate.
+  10% floor from wave 90 on.
 - Open **Units**, **Abilities**, or **Emplacements** on the left toolbar, pick an
   item (each shows its hotkey), then click the field to deploy. Right-click or
   **Esc** cancels placement.
@@ -140,9 +102,6 @@ France, 1944. Pick a mode from the main menu.
   He can't shoot while running.
 - Drag a box over several soldiers to select the whole group; a move order spreads
   them into a tight formation around the target instead of piling everyone on one spot.
-- In the **Axis campaign** there is no selecting or ordering: during each build
-  phase, place units in the top strip, then hit **START WAVE** to launch the assault.
-  The toolbar is your whole command.
 
 ### Your arsenal
 
@@ -261,10 +220,9 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/input.js` — placement & pointer/keyboard input
 - `js/codex.js` — codex
 - `js/cards.js` — endless cards & battle plans
-- `js/research.js` — axis research
-- `js/campaign.js` — campaign progress
+- `js/campaign.js` — tutorial progress
 - `js/leaderboards.js` — endless leaderboards
 - `js/settings.js` — settings
-- `js/flow.js` — menus, briefings & game flow
+- `js/flow.js` — menus & game flow
 - `js/main.js` — event wiring, frame loop & bootstrap
 - `js/test-api.js` — `window.TEST` console/automation harness (inert during play)

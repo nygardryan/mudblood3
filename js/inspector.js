@@ -29,11 +29,10 @@ const HOVER_METRICS_DESKTOP = {
 };
 const hoverMetrics = () => touchUI() ? HOVER_METRICS_TOUCH : HOVER_METRICS_DESKTOP;
 
-// whoever is shooting at the player: he runs the attackers (G.enemies) in the
-// assault campaigns and in hit-squad, and the defenders (G.units) in endless
+// whoever is shooting at the player: the enemy roster
 function hostileRoster() {
   if (!G) return [];
-  return (isAssaultMode() || G.mode === 'hitsquad') ? G.units : G.enemies;
+  return G.enemies;
 }
 
 // same click targets selection uses — vehicles and tanks are bigger
@@ -201,7 +200,7 @@ function drawHoverPanel() {
   // an inspected enemy takes priority; otherwise a lone selected ally gets the
   // same info box (only when exactly one is selected, so a squad stays uncluttered)
   if (hoverActor) { drawInfoPanel(hoverActor); return; }
-  if (!G || placing || isAssaultMode()) return;
+  if (!G || placing) return;
   if (G.selected.length === 1) drawInfoPanel(G.selected[0], true);
 }
 
@@ -247,7 +246,7 @@ function drawForwardLine() {
 
 // red tint for zones where move orders cannot be issued (matches placement ghost style)
 function drawMoveRestrictedZone() {
-  if (!G || !G.selected.length || placing || isAssaultMode()) return;
+  if (!G || !G.selected.length || placing) return;
   if (!G.selected.some(u => !u.t.fixed)) return;
 
   const minY = moveOrderMinY();
@@ -260,7 +259,7 @@ function drawMoveRestrictedZone() {
 }
 
 function drawMoveDestinations() {
-  if (!G || isAssaultMode()) return;
+  if (!G) return;
   for (const u of commandRoster()) {
     if (u.dead || !u.moveTo) continue;
     const dest = u.moveTo;
@@ -278,7 +277,7 @@ function drawMoveDestinations() {
 }
 
 function drawMoveCursorPreview() {
-  if (!G || !G.selected.length || placing || !mouse.inside || isAssaultMode()) return;
+  if (!G || !G.selected.length || placing || !mouse.inside) return;
   if (!canReceiveMoveOrders()) return;
   const x = mouse.x, y = mouse.y;
   const valid = moveOrderValid(x, y);
@@ -342,13 +341,8 @@ function drawPlacementActor(a) {
 }
 
 function drawPlacementUnitGhost(p, x, y, valid) {
-  const nation = p.kind === 'aunit' ? levelAttackerNation(G.level) : '';
-  const buf = ghostBuffer('unit|' + p.kind + '|' + p.key + '|' + nation, valid, () => {
-    const a = p.kind === 'aunit'
-      ? makeAttacker(nation, p.key, 0, 0)
-      : p.kind === 'eunit' ? makeEnemy(p.key, 0, 0)
-      : p.kind === 'eparadrop' ? makeEnemy('erifle', 0, 0)
-      : makeUnit(p.key, 0, 0);
+  const buf = ghostBuffer('unit|' + p.kind + '|' + p.key, valid, () => {
+    const a = makeUnit(p.key, 0, 0);
     a._ghost = true;
     drawPlacementActor(a);
   });
@@ -396,48 +390,13 @@ function drawPlacementGhost() {
       ? (p.key === 'rankup' ? '#7fe0a0' : p.key === 'purge' ? '#ff3b3b' : '#ffd94a')
       : '#d04030';
     ctx.lineWidth = 1.5;
-    const r = p.key === 'artillery' ? 95 : p.key === 'ebarrage' ? 85
+    const r = p.key === 'artillery' ? 95
       : p.key === 'rankup' ? RANKUP_RADIUS : p.key === 'purge' ? PURGE_RADIUS : 55;
     ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y);
     ctx.moveTo(x, y - 10); ctx.lineTo(x, y + 10);
     ctx.stroke();
-  } else if (p.kind === 'aunit' || p.kind === 'eunit' || p.kind === 'eparadrop') {
-    if (G.level && G.level.landingCraft) {
-      ctx.fillStyle = 'rgba(200,50,40,0.12)';
-      ctx.fillRect(0, BEACH_Y, W, H - BEACH_Y);
-      for (const craft of G.landingCraft) {
-        if (craft.state === 'done') continue;
-        ctx.fillStyle = 'rgba(80,160,220,0.18)';
-        ctx.fillRect(craft.x - craft.w / 2, craft.y - craft.h / 2, craft.w, craft.h);
-      }
-    } else {
-      const maxDeployY = assaultDeployMaxY(p);
-      ctx.fillStyle = 'rgba(200,50,40,0.12)';
-      ctx.fillRect(0, maxDeployY, W, H - maxDeployY);
-    }
-    drawPlacementUnitGhost(p, x, y, valid);
-    const et = attackerTypeStats(p);
-    const face = p.kind === 'aunit' ? Math.PI / 2 : Math.PI / 2;
-    if (et && et.fireCone) {
-      drawFireCone(x, y, face, et.fireCone.arc, et.range * fogMult(), 0.35);
-    } else if (et && et.flame) {
-      drawFlameRangeCone(x, y, face, et.flame.arc, et.flame.range * fogMult(), 0.35);
-    } else if (et && et.mortar) {
-      drawMortarRangeRing(x, y, et.mortar.min * fogMult(), et.mortar.range * fogMult(), 0.35);
-    } else if (et && et.sfx === 'sniper' && et.range > 200) {
-      drawSniperRangeRing(x, y, et.range * fogMult(), 0.5);
-    } else if (et) {
-      let r = et.range;
-      if (et.rocket) r = et.rocket.range;
-      if (r > 0) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(x, y, r * fogMult(), 0, 7); ctx.stroke();
-      }
-    }
-    drawSpecialistRangeAt(x, y, p.kind === 'eparadrop' ? 'erifle' : p.key, p.kind === 'aunit' ? 'us' : 'de');
   } else {
     // shade the invalid zone
     ctx.fillStyle = 'rgba(200,50,40,0.12)';

@@ -21,8 +21,7 @@
    Typical flows (from the devtools console or an automation driver):
      TEST.start('endless', 'easy'); TEST.buy('gunner', 0.5, 0.75); TEST.step(30);
      TEST.start('endless', 'easy'); TEST.autoplay({ seconds: 240 });
-     TEST.start('axis1'); TEST.deploy('erifle', 0.5, 0.05); TEST.startWave();
-     TEST.stepUntil(g => g.kills > 0, 60); TEST.reset();
+     TEST.start('endless', 'easy'); TEST.stepUntil(g => g.kills > 0, 60); TEST.reset();
 
    Inert unless called — nothing here runs on load. */
 'use strict';
@@ -48,7 +47,6 @@ const TEST = {
         'event(name)': "fire a random-event on demand regardless of wave gating — name in: random, fog, fng, paradrop, airraid, airstrike",
         'setTP(n) / addTP(n)': 'set or add tactical points, for scripting test scenarios',
         'autoplay(opts?)': 'autonomous endless player: spends TP on a scaling build every `every`s and steps for `seconds`. opts {seconds=120, every=15, plan?}. Returns {over, waves, log, final}',
-        'startWave()': 'assault/axis build phase: launch the wave, or explain why it cannot start',
         'reset()': 'stop the game and return to the main menu',
       },
       levels: Object.keys(LEVELS),
@@ -207,31 +205,7 @@ const TEST = {
   deploy(type, x, y) {
     if (!G) return { ok: false, error: 'no game in progress — call TEST.start()' };
     const px = this._coord(x, W), py = this._coord(y, H);
-    // assault/axis build phase: the player's men are attackers and live in
-    // G.enemies (sides are inverted there — see input.js placement)
-    if (isAssaultModeLevel(G.level) && inBuildPhase()) {
-      const nation = levelAttackerNation(G.level);
-      const catalog = actorTypeCatalog(nation);
-      if (!catalog[type]) {
-        return { ok: false, error: 'unknown attacker type "' + type + '" for nation "' + nation +
-          '" — valid: ' + Object.keys(catalog).join(', ') };
-      }
-      const u = makeAttacker(nation, type, px, py);
-      if (G.level.landingCraft) {
-        const craft = landingCraftAt(px, py);
-        if (craft) {
-          u.onCraft = craft;
-          u.deckOffX = px - craft.x;
-          u.deckOffY = py - craft.y;
-          craft.onDeck.push(u);
-        }
-      }
-      G.enemies.push(u);
-      const b = u.onCraft ? null : this._bounds(px, py, 0);
-      return { ok: true, side: 'attacker', nation, type, x: Math.round(px), y: Math.round(py),
-        onCraft: !!u.onCraft, offField: !!b, ...(b || {}) };
-    }
-    // defense modes: any placeable — units, defenses, supports, German test
+    // any placeable — units, defenses, supports, German test
     // units. Routed through the game's own applyPlacement() so what gets
     // created never drifts from what the toolbar would build. FREE: no TP.
     const p = this._deployMap()[type];
@@ -258,9 +232,6 @@ const TEST = {
     if (!p) {
       return { ok: false, reason: 'not buyable in this mode "' + type + '" — valid: ' +
         Object.keys(this._toolbarMap()).join(', ') };
-    }
-    if (isAssaultModeLevel(G.level) && G.phase !== 'build') {
-      return { ok: false, reason: 'assault/axis: can only buy during the build phase (phase: ' + G.phase + ')' };
     }
     const px = this._coord(x, W), py = this._coord(y, H);
     // events fire in place — no placement, no cost
@@ -343,9 +314,6 @@ const TEST = {
 
   spawnEnemy(type, x, y) {
     if (!G) return { ok: false, error: 'no game in progress — call TEST.start()' };
-    if (isAssaultModeLevel(G.level)) {
-      return { ok: false, error: 'not available in assault/axis modes — G.enemies holds YOUR attackers there; use TEST.deploy() instead' };
-    }
     if (!ENEMY_TYPES[type]) {
       return { ok: false, error: 'unknown enemy type "' + type + '" — valid: ' + Object.keys(ENEMY_TYPES).join(', ') };
     }
@@ -361,7 +329,6 @@ const TEST = {
   // normally holds each one back (events.js). Defense modes only.
   event(name) {
     if (!G) return { ok: false, error: 'no game in progress — call TEST.start()' };
-    if (isAssaultModeLevel(G.level)) return { ok: false, error: 'events are an endless/defense feature' };
     const valid = ['random', 'fog', 'fng', 'paradrop', 'airraid', 'airstrike'];
     if (!valid.includes(name)) {
       return { ok: false, error: 'unknown event "' + name + '" — valid: ' + valid.join(', ') };
@@ -421,7 +388,6 @@ const TEST = {
   // custom (g) => [{type,x,y}, ...] purchase queue; omit for the default build.
   autoplay(opts = {}) {
     if (!G) return { ok: false, error: 'no game in progress — call TEST.start()' };
-    if (isAssaultModeLevel(G.level)) return { ok: false, error: 'autoplay drives endless/defense modes; assault/axis use deploy()+startWave()' };
     const seconds = opts.seconds != null ? opts.seconds : 120;
     const every = Math.max(1, opts.every != null ? opts.every : 15);
     const plan = typeof opts.plan === 'function' ? opts.plan : (g) => this._defaultPlan(g);
@@ -457,17 +423,6 @@ const TEST = {
     }
     return { ok: true, over: G.over, waves: G.wave, breaches: G.breaches,
       kills: G.kills, simSeconds: +elapsed.toFixed(1), log, final: this.state() };
-  },
-
-  startWave() {
-    if (!G) return { ok: false, reason: 'no game in progress — call TEST.start()' };
-    if (!isAssaultModeLevel(G.level)) return { ok: false, reason: 'not an assault/axis level' };
-    if (!inBuildPhase()) return { ok: false, reason: 'not in build phase (phase: ' + G.phase + ')' };
-    if (!G.enemies.some(e => !e.dead)) {
-      return { ok: false, reason: 'no attackers deployed — place at least one with TEST.deploy(type, x, y) first' };
-    }
-    startAssaultCombat();
-    return { ok: G.phase !== 'build', phase: G.phase, state: this.state() };
   },
 
   reset() {

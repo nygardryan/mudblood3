@@ -20,53 +20,21 @@ function update(dt) {
     }
   }
 
-  // a hit squad has no supply line: no trickle, no officer income, nothing to buy.
-  // assault modes get a fixed per-wave allocation only — no trickle or officer income.
-  if (G.mode !== 'hitsquad' && !isAssaultMode()) {
-    // TP trickle
-    G.tpTrickle -= dt;
-    if (G.tpTrickle <= 0) { G.tpTrickle = TP_TRICKLE_INTERVAL; earnTP(1, 'steady'); }
+  // TP trickle
+  G.tpTrickle -= dt;
+  if (G.tpTrickle <= 0) { G.tpTrickle = TP_TRICKLE_INTERVAL; earnTP(1, 'steady'); }
 
-    // officer TP bonus
-    G.officerTick -= dt;
-    if (G.officerTick <= 0) {
-      G.officerTick = (G.cardsOwned && G.cardsOwned.has('rushorder')) ? 15 : 30;
-      // rank pays: a MSG officer brings in 3 TP where a green one brings 1
-      for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3, 'steady');
-    }
+  // officer TP bonus
+  G.officerTick -= dt;
+  if (G.officerTick <= 0) {
+    G.officerTick = (G.cardsOwned && G.cardsOwned.has('rushorder')) ? 15 : 30;
+    // rank pays: a MSG officer brings in 3 TP where a green one brings 1
+    for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3, 'steady');
   }
 
-  if (inBuildPhase()) {
-    if (G.fog > 0) G.fog -= dt;
-    for (const e of G.enemies) {
-      if (!e.dead && e.chute > 0) updateEnemyChute(e, dt);
-    }
-    if (G.banner) { G.banner.ttl -= dt; if (G.banner.ttl <= 0) G.banner = null; }
-    return;
-  }
-
-  if (inLandingPhase()) {
-    updateLandingCraft(dt);
-    if (G.fog > 0) G.fog -= dt;
-    if (G.landingFire) {
-      for (const u of G.units) if (!u.dead) updateUnit(u, dt);
-      for (const e of G.enemies) if (!e.dead && !e.onCraft) updateEnemy(e, dt);
-    }
-    if (G.banner) { G.banner.ttl -= dt; if (G.banner.ttl <= 0) G.banner = null; }
-    return;
-  }
-
-  // spawning: each mode has its own wave source
-  if (G.mode === 'allied') {
-    updateAlliedWaves(dt);
-  } else if (isAssaultMode()) {
-    updateAssaultCombat();
-  } else if (G.mode === 'hitsquad') {
-    // no waves: win when the target falls, lose on the clock or a wiped squad
-    if (!G.units.some(u => !u.dead && u.vip)) { victory(); return; }
-    if (G.time >= G.level.timeLimit) { gameOver(); return; }
-    if (!G.enemies.some(e => !e.dead)) { gameOver(); return; }
-  } else if (!isTestingMode() && !tutorialScriptActive()) {
+  // spawning: waves march in until the line breaks (paused in testing mode and
+  // while a tutorial script is running the show)
+  if (!isTestingMode() && !tutorialScriptActive()) {
     G.spawnTimer -= dt;
     if (G.spawnTimer <= 0) spawnWave();
   }
@@ -251,19 +219,13 @@ function update(dt) {
     }
   }
 
-  // breaches: a defeat marker when defending, the objective when attacking.
-  // a hit squad has nowhere to breach to — its work is on the field.
-  if (G.mode !== 'hitsquad') for (const e of G.enemies) {
+  // breaches: an enemy that reaches the bottom edge cracks the line
+  for (const e of G.enemies) {
     if (!e.dead && e.y > H + 10) {
       e.dead = true; e.breached = true;
       G.breaches++;
-      if (isAssaultMode()) {
-        showBanner('BREAKTHROUGH! (' + G.breaches + '/' + G.level.winBreaches + ')');
-        if (G.breaches >= G.level.winBreaches) victory();
-      } else {
-        showBanner(factionAdjUpper() + ' BREAKTHROUGH! (' + G.breaches + '/' + G.level.breachLimit + ')');
-        if (G.breaches >= G.level.breachLimit) gameOver();
-      }
+      showBanner(factionAdjUpper() + ' BREAKTHROUGH! (' + G.breaches + '/' + G.level.breachLimit + ')');
+      if (G.breaches >= G.level.breachLimit) gameOver();
     }
   }
 
@@ -320,20 +282,6 @@ function endRun(won, title, stats) {
   titleEl.textContent = title;
   titleEl.classList.toggle('victory', won);
   document.getElementById('go-stats').textContent = stats;
-  const nextBtn = el('next-mission-btn');
-  const nextId = won && G ? getNextMissionId(G.level.id) : null;
-  if (nextBtn) {
-    nextBtn.classList.toggle('hidden', !nextId);
-    if (nextId) {
-      const nextLevel = LEVELS[nextId];
-      nextBtn.dataset.nextLevel = nextId;
-      nextBtn.textContent = nextLevel
-        ? 'NEXT: ' + (nextLevel.menuName || nextLevel.name)
-        : 'NEXT MISSION';
-    } else {
-      delete nextBtn.dataset.nextLevel;
-    }
-  }
   // an endless run banks medals for the card shop, so offer a shortcut straight
   // there from the results screen instead of routing back through the menu
   const shopBtn = el('go-shop-btn');
@@ -352,54 +300,19 @@ function endRun(won, title, stats) {
 
 function gameOver() {
   const t = Math.floor(G.time);
-  if (isAssaultMode()) {
-    const waves = assaultWaves(G.level);
-    const defLabel = defenderNationLabel(levelDefenderNation(G.level));
-    endRun(false, 'ATTACK REPULSED',
-      `All ${waves} waves spent. ${G.breaches}/${G.level.winBreaches} breakthroughs — ` +
-      `the ${defLabel} line holds, and ${G.kills} defenders down was not enough.`);
-  } else if (G.mode === 'hitsquad') {
-    const wiped = !G.enemies.some(e => !e.dead);
-    endRun(false, wiped ? 'SQUAD LOST' : 'MISSION FAILED',
-      wiped
-        ? `All six men are gone after ${t} seconds. The target lives; ${G.kills} Americans went with them.`
-        : `Time ran out after ${t} seconds. The target lives. ${G.kills} Americans down for nothing.`);
-  } else {
-    const diffPrefix = G.mode === 'endless' && G.difficulty ? `${G.difficulty.name} — ` : '';
-    let stats = `${diffPrefix}You held for ${G.wave} waves and ${t} seconds. ` +
-      `${G.kills} ${factionPlural()} will not go home.`;
-    if (G.medalsEarned > 0) {
-      stats += ` +${G.medalsEarned} medal${G.medalsEarned === 1 ? '' : 's'} earned — ` +
-        `${loadEndlessCards().medals} banked for the card shop.`;
-    }
-    endRun(false, 'LINE OVERRUN', stats);
+  const diffPrefix = G.difficulty ? `${G.difficulty.name} — ` : '';
+  let stats = `${diffPrefix}You held for ${G.wave} waves and ${t} seconds. ` +
+    `${G.kills} ${factionPlural()} will not go home.`;
+  if (G.medalsEarned > 0) {
+    stats += ` +${G.medalsEarned} medal${G.medalsEarned === 1 ? '' : 's'} earned — ` +
+      `${loadEndlessCards().medals} banked for the card shop.`;
   }
+  endRun(false, 'LINE OVERRUN', stats);
 }
 
 function victory() {
   const t = Math.floor(G.time);
-  if (isAssaultMode()) {
-    const wiped = !G.units.some(u => !u.dead);
-    let stats = wiped
-      ? `Every defender is down after ${G.wave} waves. ${G.breaches} men through the breach, ${G.kills} eliminated.`
-      : `The line collapses after ${G.wave} waves. ` +
-        `${G.breaches} men through the breach, ${G.kills} defenders down.`;
-    if (G.mode === 'axis') {
-      const rpEarned = awardAxisRP(G.level, wiped, G.wave);
-      if (rpEarned > 0) stats += ` +${rpEarned} Research Points earned.`;
-    }
-    endRun(true, 'LINE BROKEN', stats);
-  } else if (G.mode === 'hitsquad') {
-    const alive = G.enemies.filter(e => !e.dead).length;
-    endRun(true, 'TARGET ELIMINATED',
-      `The officer is dead after ${t} seconds. ` +
-      `${alive}/${G.squadTotal} men walk away; ${G.kills} Americans do not.`);
-  } else {
-    endRun(true, 'SECTOR HELD',
-      `You stopped all ${G.wave} waves in ${t} seconds. ` +
-      `${G.kills} ${factionPlural()} will not go home. The line is yours.`);
-  }
-  if (campaignForLevel(G.level.id)) {
-    markLevelComplete(G.level.id);
-  }
+  endRun(true, 'SECTOR HELD',
+    `You stopped all ${G.wave} waves in ${t} seconds. ` +
+    `${G.kills} ${factionPlural()} will not go home. The line is yours.`);
 }

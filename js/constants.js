@@ -9,10 +9,6 @@ const LAYOUT_REF_W = 900;
 function lx(off) { return W / 2 + off * (W / LAYOUT_REF_W); }
 const DEPLOY_Y = 380;          // your side of the field starts here
 const FORWARD_Y = H / 3;       // units may advance and mines/wire may be laid this far up
-const AXIS_DEPLOY_Y = 90;      // axis campaign: attackers step off from this top strip
-const AXIS_PARA_DROP_MAX_Y = DEPLOY_Y - 25; // paradrops may land almost to the US line
-const AXIS_PARA_POOL_BASE = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];
-const AXIS_PARA_POOL_EXTRAS = ['emg', 'esniper', 'eflame', 'eoff', 'emortar', 'ebazooka'];
 const MAX_BREACH = 7;
 const MAX_OFFICERS = 5;
 const MEDIC_RANGE = 95;
@@ -725,11 +721,10 @@ const PLACEABLES = [
     desc: 'Fits a flak vest on one infantryman. Its own bar soaks up explosion damage until it breaks — HP is untouched while it holds. Re-buy to refill.' },
 ];
 
-// axis campaign toolbar: you buy German units, drop them in the top strip,
-// and their standard attack AI carries them south. kind 'eunit' routes
-// placement through makeEnemy instead of makeUnit.
-// costs mirror the closest allied PLACEABLES counterpart (rifleman, gunner,
-// grenadier, shotgunner, sniper, flamer, officer, jeep, sherman, artillery).
+// German roster, kept as the source the endless TESTING toolbar derives its
+// GERMANS category from (see TESTING_GERMAN_PLACEABLES below). costs mirror the
+// closest allied PLACEABLES counterpart (rifleman, gunner, grenadier,
+// shotgunner, sniper, flamer, officer, jeep, sherman, artillery).
 const AXIS_PLACEABLES = [
   { key: 'erifle', label: 'RIFLEMAN', cost: 4, kind: 'eunit', hotkey: '1',
     desc: 'Wehrmacht rifleman. Slow, steady, expendable.' },
@@ -761,16 +756,14 @@ const AXIS_PLACEABLES = [
     desc: 'German 105mm barrage: 10 heavy shells on target. Indiscriminate.' },
 ];
 
-// endless testing mode: the same German roster as the axis toolbar, but
-// dropped in freely anywhere on the field (kind 'egerman') instead of being
-// confined to the axis campaign's top deploy strip. No hotkeys — this list
-// is merged onto the endless toolbar alongside PLACEABLES, and reusing
-// those hotkeys would just shadow the US units that already claim them.
+// endless testing mode: the German roster dropped in freely anywhere on the
+// field (kind 'egerman'). No hotkeys — this list is merged onto the endless
+// toolbar alongside PLACEABLES, and reusing those hotkeys would just shadow
+// the US units that already claim them.
 const TESTING_GERMAN_PLACEABLES = [
   ...AXIS_PLACEABLES.filter(p => p.kind === 'eunit').map(p => ({ ...p, kind: 'egerman', hotkey: '' })),
-  // ev2 never appears on the axis campaign roster — it's an endless-only
-  // set piece that otherwise doesn't show up until wave 140. Testing mode
-  // is exactly where you'd want to drop one in on demand.
+  // ev2 is an endless-only set piece that otherwise doesn't show up until wave
+  // 140. Testing mode is exactly where you'd want to drop one in on demand.
   { key: 'ev2', label: 'V2 BATTERY', cost: 100, kind: 'egerman', hotkey: '',
     desc: 'A20 rocket battery. Normally locked behind wave 140 in endless — testing mode lets you place one immediately.' },
 ];
@@ -874,64 +867,3 @@ const TESTING_EVENTS = [
   { key: 'airstrike', label: 'STRAFING RUN', cost: 0, kind: 'event', hotkey: '',
     desc: 'A P-47 strafes a lane of the field.' },
 ];
-
-// allied assault toolbar: US attackers deploy in the top strip, then assault south.
-const ASSAULT_PLACEABLES = [
-  { key: 'rifleman', label: 'RIFLEMAN', cost: 3, kind: 'aunit', hotkey: '1',
-    desc: 'M1 Garand rifleman. The backbone of the assault.' },
-  { key: 'gunner', label: 'GUNNER', cost: 9, kind: 'aunit', hotkey: '2',
-    desc: 'BAR gunner. Suppressive fire on the advance.' },
-  { key: 'grenadier', label: 'GRENADIER', cost: 7, kind: 'aunit', hotkey: '3',
-    desc: 'Carbine and frag grenades. Clears bunkers and wire. Throws back live German grenades that land nearby.' },
-  { key: 'shotgunner', label: 'SHOTGUN', cost: 5, kind: 'aunit', hotkey: 'G',
-    desc: 'Trench gun for close work on the beach and in the bocage.' },
-  { key: 'bazooka', label: 'BAZOOKA', cost: 12, kind: 'aunit', hotkey: 'B',
-    desc: 'M1A1 rocket launcher. The answer to bunkers and armor.' },
-  { key: 'sniper', label: 'SNIPER', cost: 10, kind: 'aunit', hotkey: '4',
-    desc: 'Springfield marksman. Picks off MG teams and officers.' },
-  { key: 'flamer', label: 'FLAMER', cost: 7, kind: 'aunit', hotkey: 'F',
-    desc: 'M2 flamethrower. Burns out pillboxes and hedgerows.' },
-  { key: 'officer', label: 'OFFICER', cost: 15, kind: 'aunit', hotkey: '6',
-    desc: 'Lieutenant. Nearby men fight harder; earns +1 TP every 30 s.' },
-  { key: 'jeep', label: 'JEEP', cost: 30, kind: 'aunit', hotkey: 'J',
-    desc: 'Willys jeep with a .50 cal. Fast breakthrough vehicle.' },
-  { key: 'sherman', label: 'SHERMAN', cost: 80, kind: 'aunit', hotkey: 'T',
-    desc: 'M4 Sherman. Breaks the West Wall and German armor.' },
-  { key: 'mortar', label: 'MORTAR STRIKE', cost: 5, kind: 'support', hotkey: '0',
-    desc: '6 mortar shells on target. Danger close — watch your own men.' },
-  { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 12, kind: 'support', hotkey: 'A',
-    desc: '105mm barrage: 16 heavy shells. Indiscriminate.' },
-];
-
-// D-Day landing craft layout
-const BEACH_Y = 210;
-const LANDING_CRAFT_SPEED = 38;
-const LANDING_CRAFT_SHORE_Y = BEACH_Y + 18;
-
-// campaign-exclusive axis units — merged into research tree when tier gate met
-const AXIS_CAMPAIGN_EXTRA_ENTRIES = {
-  eparadrop: { key: 'eparadrop', label: 'PARADROP', cost: 7, kind: 'eparadrop', hotkey: 'P',
-    desc: 'Paradrop behind the US line. Unit type is random on landing from your researched infantry.' },
-  estug: { key: 'estug', label: 'STU G III', cost: 55, kind: 'eunit', hotkey: 'S',
-    desc: 'StuG III assault gun. Faster than a Panzer IV; casemate 75mm hunts strongpoints.' },
-  etiger: { key: 'etiger', label: 'TIGER I', cost: 120, kind: 'eunit', hotkey: 'G',
-    desc: 'Tiger I heavy tank. Slow, armored, and ruinous — the breakthrough weapon.' },
-};
-
-const AXIS_STARTER_UNITS = ['erifle', 'esmg', 'egren'];
-
-const AXIS_RESEARCH_COSTS = {
-  emg: 15, eflame: 12, esniper: 18, emortar: 22, ebazooka: 20, eoff: 28,
-  ebike: 35, ejeep: 38, ebarrage: 30, ehalftrack: 55, panzer: 60,
-  eparadrop: 25, estug: 45, etiger: 90,
-};
-
-const AXIS_RESEARCH_TIERS = { eparadrop: 3, estug: 6, etiger: 13 };
-
-const AXIS_RESEARCH_LABELS = {
-  erifle: 'Rifleman', esmg: 'Stormtrooper', egren: 'Grenadier', emg: 'MG42 Team',
-  esniper: 'Sniper', eflame: 'Flammenwerfer', eoff: 'Officer', emortar: 'Granatwerfer',
-  ebazooka: 'Panzerfaust', ebike: 'Kradschützen', ejeep: 'Kübelwagen',
-  ehalftrack: 'Halftrack', panzer: 'Panzer IV', ebarrage: 'Artillery Barrage',
-  eparadrop: 'Paradrop', estug: 'StuG III', etiger: 'Tiger I',
-};

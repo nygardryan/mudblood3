@@ -50,38 +50,6 @@ function isPlaying() {
   return running && G && !G.over && !paused;
 }
 
-function isAssaultMode() {
-  return G && (G.mode === 'axis' || G.mode === 'assault');
-}
-
-function isAssaultModeLevel(level) {
-  return level && (level.mode === 'axis' || level.mode === 'assault');
-}
-
-function inBuildPhase() {
-  return isAssaultMode() && G.phase === 'build';
-}
-
-function inLandingPhase() {
-  return isAssaultMode() && G.phase === 'landing';
-}
-
-function assaultWaves(level) {
-  return level.axisWaves || level.assaultWaves || 1;
-}
-
-function levelAttackerNation(level) {
-  return level.attackerNation || (level.mode === 'axis' ? 'de' : 'us');
-}
-
-function levelDefenderNation(level) {
-  return level.defenderNation || (level.mode === 'axis' ? 'us' : 'de');
-}
-
-function defenderNationLabel(nation) {
-  return nation === 'de' ? 'German' : 'American';
-}
-
 // the endless enemy faction, and the words the HUD/banners/results use for it
 function enemyFaction() {
   return (G && G.enemyFaction) || 'de';
@@ -122,15 +90,10 @@ function newGame(level, difficulty) {
   G = {
     level,
     mode: level.mode,
-    difficulty: level.mode === 'endless'
-      ? (difficulty || ENDLESS_DIFFICULTIES.easy)
-      : null,
-    tp: isAssaultModeLevel(level)
-      ? axisWavePayout(level, 1)
-      : (level.startTP != null ? level.startTP : 15),
-    wave: isAssaultModeLevel(level) ? 1 : 0,
-    phase: isAssaultModeLevel(level) ? 'build' : 'combat',
-    waveIdx: 0,        // allied campaign: next scripted wave
+    difficulty: difficulty || ENDLESS_DIFFICULTIES.easy,
+    tp: level.startTP != null ? level.startTP : 15,
+    wave: 0,
+    phase: 'combat',
     kills: 0,
     medalsEarned: 0,  // endless: medals banked this run (wave-10 milestones)
     breaches: 0,
@@ -163,7 +126,7 @@ function newGame(level, difficulty) {
     gibs: [],        // detached body parts mid-flight, then settled on the ground
     groundMarks: [], // blood stains and blast craters, fade after GROUND_MARK_TTL
 
-    spawnTimer: level.mode === 'allied' ? level.waves[0].delay : 6,
+    spawnTimer: 6,
     tpTrickle: TP_TRICKLE_INTERVAL,
     officerTick: (level.id === 'endless' && equippedEndlessCards().includes('rushorder')) ? 15 : 30,
     eventTimer: rand(40, 60),
@@ -175,9 +138,6 @@ function newGame(level, difficulty) {
     buffFrame: 0,
     usOfficers: [],
     deOfficers: [],
-    paraFlybyPlayed: false,
-    landingCraft: [],
-    landingFire: true,
   };
   // roguelite cards apply to every true endless run (any difficulty —
   // sandbox/testing double as the card test bed), never to campaigns
@@ -196,7 +156,6 @@ function newGame(level, difficulty) {
   if (level.id === 'endless') resetRerollCost();
   paintGround(level);
   level.setup(G);
-  if (level.landingCraft) initLandingCraft(G);
 }
 
 function makeUnit(type, x, y, nation = 'us') {
@@ -253,56 +212,3 @@ function makeEnemy(type, x, y, nation) {
   };
 }
 
-function actorTypeCatalog(nation) {
-  return nation === 'us' ? UNIT_TYPES : ENEMY_TYPES;
-}
-
-function makeAttacker(nation, type, x, y) {
-  const t = actorTypeCatalog(nation)[type];
-  if (!t) return null;
-  const e = {
-    side: 'de', nation, type, t, x, y,
-    hp: t.hp, maxhp: t.hp,
-    cd: rand(0.5, 1.5), burstLeft: 0, burstTimer: 0,
-    face: Math.PI / 2,
-    wobble: rand(0, Math.PI * 2),
-    grenCd: rand(2, 4),
-    turret: Math.PI / 2,
-    pushT: 0, pushCd: rand(2, 5),
-    prone: 0, proneCd: 0,
-    moveTo: null,
-    rocketCd: rand(1, 2),
-    mortCd: rand(4, 8),
-    onCraft: null,
-  };
-  if (nation === 'us') {
-    e.xp = 0;
-    e.rank = 0;
-    e.healTick = 0;
-    e.healed = 0;
-  }
-  return e;
-}
-
-function makeDefender(nation, type, x, y) {
-  const t = actorTypeCatalog(nation)[type];
-  if (!t) return null;
-  const u = {
-    side: 'us', nation, type, t, x, y,
-    hp: t.hp, maxhp: t.hp,
-    // Body/Flak Armor abilities: separate depleting pools, 0 until purchased
-    bodyArmor: 0, maxBodyArmor: 0, flakArmor: 0, maxFlakArmor: 0,
-    cd: rand(0.2, 1.0), burstLeft: 0, burstTimer: 0,
-    face: -Math.PI / 2,
-    turret: -Math.PI / 2,
-    moveTo: null,
-    healTick: 0,
-    healed: 0,
-    grenCd: nation === 'us' ? rand(5, 9) : rand(2, 4),
-    rocketCd: rand(1, 2),
-    mortCd: rand(4, 8),
-    xp: 0, rank: 0,
-    prone: 0, proneCd: 0,
-  };
-  return u;
-}

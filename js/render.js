@@ -49,10 +49,6 @@ function draw() {
 
   drawDefenses();
 
-  if (G.landingCraft && G.landingCraft.length) {
-    for (const craft of G.landingCraft) drawLandingCraft(craft);
-  }
-
   // shell target markers
   for (const s of G.shells) {
     if (s.kind === 'v2') {
@@ -187,13 +183,21 @@ function draw() {
   for (const u of G.units) {
     if (!inView(u.x, u.y, 64)) continue;
     const hidden = isCamouflaged(u);
-    if (hidden) { ctx.save(); ctx.globalAlpha *= 0.4; }
+    if (hidden) { ctx.save(); ctx.globalAlpha *= 0.75; }
     if (u.t.tank) drawTank(u);
     else if (u.t.atgun) drawATGun(u);
     else if (u.t.aagun) drawAAGun(u);
     else if (u.t.vehicle) drawJeep(u);
     else drawSoldier(u);
     if (hidden) ctx.restore();
+  }
+
+  // overhead pass: the camo nets' scrim canopies paint last of the ground
+  // layer, so they float above the men (and any enemy) sheltered under them —
+  // gaps in the weave let the soldier show through — but still sit below the
+  // tracers/particles/effects that read as being in front of everything.
+  for (const cn of G.camoNests) {
+    if (inView(cn.x, cn.y, 64)) drawCamoNestCanopy(cn);
   }
 
   for (const e of G.enemies) {

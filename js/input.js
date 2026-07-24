@@ -27,7 +27,7 @@ function minefieldPositions(cx, cy) {
 }
 
 function moveOrderMinY() {
-  return G.mode === 'hitsquad' ? 20 : FORWARD_Y;
+  return FORWARD_Y;
 }
 
 function moveOrderValid(x, y) {
@@ -40,11 +40,11 @@ function canReceiveMoveOrders() {
 }
 
 function showForwardLine() {
-  return G && G.mode !== 'hitsquad' && !isAssaultMode();
+  return !!G;
 }
 
 function unitAtWorld(x, y) {
-  if (!G || isAssaultMode()) return null;
+  if (!G) return null;
   for (const u of commandRoster()) {
     const base = u.t.tank ? 26 : u.t.vehicle ? 20 : u.t.gunEmplacement ? 18 : 14;
     if (dist(u, { x, y }) < touchHitRadius(base)) return u;
@@ -68,7 +68,7 @@ function nearestArmorableUnit(x, y) {
 
 // nearest live enemy under a tap, for focus-fire orders (normal defense modes)
 function enemyAtWorld(x, y) {
-  if (!G || isAssaultMode()) return null;
+  if (!G) return null;
   let best = null, bd = Infinity;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
@@ -81,9 +81,6 @@ function enemyAtWorld(x, y) {
 }
 
 const officerCount = () => {
-  if (isAssaultMode()) {
-    return G.enemies.filter(e => !e.dead && (e.type === 'officer' || e.type === 'eoff')).length;
-  }
   // count live officers directly — G.usOfficers is a 0.4s aura cache that lags
   // behind fresh placements, which would let a placement burst slip past the cap
   return G ? G.units.filter(u => !u.dead && u.type === 'officer').length : 0;
@@ -92,8 +89,6 @@ const officerCount = () => {
 const officerLimit = () => (G && G.cardsOwned && G.cardsOwned.has('officercorps')) ? 10 : MAX_OFFICERS;
 
 function attackerTypeStats(p) {
-  if (p.kind === 'aunit') return UNIT_TYPES[p.key];
-  if (p.kind === 'eparadrop') return ENEMY_TYPES.erifle;
   return ENEMY_TYPES[p.key];
 }
 
@@ -102,35 +97,8 @@ function placementValid(p, x, y) {
   if (p.key === 'bodyarmor' || p.key === 'flakarmor') return !!nearestArmorableUnit(x, y);
   if (p.kind === 'support') return y > 20 && y < H - 10;
   if (p.kind === 'egerman') {
-    // testing mode: German units go anywhere on the field, not confined to
-    // the axis campaign's top deploy strip
+    // testing mode: enemy units go anywhere on the field
     if (x < 16 || x > W - 16 || y < 14 || y > H - 14) return false;
-    const t = attackerTypeStats(p);
-    const bulk = t.heavy ? 40 : t.tank ? 34 : t.apc ? 30 : t.vehicle || t.bike ? 26 : 16;
-    for (const e of G.enemies) {
-      const gap = Math.max(bulk, e.t.heavy ? 40 : e.t.tank ? 34 : e.t.vehicle ? 26 : 16);
-      if (dist(e, { x, y }) < gap) return false;
-    }
-    return true;
-  }
-  if (p.kind === 'aunit' || p.kind === 'eunit' || p.kind === 'eparadrop') {
-    if (G.level && G.level.landingCraft) {
-      const craft = landingCraftAt(x, y);
-      if (!craft) return false;
-      const t = attackerTypeStats(p);
-      const bulk = t.heavy ? 40 : t.tank ? 34 : t.apc ? 30 : t.vehicle || t.bike ? 26 : 16;
-      for (const u of craft.onDeck) {
-        if (!u.dead && dist(u, { x, y }) < bulk) return false;
-      }
-      for (const e of G.enemies) {
-        if (e.onCraft && e.onCraft !== craft) continue;
-        const gap = Math.max(bulk, e.t.heavy ? 40 : e.t.tank ? 34 : e.t.vehicle ? 26 : 16);
-        if (dist(e, { x, y }) < gap) return false;
-      }
-      return x >= 16 && x <= W - 16;
-    }
-    const maxY = assaultDeployMaxY(p);
-    if (y < 14 || y > maxY || x < 16 || x > W - 16) return false;
     const t = attackerTypeStats(p);
     const bulk = t.heavy ? 40 : t.tank ? 34 : t.apc ? 30 : t.vehicle || t.bike ? 26 : 16;
     for (const e of G.enemies) {
@@ -225,7 +193,6 @@ function findNearestValidRadial(p, x, y) {
 }
 
 function place(p, x, y) {
-  if (isAssaultMode() && G.phase !== 'build') { SFX.error(); mobileVibrate(14); return; }
   if (!placementValid(p, x, y)) {
     const fallback = (p.kind === 'unit' || p.kind === 'defense') ? findNearestValidRadial(p, x, y) : null;
     if (!fallback) { SFX.error(); mobileVibrate(14); return; }
@@ -278,31 +245,10 @@ function applyPlacement(p, x, y) {
     G.units.push(u);
     maybeSpawnPassenger(u);   // Passenger card: a deployed jeep drops a free grunt
     return u;
-  } else if (p.kind === 'eparadrop') {
-    return placeAxisParatrooper(x, y);
-  } else if (p.kind === 'aunit') {
-    const nation = levelAttackerNation(G.level);
-    const u = makeAttacker(nation, p.key, x, y);
-    if (G.level.landingCraft) {
-      const craft = landingCraftAt(x, y);
-      if (craft) {
-        u.onCraft = craft;
-        u.deckOffX = x - craft.x;
-        u.deckOffY = y - craft.y;
-        craft.onDeck.push(u);
-      }
-    }
-    G.enemies.push(u);
-    return u;
-  } else if (p.kind === 'eunit' || p.kind === 'egerman') {
+  } else if (p.kind === 'egerman') {
     const e = makeEnemy(p.key, x, y);
     G.enemies.push(e);
     return e;
-  } else if (p.key === 'ebarrage') {
-    showBanner('DEUTSCHE ARTILLERIE!');
-    for (let i = 0; i < 10; i++) {
-      scheduleShell(x + rand(-80, 80), y + rand(-65, 65), 1.6 + i * 0.5, 50, 95, true);
-    }
   } else if (p.key === 'dummy') {
     // decoy: fortifyAdd makes each engineer tier add a flat sandbag's worth of
     // HP (660 -> 1320 -> 1980) instead of the usual multiplier. isDummy routes
@@ -370,17 +316,14 @@ function updatePointer(e) {
   mouse.inside = true;
 }
 
-// which soldiers answer to the player: your squad in hit-squad mode, US otherwise
+// which soldiers answer to the player
 function commandRoster() {
-  return G.mode === 'hitsquad' ? G.enemies : G.units;
+  return G.units;
 }
 
 function handleCanvasTap(shiftKey = false) {
   if (!isPlaying()) return;
   const x = mouse.x, y = mouse.y;
-
-  // assault attackers can't be selected or ordered; the toolbar is the whole game
-  if (isAssaultMode()) return;
 
   // select own soldier (vehicles are a bigger click target)
   let picked = null;
@@ -420,18 +363,15 @@ function handleCanvasTap(shiftKey = false) {
     return;
   }
   // click an enemy → focus-fire: every troop in range concentrates on it.
-  // (hit squad players command the Germans, whose targeting is separate.)
-  if (G.mode !== 'hitsquad') {
-    const foe = enemyAtWorld(x, y);
-    if (foe) {
-      G.focusTarget = (G.focusTarget === foe) ? null : foe;  // click again to release
-      if (G.focusTarget) G.texts.push({ x: foe.x, y: foe.y - 18, text: 'FOCUS FIRE', ttl: 1.4 });
-      SFX.click();
-      mobileVibrate(5);
-      return;
-    }
+  const foe = enemyAtWorld(x, y);
+  if (foe) {
+    G.focusTarget = (G.focusTarget === foe) ? null : foe;  // click again to release
+    if (G.focusTarget) G.texts.push({ x: foe.x, y: foe.y - 18, text: 'FOCUS FIRE', ttl: 1.4 });
+    SFX.click();
+    mobileVibrate(5);
+    return;
   }
-  // move selected soldiers (the hit squad ranges the whole field)
+  // move selected soldiers
   if (G.selected.length && moveOrderValid(x, y)) {
     issueMoveOrder(G.selected, x, y);
     SFX.click();
@@ -480,7 +420,7 @@ canvas.addEventListener('pointerdown', e => {
     beginViewPan(e.clientX, e.clientY, mouse.x, mouse.y);
   }
 
-  if (!isPlaying() || isAssaultMode()) return;
+  if (!isPlaying()) return;
   drag = { x0: mouse.x, y0: mouse.y, x1: mouse.x, y1: mouse.y, active: false };
 
   // long-press on mobile → inspect a nearby enemy, or (on empty ground) enter
@@ -714,8 +654,8 @@ canvas.addEventListener('pointerleave', e => {
 function issueMoveOrder(units, x, y) {
   units = units.filter(u => !u.t.fixed);   // staked guns don't take march orders
   if (!units.length) return;
-  // a hit squad ranges the whole field; US soldiers hold behind the forward line
-  const minY = moveOrderMinY() + (G.mode === 'hitsquad' ? 0 : 2);
+  // US soldiers hold behind the forward line
+  const minY = moveOrderMinY() + 2;
   const clampDest = (dx, dy) => ({
     x: clamp(dx, 16, W - 16),
     y: clamp(dy, minY, H - 14),
@@ -781,11 +721,6 @@ document.addEventListener('keydown', e => {
   }
   if (isSandbox() && isPlaying()) {
     if (e.key === ']') { jumpSandboxWave(e.shiftKey ? 5 : e.ctrlKey ? 10 : 1); return; }
-  }
-  if (inBuildPhase() && (e.key === 'Enter' || e.key === ' ')) {
-    e.preventDefault();
-    startAssaultCombat();
-    return;
   }
   const k = e.key.toUpperCase();
   const p = activePlaceables().find(pl => pl.hotkey === k);

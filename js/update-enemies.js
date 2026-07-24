@@ -43,7 +43,6 @@ function updateEnemy(e, dt) {
     updateEnemyChute(e, dt);
     return;
   }
-  if (e.onCraft) return;
   if (e.tutHold) return;   // tutorial: frozen in place until the script releases him
 
   // Shell Shocked: dazed by a mortar hit — no shooting, no advancing, and it

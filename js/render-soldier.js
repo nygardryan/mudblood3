@@ -1015,24 +1015,6 @@ function drawSoldierOverlays(a) {
     }
   }
 
-  // the hit-squad target is marked for death: pulsing gold ring + crosshair ticks
-  if (a.vip) {
-    const pulse = 15 + Math.sin(G.time * 4) * 2;
-    ctx.strokeStyle = '#ffd94a';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(a.x, a.y, pulse, 0, 7); ctx.stroke();
-    ctx.beginPath();
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      ctx.moveTo(a.x + dx * (pulse - 3), a.y + dy * (pulse - 3));
-      ctx.lineTo(a.x + dx * (pulse + 4), a.y + dy * (pulse + 4));
-    }
-    ctx.stroke();
-    ctx.font = 'bold 9px "Courier New", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffd94a';
-    ctx.fillText('TARGET', a.x, a.y - pulse - 5);
-  }
-
   // selection ring
   if (G.selected.includes(a)) {
     drawUnitWeaponRange(a, { bearing: a.face });

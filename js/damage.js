@@ -541,10 +541,6 @@ function damageUnit(u, dmg, from, kind) {
     const saved = hooks && hooks.beforeDeath.length && hooks.beforeDeath.some(fn => fn(u));
     if (!saved) {
       u.dead = true;
-      // when the player fights as the Germans, downed US defenders are his kills
-      if (isAssaultMode() || G.mode === 'hitsquad') {
-        G.kills++;
-      }
       if (u.t.tank) {
         stampWreck(u);
         explode(u.x, u.y, 50, 60, true);
@@ -667,12 +663,8 @@ function damageEnemy(e, dmg, from, kind) {
   }
   if (e.hp <= 0 && !e.dead) {
     e.dead = true;
-    // when attacking, dead Germans are your losses, not your payday —
-    // but the US defenders who scored the kill still gain experience
-    if (!isAssaultMode() && G.mode !== 'hitsquad') {
-      G.kills++;
-      earnTP(e.t.reward);
-    }
+    G.kills++;
+    earnTP(e.t.reward);
     creditKill(from);
     if (e.t.tank) {
       stampWreck(e);

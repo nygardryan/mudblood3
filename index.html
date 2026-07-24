@@ -39,7 +39,6 @@
         </div>
       </div>
       <div class="hud-cluster hud-cluster--ctrl">
-        <button id="start-wave-btn" class="hud-btn hud-btn--go hidden" title="Begin the assault">START WAVE</button>
         <button id="speed-btn" class="hud-btn hidden" title="Game speed">1x</button>
         <button id="pause-btn" class="hud-btn hidden" title="Pause game">PAUSE</button>
       </div>
@@ -85,33 +84,6 @@
               <span class="mm-card-copy">
                 <span class="mm-card-title">ENDLESS</span>
                 <span class="mm-card-desc">Survive endless waves.</span>
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <div class="mm-block">
-          <div class="mm-block-label">CAMPAIGNS</div>
-          <div class="mm-grid mm-grid--campaign">
-            <button id="start-allied" class="mm-card mm-card--allied">
-              <span class="mm-card-glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon transform="translate(0 0.9)" points="12,2.5 14.35,8.76 21.04,9.06 15.8,13.24 17.58,19.69 12,16 6.42,19.69 8.2,13.24 2.96,9.06 9.65,8.76"/></svg></span>
-              <span class="mm-card-copy">
-                <span class="mm-card-title">ALLIED</span>
-                <span class="mm-card-desc">Six US battles, Omaha to Bastogne.</span>
-              </span>
-            </button>
-            <button id="start-axis" class="mm-card mm-card--axis">
-              <span class="mm-card-glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12 Q10.9 8.2 8.6 3.8 L15.4 3.8 Q13.1 8.2 12 12 Z"/><path d="M12 12 Q10.9 8.2 8.6 3.8 L15.4 3.8 Q13.1 8.2 12 12 Z" transform="rotate(90 12 12)"/><path d="M12 12 Q10.9 8.2 8.6 3.8 L15.4 3.8 Q13.1 8.2 12 12 Z" transform="rotate(180 12 12)"/><path d="M12 12 Q10.9 8.2 8.6 3.8 L15.4 3.8 Q13.1 8.2 12 12 Z" transform="rotate(270 12 12)"/></svg></span>
-              <span class="mm-card-copy">
-                <span class="mm-card-title">AXIS</span>
-                <span class="mm-card-desc">Thirteen German offensives. Research units.</span>
-              </span>
-            </button>
-            <button id="start-commando" class="mm-card mm-card--commando">
-              <span class="mm-card-glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><g transform="translate(0 0.3)"><g transform="rotate(45 12 12)"><path d="M10.9 5.2 L12 2.5 L13.1 5.2 V13.2 H10.9 Z"/><rect x="9" y="13.2" width="6" height="1.7" rx="0.5"/><rect x="11.15" y="14.9" width="1.7" height="3.6"/><circle cx="12" cy="19.4" r="1.3"/></g><g transform="rotate(-45 12 12)"><path d="M10.9 5.2 L12 2.5 L13.1 5.2 V13.2 H10.9 Z"/><rect x="9" y="13.2" width="6" height="1.7" rx="0.5"/><rect x="11.15" y="14.9" width="1.7" height="3.6"/><circle cx="12" cy="19.4" r="1.3"/></g></g></svg></span>
-              <span class="mm-card-copy">
-                <span class="mm-card-title">COMMANDO</span>
-                <span class="mm-card-desc">Direct-control strike missions.</span>
               </span>
             </button>
           </div>
@@ -212,90 +184,6 @@
       </div>
       <ul id="leaderboard-select-list" class="leaderboard-list"></ul>
       <button id="leaderboard-back-btn" class="secondary">BACK</button>
-    </div>
-
-    <div id="allied-select" class="overlay mm-screen hidden">
-      <div class="mm">
-        <header class="mm-head">
-          <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>U.S. ARMY · 1944&ndash;45<span class="mm-eyebrow-mark"></span></div>
-          <h1 class="mm-title">ALLIED CAMPAIGN</h1>
-          <p class="mm-brief">A tour of American battles from Normandy to the Ardennes. Beat each battle to unlock the next. Assault missions spend <b>TP</b> each wave to deploy; the finale is a defense of Bastogne. Progress is saved in your browser.</p>
-        </header>
-        <div class="mm-block">
-          <div class="mm-block-label">BATTLES</div>
-          <div id="allied-list" class="intro-btns modes"></div>
-        </div>
-        <div class="mm-footer">
-          <button id="allied-back-btn">BACK</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="allied-briefing" class="overlay hidden">
-      <h1 id="allied-briefing-title"></h1>
-      <p id="allied-briefing-history"></p>
-      <p id="allied-briefing-text"></p>
-      <ul id="allied-briefing-objectives" class="briefing-objectives"></ul>
-      <div class="intro-btns">
-        <button id="allied-briefing-deploy">DEPLOY</button>
-        <button id="allied-briefing-back" class="secondary">BACK</button>
-      </div>
-    </div>
-
-    <div id="axis-select" class="overlay mm-screen hidden">
-      <div class="mm">
-        <header class="mm-head">
-          <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>WEHRMACHT · 1939&ndash;44<span class="mm-eyebrow-mark"></span></div>
-          <h1 class="mm-title">AXIS CAMPAIGN</h1>
-          <p class="mm-brief">A tour of German offensives from Poland 1939 to the Ardennes 1944. Beat each battle to unlock the next. Spend <b>Research Points (RP)</b> to unlock unit types permanently, then spend <b>TP</b> each wave to deploy them. Progress is saved in your browser.</p>
-          <p class="mm-note">Research bank: <b id="axis-rp-balance">0 RP</b></p>
-        </header>
-        <button id="axis-research-btn" class="mm-action">RESEARCH &amp; DEVELOPMENT</button>
-        <div class="mm-block">
-          <div class="mm-block-label">OFFENSIVES</div>
-          <div id="axis-list" class="intro-btns modes"></div>
-        </div>
-        <div class="mm-footer">
-          <button id="axis-back-btn">BACK</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="axis-research" class="overlay hidden">
-      <h1>RESEARCH &amp; DEVELOPMENT</h1>
-      <p>Spend Research Points to permanently unlock unit types for the campaign. Starter units are free; spend TP each wave to deploy them in battle.</p>
-      <p class="axis-rp-line">Available: <b id="axis-research-rp">0 RP</b></p>
-      <div id="axis-research-grid" class="research-grid"></div>
-      <button id="axis-research-back" class="secondary">BACK</button>
-    </div>
-
-    <div id="axis-briefing" class="overlay hidden">
-      <h1 id="axis-briefing-title"></h1>
-      <p id="axis-briefing-history"></p>
-      <p id="axis-briefing-text"></p>
-      <ul id="axis-briefing-objectives" class="briefing-objectives"></ul>
-      <div class="intro-btns">
-        <button id="axis-briefing-deploy">DEPLOY</button>
-        <button id="axis-briefing-research" class="secondary">RESEARCH</button>
-        <button id="axis-briefing-back" class="secondary">BACK</button>
-      </div>
-    </div>
-
-    <div id="commando-select" class="overlay mm-screen hidden">
-      <div class="mm">
-        <header class="mm-head">
-          <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>SPECIAL OPERATIONS · CLASSIFIED<span class="mm-eyebrow-mark"></span></div>
-          <h1 class="mm-title">COMMANDO CAMPAIGN</h1>
-          <p class="mm-brief">Direct-control missions behind enemy lines. You command a small squad — click to select, click to move. No TP, no purchases.</p>
-        </header>
-        <div class="mm-block">
-          <div class="mm-block-label">MISSIONS</div>
-          <div id="commando-list" class="intro-btns modes"></div>
-        </div>
-        <div class="mm-footer">
-          <button id="commando-back-btn">BACK</button>
-        </div>
-      </div>
     </div>
 
     <div id="tutorial-select" class="overlay mm-screen hidden">
@@ -404,7 +292,6 @@
       <p id="go-stats"></p>
       <p class="quote">"The line is held one trench at a time, or not at all."</p>
       <div class="intro-btns">
-        <button id="next-mission-btn" class="hidden">NEXT MISSION</button>
         <button id="go-shop-btn" class="hidden">CARD SHOP</button>
         <button id="restart-btn">RE-ENLIST</button>
         <button id="menu-btn" class="secondary">MAIN MENU</button>
@@ -495,7 +382,6 @@
 <script src="js/input.js"></script>
 <script src="js/codex.js"></script>
 <script src="js/cards.js"></script>
-<script src="js/research.js"></script>
 <script src="js/campaign.js"></script>
 <script src="js/leaderboards.js"></script>
 <script src="js/settings.js"></script>

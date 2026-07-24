@@ -754,10 +754,8 @@ function flakHitChute(e, by) {
   e.hp = 0;
   e.dead = true;
   e.chute = 0;   // canopy is gone; stop drawing him as a man still descending
-  if (!isAssaultMode() && G.mode !== 'hitsquad') {
-    G.kills++;
-    earnTP(e.t.reward);
-  }
+  G.kills++;
+  earnTP(e.t.reward);
   creditKill(by);
   bloodSplat(e.x, e.y, 10);
   spawnCorpse(e);

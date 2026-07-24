@@ -180,25 +180,8 @@ function setStat(labelEl, valEl, label, val) {
 function updateHUD() {
   hud.tp.textContent = isSandbox() ? '∞' : Math.floor(G.tp);
   hud.kills.textContent = G.kills;
-  if (G.mode === 'axis' || G.mode === 'assault') {
-    const phase = G.phase === 'build' ? 'BUILD' : G.phase === 'landing' ? 'LANDING' : 'FIGHT';
-    const waves = assaultWaves(G.level);
-    setStat(hud.waveLabel, hud.waveVal, 'WAVE', G.wave + '/' + waves + ' ' + phase);
-    setStat(hud.breachLabel, hud.breachVal, 'BREAK', G.breaches + '/' + G.level.winBreaches);
-  } else if (G.mode === 'hitsquad') {
-    const left = Math.max(0, G.level.timeLimit - G.time);
-    const m = Math.floor(left / 60), s = Math.floor(left % 60);
-    setStat(hud.waveLabel, hud.waveVal, 'TIME', m + ':' + String(s).padStart(2, '0'));
-    let alive = 0;
-    for (const e of G.enemies) if (!e.dead) alive++;
-    setStat(hud.breachLabel, hud.breachVal, 'MEN', alive + '/' + G.squadTotal);
-  } else if (G.mode === 'allied') {
-    setStat(hud.waveLabel, hud.waveVal, 'WAVE', G.wave + '/' + G.level.waves.length);
-    setStat(hud.breachLabel, hud.breachVal, 'BREACH', G.breaches + '/' + G.level.breachLimit);
-  } else {
-    setStat(hud.waveLabel, hud.waveVal, 'WAVE', String(G.wave));
-    setStat(hud.breachLabel, hud.breachVal, 'BREACH', G.breaches + '/' + G.level.breachLimit);
-  }
+  setStat(hud.waveLabel, hud.waveVal, 'WAVE', String(G.wave));
+  setStat(hud.breachLabel, hud.breachVal, 'BREACH', G.breaches + '/' + G.level.breachLimit);
   // the breach plate runs hot the moment the line is first cracked
   hud.breachBox.classList.toggle('stat--hot', G.breaches > 0);
 
@@ -210,12 +193,6 @@ function updateHUD() {
   el('sandbox-wave-skip').classList.toggle('hidden', !(isSandbox() && !isTestingMode() && isPlaying()));
   el('speed-btn').classList.toggle('hidden', !(running && G && !G.over));
   el('pause-btn').classList.toggle('hidden', !(running && G && !G.over));
-  const startBtn = el('start-wave-btn');
-  if (startBtn) {
-    const showStart = inBuildPhase();
-    startBtn.classList.toggle('hidden', !showStart);
-    startBtn.disabled = !showStart || !G.enemies.some(e => !e.dead);
-  }
 
   if (G.banner) {
     // re-arm the slam-in animation only when the alert text actually changes,
@@ -246,7 +223,7 @@ function updateHUD() {
 }
 
 const TOOLBAR_CATEGORIES = [
-  { id: 'units', label: 'UNITS', filter: p => p.kind === 'unit' || p.kind === 'eunit' || p.kind === 'aunit' || p.kind === 'eparadrop' },
+  { id: 'units', label: 'UNITS', filter: p => p.kind === 'unit' },
   { id: 'abilities', label: 'ABILITIES', filter: p => p.kind === 'support' },
   { id: 'emplacements', label: 'EMPLACEMENTS', filter: p => p.kind === 'defense' },
   { id: 'germans', label: 'GERMANS', filter: p => p.kind === 'egerman' && p.key.startsWith('e') },
@@ -297,8 +274,7 @@ function syncToolbarVisibility() {
   if (!bar) return;
   const hideForSelection = touchUI() && mobileToolbarMinimized && G?.selected.length && !placing;
   const show = toolbarPlaceables.length > 0 && isPlaying() && !hideForSelection
-    && !marqueeSelecting()
-    && !(isAssaultMode() && G.phase !== 'build');
+    && !marqueeSelecting();
   bar.classList.toggle('hidden', !show);
 }
 
@@ -460,7 +436,6 @@ function activePlaceables() {
 
 function selectPlaceable(p) {
   if (!isPlaying()) return;
-  if (isAssaultMode() && G.phase !== 'build') { SFX.error(); mobileVibrate(12); return; }
   // during the tutorial script only the currently-taught items are buyable
   // (covers hotkeys too) — each step publishes its own allow-list
   if (tutorialScriptActive()) {

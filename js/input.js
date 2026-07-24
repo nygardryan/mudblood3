@@ -505,7 +505,7 @@ canvas.addEventListener('pointerdown', e => {
       clearViewPan();
       syncSelectionMobile();
       mobileVibrate(10);
-    }, 350);
+    }, 3000);
   }
 });
 

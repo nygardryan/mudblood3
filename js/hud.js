@@ -249,7 +249,9 @@ const TOOLBAR_CATEGORIES = [
   { id: 'units', label: 'UNITS', filter: p => p.kind === 'unit' || p.kind === 'eunit' || p.kind === 'aunit' || p.kind === 'eparadrop' },
   { id: 'abilities', label: 'ABILITIES', filter: p => p.kind === 'support' },
   { id: 'emplacements', label: 'EMPLACEMENTS', filter: p => p.kind === 'defense' },
-  { id: 'germans', label: 'GERMANS', filter: p => p.kind === 'egerman' },
+  { id: 'germans', label: 'GERMANS', filter: p => p.kind === 'egerman' && p.key.startsWith('e') },
+  { id: 'japanese', label: 'JAPANESE', filter: p => p.kind === 'egerman' && p.key.startsWith('j') },
+  { id: 'italian', label: 'ITALIAN', filter: p => p.kind === 'egerman' && p.key.startsWith('i') },
   { id: 'events', label: 'EVENTS', filter: p => p.kind === 'event' },
 ];
 

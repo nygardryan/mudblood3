@@ -202,7 +202,7 @@ function draw() {
     if (!u.dead && u.t.shotgun && u.shotgunBlastT > 0) drawShotgunBlast(u);
   }
   for (const e of G.enemies) {
-    if (!e.dead && e.t.shotgun && e.shotgunBlastT > 0) drawShotgunBlast(e);
+    if (!e.dead && e.t.shotgun && e.shotgunBlastT > 0 && e.type !== 'ibersa') drawShotgunBlast(e);
   }
 
   // tracers — the round races from muzzle to impact, then the streak fades

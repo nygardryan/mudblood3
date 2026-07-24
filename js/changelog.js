@@ -3,6 +3,23 @@
 // Add a new object to the TOP of this array whenever you ship changes.
 const CHANGELOG = [
   {
+    date: '2026-07-24',
+    title: 'New Faction: Italian Army',
+    changes: [
+      'The Italian Army joins the fight — endless runs can now roll Wehrmacht, Japanese, or Italian forces.',
+      'New Italian units: M91 Moschetto riflemen, Beretta SMG troopers, Breda LMG teams, Carcano sniper rifle, 81mm mortar team, and the Breda 37mm AA gun.',
+      'Italian officers bark orders in their own language and can rally nearby troops.',
+      'New Italian armor: the L3/33 tankette (light scout), M11/39 (medium), and the formidable M13/40 (heavy).',
+      'Body armor mechanic added — some units carry armour that reduces incoming damage until cracked.',
+      'New cards: Frag Grenade, Armor Piercing, Brave, Shellshocked, Rangefinder, and Curtain.',
+      'Flame Tank card now available.',
+      'Dummy decoy unit for misdirection.',
+      'Balance passes: health rebalancing, shotgun cone adjustments, armor tuning, and encampment placement updates.',
+      'Zoom-to-fill view for mobile devices.',
+      'Rendering improvements for defenses, vehicles, and Italian soldiers.',
+    ],
+  },
+  {
     date: '2026-07-23',
     title: 'Japanese Army: More Units',
     changes: [

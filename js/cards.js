@@ -476,8 +476,8 @@ const CARD_UNIQUES = {
     hooks: {},
   },
   impactfuze: {
-    unit: 'grenadier', name: 'Impact Fuze', cost: 10, weight: 3,
-    desc: 'Grenadier frags detonate the instant they land instead of cooking off after a fuse.',
+    unit: 'grenadier', name: 'Impact Fuze', cost: 10, weight: 4,
+    desc: 'Grenadier frags detonate the instant they land instead of cooking off after a fuse. Also halves the throw cooldown.',
     hooks: {},
   },
   // flag-only, like Impact Fuze: the grenade explosion in update.js reads

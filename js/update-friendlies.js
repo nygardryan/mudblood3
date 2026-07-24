@@ -312,8 +312,10 @@ function updateUnit(u, dt) {
       const gt = nearestEnemyInRange(u, 200 * (1 + (u.rank || 0) * 0.10) * fogMult(), e => dist2(u, e) > 60 * 60);
       if (gt && !friendlyNearPoint(gt.x, gt.y, 55, u)) {
         // grenades are a rare, heavy punch — the carbine does the daily work.
-        // Veterans throw more often, tighter and harder.
-        u.grenCd = rand(9.6, 13.9) * (1 - u.rank * 0.08);
+        // Veterans throw more often, tighter and harder. Impact Fuze halves the
+        // throw cooldown too: no cook-off means faster follow-up throws.
+        const impactFuzeCd = G.cardsOwned && G.cardsOwned.has('impactfuze') ? 0.5 : 1;
+        u.grenCd = rand(9.6, 13.9) * (1 - u.rank * 0.08) * impactFuzeCd;
         u.grenThrowT = 0.35;
         markCamoFired(u);
         const sc = 12 * (1 - u.rank * 0.08);

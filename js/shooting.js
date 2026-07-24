@@ -48,9 +48,11 @@ function tryGoProne(u, chance) {
 function suppress(u, chance, hold) {
   if (!u || u.dead || !u.t || u.chute > 0) return;
   if (u.t.tank || u.t.vehicle || u.t.apc || u.t.bike || u.t.fixed) return;
-  // fanatics don't take cover for a machine gun any more than for a near miss
-  // (same rule as tryGoProne) — a BAR cannot pin Japanese infantry
-  if (u.t.faction === 'jp') return;
+  // Two foes can't be pinned at all. Japanese fanatics don't take cover for a
+  // machine gun any more than for a near miss (same rule as tryGoProne), and
+  // the dead don't take cover for anything — the Horde's whole identity is
+  // that it never stops closing, and a single BAR was freezing it solid.
+  if (u.t.faction === 'jp' || u.t.faction === 'zo') return;
   if (u.moveTo) return;
   if (braveStandsFast(u)) return;
   if (Math.random() >= chance) return;
@@ -75,9 +77,20 @@ function suppressArea(actor, target, hold) {
   actor.face = Math.atan2(target.y - actor.y, target.x - actor.x);
   const mx = actor.x + Math.cos(actor.face) * (actor.t.gun + 3);
   const my = actor.y + Math.sin(actor.face) * (actor.t.gun + 3);
+  // All 3 tracers must leave from the actual muzzle tip (mx, my) — that's
+  // where the sprite's barrel is drawn, so nudging the origin (as a prior
+  // version of this fix did) makes rounds appear to float off the gun.
+  // Scattering wide sideways offsets from one shared origin is what read as
+  // a shotgun blast; instead walk the impacts long/short along the line of
+  // fire (fx, fy) with only a narrow lateral wobble (px, py), like a real
+  // burst's beaten zone rather than a fan of pellets.
+  const fx = Math.cos(actor.face), fy = Math.sin(actor.face);
+  const px = -Math.sin(actor.face), py = Math.cos(actor.face);
   for (let i = 0; i < SUP_FIRE_TRACERS; i++) {
-    const hx = target.x + rand(-SUP_FIRE_SPREAD, SUP_FIRE_SPREAD);
-    const hy = target.y + rand(-SUP_FIRE_SPREAD * 0.7, SUP_FIRE_SPREAD * 0.7);
+    const along = rand(-SUP_FIRE_SPREAD, SUP_FIRE_SPREAD);
+    const lateral = rand(-SUP_FIRE_SPREAD * 0.35, SUP_FIRE_SPREAD * 0.35);
+    const hx = target.x + fx * along + px * lateral;
+    const hy = target.y + fy * along + py * lateral;
     G.tracers.push({ x1: mx, y1: my, x2: hx, y2: hy, ttl: 0.09, life: 0.09 });
     G.particles.push({ x: hx, y: hy, vx: rand(-18, 18), vy: rand(-55, -15), ttl: 0.3, grav: 200, size: 1.3, color: '#6e6046' });
   }

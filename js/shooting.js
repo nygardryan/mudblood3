@@ -36,33 +36,9 @@ function tryGoProne(u, chance) {
   u.prone = rand(2.5, 4.5) * (1 - rank * 0.15);
 }
 
-function coverBlock(target) {
-  // friendly units near sandbags dodge some incoming fire (vehicles don't duck)
-  if (target.side !== 'us' || target.t.tank || target.t.vehicle) return false;
-  // a scarecrow doesn't take cover — it just soaks the round (see damageDummy)
-  if (target.isDummy) return false;
-  // bunker walls first: they stop more fire and barely notice small arms
-  for (const b of G.bunkers) {
-    const r = b.up2 ? 38 : b.up ? 34 : 30;
-    if (b.hp > 0 && dist2(b, target) < r * r) {
-      if (Math.random() < (b.up2 ? 0.92 : b.up ? 0.85 : 0.75)) { b.hp -= b.up ? 1 : 2; return true; }
-    }
-  }
-  for (const s of G.sandbags) {
-    // fortified bags stop more and shrug off hits better; hardened, more still
-    const r = s.up2 ? 33 : s.up ? 30 : 26;
-    if (s.hp > 0 && dist2(s, target) < r * r) {
-      if (Math.random() < (s.up2 ? 0.78 : s.up ? 0.65 : 0.5)) { s.hp -= s.up2 ? 2 : s.up ? 3 : 4; return true; }
-    }
-  }
-  // watch tower: spotters call out incoming fire, a flat 10% dodge for anyone under it
-  for (const wt of G.watchtowers) {
-    if (wt.hp > 0 && dist2(wt, target) < WATCHTOWER_AURA * WATCHTOWER_AURA) {
-      if (Math.random() < 0.1) { wt.hp -= 3; return true; }
-    }
-  }
-  return false;
-}
+// cover is geometric now: rounds are physical (js/ballistics.js) and a wall
+// only stops what actually crosses it. The old proximity-dodge coverBlock is
+// gone; the watch tower's spotter dodge lives on in spotterDodge (ballistics).
 
 // camo nest: allied infantry standing in its zone are invisible to enemy
 // targeting until they open fire, then stay exposed for a few seconds after
@@ -120,45 +96,42 @@ function fireShot(shooter, target, opts) {
   const cardHooks = shooter.side === 'us' && G.cardHooks ? G.cardHooks[shooter.type] : null;
   if (cardHooks && cardHooks.accMult !== 1) acc = Math.min(0.98, acc * cardHooks.accMult);
 
-  let hx = target.x, hy = target.y;
   let hit = Math.random() < acc;
   let forced = false;
   if (cardHooks) {
     for (const fn of cardHooks.beforeShot) if (fn(shooter)) { hit = true; forced = true; }
     for (const fn of cardHooks.afterShot) fn(shooter, hit);
   }
-  if (!hit) { hx += rand(-22, 22); hy += rand(-16, 22); }
 
-  G.tracers.push({
-    x1: mx, y1: my, x2: hx, y2: hy, ttl: 0.09, life: 0.09,
-    fromBar: shooter.type === 'gunner',
-  });
-
+  // The roll picks the AIM POINT; the round itself is a physical projectile
+  // (js/ballistics.js) that flies there and hits whatever crosses it first —
+  // cover walls, the ground, or any body on either side.
+  const tp = actorProfile(target);
+  let aim;
   if (hit) {
-    // a prone man is a small target: 60% of rounds kick dirt over him.
-    // Rolled separately from sandbag cover, so the two stack multiplicatively.
-    // A forced sure shot (Crack Shot) ignores both — it is guaranteed to land.
-    if (!forced && target.prone > 0 && Math.random() < 0.6) {
-      G.particles.push({ x: hx + rand(-6, 6), y: hy + 4, vx: rand(-25, 25), vy: rand(-55, -20), ttl: 0.3, grav: 200, size: 1.3, color: '#6e6046' });
-      return;
-    }
-    if (!forced && coverBlock(target)) {
-      G.particles.push({ x: hx, y: hy + 6, vx: rand(-20, 20), vy: -40, ttl: 0.3, grav: 150, size: 1.5, color: '#b8a878' });
-      return;
-    }
-    let dmg = t.dmg * rand(0.75, 1.25) * (opts && opts.dmgMult ? opts.dmgMult : 1);
-    if (target.t && target.t.tank) dmg *= 0.04;   // rifle rounds ping off armor
-    else if (target.t && target.t.apc) dmg *= 0.3; // halftrack plate shrugs off most of it
-    // Armor Piercing (gunner unique): AP belt punches through light armor,
-    // so jeeps, halftracks and motorcycles take the multiplier on top
-    dmg *= armorPiercingMult(shooter, target);
-    if (target.side === 'us') damageUnit(target, dmg, shooter, 'bullet');
-    else damageEnemy(target, dmg, shooter, 'bullet');
+    aim = { x: target.x, y: target.y, z: tp.h * 0.55 };
   } else {
-    G.particles.push({ x: hx, y: hy, vx: rand(-15, 15), vy: rand(-50, -10), ttl: 0.25, grav: 200, size: 1.2, color: '#6e6046' });
+    // a missed round still goes SOMEWHERE: off to one side, and either short
+    // into the dirt (or the sandbags) in front of the mark, or long over it
+    const ang = shooter.face;
+    const perpX = -Math.sin(ang), perpY = Math.cos(ang);
+    const lat = rand(9, 24) * (Math.random() < 0.5 ? -1 : 1);
+    if (Math.random() < 0.5) {
+      const f = rand(0.75, 0.95);
+      aim = {
+        x: shooter.x + (target.x - shooter.x) * f + perpX * lat,
+        y: shooter.y + (target.y - shooter.y) * f + perpY * lat,
+        z: 0,
+      };
+    } else {
+      aim = { x: target.x + perpX * lat, y: target.y + perpY * lat, z: tp.h + rand(4, 16) };
+    }
     // a near miss is warning enough to hit the dirt
     tryGoProne(target, 0.4);
   }
+  spawnBullet(shooter, target, t, {
+    dmgMult: opts && opts.dmgMult, sureHit: forced,
+  }, aim);
 }
 
 // generic weapon logic shared by both sides
@@ -169,7 +142,8 @@ function runWeapon(actor, target, dt, buffs) {
   if (actor.burstLeft > 0) {
     actor.burstTimer -= dt;
     if (actor.burstTimer <= 0) {
-      if (target) fireShot(actor, target, buffs);
+      // mid-burst a friend may wander into the line: swallow that round
+      if (target && shotClear(actor, target)) fireShot(actor, target, buffs);
       actor.burstLeft--;
       // veteran automatic gunners hold tighter, faster bursts too
       actor.burstTimer = t.burstGap * rofMult;
@@ -177,6 +151,9 @@ function runWeapon(actor, target, dt, buffs) {
     return;
   }
   if (target && actor.cd <= 0) {
+    // trigger discipline: nobody deliberately fires through his own men.
+    // A blocked shooter holds and shops for another mark for a moment.
+    if (!shotClear(actor, target)) { markShotBlocked(actor, target); return; }
     actor.cd = t.rof * rofMult * rand(0.85, 1.15);
     if (t.burst > 1) {
       actor.burstLeft = t.burst;
@@ -319,6 +296,11 @@ function fireShotgun(actor, buffs) {
   // attackers (side 'de') hose defenders in G.units; friendlies hose G.enemies
   const foes = actor.side === 'de' ? G.units : G.enemies;
   const reach2 = (range + 8) * (range + 8);
+  // buckshot is too short-lived to simulate per pellet, but walls still count:
+  // a victim tucked behind cover the pattern can't clear is skipped, and the
+  // wall eats one chip per blast
+  const sgExempt = coverExemptFor(actor);
+  const sgChipped = new Set();
   for (const e of foes) {
     if (e.dead || e.y < 0 || e.chute > 0 || isCamouflaged(e)) continue;
     const d2 = dist2(actor, e);
@@ -328,12 +310,18 @@ function fireShotgun(actor, buffs) {
     const off = Math.abs(angleDiff(ang, actor.face));
     if (off > arc) continue;
 
-    if (e.prone > 0 && Math.random() < 0.6) {
+    if (e.prone > 0 && Math.random() < PRONE_BULLET_DODGE) {
       G.particles.push({ x: e.x + rand(-6, 6), y: e.y + 4, vx: rand(-25, 25), vy: rand(-55, -20), ttl: 0.3, grav: 200, size: 1.3, color: '#6e6046' });
       continue;
     }
-    if (coverBlock(e)) {
-      G.particles.push({ x: e.x, y: e.y + 6, vx: rand(-20, 20), vy: -40, ttl: 0.3, grav: 150, size: 1.5, color: '#b8a878' });
+    const ep = actorProfile(e);
+    const cv = coverHitAlong(mx, my, 5, e.x, e.y, ep.h * 0.55, sgExempt);
+    if (cv) {
+      if (!sgChipped.has(cv.obj)) {
+        sgChipped.add(cv.obj);
+        cv.obj.hp -= COVER_PROFILE[cv.key].chip[cv.tier];
+        G.particles.push({ x: e.x, y: e.y + 6, vx: rand(-20, 20), vy: -40, ttl: 0.3, grav: 150, size: 1.5, color: '#b8a878' });
+      }
       continue;
     }
 

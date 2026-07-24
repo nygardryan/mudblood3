@@ -98,29 +98,30 @@ function draw() {
     }
   }
 
-  // rockets in flight
+  // rockets in flight, lifted by their (shallow) real height
   for (const r of G.rockets) {
     const ang = Math.atan2(r.ty - r.sy, r.tx - r.sx);
+    const ry = r.y - (r.z || 0);
     ctx.strokeStyle = '#2e2c24';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.moveTo(r.x - Math.cos(ang) * 5, r.y - Math.sin(ang) * 5);
-    ctx.lineTo(r.x + Math.cos(ang) * 5, r.y + Math.sin(ang) * 5);
+    ctx.moveTo(r.x - Math.cos(ang) * 5, ry - Math.sin(ang) * 5);
+    ctx.lineTo(r.x + Math.cos(ang) * 5, ry + Math.sin(ang) * 5);
     ctx.stroke();
     ctx.fillStyle = '#ffca5a';
     ctx.beginPath();
-    ctx.arc(r.x - Math.cos(ang) * 6, r.y - Math.sin(ang) * 6, 2, 0, 7);
+    ctx.arc(r.x - Math.cos(ang) * 6, ry - Math.sin(ang) * 6, 2, 0, 7);
     ctx.fill();
   }
 
-  // grenades in flight (arc via fake height), then resting on the ground
+  // grenades in flight (lifted by their real height), then resting on the ground
   for (const g of G.grenades) {
     if (g.landed) {
       drawGrenadeProjectile(g, g.tx, g.ty);
     } else {
       const f = g.t / g.dur;
       const x = g.sx + (g.tx - g.sx) * f;
-      const y = g.sy + (g.ty - g.sy) * f - Math.sin(f * Math.PI) * 34;
+      const y = g.sy + (g.ty - g.sy) * f - (g.z || 0);
       drawGrenadeProjectile(g, x, y);
     }
   }
@@ -215,6 +216,34 @@ function draw() {
   }
   for (const e of G.enemies) {
     if (!e.dead && e.t.shotgun && e.shotgunBlastT > 0) drawShotgunBlast(e);
+  }
+
+  // physical rounds in flight: a short streak smeared back along the velocity,
+  // drawn at (x, y - z) with a faint shadow dot on the ground track below
+  for (const b of G.bullets) {
+    if (b.done) continue;
+    if (cullOn && (b.x < cullX0 - 30 || b.x > cullX1 + 30 || b.y < cullY0 - 30 || b.y > cullY1 + 30)) continue;
+    const k = 0.012;
+    const hx = b.x, hy = b.y - b.z;
+    const tx = b.x - b.vx * k, ty = (b.y - b.vy * k) - (b.z - b.vz * k);
+    if (b.z > 3) {
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.beginPath(); ctx.arc(b.x, b.y, 1.5, 0, 7); ctx.fill();
+    }
+    if (b.shell) {
+      ctx.strokeStyle = '#2e2c24';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
+      ctx.fillStyle = '#ffca5a';
+      ctx.beginPath(); ctx.arc(hx, hy, 2, 0, 7); ctx.fill();
+    } else {
+      const rgb = b.fromBar ? '255,230,160' : '255,235,170';
+      ctx.strokeStyle = `rgba(${rgb},0.8)`;
+      ctx.lineWidth = b.fromBar ? 1.6 : 1.2;
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,250,214,0.95)';
+      ctx.beginPath(); ctx.arc(hx, hy, b.fromBar ? 1.3 : 1.1, 0, 7); ctx.fill();
+    }
   }
 
   // tracers — the round races from muzzle to impact, then the streak fades

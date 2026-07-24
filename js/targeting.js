@@ -19,6 +19,7 @@ function nearestEnemyInRange(u, range, pred) {
   let best = null, bd = range * range;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
+    if (e === u._losSkip && u._losSkipUntil > G.time) continue;   // friend in the fire line just now
     if (pred && !pred(e)) continue;
     const d = dist2(u, e);
     if (d < bd) { bd = d; best = e; }
@@ -114,6 +115,7 @@ function primaryEnemyTarget(u, range) {
   if (focus) return focus;
   const c = u._tgt;
   if (c && u._tgtUntil > G.time && !c.dead && !(c.y < 0) && !(c.chute > 0)
+      && !(c === u._losSkip && u._losSkipUntil > G.time)
       && dist2(u, c) <= range * range) {
     return c;
   }
@@ -121,6 +123,7 @@ function primaryEnemyTarget(u, range) {
   let best = null, bd = range * range;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
+    if (e === u._losSkip && u._losSkipUntil > G.time) continue;   // friend in the fire line just now
     const d = dist2(u, e);
     if (d < bd) { bd = d; best = e; }
   }
@@ -134,6 +137,7 @@ function primaryEnemyTarget(u, range) {
 // eligibility so a cached pick can never be one the fresh scan would reject.
 function stillTargetableUnit(e, c, r2) {
   if (!c) return false;
+  if (c === e._losSkip && e._losSkipUntil > G.time) return false;
   if (c.isDummy) {
     return c.hp > 0 && !(e.dummyBlind && e.dummyBlind.has(c.id)) && dist2(e, c) <= r2;
   }
@@ -495,6 +499,7 @@ function nearestUnitInRange(e, range, pred) {
   let best = null, bd = range * range;
   for (const u of G.units) {
     if (u.dead || isCamouflaged(u)) continue;
+    if (u === e._losSkip && e._losSkipUntil > G.time) continue;   // friend in the fire line just now
     if (pred && !pred(u)) continue;
     const d = dist2(e, u);
     if (d < bd) { bd = d; best = u; }
@@ -503,6 +508,7 @@ function nearestUnitInRange(e, range, pred) {
   // has already put rounds into one and seen through the ruse (damageDummy)
   for (const dm of G.dummies) {
     if (dm.hp <= 0 || (e.dummyBlind && e.dummyBlind.has(dm.id))) continue;
+    if (dm === e._losSkip && e._losSkipUntil > G.time) continue;
     if (pred && !pred(dm)) continue;
     const d = dist2(e, dm);
     if (d < bd) { bd = d; best = dm; }

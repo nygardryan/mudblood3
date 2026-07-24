@@ -591,9 +591,9 @@ function updateATGun(u, dt) {
   if (target.t.tank) scatter *= 0.80;
   else scatter *= 0.90;
   scatter = Math.max(11, scatter * 0.8 * (spec.scatterMult || 1));
-  scheduleShell(
+  fireDirectShell(u,
     target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
-    0.45, spec.r, spec.shellDmg * (1 + u.rank * 0.06), false, u);
+    { speed: SHELL_SPEED_ATGUN, r: spec.r, dmg: spec.shellDmg * (1 + u.rank * 0.06) });
   u.cd = u.t.rof * (1 - u.rank * 0.08) * rand(0.85, 1.15);
 }
 
@@ -674,10 +674,10 @@ function fireFlakGround(u, target, d) {
   // barrel-flat fire is tight but not perfect; a slow-walking man barely leads
   const scatter = Math.max(6, (10 + d * 0.05) * (1 - (u.rank || 0) * 0.08));
   const lead = 0.15;
-  scheduleShell(
+  fireDirectShell(u,
     target.x + (target.vx || 0) * lead + rand(-scatter, scatter),
     target.y + (target.vy || 0) * lead + rand(-scatter, scatter),
-    0.15, AA_GROUND_HITR, AA_GROUND_DMG * (1 + (u.rank || 0) * 0.06), false, u);
+    { speed: SHELL_SPEED_AA, r: AA_GROUND_HITR, dmg: AA_GROUND_DMG * (1 + (u.rank || 0) * 0.06) });
 }
 
 function fireFlakBurst(u, target, spec, d) {
@@ -849,7 +849,7 @@ function updateTankCombat(a, dt) {
     if (a.burstTimer <= 0) {
       const cone = a.t.fireCone;
       const inCone = t => !cone || inFireCone(a, t, a.turret, cone.arc);
-      if (a.mgTarget && !a.mgTarget.dead && inCone(a.mgTarget)) {
+      if (a.mgTarget && !a.mgTarget.dead && inCone(a.mgTarget) && shotClear(a, a.mgTarget)) {
         // a veteran crew keeps the coax on target too
         const r = a.rank || 0;
         fireShot(a, a.mgTarget, { weapon: mgSpec, accBonus: r * 0.08, dmgMult: 1 + r * 0.04 });
@@ -924,8 +924,8 @@ function updateTankCombat(a, dt) {
     const d = dist(a, target);
     // a veteran gunner lays shells on the mark and hits harder
     const scatter = Math.max(18, 16 + d * 0.055) * (1 - (a.rank || 0) * 0.08);
-    scheduleShell(target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
-      0.7, 45, a.t.shellDmg * (1 + (a.rank || 0) * 0.06), false, a);
+    fireDirectShell(a, target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
+      { speed: SHELL_SPEED_TANK, r: 45, dmg: a.t.shellDmg * (1 + (a.rank || 0) * 0.06) });
     a.wpn = 'mg';
     a.cd = tankReload(a);
   } else {

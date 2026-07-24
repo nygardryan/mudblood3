@@ -150,6 +150,7 @@ function newGame(level, difficulty) {
     shells: [],      // incoming ordnance {x,y,timer,r,dmg,big}
     grenades: [],    // thrown grenades in flight
     shrapnel: [],    // Frag Grenades card: fragments flung from a grenadier blast
+    bullets: [],     // physical rounds in flight — small arms + direct-fire shells (js/ballistics.js)
     rockets: [],     // bazooka rockets in flight
     biles: [],       // Spitter corrosive-bile globs in flight (Horde faction)
     planes: [],      // aircraft: friendly strafing runs, transports, enemy bombers

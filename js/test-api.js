@@ -104,6 +104,7 @@ const TEST = {
       medals: G.medalsEarned,
       units: tally(G.units),
       enemies: tally(G.enemies),
+      bullets: G.bullets.length,
     };
   },
 

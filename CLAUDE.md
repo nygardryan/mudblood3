@@ -132,6 +132,23 @@ TEST.startWave()                   // diagnoses instead of silently no-oping
 TEST.stepUntil(g => g.over || g.breaches > 0 || !g.enemies.some(e => !e.dead), 120)
 ```
 
+**Ballistics** (`js/ballistics.js`): bullets and direct-fire shells are physical
+projectiles in `G.bullets` with a height axis (`z`, drawn at `y - z`; ground is
+z 0). The to-hit roll still happens at fire time in `fireShot` — it picks the
+*aim point* — but the round then flies (~1050 px/s) and hits the first thing
+crossing its path: the ground, a cover wall (`COVER_PROFILE` heights in
+`js/constants.js`; ammo crates/mines/watchtowers never block), or ANY body on
+either side — **full friendly fire**. The old `coverBlock` proximity dodge is
+gone; cover only protects what is geometrically behind it, and every stopped
+round chips the wall's HP. Shooters hold fire instead of deliberately firing
+through their own standing men (`shotClear`; blocked shooters set `_losSkip`
+and retarget). Tank/AT/leveled-AA shells fly flat via `fireDirectShell` and
+explode on whatever ends the flight (a sandbag wall eats the shell); grenades/
+mortars/bile arc over walls unchanged; `explode()` still damages everything in
+radius with no occlusion. `TEST.state().bullets` counts rounds in flight — note
+a `TEST.step()` after a deploy now needs a beat (~0.2s) of flight time before
+damage lands.
+
 Useful internals when TEST isn't enough: game state is the global `G`
 (`js/state.js:105` for its shape), `update(dt)` steps the sim, `draw()`
 renders, level catalog is `LEVELS`, unit catalogs are `UNIT_TYPES` /

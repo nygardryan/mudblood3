@@ -39,6 +39,34 @@ const GRENADE_CATCH_RANGE = 34;         // how close a grenadier must be to a la
 const V2_ROCKET_ARC = 130;              // cruise altitude of the V2 warhead between boost and terminal dive
 const BOMB_FALL_ARC = 300;              // apparent release altitude of a bomber's stick as it falls onto the field
 
+// ---- ballistics: physical projectile flight (js/ballistics.js) -------------
+// Bullets and direct-fire shells are real projectiles with a height axis:
+// z = height above the ground in px, drawn at (x, y - z), ground at z = 0.
+// The to-hit roll still happens at fire time — it picks the AIM POINT — so
+// open-field accuracy matches the old hitscan numbers; geometry only lets
+// cover, the ground, and bystanders (either side) intercept the round.
+const BULLET_SPEED = 1050;         // small arms, px/s
+const SHELL_SPEED_TANK = 520;      // direct-fire HE, px/s
+const SHELL_SPEED_ATGUN = 700;
+const SHELL_SPEED_AA = 700;
+const BULLET_INTENT_R_BONUS = 4;   // extra hit radius for the round's intended target
+const PRONE_BULLET_DODGE = 0.5;    // flat per-round dodge for a prone silhouette
+const LOS_SKIP_TTL = 1.5;          // seconds a blocked shooter shops for another target
+// cover collision profiles: AABB half extents around the object's ground point,
+// wall height by fortify tier [base, up, up2], HP chipped per stopped bullet,
+// and the radius inside which a shooter fires OVER the wall (his own parapet).
+// Ammo crates, mines and watchtowers never block — crates/mines are flat and a
+// tower is an open leg frame.
+const COVER_PROFILE = {
+  sandbags:  { hx: 20, hy: 7,  h: [11, 14, 16], chip: [1.5, 1.0, 0.75], fireOverR: 30 },
+  bunkers:   { hx: 28, hy: 11, h: [22, 22, 22], chip: [0.4, 0.25, 0.15], fireOverR: 40 },
+  camoNests: { hx: 28, hy: 11, h: [10, 10, 10], chip: [1.5, 1.5, 1.5],  fireOverR: 30 },
+  wires:     { hx: 34, hy: 7,  h: [3, 3, 3],    chip: [0.5, 0.5, 0.5],  fireOverR: 30 },
+};
+// odds a round entering the bunker's slit face (traveling down-field) threads
+// the firing slit and reaches the garrison, by fortify tier
+const BUNKER_SLIT_PASS = [0.20, 0.12, 0.07];
+
 // economy: seconds between +1 TP supply-trickle ticks. Lower = the player
 // banks TP faster to place more units and experiment with defenses.
 const TP_TRICKLE_INTERVAL = 3;

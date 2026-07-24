@@ -155,15 +155,26 @@ function update(dt) {
   // aircraft: friendly strafing passes, transports, and enemy bombers
   for (const p of G.planes) updatePlane(p, dt);
 
-  // rockets in flight
+  // rockets in flight: near-flat trajectory, so a wall between launcher and
+  // mark eats the rocket — it detonates on the cover instead of the target
   for (const r of G.rockets) {
+    const ox = r.x != null ? r.x : r.sx, oy = r.y != null ? r.y : r.sy;
+    const oz = r.z != null ? r.z : 6;
     r.t += dt;
     const f = Math.min(r.t / r.dur, 1);
     r.x = r.sx + (r.tx - r.sx) * f;
     r.y = r.sy + (r.ty - r.sy) * f;
+    r.z = 6 + Math.sin(f * Math.PI) * 8;
+    if (r._exempt === undefined) r._exempt = coverExemptFor(r.by || { x: r.sx, y: r.sy });
+    const cv = coverHitAlong(ox, oy, oz, r.x, r.y, r.z, r._exempt);
+    if (cv) {
+      r.done = true;
+      explode(ox + (r.x - ox) * cv.t, oy + (r.y - oy) * cv.t, r.r, r.dmg, false, r.by);
+      continue;
+    }
     if (Math.random() < 0.7) {
       G.particles.push({
-        x: r.x, y: r.y, vx: rand(-8, 8), vy: rand(-8, 8),
+        x: r.x, y: r.y - r.z, vx: rand(-8, 8), vy: rand(-8, 8),
         ttl: rand(0.2, 0.45), grav: -30, size: rand(1.5, 2.5),
         color: pick(['#9a9384', '#7d766a', '#b0a898']),
       });
@@ -195,7 +206,11 @@ function update(dt) {
   for (const g of G.grenades) {
     if (!g.landed) {
       g.t += dt;
+      // real height for the renderer; the arc apex (34) clears every wall,
+      // which is exactly why a grenade is the answer to dug-in cover
+      g.z = Math.sin(Math.min(g.t / g.dur, 1) * Math.PI) * 34;
       if (g.t >= g.dur) {
+        g.z = 0;
         g.landed = true;
         const impactFuze = g.by && g.by.type === 'grenadier' && G.cardsOwned && G.cardsOwned.has('impactfuze');
         if (impactFuze) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); maybeFragShrapnel(g); }
@@ -251,6 +266,9 @@ function update(dt) {
     }
   }
 
+  // physical rounds in flight — small arms and direct-fire shells
+  updateBullets(dt);
+
   // breaches: a defeat marker when defending, the objective when attacking.
   // a hit squad has nowhere to breach to — its work is on the field.
   if (G.mode !== 'hitsquad') for (const e of G.enemies) {
@@ -297,6 +315,7 @@ function update(dt) {
   compactInPlace(G.shells, s => !s.done);
   compactInPlace(G.grenades, g => !g.done);
   compactInPlace(G.shrapnel, sh => !sh.done);
+  compactInPlace(G.bullets, b => !b.done);
   compactInPlace(G.rockets, r => !r.done);
   compactInPlace(G.biles, b => !b.done);
   compactInPlace(G.planes, p => !p.done);

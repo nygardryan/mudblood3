@@ -84,14 +84,18 @@ own signature trait, so they aren't reskins:
 - `iuff` (officer) — `steady:true` + `avantiCmd:true`: on a cooldown he screams
   AVANTI (`italianAvantiCommand`), rallying routers and surging the men near him.
   The linchpin; kill him and the line collapses.
-- `ibersa` (Bersagliere) — `runner:true` (never stops to shoot, always closing)
-  + `steadier:true` (a mobile morale anchor for the Fanti around him).
+- `ibersa` (Bersagliere) — an elite close-assault `shotgun` unit: runs the field
+  fast to get inside buckshot range, then STOPS and fights (the enemy-shotgun AI
+  branch). Also `steadier:true` — a mobile morale anchor for the Fanti near him.
 - `ifolgore` (Folgore) — elite, tough, grenade-armed, and also a `steadier`.
 - `ibreda` (Breda 30) — `jams:true`: periodic stoppages (`weaponJammed`) — it
   can reposition but not fire. The only unreliable automatic weapon in the game.
 - `il3` (L3 Lf) — a **flamethrower tankette** (`tankFlame` spec): the only
   flame-throwing armor any faction fields. Routes through the same `tankFlame`/
   `updateTankCombat` path as the player's Flame Tank card, generalized to enemies.
+  Because its weapon is point-blank, `updateTank` HALTS it (`flameTankHalts`) once
+  a defender is inside flame reach so it burns from a standstill instead of
+  driving through the line; it rolls on again when nothing's in range.
 It tops out at the M13/40 medium (`im13`) and casemate Semovente (`isemo`) — no
 heavy tank; the armor threat is the early flame-tankette swarm. `deploy` spawns any of them
 (they're in `TESTING_ITALIAN_PLACEABLES`); wave spawning routes through

@@ -551,10 +551,22 @@ function italianAvantiCommand(e, dt) {
 }
 
 function updateTank(e, dt) {
-  // grind forward, slower than infantry, ignores wire — and fires on the move
+  // grind forward, slower than infantry, ignores wire — and fires on the move.
+  // A flame tankette is the exception: its weapon is point-blank, so it HALTS to
+  // burn once a defender is inside flame reach instead of driving through the
+  // line and out the bottom. It rolls on again the moment nothing's in range.
+  if (e.t.tankFlame && flameTankHalts(e)) { updateTankCombat(e, dt); return; }
   const spd = e.t.speed * (e.t.heavy ? 0.85 : 1);
   e.y += spd * dt;
   updateTankCombat(e, dt);
+}
+
+// true when a defender sits inside ~90% of the flame tankette's reach — the cue
+// to stop and spray rather than keep closing
+function flameTankHalts(e) {
+  const fl = e.t.tankFlame;
+  const r = unitRange(e, fl.range) * fogMult() * 0.9;
+  return !!nearestUnitInRange(e, r);
 }
 
 // ---- motorcycle & sidecar: races down the field, then the crew dismounts

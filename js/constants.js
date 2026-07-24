@@ -551,7 +551,7 @@ Object.assign(ENEMY_TYPES, {
     // short range and washes the line in fire (`tankFlame`), backed by a hull MG.
     // Tiny, thin-skinned, and fast — and it swarms in early. A wall of flame on
     // tracks is the Italian answer to a dug-in line.
-    name: 'L3 Lf Tankette', hp: 360, speed: 20, range: 112, dmg: 0, acc: 0,
+    name: 'L3 Lf Tankette', hp: 360, speed: 14, range: 112, dmg: 0, acc: 0,
     rof: 3.4, burst: 1, burstGap: 0, reward: 8,
     color: '#7e7a5a', gun: 0, sfx: 'boom', priority: 0, tank: true, light: true, faction: 'it',
     fireCone: { arc: 0.30 },
@@ -628,7 +628,7 @@ const ENEMY_INFO = {
   iuff: 'The linchpin. His presence stiffens the troops AND steadies the waverers around him — no rout while he lives. On a cadence he screams "AVANTI!", rallying any routing men and surging the whole knot around him into a charge. Kill him first and the sector caves in.',
   iflame: 'Lanciafiamme operator. Burns through wire, sandbags, and flesh — his own men included. A committed assault man who doesn\'t break.',
   ifolgore: 'Folgore paratrooper — elite, tough, grenade-armed, and utterly steady. Fast, aggressive, never wavers, and steadies the shaky men around him.',
-  il3: 'L3/35 Lf flamethrower tankette — the only flame-throwing armor on the field. It drives into short range and washes your line in fire. Thin-skinned and fast, and it comes in a swarm; kill it before it closes or burn with it.',
+  il3: 'L3/35 Lf flamethrower tankette — the only flame-throwing armor on the field. It grinds up to your line, halts at point-blank range, and washes the trench in fire. Thin-skinned and it comes in a swarm; kill it before it closes or burn with it.',
   im13: 'M13/40 medium tank. A 47mm gun and riveted armor — the heaviest Italy fields in numbers. Slow. Use AT weapons.',
   isemo: 'Semovente 75/18 assault gun. A low turretless casemate and a punchy 75mm — the best AT the Italians bring. Hunts your armor from range.',
 };

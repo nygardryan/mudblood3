@@ -48,17 +48,18 @@ workflow.
     - The **Ufficiale** is the linchpin — his presence steadies the waverers, and
       on a cadence he screams **"AVANTI!"**, rallying anyone mid-rout and surging
       the whole knot into a charge. Shoot him first and watch the sector cave in.
-    - The plumed **Bersaglieri** are elite **runners** — they never stop to shoot,
-      always closing — and they double as **mobile morale anchors**, steadying the
+    - The plumed **Bersaglieri** are elite **close-assault shotgunners** — they
+      run the field to get inside buckshot range, then stop and shred your line at
+      point-blank. They also double as **mobile morale anchors**, steadying the
       Fanti around them even with no officer. The tough **Folgore** paratroopers
       steady the line too, and neither ever breaks.
     - The **Breda 30** machine gun is authentically unreliable: it **jams** often,
       falling silent mid-fight while it clears the stoppage.
     - Their armor is the **L3 Lf flame tankette** — the only flame-throwing armor
-      on the field. Thin, fast, and swarming in early, it drives into short range
-      and washes your line in fire. Heavier threats (the M13/40 medium, the
-      casemate Semovente assault gun) show up later, but there's no heavy tank —
-      the danger is the wall of fire on tracks.
+      on the field. Thin-skinned and swarming in early, it grinds up to your line,
+      halts at point-blank, and washes the trench in fire. Heavier threats (the
+      M13/40 medium, the casemate Semovente assault gun) show up later, but
+      there's no heavy tank — the danger is the wall of fire on tracks.
   Pick a difficulty before you deploy:
   **Sandbox** (unlimited TP, free purchases; **+1 / +5 / +10** HUD buttons or **] / Shift+] / Ctrl+]** to jump ahead and spawn later waves), **Easy** (full income — the default),
   **Medium** (66% income from kills, trickle, and officers), or **Hard** (33%

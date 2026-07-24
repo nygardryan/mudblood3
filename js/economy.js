@@ -30,6 +30,7 @@ function earnTP(amount, kind = 'kill') {
     }
   }
   G.tp += amount * mult;
+  if (G.recap) G.recap.tpEarned += amount * mult;
 }
 
 function isSandbox() {
@@ -45,7 +46,9 @@ function canAffordTP(cost) {
 }
 
 function spendTP(cost) {
-  if (!isSandbox()) G.tp -= cost;
+  if (isSandbox()) return;
+  G.tp -= cost;
+  if (G.recap) G.recap.tpSpent += cost;
 }
 
 // War Surplus: the 25% cut is rounded up, so even a 3 TP rifleman still

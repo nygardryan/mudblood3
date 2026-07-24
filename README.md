@@ -223,6 +223,7 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/campaign.js` — tutorial progress
 - `js/leaderboards.js` — endless leaderboards
 - `js/settings.js` — settings
+- `js/recap.js` — post-game After-Action Report (per-run stat tracking + recap screen)
 - `js/flow.js` — menus & game flow
 - `js/main.js` — event wiring, frame loop & bootstrap
 - `js/test-api.js` — `window.TEST` console/automation harness (inert during play)

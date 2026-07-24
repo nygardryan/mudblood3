@@ -287,14 +287,17 @@ function endRun(won, title, stats) {
   const shopBtn = el('go-shop-btn');
   if (shopBtn) shopBtn.classList.toggle('hidden', !(G && G.mode === 'endless'));
   el('pause').classList.add('hidden');
-  // an endless defeat gets the medal-ceremony endgame ("Spotlight Locker")
-  // instead of the plain results card: the payoff is the medals earned and the
-  // card shop they unlock. Every other mode keeps the standard #gameover.
+  // every run ends on the After-Action Report first (js/recap.js). Its
+  // CONTINUE button hands off to the mode's real results screen: an endless
+  // defeat gets the medal-ceremony endgame ("Spotlight Locker") — the payoff
+  // is the medals earned and the card shop they unlock — every other mode
+  // the standard #gameover. Both stay hidden until the recap is dismissed;
+  // the leaderboard elements are prepared now so the recap handoff finds them.
   const endless = G && G.mode === 'endless';
-  document.getElementById('gameover').classList.toggle('hidden', endless);
-  document.getElementById('endless-endgame').classList.toggle('hidden', !endless);
+  document.getElementById('gameover').classList.add('hidden');
+  document.getElementById('endless-endgame').classList.add('hidden');
   updateGameOverLeaderboard(won);
-  if (endless) showEndlessEndgame();
+  showRecap(won, endless ? 'endless-endgame' : 'gameover');
   refreshHUD();
 }
 

@@ -242,6 +242,7 @@ function place(p, x, y) {
   if (!canAffordTP(cost)) { SFX.error(); clearPlacing(); return; }
   if (p.key === 'officer' && officerCount() >= officerLimit()) { SFX.error(); clearPlacing(); return; }
   spendTP(cost);
+  recapDeployed(p);
   SFX.click();
   mobileVibrate(8);
 

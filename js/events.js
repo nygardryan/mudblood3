@@ -131,6 +131,7 @@ function triggerEvent() {
 // fires one named random event. Split out of triggerEvent so testing mode can
 // summon a specific one on demand instead of waiting on the wave-gated roll.
 function runEvent(ev, w) {
+  recapEvent(ev);
   if (ev === 'airraid') {
     triggerAirRaid(w);
   } else if (ev === 'paradrop') {

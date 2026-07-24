@@ -138,6 +138,8 @@ function newGame(level, difficulty) {
     buffFrame: 0,
     usOfficers: [],
     deOfficers: [],
+
+    recap: makeRecap(),  // after-action report stats (js/recap.js)
   };
   // roguelite cards apply to every true endless run (any difficulty —
   // sandbox/testing double as the card test bed), never to campaigns

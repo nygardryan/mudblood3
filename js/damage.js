@@ -541,6 +541,7 @@ function damageUnit(u, dmg, from, kind) {
     const saved = hooks && hooks.beforeDeath.length && hooks.beforeDeath.some(fn => fn(u));
     if (!saved) {
       u.dead = true;
+      recapUnitLost(u, from);
       if (u.t.tank) {
         stampWreck(u);
         explode(u.x, u.y, 50, 60, true);
@@ -666,6 +667,7 @@ function damageEnemy(e, dmg, from, kind) {
     G.kills++;
     earnTP(e.t.reward);
     creditKill(from);
+    recapEnemyKilled(e, from);
     if (e.t.tank) {
       stampWreck(e);
       explode(e.x, e.y, 50, 60, true);

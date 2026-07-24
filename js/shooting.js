@@ -106,6 +106,7 @@ function fireShot(shooter, target, opts) {
   const my = shooter.y + Math.sin(shooter.face) * (t.gun + 3);
   SFX[t.sfx]();
   G.flashes.push({ x: mx, y: my, r: 6, ttl: 0.07, max: 0.07, kind: 'muzzle', angle: shooter.face });
+  if (shooter.side === 'us' && G.recap) G.recap.shotsFired++;
 
   let acc = t.acc * (opts && opts.accBonus ? 1 + opts.accBonus : 1);
   const d = dist(shooter, target);

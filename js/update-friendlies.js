@@ -213,7 +213,7 @@ function updateUnit(u, dt) {
         u.y += Math.sin(ang) * sp * dt;
       }
     }
-    const vt = nearestEnemyInRange(u, unitRange(u, u.t.range) * fogMult());
+    const vt = primaryEnemyTarget(u, unitRange(u, u.t.range) * fogMult());
     runWeapon(u, vt, dt, unitBuffs(u));
     // Bazooka Rider: the passenger works his own tube on a separate cooldown
     fireJeepBazooka(u, dt);
@@ -234,7 +234,7 @@ function updateUnit(u, dt) {
   }
 
   if (u.t.flame) {
-    const ft = nearestEnemyInRange(u, unitRange(u, u.t.flame.range) * fogMult());
+    const ft = primaryEnemyTarget(u, unitRange(u, u.t.flame.range) * fogMult());
     if (ft) {
       u.face = Math.atan2(ft.y - u.y, ft.x - u.x);
       flameSpray(u, dt);
@@ -244,7 +244,7 @@ function updateUnit(u, dt) {
 
   if (u.t.shotgun) {
     const sg = u.t.shotgun;
-    const st = nearestEnemyInRange(u, unitRange(u, sg.range) * fogMult());
+    const st = primaryEnemyTarget(u, unitRange(u, sg.range) * fogMult());
     const buffs = unitBuffs(u);
     if (st) u.face = Math.atan2(st.y - u.y, st.x - u.x);
     u.cd -= dt;
@@ -271,7 +271,7 @@ function updateUnit(u, dt) {
   } else if (u.type === 'sniper') {
     target = sniperTarget(u, range);
   } else {
-    target = nearestEnemyInRange(u, range);
+    target = primaryEnemyTarget(u, range);
   }
   runWeapon(u, target, dt, buffs);
 

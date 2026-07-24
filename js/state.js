@@ -235,6 +235,9 @@ function makeEnemy(type, x, y, nation) {
   return {
     side: 'de', nation, type, t, x, y,
     hp: t.hp, maxhp: t.hp,
+    // Body/Flak Armor pools: 0 unless the endless spawner plates this man (see
+    // armorEnemy in waves.js). Bullets chip body armor, explosions chip flak.
+    bodyArmor: 0, maxBodyArmor: 0, flakArmor: 0, maxFlakArmor: 0,
     cd: rand(0.5, 1.5), burstLeft: 0, burstTimer: 0,
     face: Math.PI / 2,
     wobble: rand(0, Math.PI * 2),

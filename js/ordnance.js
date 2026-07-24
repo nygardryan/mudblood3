@@ -67,7 +67,7 @@ function explode(x, y, r, dmg, big, by) {
       } else if ((e.t.vehicle || e.t.apc) && blastArmorMult != null) {
         hd *= blastArmorMult;
       } else if (e.t.blastResist) hd *= (1 - e.t.blastResist);
-      damageEnemy(e, hd, by || { x, y });
+      damageEnemy(e, hd, by || { x, y }, 'blast');
     }
   }
   for (const u of G.units) {
@@ -298,7 +298,7 @@ function updatePlane(p, dt) {
         if (dist(e, { x: ix, y: iy }) < 13) {
           let dmg = rand(14, 26);
           if (e.t.tank) dmg *= 0.15; // even .50 cal only chips a Panzer
-          damageEnemy(e, dmg, { x: ix, y: iy });
+          damageEnemy(e, dmg, { x: ix, y: iy }, 'bullet');
         }
       }
     }

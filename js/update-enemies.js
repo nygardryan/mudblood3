@@ -114,7 +114,7 @@ function updateEnemy(e, dt) {
   }
 
   if (e.t.flame) {
-    const ft = nearestUnitInRange(e, unitRange(e, e.t.flame.range) * fogMult());
+    const ft = primaryUnitTarget(e, unitRange(e, e.t.flame.range) * fogMult());
     if (ft) {
       rollEnemyPushUrge(e, ft, dt, command);
       e.face = Math.atan2(ft.y - e.y, ft.x - e.x);
@@ -127,7 +127,7 @@ function updateEnemy(e, dt) {
 
   if (e.t.shotgun) {
     const sg = e.t.shotgun;
-    const st = nearestUnitInRange(e, unitRange(e, sg.range) * fogMult());
+    const st = primaryUnitTarget(e, unitRange(e, sg.range) * fogMult());
     if (st) {
       rollEnemyPushUrge(e, st, dt, command);
       e.face = Math.atan2(st.y - e.y, st.x - e.x);
@@ -145,7 +145,7 @@ function updateEnemy(e, dt) {
   // a Japanese officer periodically screams the charge order while he fights on
   if (e.t.banzaiCmd && !command) japBanzaiCommand(e, dt);
 
-  const target = nearestUnitInRange(e, range);
+  const target = primaryUnitTarget(e, range);
   let rocketTarget = null;
   let mortarTarget = null;
 
@@ -365,7 +365,7 @@ const BANZAI_REACH = 15;
 function updateBanzai(e, dt, buffed, command) {
   banzaiYell(e, dt);
   if (command) { if (e.moveTo) advance(e, dt, buffed); return; }
-  const target = nearestUnitInRange(e, 4000);
+  const target = primaryUnitTarget(e, 4000);
   if (!target) { advance(e, dt, buffed); return; }
   const reach = BANZAI_REACH + (target.t.tank || target.t.vehicle ? 9 : 0);
   if (dist(e, target) > reach) {
@@ -525,7 +525,7 @@ function updateZombie(e, dt, buffed, command) {
   zombieGroan(e, dt);
   if (e.t.frenzyCmd) zombieFrenzyCommand(e, dt);   // the screamer drives the pack
   if (command) { if (e.moveTo) advance(e, dt, buffed); return; }
-  const target = nearestUnitInRange(e, 4000);
+  const target = primaryUnitTarget(e, 4000);
   if (!target) { advance(e, dt, buffed); return; }
   const reach = ZOMBIE_REACH + (e.t.boss ? 16 : e.t.big ? 8 : 0)
     + (target.t.tank || target.t.vehicle ? 9 : 0);
@@ -730,7 +730,7 @@ function updateEnemyJeep(e, dt) {
     driveEnemyVehicle(e, dt, 0.08, 8, true);
     return;
   }
-  const target = nearestUnitInRange(e, unitRange(e, e.t.range) * fogMult());
+  const target = primaryUnitTarget(e, unitRange(e, e.t.range) * fogMult());
   if (target) {
     rollEnemyPushUrge(e, target, dt, command);
     runWeapon(e, target, dt, null);

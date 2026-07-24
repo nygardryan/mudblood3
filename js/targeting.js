@@ -94,6 +94,60 @@ function sniperTarget(u, range) {
   return best;
 }
 
+// ---- retarget throttle -----------------------------------------------------
+// A shooter's main-weapon pick barely changes frame to frame, yet the scan was
+// the single most-run cost in the sim. These wrappers hold last frame's target
+// for a short window and only revalidate it cheaply (still alive, still in range,
+// still eligible); a full rescan runs only when the window lapses or the held
+// target drops out. Measured ~2x faster at ~30 units/60 enemies, ~8x at 60/150.
+// Grenades/rockets/mortars are already gated by multi-second cooldowns, so only
+// the every-frame primary scans route through here.
+//
+// A spatial grid was also tried here and REVERTED: at this game's actor counts
+// (low hundreds) a tight linear dist2 scan beats a grid at every scale — see the
+// targeting-perf project note. The win is cutting scan *frequency*, not asymptotics.
+const RETARGET_INTERVAL = 0.12;   // seconds a held target is reused before a rescan
+
+function primaryEnemyTarget(u, range) {
+  // focus fire is a live player command — always honoured this frame, uncached
+  const focus = focusPick(u, range, null);
+  if (focus) return focus;
+  const c = u._tgt;
+  if (c && u._tgtUntil > G.time && !c.dead && !(c.y < 0) && !(c.chute > 0)
+      && dist2(u, c) <= range * range) {
+    return c;
+  }
+  // cache miss: full scan (focus already handled above)
+  let best = null, bd = range * range;
+  for (const e of G.enemies) {
+    if (e.dead || e.y < 0 || e.chute > 0) continue;
+    const d = dist2(u, e);
+    if (d < bd) { bd = d; best = e; }
+  }
+  u._tgt = best;
+  u._tgtUntil = G.time + RETARGET_INTERVAL;
+  return best;
+}
+
+// held target for an enemy shooter/charger vs the player's units, dummies
+// included (they exist to draw fire). Revalidation mirrors nearestUnitInRange's
+// eligibility so a cached pick can never be one the fresh scan would reject.
+function stillTargetableUnit(e, c, r2) {
+  if (!c) return false;
+  if (c.isDummy) {
+    return c.hp > 0 && !(e.dummyBlind && e.dummyBlind.has(c.id)) && dist2(e, c) <= r2;
+  }
+  return !c.dead && !isCamouflaged(c) && dist2(e, c) <= r2;
+}
+
+function primaryUnitTarget(e, range) {
+  if (e._tgtUntil > G.time && stillTargetableUnit(e, e._tgt, range * range)) return e._tgt;
+  const t = nearestUnitInRange(e, range);
+  e._tgt = t;
+  e._tgtUntil = G.time + RETARGET_INTERVAL;
+  return t;
+}
+
 function angleDiff(a, b) {
   let d = a - b;
   while (d > Math.PI) d -= Math.PI * 2;

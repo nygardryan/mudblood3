@@ -194,8 +194,39 @@ function zomWaveComposition(w) {
 // scripted attack. Themes cycle; the tier (wave/10) keeps climbing forever,
 // so each theme returns bigger and meaner the next time around.
 
+// Endless: how likely a freshly spawned man is to be wearing armor this wave.
+// Squared ramp from ~0% at wave 1 to ENEMY_ARMOR_MAX_CHANCE by ENEMY_ARMOR_FULL_WAVE.
+function enemyArmorChance(w) {
+  const frac = clamp((w - 1) / (ENEMY_ARMOR_FULL_WAVE - 1), 0, 1);
+  return Math.min(ENEMY_ARMOR_MAX_CHANCE, frac * frac);
+}
+
+// Roll body/flak armor onto an endless enemy. Only plain foot soldiers qualify:
+// vehicles/tanks already have a hull, and the undead don't wear vests. The plate
+// grows a little as the waves climb, on top of the growing odds of getting one.
+function armorEnemy(e, w) {
+  if (!e || G.mode !== 'endless') return;
+  const t = e.t;
+  if (t.tank || t.vehicle || t.apc || t.bike || t.v2) return; // already armored hulls
+  if (t.boss) return;                                         // bosses already sponge damage via HP
+  // Foot soldiers of every faction qualify, the undead included — reanimated
+  // men still wear the plate they died in.
+  const chance = enemyArmorChance(w);
+  const frac = clamp((w - 1) / (ENEMY_ARMOR_FULL_WAVE - 1), 0, 1);
+  // Two independent rolls: a man may get just body, just flak, both, or neither.
+  if (Math.random() < chance) {
+    const body = Math.round(ENEMY_ARMOR_BODY_MIN + (ENEMY_ARMOR_BODY_MAX - ENEMY_ARMOR_BODY_MIN) * frac);
+    e.maxBodyArmor = e.bodyArmor = body;
+  }
+  if (Math.random() < chance * ENEMY_ARMOR_FLAK_RATIO) {
+    const flak = Math.round(ENEMY_ARMOR_FLAK_MIN + (ENEMY_ARMOR_FLAK_MAX - ENEMY_ARMOR_FLAK_MIN) * frac);
+    e.maxFlakArmor = e.flakArmor = flak;
+  }
+}
+
 function spawnEnemyAt(type, x, y) {
   const e = makeEnemy(type, clamp(x, 30, W - 30), y);
+  armorEnemy(e, G.wave);
   G.enemies.push(e);
   return e;
 }
@@ -485,7 +516,9 @@ function launchWave(w) {
     // the V2 battery holds position by default, so it's staked out in view
     // from the start instead of off the top edge with the rest of the wave
     const y = type === 'ev2' ? rand(30, 85) : rand(-52, -20);
-    G.enemies.push(makeEnemy(type, x, y));
+    const e = makeEnemy(type, x, y);
+    armorEnemy(e, w);
+    G.enemies.push(e);
   }
   G.spawnTimer = spawnIntervalForWave(w);
 }

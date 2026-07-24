@@ -171,6 +171,21 @@ const UNIT_TYPES = {
 // rifleman's HP (bullets chip Body Armor, explosions chip Flak Armor).
 const ARMOR_POINTS = UNIT_TYPES.rifleman.hp;
 
+// Endless only: enemy infantry increasingly turn up wearing body/flak armor as
+// the waves climb. The chance ramps on a squared curve from ~0% at wave 1 to a
+// near-certainty by ENEMY_ARMOR_FULL_WAVE, so the early game stays clean and
+// plated troops only become the norm deep into a run. The plate itself also
+// grows a little with the wave (heavier late-war kit).
+// Body and flak armor are rolled INDEPENDENTLY, so a man can turn up with just
+// body, just flak, both, or neither. Body armor follows the full wave curve;
+// flak is the rarer, more specialised kit, so its odds are that curve scaled by
+// ENEMY_ARMOR_FLAK_RATIO.
+const ENEMY_ARMOR_FULL_WAVE = 400;   // wave by which body armor is near-guaranteed
+const ENEMY_ARMOR_MAX_CHANCE = 0.98; // "nearing 100%", never a dead certainty
+const ENEMY_ARMOR_BODY_MIN = 30, ENEMY_ARMOR_BODY_MAX = 75; // body plate points (lerp'd by wave)
+const ENEMY_ARMOR_FLAK_RATIO = 0.35; // flak odds relative to the body-armor curve
+const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points (lerp'd by wave)
+
 // both staked guns share a traverse cone, a crew that never goes prone, and
 // the engineer-repairs-but-medics-don't rule; this returns whichever spec a
 // given emplacement carries

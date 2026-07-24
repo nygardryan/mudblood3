@@ -235,7 +235,7 @@ function update(dt) {
       let dmg = FRAG_SHRAPNEL_DMG * falloff * rand(0.85, 1.15);
       if (e.t.tank) dmg *= 0.05;
       else if (e.t.vehicle || e.t.apc) dmg *= 0.3;
-      damageEnemy(e, dmg, sh.by || { x: sh.x, y: sh.y });
+      damageEnemy(e, dmg, sh.by || { x: sh.x, y: sh.y }, 'blast');   // frag shrapnel → flak armor
     }
     for (const u of G.units) {
       if (u.dead) continue;

@@ -153,7 +153,7 @@ function fireShot(shooter, target, opts) {
     // so jeeps, halftracks and motorcycles take the multiplier on top
     dmg *= armorPiercingMult(shooter, target);
     if (target.side === 'us') damageUnit(target, dmg, shooter, 'bullet');
-    else damageEnemy(target, dmg, shooter);
+    else damageEnemy(target, dmg, shooter, 'bullet');
   } else {
     G.particles.push({ x: hx, y: hy, vx: rand(-15, 15), vy: rand(-50, -10), ttl: 0.25, grav: 200, size: 1.2, color: '#6e6046' });
     // a near miss is warning enough to hit the dirt
@@ -346,6 +346,6 @@ function fireShotgun(actor, buffs) {
     if (e.t.tank) dmg *= 0.06;
     else if (e.t.apc) dmg *= 0.2;
     if (e.side === 'us') damageUnit(e, dmg, actor, 'bullet');
-    else damageEnemy(e, dmg, actor);
+    else damageEnemy(e, dmg, actor, 'bullet');
   }
 }

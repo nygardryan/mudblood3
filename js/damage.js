@@ -636,8 +636,26 @@ function creditKill(u) {
   if (hooks) for (const fn of hooks.onKill) fn(u);
 }
 
-function damageEnemy(e, dmg, from) {
+function damageEnemy(e, dmg, from, kind) {
   if (e.chute > 0) return; // untouchable while the canopy is up
+  const incoming = dmg;
+  // Body/Flak Armor (endless: some enemies spawn plated — see armorEnemy).
+  // Bullets chip body armor, explosions chip flak; a hit bigger than the bar
+  // breaks it and spills the remainder into HP. Flame/melee carry no kind and
+  // bypass both pools, exactly as on the player's own armor.
+  if (kind === 'bullet' && e.bodyArmor > 0) {
+    const absorbed = Math.min(e.bodyArmor, dmg);
+    e.bodyArmor -= absorbed; dmg -= absorbed;
+    armorPing(e);
+  } else if (kind === 'blast' && e.flakArmor > 0) {
+    const absorbed = Math.min(e.flakArmor, dmg);
+    e.flakArmor -= absorbed; dmg -= absorbed;
+    armorPing(e);
+  }
+  if (dmg <= 0) {                          // fully soaked — no wound, no blood
+    if (incoming >= 3) tryGoProne(e, 0.65); // still flinch from being shot at
+    return;
+  }
   e.hp -= dmg;
   if (e.t.tank || e.t.vehicle || e.t.v2) {
     G.particles.push({

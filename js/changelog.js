@@ -4,6 +4,17 @@
 const CHANGELOG = [
   {
     date: '2026-07-24',
+    title: 'Balance, Testing & UI Tweaks',
+    changes: [
+      'AT gun and AA gun cost increased from 20 to 21 TP.',
+      'Added JAPANESE and ITALIAN tabs to testing mode — spawn the full Japanese and Italian enemy rosters on demand.',
+      'Increased mobile long-press deselect threshold from 350ms to 3000ms — no more accidental selection clears.',
+      'Reduced the inspector info panel background to 70% transparency — see the battlefield through it.',
+      'Default music volume lowered to 10% for new players.',
+    ],
+  },
+  {
+    date: '2026-07-24',
     title: 'After-Action Report Redesign',
     changes: [
       'The recap now reads like a typed field document — aged paper, corner file marks, a file number, and the verdict stamp moved off the letterhead so it stops covering the header text.',

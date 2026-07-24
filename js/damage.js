@@ -554,6 +554,9 @@ function damageUnit(u, dmg, from, kind) {
       } else if (u.t.gunEmplacement) {
         stampATGunWreck(u);
         explode(u.x, u.y, 26, 35, false);
+      } else if (u.infected > 0 && G.enemyFaction === 'zo') {
+        // a man lost while infected doesn't stay down — he rises against his line
+        reanimateAsUndead(u);
       } else {
         spawnCorpse(u);
         bloodSplat(u.x, u.y, 8);
@@ -671,6 +674,9 @@ function damageEnemy(e, dmg, from) {
       // warhead and fuel still on the pad don't go quietly
       stampV2Wreck(e);
       explode(e.x, e.y, 65, 100, true);
+    } else if (e.t.bloat) {
+      // a Bloater vents its cloud of infectious rot instead of leaving a corpse
+      bloaterBurst(e);
     } else {
       spawnCorpse(e);
       bloodSplat(e.x, e.y, 8);

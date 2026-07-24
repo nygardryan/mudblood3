@@ -171,6 +171,24 @@ function update(dt) {
     if (f >= 1) { r.done = true; explode(r.tx, r.ty, r.r, r.dmg, false, r.by); }
   }
 
+  // Spitter bile globs: a lobbed corrosive shot that bursts where it lands. `arc`
+  // is the parabolic lift the renderer draws the glob at; the shadow tracks the
+  // ground point (b.x, b.y).
+  for (const b of G.biles) {
+    b.t += dt;
+    const f = Math.min(b.t / b.dur, 1);
+    b.x = b.sx + (b.tx - b.sx) * f;
+    b.y = b.sy + (b.ty - b.sy) * f;
+    b.arc = Math.sin(f * Math.PI) * (18 + b.dur * 34);
+    if (Math.random() < 0.55) {
+      G.particles.push({
+        x: b.x, y: b.y - b.arc, vx: rand(-6, 6), vy: rand(0, 12),
+        ttl: rand(0.2, 0.45), grav: 40, size: rand(1, 2), color: pick(['#7fbf4a', '#9fd66a']),
+      });
+    }
+    if (f >= 1) { b.done = true; bileBurst(b.tx, b.ty, b.r, b.dmg, b.infect, b.by); }
+  }
+
   // grenades in flight, then a 3-second fuse once they hit the ground —
   // unless the grenadier's thrown ones (self- or catch-and-return) carry
   // Impact Fuze, in which case they go off the instant they land
@@ -280,6 +298,7 @@ function update(dt) {
   compactInPlace(G.grenades, g => !g.done);
   compactInPlace(G.shrapnel, sh => !sh.done);
   compactInPlace(G.rockets, r => !r.done);
+  compactInPlace(G.biles, b => !b.done);
   compactInPlace(G.planes, p => !p.done);
   compactInPlace(G.flak, f => !f.done);
   compactInPlace(G.particles, p => p.ttl > 0);

@@ -24,10 +24,10 @@ workflow.
 ## Game modes
 
 - **Endless** — the classic. Each run rolls its foe: you face the **Germans**,
-  the **Imperial Japanese Army**, or the **Regio Esercito**, attacking in endless
-  waves from the top of the screen. Hold the line as long as you can — if
-  **7 enemies** slip past the bottom edge, your sector collapses and it's game
-  over. There is no victory, only a higher wave count.
+  the **Imperial Japanese Army**, the **Regio Esercito**, or **The Horde** (the
+  undead), attacking in endless waves from the top of the screen. Hold the line as
+  long as you can — if **7 enemies** slip past the bottom edge, your sector
+  collapses and it's game over. There is no victory, only a higher wave count.
   - **The Japanese** field a wholly different 15-unit roster: Arisaka riflemen
     with long bayonets, SNLF SMG troopers, grenadiers, Nambu light and Type 92
     heavy machine guns, nest snipers, knee mortars and 81mm mortar teams, sword
@@ -60,6 +60,29 @@ workflow.
       halts at point-blank, and washes the trench in fire. Heavier threats (the
       M13/40 medium, the casemate Semovente assault gun) show up later, but
       there's no heavy tank — the danger is the wall of fire on tracks.
+  - **The Horde** is the odd one out — not an army but a rising tide of the dead,
+    and the only foe that grows itself out of *your* casualties. There's no armor
+    and almost no gunfire; the whole faction is melee, and its signature is the
+    **bite**. When a zombie mauls one of your men there's a chance it **infects**
+    him — he keeps fighting, but rots on a timer, and if you don't cure him he dies
+    and **rises as a zombie against your own line**. A single lost soldier can
+    become a hole in the wall. The one hard counter is the **medic**: keep him near
+    the line and he burns the infection out of the bitten before they turn.
+    - **Shamblers** are the slow, endless backbone; **runners**, **crawlers** and
+      blazing-fast infected **hounds** swarm and close before you can thin them.
+    - **Brutes** are swollen bruisers that soak lead and hit like a truck; the
+      **Abomination** is the boss — a mound of fused corpses with enormous HP that
+      flattens men and smashes emplacements, standing in for the armor no other
+      threat brings.
+    - The **Spitter** is the one ranged unit: it hangs back and lobs corrosive
+      **bile** that burns and infects everyone in the splash. The **Bloater** is a
+      walking mine — kill it at range or it bursts into a cloud of infectious rot.
+    - The **Screamer** drives the pack: it enrages the dead around it and shrieks
+      to hurl them into a sprint. The **Revenant** is a reanimated soldier still
+      clutching a Kar98 — the horde's only gunman, a nasty surprise in a melee mob.
+    - Every 10th wave is its own set-piece (a horde surge, a hound pack, a bile
+      bombardment, or the Abomination itself), and the paradrop event becomes the
+      **dead clawing up out of the ground behind your line**.
   Pick a difficulty before you deploy:
   **Sandbox** (unlimited TP, free purchases; **+1 / +5 / +10** HUD buttons or **] / Shift+] / Ctrl+]** to jump ahead and spawn later waves), **Easy** (full income — the default),
   **Medium** (66% income from kills, trickle, and officers), or **Hard** (33%
@@ -251,6 +274,7 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/update.js` — main update loop
 - `js/render-soldier.js` — soldier, kit & weapon drawing
 - `js/render-japanese.js` — the Imperial Japanese Army soldier renderer
+- `js/render-zombie.js` — The Horde (undead) renderer
 - `js/render-world.js` — vehicle, emplacement & defense drawing
 - `js/render.js` — scene composition (main draw)
 - `js/camera.js` — view camera: mobile pan/zoom/pinch, world<->screen transforms

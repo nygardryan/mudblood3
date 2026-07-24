@@ -77,6 +77,10 @@ function updateEnemy(e, dt) {
   if (e.t.vehicle) { updateEnemyJeep(e, dt); return; }
   if (e.t.banzai) { updateBanzai(e, dt, buffed, command); return; }
   if (e.t.lunge) { updateLunge(e, dt, buffed, command); return; }
+  // The Horde: the Spitter is a ranged biler; every other melee zombie claws and
+  // bites (the Revenant has no `zombie` flag and falls through to the gun path).
+  if (e.t.spit) { updateSpitter(e, dt, buffed, command); return; }
+  if (e.t.zombie) { updateZombie(e, dt, buffed, command); return; }
 
   // Regio Esercito morale: a wavering regular breaks and falls back unless
   // something steadies him — an officer's aura (buffed) OR a nearby elite
@@ -453,6 +457,237 @@ function japBanzaiCommand(e, dt) {
   if (roused > 0) {
     SFX.scream();
     G.texts.push({ x: e.x, y: e.y - 24, text: 'BANZAI!', ttl: 1.6 });
+  }
+}
+
+// ---- The Horde: bite & infection, spitters, bloaters, the screamer's frenzy ----
+
+function isZombie(e) {
+  return !e.dead && e.t.faction === 'zo' && !e.t.fixed;
+}
+
+// plant the infection in a defender: he rots on a countdown and, if a medic
+// doesn't burn it out first, dies and rises against you. Bites, bile splash and
+// bloater gas all funnel through here. Soldiers only — never metal, and never a
+// man who's already turning.
+function infectUnit(u) {
+  if (!u || u.dead || u.infected > 0) return;
+  if (u.t.tank || u.t.vehicle || u.t.apc || u.t.gunEmplacement) return;
+  u.infected = rand(INFECT_TURN_MIN, INFECT_TURN_MAX);
+  u.infectMax = u.infected;
+  u.infectDot = INFECT_DOT_INTERVAL;
+  G.texts.push({ x: u.x, y: u.y - 22, text: 'INFECTED!', ttl: 1.4, color: '#8fe06a' });
+  for (let i = 0; i < 6; i++) {
+    G.particles.push({
+      x: u.x + rand(-5, 5), y: u.y + rand(-6, 4), vx: rand(-14, 14), vy: rand(-30, -6),
+      ttl: rand(0.3, 0.7), grav: 20, size: rand(1.4, 2.6), color: pick(['#8fe06a', '#6fae44', '#b6e88a']),
+    });
+  }
+}
+
+// per-frame rot on an infected defender: he loses HP in ticks and, when the timer
+// runs out, dies and rises. Returns true once he's turned (dead), so updateUnit
+// stops working him this frame. Called from update-friendlies.js.
+function tickInfection(u, dt) {
+  u.infected -= dt;
+  u.infectDot -= dt;
+  if (u.infectDot <= 0) {
+    u.infectDot = INFECT_DOT_INTERVAL;
+    damageUnit(u, INFECT_DOT, null, null);   // the rot eats him; death here reanimates via damage.js
+    if (u.dead) return true;
+  }
+  if (u.infected <= 0 && !u.dead) {
+    reanimateAsUndead(u);   // fully turned, even with HP to spare
+    return true;
+  }
+  return false;
+}
+
+// a man lost to the infection rises on the enemy side. Fast/light troops come
+// back as runners, everyone else shambles. Used by the rot timer and by the death
+// path in damage.js when an infected defender is killed by any cause.
+function reanimateAsUndead(u) {
+  const wasSelected = G.selected.indexOf(u);
+  if (wasSelected !== -1) G.selected.splice(wasSelected, 1);
+  u.dead = true;
+  const light = u.t.speed >= 34 || u.maxhp <= 90;
+  const z = makeEnemy(light ? 'zrunner' : 'zshambler', u.x, u.y);
+  z.reanimated = true;
+  G.enemies.push(z);
+  bloodSplat(u.x, u.y, 8);
+  for (let i = 0; i < 10; i++) {
+    G.particles.push({
+      x: u.x + rand(-6, 6), y: u.y + rand(-8, 4), vx: rand(-30, 30), vy: rand(-60, -10),
+      ttl: rand(0.4, 0.9), grav: 40, size: rand(1.6, 3), color: pick(['#8fe06a', '#6fae44', '#c22030']),
+    });
+  }
+  G.texts.push({ x: u.x, y: u.y - 24, text: 'RISEN!', ttl: 1.8, color: '#9fe06a' });
+  SFX.scream();
+}
+
+// a groan, throttled per corpse so a whole horde doesn't moan in unison
+function zombieGroan(e, dt) {
+  e.yellCd = (e.yellCd == null ? rand(1, 6) : e.yellCd) - dt;
+  if (e.yellCd <= 0) { e.yellCd = rand(5, 11); if (Math.random() < 0.5) SFX.scream(); }
+}
+
+// the bite: no gun, arm's-reach mauling. Bloaters don't bite — reaching a man
+// makes them burst instead. Boss/brute strike heavy; anyone the bite doesn't kill
+// may be infected.
+const ZOMBIE_REACH = 15;
+function updateZombie(e, dt, buffed, command) {
+  zombieGroan(e, dt);
+  if (e.t.frenzyCmd) zombieFrenzyCommand(e, dt);   // the screamer drives the pack
+  if (command) { if (e.moveTo) advance(e, dt, buffed); return; }
+  const target = nearestUnitInRange(e, 4000);
+  if (!target) { advance(e, dt, buffed); return; }
+  const reach = ZOMBIE_REACH + (e.t.boss ? 16 : e.t.big ? 8 : 0)
+    + (target.t.tank || target.t.vehicle ? 9 : 0);
+  if (dist(e, target) > reach) {
+    const speed = e.t.speed * (buffed ? 1.2 : 1) * (e.chargeT > 0 ? 1.35 : 1);
+    pursuePoint(e, target.x, target.y, speed, dt);
+    return;
+  }
+  // a bloater that reaches the line goes off like the walking mine it is
+  if (e.t.bloat) { bloaterBurst(e); return; }
+  e.face = Math.atan2(target.y - e.y, target.x - e.x);
+  e.cd -= dt;
+  if (e.cd <= 0) {
+    e.cd = e.t.rof * rand(0.85, 1.15);
+    if (e.t.boss) {
+      // the Abomination's blow sweeps everyone at arm's length, not just one man
+      zombieBite(e, target);
+      for (const u of G.units) {
+        if (u.dead || u === target || dist2(e, u) > reach * reach) continue;
+        zombieBite(e, u);
+      }
+    } else {
+      zombieBite(e, target);
+    }
+  }
+}
+
+// one maul: instant, no projectile. Bypasses body/flak armor like any melee, does
+// little to armor plate, and rolls the infection on a survivor.
+function zombieBite(e, target) {
+  e.slashT = 0.26;
+  G.flashes.push({ x: target.x, y: target.y, r: 5, ttl: 0.08, max: 0.08 });
+  bloodSplat(target.x, target.y, 6);
+  let dmg = e.t.dmg * rand(0.85, 1.15);
+  if (target.t.tank) dmg *= 0.04;
+  else if (target.t.apc || target.t.vehicle) dmg *= 0.3;
+  const soldier = !(target.t.tank || target.t.vehicle || target.t.apc || target.t.gunEmplacement);
+  damageUnit(target, dmg, e, 'melee');
+  // infect a survivor (a man killed outright reanimates via the death path anyway)
+  if (soldier && !target.dead && Math.random() < (e.t.infect || 0)) infectUnit(target);
+}
+
+// Spitter: hangs back and lobs corrosive bile. Blind up close — if nothing sits in
+// its window it just shambles forward with the rest of the dead.
+function updateSpitter(e, dt, buffed, command) {
+  zombieGroan(e, dt);
+  const sp = e.t.spit;
+  if (command) { if (e.moveTo) advance(e, dt, buffed); return; }
+  const rng = unitRange(e, sp.range) * fogMult();
+  const min2 = sp.min * sp.min;
+  const target = nearestUnitInRange(e, rng, u => dist2(e, u) > min2);
+  if (target) {
+    rollEnemyPushUrge(e, target, dt, command);
+    e.face = Math.atan2(target.y - e.y, target.x - e.x);
+    e.spitCd = (e.spitCd == null ? rand(sp.cdMin, sp.cdMax) : e.spitCd) - dt;
+    if (e.spitCd <= 0) {
+      e.spitCd = rand(sp.cdMin, sp.cdMax);
+      e.spitT = 0.3;
+      fireBile(e, target, sp);
+    }
+  } else {
+    advance(e, dt, buffed);
+  }
+}
+
+function fireBile(e, target, sp) {
+  const tx = target.x + rand(-sp.scatter, sp.scatter);
+  const ty = target.y + rand(-sp.scatter, sp.scatter);
+  const d = dist(e, { x: tx, y: ty });
+  G.biles.push({
+    sx: e.x, sy: e.y - 6, x: e.x, y: e.y - 6, tx, ty,
+    t: 0, dur: Math.max(sp.flight * (0.6 + d / 260), 0.4),
+    r: sp.r, dmg: sp.dmg, infect: sp.infect, by: e,
+  });
+  G.flashes.push({ x: e.x, y: e.y - 6, r: 4, ttl: 0.08, max: 0.08 });
+}
+
+// bile lands: a corrosive splash that burns everyone nearby (bypassing armor, like
+// acid) and carries the infection through the spray to survivors.
+function bileBurst(x, y, r, dmg, infect, by) {
+  addGroundMark({ type: 'blood', x, y, r: r * 0.7, rot1: rand(0, 3), rot2: rand(0, 3) });
+  for (let i = 0; i < 16; i++) {
+    const ang = rand(0, Math.PI * 2), sp = rand(20, 90);
+    G.particles.push({
+      x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp * 0.6 - 20,
+      ttl: rand(0.3, 0.8), grav: 80, size: rand(1.6, 3.4),
+      color: pick(['#8fe06a', '#6fae44', '#4f7a2e', '#b6e88a']),
+    });
+  }
+  const r2 = r * r;
+  for (const u of G.units) {
+    if (u.dead) continue;
+    const d2 = dist2(u, { x, y });
+    if (d2 > r2) continue;
+    const falloff = 1 - Math.sqrt(d2) / r * 0.6;
+    let hd = dmg * falloff * rand(0.8, 1.2);
+    if (u.t.tank) hd *= 0.15; else if (u.t.vehicle || u.t.apc) hd *= 0.4;
+    damageUnit(u, hd, by || { x, y }, null);   // corrosive: no armor kind, hits HP
+    const soldier = !(u.t.tank || u.t.vehicle || u.t.apc || u.t.gunEmplacement);
+    if (soldier && !u.dead && Math.random() < infect * falloff) infectUnit(u);
+  }
+}
+
+// Bloater death: vents a cloud of infectious rot. Fires once whether it's shot
+// down or reaches the line and bursts on contact.
+function bloaterBurst(e) {
+  if (e._burst) return;
+  e._burst = true;
+  e.dead = true;
+  const b = e.t.bloat;
+  SFX.boom(false);
+  addShake(3);
+  bloodSplat(e.x, e.y, 12);
+  bileBurst(e.x, e.y, b.r, b.dmg, b.infect, e);
+  // a lingering greenish smoke puff over the burst
+  for (let i = 0; i < 14; i++) {
+    const ttl = rand(0.6, 1.4);
+    G.particles.push({
+      x: e.x + rand(-b.r * 0.2, b.r * 0.2), y: e.y + rand(-b.r * 0.15, b.r * 0.15),
+      vx: rand(-14, 14), vy: rand(-40, -10),
+      ttl, maxTtl: ttl, grav: -8, size: rand(3, 6),
+      kind: 'smoke', color: pick(['#4f6a34', '#3d5228', '#5f7a3e']),
+    });
+  }
+}
+
+// Frenzy scream: the screamer's answer to the horde having no discipline. On a
+// cadence it hurls every nearby zombie into a sprint (chargeT) plus the push urge —
+// mirror of the banzai command, but for the walking dead.
+const FRENZY_CMD_RADIUS = 160;
+function zombieFrenzyCommand(e, dt) {
+  e.frenzyCd = (e.frenzyCd == null ? rand(6, 11) : e.frenzyCd) - dt;
+  if (e.frenzyCd > 0) return;
+  e.frenzyCd = rand(11, 17);
+  let roused = 0;
+  const r2 = FRENZY_CMD_RADIUS * FRENZY_CMD_RADIUS;
+  for (const o of G.enemies) {
+    if (o === e || !isZombie(o) || o.chute > 0) continue;
+    if (dist2(e, o) > r2) continue;
+    o.chargeT = rand(2.4, 3.8);
+    o.pushT = Math.max(o.pushT || 0, o.chargeT);
+    roused++;
+  }
+  if (roused > 0) {
+    SFX.scream();
+    G.texts.push({ x: e.x, y: e.y - 24, text: 'SKREEE!', ttl: 1.6, color: '#c8e08a' });
+    // a visible shockwave ring rolling out from the shriek
+    G.flashes.push({ x: e.x, y: e.y, r: FRENZY_CMD_RADIUS, ttl: 0.5, max: 0.5, kind: 'ring', color: '#b6e88a' });
   }
 }
 

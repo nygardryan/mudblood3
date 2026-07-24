@@ -32,6 +32,9 @@ const PARA_POOL_IT = ['ifolgore', 'ifolgore', 'ibersa', 'imab'];
 
 function triggerParadrop() {
   const f = enemyFaction();
+  // The Horde doesn't drop from the sky — the dead claw their way up out of the
+  // ground behind your line. Same "behind you" pressure, no transport, no canopy.
+  if (f === 'zo') { triggerHordeRising(); return; }
   const jp = f === 'jp', it = f === 'it';
   showBanner(jp ? 'TEISHIN PARATROOPERS!'
     : it ? 'FOLGORE PARACADUTISTI!'
@@ -51,6 +54,34 @@ function triggerParadrop() {
     e.chuteMax = e.chute;
     G.enemies.push(e);
   }
+}
+
+// The Horde's "paradrop": the buried dead tear up through the dirt behind the
+// line and are on you at once — no descent, no grace period. A dirt-burst marks
+// each one as it surfaces.
+const RISING_POOL = ['zshambler', 'zshambler', 'zcrawler', 'zrunner'];
+function triggerHordeRising() {
+  showBanner('THE DEAD RISE BEHIND YOU!');
+  const w = G.wave;
+  const pool = RISING_POOL.slice();
+  if (w >= 12) pool.push('zbloater');
+  const count = paradropCount(w);
+  const cx = rand(120, W - 120);
+  for (let i = 0; i < count; i++) {
+    const x = clamp(cx + rand(-140, 140), 20, W - 20);
+    const y = rand(60, H * (2 / 3));
+    const e = makeEnemy(pick(pool), x, y);
+    G.enemies.push(e);
+    // a spray of turned earth and gore as it breaks the surface
+    addGroundMark({ type: 'blood', x, y, r: 10, rot1: rand(0, 3), rot2: rand(0, 3) });
+    for (let k = 0; k < 8; k++) {
+      G.particles.push({
+        x: x + rand(-6, 6), y: y + rand(-4, 4), vx: rand(-24, 24), vy: rand(-50, -12),
+        ttl: rand(0.3, 0.7), grav: 120, size: rand(1.4, 3), color: pick(['#4a3c28', '#5a4a30', '#3a2f1f']),
+      });
+    }
+  }
+  SFX.scream();
 }
 
 // ---- air bombing raid: a line of bombers crosses from the north edge to the

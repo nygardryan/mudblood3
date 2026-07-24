@@ -88,11 +88,11 @@ function enemyFaction() {
 }
 function factionAdjUpper() {
   const f = enemyFaction();
-  return f === 'jp' ? 'JAPANESE' : f === 'it' ? 'ITALIAN' : 'GERMAN';
+  return f === 'jp' ? 'JAPANESE' : f === 'it' ? 'ITALIAN' : f === 'zo' ? 'HORDE' : 'GERMAN';
 }
 function factionPlural() {
   const f = enemyFaction();
-  return f === 'jp' ? 'Japanese' : f === 'it' ? 'Italians' : 'Germans';
+  return f === 'jp' ? 'Japanese' : f === 'it' ? 'Italians' : f === 'zo' ? 'undead' : 'Germans';
 }
 
 function syncMuteButtons() {
@@ -151,6 +151,7 @@ function newGame(level, difficulty) {
     grenades: [],    // thrown grenades in flight
     shrapnel: [],    // Frag Grenades card: fragments flung from a grenadier blast
     rockets: [],     // bazooka rockets in flight
+    biles: [],       // Spitter corrosive-bile globs in flight (Horde faction)
     planes: [],      // aircraft: friendly strafing runs, transports, enemy bombers
     flak: [],        // AA shells fused to burst in mid-air {x,y,timer,...}
     tracers: [],
@@ -185,11 +186,11 @@ function newGame(level, difficulty) {
   // War Chest front-loads the run's opening TP balance
   if (G.cardsOwned && G.cardsOwned.has('warchest')) G.tp += WAR_CHEST_TP;
   // endless-only: each run rolls which enemy the sector faces — the Wehrmacht,
-  // the Imperial Japanese Army, or the Regio Esercito. Every other mode
-  // (tutorials, campaigns) stays German so their scripted enemy types keep
-  // working. A caller (test harness) may pre-set G_forceFaction to lock the roll.
+  // the Imperial Japanese Army, the Regio Esercito, or The Horde (undead). Every
+  // other mode (tutorials, campaigns) stays German so their scripted enemy types
+  // keep working. A caller (test harness) may pre-set G_forceFaction to lock the roll.
   G.enemyFaction = level.id === 'endless'
-    ? (G_forceFaction || pick(['de', 'jp', 'it']))
+    ? (G_forceFaction || pick(['de', 'jp', 'it', 'zo']))
     : 'de';
   // starting an endless run refreshes the shop's reroll price back to base
   if (level.id === 'endless') resetRerollCost();
@@ -228,8 +229,8 @@ function makeUnit(type, x, y, nation = 'us') {
 
 function makeEnemy(type, x, y, nation) {
   const t = ENEMY_TYPES[type];
-  // an enemy's nation follows its type unless a caller forces one: the Japanese
-  // roster carries faction:'jp', everything else is Wehrmacht ('de')
+  // an enemy's nation follows its type unless a caller forces one: alternate
+  // rosters carry their own faction ('jp'/'it'/'zo'), everything else is Wehrmacht ('de')
   if (nation == null) nation = t.faction || 'de';
   return {
     side: 'de', nation, type, t, x, y,

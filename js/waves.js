@@ -184,6 +184,58 @@ function itaWaveComposition(w) {
   return out;
 }
 
+// The Horde composition. Same size/tempo curve as the others, but denser — the
+// dead come in bigger clumps than a disciplined army — and its own character: no
+// armor, no vehicles, almost no ranged fire. Shamblers are the backbone, runners
+// and crawlers swarm early, hounds streak ahead of the pack, and the heavier
+// specials (spitter, bloater, brute, screamer, abomination) escalate the threat as
+// the run drags on. What makes it dangerous isn't any one unit — it's that your
+// own casualties keep rising against you (see infection handling elsewhere).
+function zomWaveComposition(w) {
+  const late = wavesPast99(w);
+  const mult = enemySpawnMult(w);
+  // the horde fields ~25% more bodies per wave than an army — attrition is the point
+  const baseSize = Math.min(
+    3 + Math.floor(w / 2.2) + (Math.random() < 0.4 ? 1 : 0) + Math.floor(late / 3.5),
+    11 + Math.floor(w / 12) + Math.floor(late / 5),
+  );
+  const minSize = w > 3 ? 4 : 2;
+  const size = Math.max(minSize, Math.round(baseSize * mult));
+  const pool = ['zshambler', 'zshambler', 'zshambler'];
+  if (w >= 2) pool.push('zrunner', 'zrunner');      // fresh runners from the start
+  if (w >= 3) pool.push('zcrawler');
+  if (w >= 5) pool.push('zhound');
+  if (w >= 7) pool.push('zrevenant');               // the odd gunman
+  if (w >= 9) pool.push('zbloater');
+  if (w >= 12) pool.push('zspitter');
+  if (w >= 14) pool.push('zbrute');
+  const out = [];
+  for (let i = 0; i < size; i++) out.push(pick(pool));
+  // the screamer drives the pack — like the Italian officer it shows a touch more
+  // often, because it makes every zombie around it faster
+  if (w >= 8 && Math.random() < (0.35 + late * 0.004) * mult) out.push('zscreamer');
+  // a stray pack of hounds races ahead of some waves
+  if (w >= 5) {
+    const houndChance = Math.min(0.7, 0.2 + (w - 5) * 0.01) * mult;
+    if (Math.random() < houndChance) { out.push('zhound'); out.push('zhound'); }
+  }
+  // brutes lumber in from the mid game, more of them as it scales
+  const bruteChance = (0.10 + Math.max(0, w - 14) * 0.003) * (1 + late * 0.04) * mult;
+  if (w >= 14 && Math.random() < bruteChance) out.push('zbrute');
+  // the Abomination is the horde's boss — rare, and only once it's already grim
+  const abomChance = Math.min(0.4, 0.08 + late * 0.006);
+  if (w >= 30 && !G.enemies.some(e => !e.dead && e.type === 'zabom') && Math.random() < abomChance) {
+    out.push('zabom');
+  }
+  // deep into a run the horde just keeps thickening: extra shamblers/runners piled on
+  if (late > 0) {
+    const extra = Math.round(size * Math.min(0.5, late * 0.02));
+    const swarmPool = ['zshambler', 'zrunner', 'zrunner', 'zcrawler', 'zbrute'];
+    for (let i = 0; i < extra; i++) out.push(pick(swarmPool));
+  }
+  return out;
+}
+
 // ---- themed set-piece assaults: every 10th wave the enemy commits to a
 // scripted attack. Themes cycle; the tier (wave/10) keeps climbing forever,
 // so each theme returns bigger and meaner the next time around.
@@ -456,10 +508,91 @@ const ITA_SPECIAL_WAVES = [
   },
 ];
 
+// The Horde set-piece assaults — its own rotation: a wall of shamblers, a hound
+// pack, a bile bombardment, and an all-out surge led by screamers and a boss.
+const ZOM_SPECIAL_WAVES = [
+  {
+    key: 'swarm',
+    banner: 'THE DEAD RISE — HORDE SURGE!',
+    // a shoulder-to-shoulder wall of the walking dead across the whole field
+    spawn(t) {
+      const count = Math.floor(specialWaveMult(t) * (12 + 3 * t));
+      for (let i = 0; i < count; i++) {
+        const x = (W / (count + 1)) * (i + 1) + rand(-22, 22);
+        const roll = Math.random();
+        const type = roll < 0.55 ? 'zshambler' : roll < 0.8 ? 'zrunner' : 'zcrawler';
+        spawnEnemyAt(type, x, rand(-90, -20));
+      }
+      const screamers = Math.floor(specialWaveMult(t) * (1 + t / 4));
+      for (let i = 0; i < screamers; i++) {
+        spawnEnemyAt('zscreamer', rand(120, W - 120), rand(-120, -80));
+      }
+    },
+  },
+  {
+    key: 'pack',
+    banner: 'THE PACK! INFECTED HOUNDS!',
+    // a streaking pack of hounds and runners, screamers driving them on
+    spawn(t) {
+      const hounds = Math.floor(specialWaveMult(t) * (6 + 2 * t));
+      for (let i = 0; i < hounds; i++) {
+        spawnEnemyAt(Math.random() < 0.7 ? 'zhound' : 'zrunner', rand(50, W - 50), -20 - i * rand(20, 55));
+      }
+      const screamers = Math.floor(specialWaveMult(t) * (1 + t / 5));
+      for (let i = 0; i < screamers; i++) {
+        spawnEnemyAt('zscreamer', rand(120, W - 120), rand(-110, -70));
+      }
+    },
+  },
+  {
+    key: 'rot',
+    banner: 'ROTSTORM! THE BILE FALLS!',
+    // spitters and bloaters lob and burst behind a shambling screen
+    spawn(t) {
+      const spitters = Math.floor(specialWaveMult(t) * (2 + t / 3));
+      for (let i = 0; i < spitters; i++) {
+        spawnEnemyAt('zspitter', rand(70, W - 70), rand(-130, -60));
+      }
+      const bloaters = Math.floor(specialWaveMult(t) * (2 + t / 4));
+      for (let i = 0; i < bloaters; i++) {
+        spawnEnemyAt('zbloater', rand(70, W - 70), rand(-110, -40));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (6 + t)); i++) {
+        spawnEnemyAt(pick(['zshambler', 'zshambler', 'zrunner']), rand(50, W - 50), rand(-90, -20));
+      }
+    },
+  },
+  {
+    key: 'abomination',
+    banner: 'ABOMINATION! IT COMES FOR THE LINE!',
+    // the boss rolls in behind a brute vanguard and a screaming human wave
+    spawn(t) {
+      const cx = rand(160, W - 160);
+      const aboms = Math.max(1, Math.floor(specialWaveMult(t) * (0.5 + t / 4)));
+      for (let i = 0; i < aboms; i++) {
+        spawnEnemyAt('zabom', cx + rand(-140, 140), -40 - i * 150);
+      }
+      const brutes = Math.floor(specialWaveMult(t) * (1 + t / 3));
+      for (let i = 0; i < brutes; i++) {
+        spawnEnemyAt('zbrute', cx + rand(-180, 180), -80 - i * 70);
+      }
+      const count = Math.floor(specialWaveMult(t) * (8 + 2 * t));
+      for (let i = 0; i < count; i++) {
+        const x = (W / (count + 1)) * (i + 1) + rand(-24, 24);
+        spawnEnemyAt(pick(['zshambler', 'zrunner', 'zcrawler']), x, rand(-100, -20));
+      }
+      const screamers = Math.floor(specialWaveMult(t) * (1 + t / 4));
+      for (let i = 0; i < screamers; i++) {
+        spawnEnemyAt('zscreamer', rand(120, W - 120), rand(-130, -90));
+      }
+    },
+  },
+];
+
 function spawnSpecialWave(w) {
   const tier = w / 10;
   const f = enemyFaction();
-  const set = f === 'jp' ? JP_SPECIAL_WAVES : f === 'it' ? ITA_SPECIAL_WAVES : SPECIAL_WAVES;
+  const set = f === 'jp' ? JP_SPECIAL_WAVES : f === 'it' ? ITA_SPECIAL_WAVES : f === 'zo' ? ZOM_SPECIAL_WAVES : SPECIAL_WAVES;
   const theme = set[(tier - 1) % set.length];
   showBanner(theme.banner);
   theme.spawn(tier);
@@ -473,7 +606,8 @@ function launchWave(w) {
     return;
   }
   const f = enemyFaction();
-  const comp = f === 'jp' ? japWaveComposition(w) : f === 'it' ? itaWaveComposition(w) : waveComposition(w);
+  const comp = f === 'jp' ? japWaveComposition(w) : f === 'it' ? itaWaveComposition(w)
+    : f === 'zo' ? zomWaveComposition(w) : waveComposition(w);
   const cx = rand(100, W - 100);
   for (const type of comp) {
     const x = clamp(cx + rand(-90, 90), 30, W - 30);
@@ -495,6 +629,7 @@ function spawnWave() {
     const f = enemyFaction();
     showBanner(f === 'jp' ? 'THE IMPERIAL ARMY ATTACKS'
       : f === 'it' ? 'THE REGIO ESERCITO ATTACKS'
+      : f === 'zo' ? 'THE DEAD ARE RISING'
       : 'HERE THEY COME');
   }
 }

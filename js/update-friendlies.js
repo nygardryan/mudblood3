@@ -140,6 +140,10 @@ function updateUnit(u, dt) {
   if (u.mortarFireT > 0) u.mortarFireT -= dt;
   if (u.camoExposed > 0) u.camoExposed -= dt;
 
+  // Horde infection: a bitten man keeps fighting but rots on a countdown; if it
+  // runs out (or he's killed) he turns. tickInfection returns true once he's gone.
+  if (u.infected > 0 && tickInfection(u, dt)) return;
+
   // Emergency Repair: a vehicle below 30% HP rapidly patches itself back up.
   // emergencyRepairCd is never pre-initialized in makeUnit, so it starts
   // undefined — `> 0` guards the countdown and `!(... > 0)` (not `<= 0`) gates
@@ -384,6 +388,11 @@ function updateUnit(u, dt) {
   }
 
   if (u.type === 'medic') {
+    // vs the Horde a medic is a lifeline: he burns the infection out of anyone
+    // rotting near him, faster than it spreads. Cure it before the man turns and
+    // you keep a soldier instead of gaining a zombie. Runs every frame, not just
+    // on the heal tick, so treatment is steady.
+    if (G.enemyFaction === 'zo') cureNearestInfected(u, dt);
     u.healTick -= dt;
     if (u.healTick <= 0) {
       u.healTick = 0.4;
@@ -410,6 +419,32 @@ function updateUnit(u, dt) {
   }
 
   if (u.type === 'engineer') updateEngineer(u, dt);
+}
+
+// a medic tends the nearest infected man in range, draining his infection timer
+// faster than real time (INFECT_CURE_PER_SEC on top of the natural tick). When it
+// hits zero the infection is beaten and the man is saved — a rank-scaled MSG medic
+// cures faster still, same as he heals faster.
+function cureNearestInfected(u, dt) {
+  let worst = null, best = 1e9;
+  for (const a of G.units) {
+    if (a.dead || a === u || !(a.infected > 0)) continue;
+    if (a.t.tank || a.t.vehicle || a.t.gunEmplacement) continue;
+    const d2 = dist2(u, a);
+    if (d2 < MEDIC_RANGE * MEDIC_RANGE && a.infected < best) { best = a.infected; worst = a; }
+  }
+  if (!worst) return;
+  worst.infected += INFECT_CURE_PER_SEC * (1 + u.rank * 0.25) * dt;   // push the turn back
+  if (Math.random() < 0.4) {
+    G.particles.push({ x: worst.x + rand(-6, 6), y: worst.y - 10, vx: 0, vy: -16, ttl: 0.5, grav: 0, size: 1.6, color: '#8fe08f' });
+  }
+  if (worst.infected >= worst.infectMax) {
+    worst.infected = 0;
+    u.healed += 40;   // curing counts toward the medic's promotion, like a big patch-up
+    if (u.healed >= 150) { u.healed -= 150; gainXP(u); }
+    SFX.heal();
+    G.texts.push({ x: worst.x, y: worst.y - 22, text: 'CURED', ttl: 1.4, color: '#8fe08f' });
+  }
 }
 
 // engineer work, one job at a time: repair emplacements, then repair

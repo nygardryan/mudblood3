@@ -16,7 +16,7 @@ const SOLDIER_FACINGS = 48;
 // straight (uncached) so the animation still plays. Everything else is a steady
 // pose that hits the cache.
 function soldierCacheable(a) {
-  return !(a.grenThrowT > 0 || a.mortarFireT > 0 || a.shotgunBlastT > 0 || a.flameT > 0 || a.slashT > 0);
+  return !(a.grenThrowT > 0 || a.mortarFireT > 0 || a.shotgunBlastT > 0 || a.flameT > 0 || a.slashT > 0 || a.spitT > 0);
 }
 
 // The cached directional frame for this soldier's type/nation/facing. Baked from
@@ -63,6 +63,9 @@ function paintSoldierBody(c, a) {
   // the Regio Esercito roster has its own painter — M33 helmets, Carcanos,
   // plumed Bersaglieri, bustina officers, Breda/Fiat guns and the Lanciafiamme
   if (a.nation === 'it') { paintItalianSoldier(c, a); return; }
+  // The Horde has its own painter — rotted, groping walking dead: shamblers,
+  // brutes, spitters, bloaters, hounds, the Abomination and the rest
+  if (a.nation === 'zo') { paintZombieSoldier(c, a); return; }
   const type = a.type;
   const us = (a.nation || a.side) === 'us';
   const isSniper = type === 'sniper' || type === 'esniper';
@@ -962,6 +965,23 @@ function paintSoldierBody(c, a) {
 // health bar, rank chevrons, selection ring: drawn whether standing or prone
 function drawSoldierOverlays(a) {
   if (a._ghost) return;
+
+  // Horde infection: a bitten man festers with a sickly green cast, a pulsing
+  // aura, and a rot bar that fills as he turns. A medic can still save him.
+  if (a.infected > 0) {
+    const turn = clamp(1 - a.infected / (a.infectMax || 1), 0, 1);   // 0 = fresh bite, 1 = about to turn
+    const pulse = 0.35 + Math.sin(G.time * 6) * 0.15 + turn * 0.3;
+    ctx.strokeStyle = `rgba(143,224,106,${clamp(pulse, 0, 0.9)})`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(a.x, a.y, 10, 0, 7); ctx.stroke();
+    // a green haze over the body itself
+    ctx.fillStyle = `rgba(120,200,80,${0.12 + turn * 0.22})`;
+    ctx.beginPath(); ctx.arc(a.x, a.y, 8, 0, 7); ctx.fill();
+    // rot progress bar, above the HP bar
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(a.x - 9, a.y - 22, 18, 2);
+    ctx.fillStyle = '#8fe06a';          ctx.fillRect(a.x - 9, a.y - 22, 18 * turn, 2);
+  }
+
   if (a.hp < a.maxhp) {
     const f = clamp(a.hp / a.maxhp, 0, 1);
     ctx.fillStyle = 'rgba(0,0,0,0.6)';

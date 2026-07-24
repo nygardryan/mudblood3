@@ -31,6 +31,8 @@ const CODEX_CODE = {
   irifle: 'FNT', ibersa: 'BRS', imab: 'MAB', igren: 'BMB', ibreda: 'BRD',
   ifiat: 'FIA', icecc: 'CEC', ibrixia: 'BRX', imortaio: 'M81', iuff: 'OFF',
   iflame: 'FLM', ifolgore: 'FLG', il3: 'L3', im13: 'M13', isemo: 'SMV',
+  zshambler: 'SHM', zrunner: 'RUN', zcrawler: 'CRW', zhound: 'HND', zbrute: 'BRT',
+  zspitter: 'SPT', zbloater: 'BLT', zscreamer: 'SCR', zrevenant: 'REV', zabom: 'ABM',
   wire: 'WIR', sandbags: 'SBG', dummy: 'DMY', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
   ammocrate: 'AMM', mine: 'MIN', mortar: 'MST', artillery: 'ART',
   fog: 'FOG', fng: 'FNG', airraid: 'RAD', paradrop: 'PAR', airstrike: 'P47', special: 'SPC',
@@ -57,6 +59,7 @@ function codexFaction(tab, entry) {
     const et = entry && ENEMY_TYPES[entry.key];
     return et && et.faction === 'jp' ? 'IMPERIAL JAPANESE ARMY'
       : et && et.faction === 'it' ? 'REGIO ESERCITO'
+      : et && et.faction === 'zo' ? 'THE HORDE'
       : 'WEHRMACHT';
   }
   if (tab === 'defenses') return entry.kind || 'FIELD';

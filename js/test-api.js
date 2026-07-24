@@ -34,7 +34,7 @@ const TEST = {
   help() {
     return {
       api: {
-        'start(levelId, difficulty?, faction?)': "validated startGame; throws on unknown ids; returns state(). faction ('de'|'jp'|'it') pins the endless enemy roll",
+        'start(levelId, difficulty?, faction?)': "validated startGame; throws on unknown ids; returns state(). faction ('de'|'jp'|'it'|'zo') pins the endless enemy roll",
         'state()': 'compact JSON snapshot of the current game',
         'roster()': 'detailed per-actor lists {units, enemies}: type, pos, hp, rank, kills',
         'catalog()': 'what the current mode can buy: {key, label, kind, cost, affordable, atCap}',
@@ -66,8 +66,8 @@ const TEST = {
     if (difficultyId != null && !ENDLESS_DIFFICULTIES[difficultyId]) {
       throw new Error('unknown difficulty "' + difficultyId + '" — valid: ' + Object.keys(ENDLESS_DIFFICULTIES).join(', '));
     }
-    if (faction != null && faction !== 'de' && faction !== 'jp' && faction !== 'it') {
-      throw new Error('unknown faction "' + faction + '" — valid: de, jp, it');
+    if (faction != null && faction !== 'de' && faction !== 'jp' && faction !== 'it' && faction !== 'zo') {
+      throw new Error('unknown faction "' + faction + '" — valid: de, jp, it, zo');
     }
     // pin the endless enemy-faction roll for a deterministic test, then release
     G_forceFaction = faction || null;
@@ -190,6 +190,7 @@ const TEST = {
     add(typeof TESTING_GERMAN_PLACEABLES !== 'undefined' && TESTING_GERMAN_PLACEABLES);
     add(typeof TESTING_JAPANESE_PLACEABLES !== 'undefined' && TESTING_JAPANESE_PLACEABLES);
     add(typeof TESTING_ITALIAN_PLACEABLES !== 'undefined' && TESTING_ITALIAN_PLACEABLES);
+    add(typeof TESTING_ZOMBIE_PLACEABLES !== 'undefined' && TESTING_ZOMBIE_PLACEABLES);
     add(typeof TESTING_ABILITIES !== 'undefined' && TESTING_ABILITIES);
     this.__deployMap = m;
     return m;

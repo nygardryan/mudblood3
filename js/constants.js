@@ -583,6 +583,116 @@ Object.assign(ENEMY_TYPES, {
   },
 });
 
+// ---- The Horde roster: the fourth alternate endless-mode foe, and the only one
+// that isn't a national army. Every type carries faction:'zo', routing it through
+// makeEnemy's nation pick and the zombie renderer (js/render-zombie.js). The whole
+// faction is built around ONE signature mechanic that no army has: the BITE. Most
+// of the roster is melee (`zombie:true`), and a bite doesn't just wound — it may
+// INFECT the defender (`infect`, a per-bite probability). An infected man rots on
+// a timer and, if he isn't cured by a medic first, dies and RISES as a zombie that
+// turns on your own line (see infection handling in js/damage.js / update-*.js).
+// So the horde grows itself out of your casualties. There is no armor and almost
+// no ranged fire; the threat is numbers, speed, and attrition that recruits.
+Object.assign(ENEMY_TYPES, {
+  zshambler: {
+    // the backbone: a slow, relentless walking corpse. Cheap, numerous, and the
+    // default thing a bitten defender reanimates into. No gun — it claws and bites.
+    name: 'Shambler', hp: 74, speed: 15, range: 0, dmg: 16, acc: 0,
+    rof: 1.1, burst: 1, burstGap: 0, reward: 2,
+    color: '#5f6b4a', gun: 4, sfx: 'scream', priority: 1, faction: 'zo',
+    zombie: true, infect: 0.28,
+  },
+  zrunner: {
+    // a fresh kill, still fast on its feet — sprints the field and lunges at the
+    // nearest man. Low HP, but it closes before you can thin the pack. What a
+    // fast/light defender reanimates into.
+    name: 'Runner', hp: 54, speed: 52, range: 0, dmg: 13, acc: 0,
+    rof: 1.0, burst: 1, burstGap: 0, reward: 2,
+    color: '#6b7048', gun: 4, sfx: 'scream', priority: 1, faction: 'zo',
+    zombie: true, infect: 0.22,
+  },
+  zcrawler: {
+    // torn in half and dragging itself along low to the ground — small, quick, and
+    // it comes in swarms. Weak bite, but there are always more of them.
+    name: 'Crawler', hp: 32, speed: 38, range: 0, dmg: 9, acc: 0,
+    rof: 0.9, burst: 1, burstGap: 0, reward: 1,
+    color: '#596341', gun: 3, sfx: 'scream', priority: 1, faction: 'zo',
+    zombie: true, infect: 0.16, crawler: true,
+  },
+  zhound: {
+    // an infected war dog — blazing fast, almost no mass, and a savage bite that
+    // takes hold easily. Shoot the pack before it reaches the wire.
+    name: 'Infected Hound', hp: 30, speed: 72, range: 0, dmg: 12, acc: 0,
+    rof: 0.85, burst: 1, burstGap: 0, reward: 2,
+    color: '#5a5238', gun: 0, sfx: 'scream', priority: 1, faction: 'zo',
+    zombie: true, infect: 0.30, hound: true,
+  },
+  zbrute: {
+    // a swollen, muscle-bound corpse: high HP, slow, and it hits like a truck.
+    // A heavy bite with a high chance to infect — and it soaks a lot of lead.
+    name: 'Brute', hp: 300, speed: 12, range: 0, dmg: 40, acc: 0,
+    rof: 1.5, burst: 1, burstGap: 0, reward: 8,
+    color: '#556040', gun: 6, sfx: 'scream', priority: 3, faction: 'zo',
+    zombie: true, infect: 0.35, big: true,
+  },
+  zspitter: {
+    // the faction's only real ranged threat: it hangs back and lobs a glob of
+    // corrosive bile that bursts on impact, burning everyone nearby AND carrying
+    // the infection through the splash. Blind up close — it shambles if you get in.
+    name: 'Spitter', hp: 88, speed: 18, range: 0, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 5,
+    color: '#6e7a3e', gun: 4, sfx: 'scream', priority: 4, faction: 'zo',
+    zombie: true, infect: 0.18,
+    spit: { range: 230, min: 70, cdMin: 3.5, cdMax: 5.5, r: 34, dmg: 26, flight: 1.2, scatter: 26, infect: 0.5 },
+  },
+  zbloater: {
+    // a gas-swollen corpse that bursts when it dies (or reaches you), venting a
+    // cloud of infectious rot: area damage plus a high infect chance to everyone
+    // caught in it. A walking mine — kill it at a distance or share the cloud.
+    name: 'Bloater', hp: 130, speed: 13, range: 0, dmg: 10, acc: 0,
+    rof: 1.4, burst: 1, burstGap: 0, reward: 5,
+    color: '#6a7a4e', gun: 4, sfx: 'scream', priority: 3, faction: 'zo',
+    zombie: true, infect: 0.2, bloat: { r: 56, dmg: 34, infect: 0.55 },
+  },
+  zscreamer: {
+    // the horde's "officer": a shrieking corpse whose presence enrages the dead
+    // around it (aura → they move faster) and who, on a cadence, looses a scream
+    // that hurls every nearby zombie into a frenzied sprint. Kill it to slow the
+    // whole pack. It bites too, but its danger is what it does to the others.
+    name: 'Screamer', hp: 96, speed: 20, range: 0, dmg: 10, acc: 0,
+    rof: 1.2, burst: 1, burstGap: 0, reward: 6,
+    color: '#79764a', gun: 4, sfx: 'scream', priority: 5, faction: 'zo',
+    zombie: true, infect: 0.2, aura: true, frenzyCmd: true,
+  },
+  zrevenant: {
+    // a reanimated Wehrmacht soldier that never let go of his Kar98 — the horde's
+    // one gunman. Undead hands aim poorly and it fires slowly, but a shambling
+    // corpse that still shoots back is a nasty surprise in a melee faction.
+    name: 'Revenant', hp: 82, speed: 22, range: 148, dmg: 9, acc: 0.30,
+    rof: 1.9, burst: 1, burstGap: 0, reward: 3,
+    color: '#5c6242', gun: 9, sfx: 'rifle', priority: 2, faction: 'zo',
+  },
+  zabom: {
+    // the Abomination: a towering mound of fused corpses, the horde's boss-tier
+    // threat that stands in for armor. Enormous HP, ground-shaking slow, and a
+    // sweeping blow that flattens men and smashes emplacements — and near-certain
+    // infection on anyone it doesn't kill outright. Shows up only when it's already
+    // desperate. Small arms just annoy it; burn it, shell it, or mine it.
+    name: 'Abomination', hp: 920, speed: 9, range: 0, dmg: 70, acc: 0,
+    rof: 1.7, burst: 1, burstGap: 0, reward: 16,
+    color: '#4f5a3a', gun: 8, sfx: 'scream', priority: 4, faction: 'zo',
+    zombie: true, infect: 0.5, boss: true,
+  },
+});
+
+// The dead don't tire: a flat HP bump across the melee horde (gunmen excluded) so
+// they soak a little more fire while they close the distance. Mirrors the +20% the
+// Japanese infantry get, but applied by the `zombie` flag instead of by faction so
+// the ranged Revenant stays brittle.
+for (const t of Object.values(ENEMY_TYPES)) {
+  if (t.zombie && !t.big && !t.boss) t.hp = Math.round(t.hp * 1.15);
+}
+
 const ENEMY_INFO = {
   erifle: 'Standard Wehrmacht infantry. Slow, steady, and expendable — but there are always more of them.',
   esmg: 'Assault troops with MP40s. Fast movers who shred your line in close bursts.',
@@ -635,6 +745,18 @@ const ENEMY_INFO = {
   il3: 'L3/35 Lf flamethrower tankette — the only flame-throwing armor on the field. It grinds up to your line, halts at point-blank range, and washes the trench in fire. Thin-skinned and it comes in a swarm; kill it before it closes or burn with it.',
   im13: 'M13/40 medium tank. A 47mm gun and riveted armor — the heaviest Italy fields in numbers. Slow. Use AT weapons.',
   isemo: 'Semovente 75/18 assault gun. A low turretless casemate and a punchy 75mm — the best AT the Italians bring. Hunts your armor from range.',
+  // The Horde — the undead endless foe. No army, no discipline: just a rising tide
+  // of the dead. Their bite can INFECT your men, who then turn against you.
+  zshambler: 'A slow, relentless walking corpse. No weapon — it claws its way to your line and bites. Its bite can infect; an infected man who dies rises against you. Cheap and endless.',
+  zrunner: 'A fresh corpse still fast on its feet. Sprints the field and lunges — low HP, but it closes before you can thin the pack. Its bite spreads the infection.',
+  zcrawler: 'Half a body dragging itself along the dirt. Small, quick, and it swarms. A weak bite, but there are always more of them, and every bite can infect.',
+  zhound: 'An infected war dog. Blazing fast and almost no mass, with a savage bite that takes hold easily. Shoot the pack before it reaches the wire.',
+  zbrute: 'A swollen, muscle-bound corpse. High HP, slow, and it hits like a truck — a heavy bite with a strong chance to infect. Soaks a lot of lead.',
+  zspitter: 'The horde\'s one ranged threat. Hangs back and lobs a glob of corrosive bile that bursts on impact — area damage plus a high chance to infect everyone in the splash. Blind up close.',
+  zbloater: 'A gas-swollen corpse that bursts when it dies or reaches you, venting a cloud of infectious rot: area damage and a high infect chance to all caught in it. A walking mine — kill it at range.',
+  zscreamer: 'The horde\'s driving force. Its presence enrages the dead around it, and on a cadence it looses a scream that hurls every nearby zombie into a frenzied sprint. Kill it to slow the whole pack.',
+  zrevenant: 'A reanimated Wehrmacht soldier that never let go of his Kar98 — the horde\'s only gunman. Undead hands aim poorly and it fires slowly, but a corpse that shoots back is a nasty surprise.',
+  zabom: 'The Abomination — a towering mound of fused corpses, the horde\'s boss. Enormous HP, ground-shaking slow, a sweeping blow that flattens men and smashes emplacements, and near-certain infection on survivors. Burn it, shell it, or mine it.',
 };
 
 const EVENT_INFO = [
@@ -865,6 +987,42 @@ const TESTING_ITALIAN_PLACEABLES = [
   { key: 'isemo', label: 'SEMOVENTE', cost: 110, kind: 'egerman', hotkey: '',
     desc: 'Semovente 75/18 assault gun. Casemate 75mm — the Italians\' best AT.' },
 ];
+
+// endless testing/deploy roster for The Horde. Same 'egerman' routing as the other
+// alternate factions (makeEnemy reads faction:'zo' off each type).
+const TESTING_ZOMBIE_PLACEABLES = [
+  { key: 'zshambler', label: 'SHAMBLER', cost: 3, kind: 'egerman', hotkey: '',
+    desc: 'Slow walking corpse. Claws to the line and bites — the bite can infect.' },
+  { key: 'zrunner', label: 'RUNNER', cost: 3, kind: 'egerman', hotkey: '',
+    desc: 'Fast fresh corpse. Sprints and lunges; low HP. Bite spreads infection.' },
+  { key: 'zcrawler', label: 'CRAWLER', cost: 3, kind: 'egerman', hotkey: '',
+    desc: 'Half a body dragging along the dirt. Small, quick, swarms.' },
+  { key: 'zhound', label: 'HOUND', cost: 4, kind: 'egerman', hotkey: '',
+    desc: 'Infected war dog. Blazing fast, tiny HP, a bite that takes hold easily.' },
+  { key: 'zbrute', label: 'BRUTE', cost: 12, kind: 'egerman', hotkey: '',
+    desc: 'Swollen bruiser. High HP, slow, heavy bite with a strong infect chance.' },
+  { key: 'zspitter', label: 'SPITTER', cost: 10, kind: 'egerman', hotkey: '',
+    desc: 'Lobs corrosive bile — area damage plus infection in the splash. Blind up close.' },
+  { key: 'zbloater', label: 'BLOATER', cost: 9, kind: 'egerman', hotkey: '',
+    desc: 'Bursts on death into a cloud of infectious rot. A walking mine.' },
+  { key: 'zscreamer', label: 'SCREAMER', cost: 15, kind: 'egerman', hotkey: '',
+    desc: 'Enrages the dead around it and screams to hurl them into a frenzied sprint.' },
+  { key: 'zrevenant', label: 'REVENANT', cost: 5, kind: 'egerman', hotkey: '',
+    desc: 'Reanimated soldier with a Kar98. The horde\'s only gunman — poor aim, slow fire.' },
+  { key: 'zabom', label: 'ABOMINATION', cost: 90, kind: 'egerman', hotkey: '',
+    desc: 'Boss mound of fused corpses. Enormous HP, smashes emplacements, near-certain infection.' },
+];
+
+// ---- Infection: the Horde's signature mechanic. A zombie bite (and bile/gas
+// splash) may plant the infection in a defender; he rots on a countdown and, if a
+// medic doesn't cure him first, dies and RISES as a zombie on the enemy side. Read
+// by the bite/spit/bloat code (update-enemies.js), the per-frame rot tick
+// (update-friendlies.js), the reanimation on death (damage.js) and the medic cure.
+const INFECT_TURN_MIN = 9;     // seconds from bite to fully turning, if untreated
+const INFECT_TURN_MAX = 15;
+const INFECT_DOT = 3;          // HP lost per rot tick
+const INFECT_DOT_INTERVAL = 1.5;
+const INFECT_CURE_PER_SEC = 4; // a tending medic burns down this much infection timer per second (on top of real time)
 
 // testing-mode-only ability: an instant field promotion for every unit —
 // American and German alike — caught inside the blast-style radius.

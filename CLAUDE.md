@@ -32,8 +32,9 @@ TEST.start('endless', 'easy')      // validated start — THROWS on bad ids
                                    // (bare startGame() silently falls back to endless!)
 TEST.start('endless','easy','jp')  // 3rd arg pins the endless enemy faction roll:
                                    // 'de' (Wehrmacht), 'jp' (Imperial Japanese Army),
-                                   // or 'it' (Regio Esercito). omitted = random per run
-                                   // (1-in-3 each). state().enemyFaction reports it.
+                                   // 'it' (Regio Esercito), or 'zo' (The Horde — undead).
+                                   // omitted = random per run (1-in-4 each).
+                                   // state().enemyFaction reports it.
 TEST.deploy('gunner', 0.5, 0.75)   // FREE god-mode spawn; (0..1] coords = fractions of field
 TEST.deploy('sandbags', 0.4, 0.7)  // deploys ANY placeable — defenses, supports, German test units
 TEST.buy('gunner', 0.5, 0.75)      // REALISTIC purchase: charges TP, checks cap/placement, runs place()
@@ -101,6 +102,43 @@ heavy tank; the armor threat is the early flame-tankette swarm. `deploy` spawns 
 (they're in `TESTING_ITALIAN_PLACEABLES`); wave spawning routes through
 `itaWaveComposition` and `ITA_SPECIAL_WAVES` when `G.enemyFaction === 'it'`.
 Their art lives in `js/render-italian.js` (`paintItalianSoldier`).
+
+**The Horde** is the fourth endless foe (`faction:'zo'` in `ENEMY_TYPES`, 10 keys:
+`zshambler`/`zrunner`/`zcrawler`/`zhound`/`zbrute`/`zspitter`/`zbloater`/
+`zscreamer`/`zrevenant`/`zabom`) — the only foe that isn't a national army, and
+the only one built around **infection** rather than a discipline mechanic. Most of
+the roster is melee (`zombie:true`, routed to `updateZombie` in
+`js/update-enemies.js`), and a bite (`zombieBite`) rolls the type's `infect`
+chance to plant the infection in a defender. An infected man (`u.infected` timer,
+`u.infectMax`) rots via `tickInfection` (in update-enemies, called from
+`updateUnit`), losing HP in ticks; if he isn't cured he dies and **reanimates**
+on the enemy side (`reanimateAsUndead` → a `zrunner`/`zshambler`). Reanimation is
+also triggered from the death path in `js/damage.js` (`damageUnit`, when
+`u.infected > 0 && G.enemyFaction === 'zo'`). A **medic** is the hard counter —
+`cureNearestInfected` (in `js/update-friendlies.js`) burns the infection timer
+down faster than it climbs and saves the man. Tuning: `INFECT_TURN_MIN/MAX`,
+`INFECT_DOT`, `INFECT_DOT_INTERVAL`, `INFECT_CURE_PER_SEC` in `js/constants.js`.
+There's no armor and almost no ranged fire; signature units:
+- `zspitter` — the one ranged threat: a `spit` spec lobs a corrosive **bile** glob
+  (`fireBile` → `G.biles`, updated in `js/update.js`, burst by `bileBurst`) that
+  damages AND infects in a splash. Blind up close (shambles if you get inside `min`).
+- `zbloater` — `bloat` spec: bursts on death OR on reaching the line
+  (`bloaterBurst`, `e._burst` guard) into a cloud of infectious rot (`bileBurst`).
+  A walking mine — hooked in `damageEnemy` (damage.js) and in `updateZombie`.
+- `zscreamer` — the horde's "officer": `aura:true` (speeds nearby dead via the
+  normal `enemyOfficerNear`/`buffed` path) + `frenzyCmd:true` → `zombieFrenzyCommand`
+  hurls nearby zombies into a `chargeT` sprint (mirror of the banzai/avanti command).
+- `zrevenant` — the ONLY gunman: no `zombie` flag, so it falls through to the
+  standard ranged path (Kar98, poor `acc`). Its bullets wound but don't infect.
+- `zabom` (Abomination) — `boss:true`: enormous HP standing in for armor; its bite
+  sweeps every defender at reach and near-certainly infects. Rare, late.
+- `zhound` — `hound:true`: a quadruped, drawn by its own `paintZombieHound` branch.
+`deploy` spawns any of them (they're in `TESTING_ZOMBIE_PLACEABLES`); wave spawning
+routes through `zomWaveComposition` and `ZOM_SPECIAL_WAVES` when
+`G.enemyFaction === 'zo'`, and the paradrop event becomes "the dead rise behind you"
+(`triggerHordeRising` in `js/events.js`). Their art lives in `js/render-zombie.js`
+(`paintZombieSoldier`). Infected defenders get a green overlay/rot bar in
+`drawSoldierOverlays` (`js/render-soldier.js`).
 
 `deploy`/`spawnEnemy` accept off-field coords (they don't block) but return
 `offField: true` with a `warning` when a positional placement lands outside the

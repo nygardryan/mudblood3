@@ -125,6 +125,18 @@ function draw() {
     }
   }
 
+  // Spitter bile globs: a shadow on the ground and a wobbling green blob lofted
+  // above it by its arc, with a slick highlight
+  for (const b of G.biles) {
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath(); ctx.ellipse(b.x, b.y, 3, 1.6, 0, 0, 7); ctx.fill();
+    const gy = b.y - (b.arc || 0);
+    ctx.fillStyle = '#6fae44';
+    ctx.beginPath(); ctx.arc(b.x, gy, 3.2, 0, 7); ctx.fill();
+    ctx.fillStyle = '#b6e88a';
+    ctx.beginPath(); ctx.arc(b.x - 1, gy - 1, 1.1, 0, 7); ctx.fill();
+  }
+
   // Frag Grenades shrapnel: hot little fragments streaking outward, each a
   // short tracer smeared along its heading with a bright leading spark
   for (const sh of G.shrapnel) {
@@ -294,7 +306,7 @@ function draw() {
       const age = 1 - a;
       const rr = f.r * (0.25 + age * 0.85);
       ctx.globalAlpha = a * a * 0.55;
-      ctx.strokeStyle = '#ffd88a';
+      ctx.strokeStyle = f.color || '#ffd88a';   // most rings are blast-amber; a scream tints its own
       ctx.lineWidth = 0.5 + 2.5 * a;
       ctx.beginPath(); ctx.arc(f.x, f.y, rr, 0, 7); ctx.stroke();
       continue;
@@ -344,8 +356,16 @@ function draw() {
     const a = clamp(tx.ttl / 0.5, 0, 1);
     ctx.fillStyle = `rgba(0,0,0,${0.75 * a})`;
     ctx.fillText(tx.text, tx.x + 1, tx.y + 1);
-    ctx.fillStyle = `rgba(255,217,74,${a})`;
-    ctx.fillText(tx.text, tx.x, tx.y);
+    // most notices are the standard amber; some (infection, screamer) tint their own
+    if (tx.color) {
+      ctx.globalAlpha = a;
+      ctx.fillStyle = tx.color;
+      ctx.fillText(tx.text, tx.x, tx.y);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = `rgba(255,217,74,${a})`;
+      ctx.fillText(tx.text, tx.x, tx.y);
+    }
   }
 
   // fog overlay

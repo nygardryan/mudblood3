@@ -49,9 +49,13 @@ function update(dt) {
     }
   }
   if (G.fog > 0) G.fog -= dt;
+  if (G.night > 0) G.night -= dt;
   // smokescreen: burning pots, drifting puffs, and the sight-line bbox the
   // targeting scans reject against — must run before anyone picks a target
   updateSmoke(dt);
+  // night: live flares and the lit-sector bbox targeting checks against —
+  // same ordering requirement as smoke
+  updateFlares(dt);
 
   // drop a focus-fire mark once its target is dead or off the field
   if (G.focusTarget && (G.focusTarget.dead || G.focusTarget.y < 0)) G.focusTarget = null;
@@ -112,6 +116,8 @@ function update(dt) {
       if (s.kind === 'v2') explodeV2(s.x, s.y, s.r, s.dmg, s.by);
       // a smoke round carries no charge: it cracks open into a burning pot
       else if (s.kind === 'smoke') plantSmokePot(s.x, s.y, s.burn);
+      // a flare round carries no charge either: it just lights up where it lands
+      else if (s.kind === 'flare') plantFlare(s.x, s.y, rand(FLARE_DUR_MIN, FLARE_DUR_MAX));
       else explode(s.x, s.y, s.r, s.dmg, s.big, s.by);
     }
   }
@@ -170,6 +176,12 @@ function update(dt) {
       g.t += dt;
       if (g.t >= g.dur) {
         g.landed = true;
+        // a thrown flare carries no charge — it just plants light where it lands
+        if (g.kind === 'flare') {
+          g.done = true;
+          plantFlare(g.tx, g.ty, rand(FLARE_THROW_DUR_MIN, FLARE_THROW_DUR_MAX));
+          continue;
+        }
         const impactFuze = g.by && g.by.type === 'grenadier' && G.cardsOwned && G.cardsOwned.has('impactfuze');
         if (impactFuze) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); maybeFragShrapnel(g); }
         else g.fuse = 3;
@@ -268,6 +280,7 @@ function update(dt) {
   compactInPlace(G.biles, b => !b.done);
   compactInPlace(G.smoke, s => s.ttl > 0);
   compactInPlace(G.smokePots, p => p.ttl > 0);
+  compactInPlace(G.flares, f => f.ttl > 0);
   compactInPlace(G.planes, p => !p.done);
   compactInPlace(G.flak, f => !f.done);
   compactInPlace(G.particles, p => p.ttl > 0);

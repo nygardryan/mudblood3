@@ -19,6 +19,7 @@ function focusPick(u, range, pred) {
   if (dist2(u, f) > range * range) return null;
   // a marked enemy is still an order, not x-ray vision: smoke voids it
   if (smokeBlocksLOS(u, f)) return null;
+  if (nightBlocksSight(u, f)) return null;
   return f;
 }
 
@@ -26,14 +27,15 @@ function nearestEnemyInRange(u, range, pred) {
   const f = focusPick(u, range, pred);
   if (f) return f;
   const sm = smokeOnField();
+  const nt = nightActive();
   let best = null, bd = range * range;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
     if (pred && !pred(e)) continue;
     const d = dist2(u, e);
-    // the smoke test runs only on a candidate that would take the lead, and
-    // leaves bd alone when it fails, so a farther *visible* enemy still wins
-    if (d < bd && !(sm && smokeBlocksLOS(u, e))) { bd = d; best = e; }
+    // the smoke/night tests run only on a candidate that would take the lead,
+    // and leave bd alone when they fail, so a farther *visible* enemy still wins
+    if (d < bd && !(sm && smokeBlocksLOS(u, e)) && !(nt && nightBlocksSight(u, e))) { bd = d; best = e; }
   }
   return best;
 }
@@ -42,11 +44,12 @@ function firstEnemyInRange(u, range, pred) {
   const f = focusPick(u, range, pred);
   if (f) return f;
   const sm = smokeOnField();
+  const nt = nightActive();
   const r2 = range * range;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
     if (pred && !pred(e)) continue;
-    if (dist2(u, e) <= r2 && !(sm && smokeBlocksLOS(u, e))) return e;
+    if (dist2(u, e) <= r2 && !(sm && smokeBlocksLOS(u, e)) && !(nt && nightBlocksSight(u, e))) return e;
   }
   return null;
 }
@@ -59,14 +62,15 @@ function tieredEnemyTarget(u, range, tiers) {
   const best = new Array(n).fill(null);
   const bd = new Array(n).fill(range * range);
   const sm = smokeOnField();
+  const nt = nightActive();
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
     const d2 = dist2(u, e);
-    let vis = -1;   // this candidate's sight line: -1 untested, 0 smoked out, 1 clear
+    let vis = -1;   // this candidate's sight line: -1 untested, 0 blocked, 1 clear
     for (let i = 0; i < n; i++) {
       if (d2 < bd[i] && tiers[i](e)) {
-        if (sm) {
-          if (vis < 0) vis = smokeBlocksLOS(u, e) ? 0 : 1;
+        if (sm || nt) {
+          if (vis < 0) vis = ((sm && smokeBlocksLOS(u, e)) || (nt && nightBlocksSight(u, e))) ? 0 : 1;
           if (!vis) break;
         }
         bd[i] = d2; best[i] = e;
@@ -75,7 +79,7 @@ function tieredEnemyTarget(u, range, tiers) {
   }
   const f = G && G.focusTarget;
   const focusOk = f && !f.dead && f.y >= 0 && !(f.chute > 0) &&
-    dist2(u, f) <= range * range && !smokeBlocksLOS(u, f);
+    dist2(u, f) <= range * range && !smokeBlocksLOS(u, f) && !nightBlocksSight(u, f);
   for (let i = 0; i < n; i++) {
     if (focusOk && tiers[i](f)) return f;
     if (best[i]) return best[i];
@@ -89,14 +93,15 @@ function tieredUnitTarget(e, range, tiers) {
   const best = new Array(n).fill(null);
   const bd = new Array(n).fill(range * range);
   const sm = smokeOnField();
+  const nt = nightActive();
   for (const u of G.units) {
     if (u.dead || isCamouflaged(u)) continue;
     const d2 = dist2(e, u);
     let vis = -1;
     for (let i = 0; i < n; i++) {
       if (d2 < bd[i] && tiers[i](u)) {
-        if (sm) {
-          if (vis < 0) vis = smokeBlocksLOS(e, u) ? 0 : 1;
+        if (sm || nt) {
+          if (vis < 0) vis = ((sm && smokeBlocksLOS(e, u)) || (nt && nightBlocksSight(e, u))) ? 0 : 1;
           if (!vis) break;
         }
         bd[i] = d2; best[i] = u;
@@ -111,6 +116,7 @@ function sniperTarget(u, range) {
   const f = focusPick(u, range, e => !e.t.tank);
   if (f) return f;
   const sm = smokeOnField();
+  const nt = nightActive();
   let best = null, bp = -1, bd = Infinity;
   const r2 = range * range;
   for (const e of G.enemies) {
@@ -119,6 +125,7 @@ function sniperTarget(u, range) {
     if (d > r2) continue;
     if (e.t.priority > bp || (e.t.priority === bp && d < bd)) {
       if (sm && smokeBlocksLOS(u, e)) continue;
+      if (nt && nightBlocksSight(u, e)) continue;
       bp = e.t.priority; bd = d; best = e;
     }
   }
@@ -145,16 +152,17 @@ function primaryEnemyTarget(u, range) {
   if (focus) return focus;
   const c = u._tgt;
   if (c && u._tgtUntil > G.time && !c.dead && !(c.y < 0) && !(c.chute > 0)
-      && dist2(u, c) <= range * range && !smokeBlocksLOS(u, c)) {
+      && dist2(u, c) <= range * range && !smokeBlocksLOS(u, c) && !nightBlocksSight(u, c)) {
     return c;
   }
   // cache miss: full scan (focus already handled above)
   const sm = smokeOnField();
+  const nt = nightActive();
   let best = null, bd = range * range;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
     const d = dist2(u, e);
-    if (d < bd && !(sm && smokeBlocksLOS(u, e))) { bd = d; best = e; }
+    if (d < bd && !(sm && smokeBlocksLOS(u, e)) && !(nt && nightBlocksSight(u, e))) { bd = d; best = e; }
   }
   u._tgt = best;
   u._tgtUntil = G.time + RETARGET_INTERVAL;
@@ -167,6 +175,7 @@ function primaryEnemyTarget(u, range) {
 function stillTargetableUnit(e, c, r2) {
   if (!c) return false;
   if (smokeBlocksLOS(e, c)) return false;
+  if (nightBlocksSight(e, c)) return false;
   if (c.isDummy) {
     return c.hp > 0 && !(e.dummyBlind && e.dummyBlind.has(c.id)) && dist2(e, c) <= r2;
   }
@@ -526,12 +535,13 @@ function friendlyNearPoint(x, y, r, except) {
 
 function nearestUnitInRange(e, range, pred) {
   const sm = smokeOnField();
+  const nt = nightActive();
   let best = null, bd = range * range;
   for (const u of G.units) {
     if (u.dead || isCamouflaged(u)) continue;
     if (pred && !pred(u)) continue;
     const d = dist2(e, u);
-    if (d < bd && !(sm && smokeBlocksLOS(e, u))) { bd = d; best = u; }
+    if (d < bd && !(sm && smokeBlocksLOS(e, u)) && !(nt && nightBlocksSight(e, u))) { bd = d; best = u; }
   }
   // decoy scarecrows draw fire like any body on the field, unless this enemy
   // has already put rounds into one and seen through the ruse (damageDummy)
@@ -539,7 +549,7 @@ function nearestUnitInRange(e, range, pred) {
     if (dm.hp <= 0 || (e.dummyBlind && e.dummyBlind.has(dm.id))) continue;
     if (pred && !pred(dm)) continue;
     const d = dist2(e, dm);
-    if (d < bd && !(sm && smokeBlocksLOS(e, dm))) { bd = d; best = dm; }
+    if (d < bd && !(sm && smokeBlocksLOS(e, dm)) && !(nt && nightBlocksSight(e, dm))) { bd = d; best = dm; }
   }
   return best;
 }

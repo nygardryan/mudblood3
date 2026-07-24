@@ -305,6 +305,9 @@ function applyPlacement(p, x, y) {
     for (let i = 0; i < 16; i++) {
       scheduleShell(x + rand(-90, 90), y + rand(-70, 70), 1.6 + i * 0.45, 55, 105, true);
     }
+  } else if (p.key === 'flare') {
+    showBanner('FLARE UP');
+    scheduleShell(x, y, 1.2, 0, 0, false, null, 'flare');
   } else if (p.key === 'rankup') {
     showBanner('FIELD PROMOTIONS');
     const pt = { x, y };

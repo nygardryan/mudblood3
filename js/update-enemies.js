@@ -36,6 +36,7 @@ function updateEnemy(e, dt) {
   if (e.mortarFireT > 0) e.mortarFireT -= dt;
   if (e.v2FireT > 0) e.v2FireT -= dt;
   if (e.slashT > 0) e.slashT -= dt;          // banzai bayonet-swing animation
+  if (e.nightRevealT > 0) e.nightRevealT -= dt;
   if (e.chargeT > 0) e.chargeT -= dt;        // banzai-command speed surge
 
   // still under canopy: drift down, sway in the wind, do nothing else
@@ -162,6 +163,29 @@ function updateEnemy(e, dt) {
         t: 0, dur: 1.0, sx: e.x, sy: e.y,
         kind: 'stick',
       });
+    }
+  }
+
+  // flare-carriers only bother once it's actually dark, and only throw at a
+  // foe darkness is currently hiding
+  if (e.t.flare) {
+    e.flareCd -= dt;
+    if (G.night > 0 && e.flareCd <= 0) {
+      let ft = null, fbd = FLARE_THROW_RANGE * FLARE_THROW_RANGE;
+      for (const u of G.units) {
+        if (u.dead) continue;
+        const d = dist2(e, u);
+        if (d < fbd && nightBlocksSight(e, u)) { fbd = d; ft = u; }
+      }
+      if (ft) {
+        e.flareCd = rand(FLARE_THROW_CD_MIN, FLARE_THROW_CD_MAX);
+        e.grenThrowT = 0.35;
+        G.grenades.push({
+          x: e.x, y: e.y, tx: ft.x, ty: ft.y,
+          t: 0, dur: 0.9, sx: e.x, sy: e.y,
+          kind: 'flare',
+        });
+      }
     }
   }
 

@@ -162,6 +162,7 @@ function fireShot(shooter, target, opts) {
   const t = (opts && opts.weapon) || shooter.t;
   shooter.face = Math.atan2(target.y - shooter.y, target.x - shooter.x);
   markCamoFired(shooter);
+  if (G.night > 0) shooter.nightRevealT = NIGHT_MUZZLE_REVEAL;
   const mx = shooter.x + Math.cos(shooter.face) * (t.gun + 3);
   const my = shooter.y + Math.sin(shooter.face) * (t.gun + 3);
   SFX[t.sfx]();
@@ -341,6 +342,7 @@ function fireShotgun(actor, buffs) {
 
   SFX.shotgun();
   markCamoFired(actor);
+  if (G.night > 0) actor.nightRevealT = NIGHT_MUZZLE_REVEAL;
   actor.shotgunBlastT = 0.12;
   G.flashes.push({ x: mx, y: my, r: 11, ttl: 0.09, max: 0.09, kind: 'muzzle', angle: actor.face });
   const spreadMult = Math.max(0.4, 1 - (actor.rank || 0) * 0.08);

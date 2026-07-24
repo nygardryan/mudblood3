@@ -44,7 +44,7 @@ const TEST = {
         'buy(type, x, y)': 'realistic purchase: charges TP, checks cap/placement, runs the in-game place() path. Returns {ok, placed, cost, tpBefore, tpAfter, reason?}',
         'deploy(type, x, y)': 'FREE god-mode spawn of ANY placeable (units, defenses, supports, German test units) — no TP, no placement limit. (0..1] coords are field fractions; larger are px.',
         'spawnEnemy(type, x, y)': 'defense modes only: push a German attacker into G.enemies. Negative y above the top edge is valid staging.',
-        'event(name)': "fire a random-event on demand regardless of wave gating — name in: random, fog, smokescreen, fng, paradrop, airraid, airstrike",
+        'event(name)': "fire a random-event on demand regardless of wave gating — name in: random, fog, smokescreen, night, fng, paradrop, airraid, airstrike",
         'setTP(n) / addTP(n)': 'set or add tactical points, for scripting test scenarios',
         'autoplay(opts?)': 'autonomous endless player: spends TP on a scaling build every `every`s and steps for `seconds`. opts {seconds=120, every=15, plan?}. Returns {over, waves, log, final}',
         'reset()': 'stop the game and return to the main menu',
@@ -104,6 +104,9 @@ const TEST = {
       smoke: { puffs: G.smoke.length, pots: G.smokePots.length,
         windDeg: Math.round(G.wind.dir * 180 / Math.PI),
         windSpeed: +G.wind.speed.toFixed(1) },
+      // night: seconds of collapsed vision left, and how many flares are lit
+      night: { active: G.night > 0, secondsLeft: +Math.max(0, G.night).toFixed(1),
+        flares: G.flares.length },
       units: tally(G.units),
       enemies: tally(G.enemies),
     };
@@ -333,7 +336,7 @@ const TEST = {
   // normally holds each one back (events.js). Defense modes only.
   event(name) {
     if (!G) return { ok: false, error: 'no game in progress — call TEST.start()' };
-    const valid = ['random', 'fog', 'smokescreen', 'fng', 'paradrop', 'airraid', 'airstrike'];
+    const valid = ['random', 'fog', 'smokescreen', 'night', 'fng', 'paradrop', 'airraid', 'airstrike'];
     if (!valid.includes(name)) {
       return { ok: false, error: 'unknown event "' + name + '" — valid: ' + valid.join(', ') };
     }

@@ -141,6 +141,7 @@ function updateUnit(u, dt) {
   if (u.atgunFireT > 0) u.atgunFireT -= dt;
   if (u.mortarFireT > 0) u.mortarFireT -= dt;
   if (u.camoExposed > 0) u.camoExposed -= dt;
+  if (u.nightRevealT > 0) u.nightRevealT -= dt;
 
   // Horde infection: a bitten man keeps fighting but rots on a countdown; if it
   // runs out (or he's killed) he turns. tickInfection returns true once he's gone.
@@ -325,6 +326,30 @@ function updateUnit(u, dt) {
           t: 0, dur: 1.0, sx: u.x, sy: u.y, by: u,
           kind: 'frag',
           r: 46, dmg: 115 * (1 + u.rank * 0.05),
+        });
+      }
+    }
+  }
+
+  // flare-carriers only bother once it's actually dark, and only throw at a
+  // foe darkness is currently hiding — no point lighting up ground that's
+  // already lit or empty
+  if (u.t.flare) {
+    u.flareCd -= dt;
+    if (G.night > 0 && u.flareCd <= 0) {
+      let ft = null, fbd = FLARE_THROW_RANGE * FLARE_THROW_RANGE;
+      for (const e of G.enemies) {
+        if (e.dead || e.y < 0 || e.chute > 0) continue;
+        const d = dist2(u, e);
+        if (d < fbd && nightBlocksSight(u, e)) { fbd = d; ft = e; }
+      }
+      if (ft) {
+        u.flareCd = rand(FLARE_THROW_CD_MIN, FLARE_THROW_CD_MAX);
+        u.grenThrowT = 0.35;
+        G.grenades.push({
+          x: u.x, y: u.y, tx: ft.x, ty: ft.y,
+          t: 0, dur: 0.9, sx: u.x, sy: u.y, by: u,
+          kind: 'flare',
         });
       }
     }

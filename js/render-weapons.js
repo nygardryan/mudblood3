@@ -70,8 +70,27 @@ function drawStickGrenade(c, x, y, scale, rot) {
   c.restore();
 }
 
+// signal flare cartridge — a stubby brass tube with a warm glow around it,
+// so it reads as "light," not "explosive," even mid-arc
+function drawFlareCartridge(c, x, y, scale) {
+  scale = scale || 1;
+  c.save();
+  c.translate(x, y);
+  c.fillStyle = 'rgba(255,200,110,0.4)';
+  c.beginPath(); c.arc(0, 0, 5 * scale, 0, 7); c.fill();
+  c.fillStyle = '#7a6a42';
+  c.fillRect(-1.1 * scale, -2.6 * scale, 2.2 * scale, 5.2 * scale);
+  c.fillStyle = '#ffce6a';
+  c.beginPath(); c.arc(0, -2.6 * scale, 1.1 * scale, 0, 7); c.fill();
+  c.restore();
+}
+
 function drawGrenadeProjectile(g, x, y) {
   const spin = g.landed ? 0 : g.t * 9;
+  if (g.kind === 'flare') {
+    drawFlareCartridge(ctx, x, y, 1.05);
+    return;
+  }
   if (g.kind === 'stick') {
     drawStickGrenade(ctx, x, y, 1.05, -Math.PI / 2 + spin * 0.3);
   } else {

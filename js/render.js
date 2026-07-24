@@ -33,6 +33,12 @@ function draw() {
   }
   // the bitmap is backed at groundRenderScale× density; map it into W×H world space
   ctx.drawImage(groundCanvas, 0, 0, W, H);
+  // night: tint the ground dark. Only the terrain is dimmed — everything drawn
+  // after (units, effects, flare glow, HUD) stays at full legibility on top.
+  if (G.night > 0) {
+    ctx.fillStyle = 'rgba(5,8,18,0.45)';
+    ctx.fillRect(0, 0, W, H);
+  }
   for (const m of G.groundMarks) {
     if (inView(m.x, m.y, 100)) drawGroundMark(m, ctx);
   }
@@ -356,6 +362,10 @@ function draw() {
   // above it, and so does everything they see (js/smoke.js blocks ground sight
   // lines only, never a bomber's).
   drawSmoke();
+
+  // flares light the ground the same way smoke darkens it — drawn over
+  // everything ground-level so a lit sector actually reads as lit
+  drawFlares();
 
   // aircraft overhead, above every ground effect
   for (const p of G.planes) drawPlane(p);

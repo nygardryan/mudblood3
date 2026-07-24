@@ -118,6 +118,8 @@ function newGame(level, difficulty) {
     smoke: [],       // drifting smokescreen puffs — visible cloud AND line-of-sight blockers
     smokePots: [],   // burning smoke canisters still pumping the screen out
     smokeBox: null,  // bbox over every blocking puff, rebuilt per frame (js/smoke.js)
+    flares: [],      // live flare glows {x,y,ttl,max,r,a} — lit sectors during night (js/night.js)
+    flareBox: null,  // bbox over every lit flare, rebuilt per frame (js/night.js)
     planes: [],      // aircraft: friendly strafing runs, transports, enemy bombers
     flak: [],        // AA shells fused to burst in mid-air {x,y,timer,...}
     tracers: [],
@@ -134,6 +136,7 @@ function newGame(level, difficulty) {
     officerTick: (level.id === 'endless' && equippedEndlessCards().includes('rushorder')) ? 15 : 30,
     eventTimer: rand(40, 60),
     fog: 0,
+    night: 0,        // seconds left of collapsed vision (js/night.js)
     wind: rollWind(),    // smoke rides this; it veers a little every wave (js/smoke.js)
     banner: null,
     selected: [],
@@ -178,6 +181,7 @@ function makeUnit(type, x, y, nation = 'us') {
     healTick: 0,
     healed: 0,       // HP restored; medics rank up on this, slowly
     grenCd: rand(5, 9),
+    flareCd: rand(FLARE_THROW_CD_MIN, FLARE_THROW_CD_MAX),
     rocketCd: rand(1, 2),
     mortCd: rand(4, 8),
     xp: 0, rank: 0,
@@ -218,6 +222,7 @@ function makeEnemy(type, x, y, nation) {
     face: Math.PI / 2,
     wobble: rand(0, Math.PI * 2),
     grenCd: rand(2, 4),
+    flareCd: rand(FLARE_THROW_CD_MIN, FLARE_THROW_CD_MAX),
     turret: Math.PI / 2,
     pushT: 0, pushCd: rand(2, 5),
     prone: 0, proneCd: 0,

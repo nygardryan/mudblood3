@@ -94,8 +94,8 @@ const UNIT_TYPES = {
     // 50% more gun range than the rifleman (154): the better all-rounder
     name: 'Grenadier', hp: 100, range: 231, dmg: 10, acc: 0.55,
     rof: 1.2, burst: 1, burstGap: 0, speed: 42,
-    color: '#4f7040', gun: 6, sfx: 'rifle', grenade: true,
-    desc: 'Carbine most of the time; a heavy frag now and then. Quick enough to catch a live German grenade and heave it back.',
+    color: '#4f7040', gun: 6, sfx: 'rifle', grenade: true, flare: true,
+    desc: 'Carbine most of the time; a heavy frag now and then. Quick enough to catch a live German grenade and heave it back. Lobs flares to light up his sector at night.',
   },
   shotgunner: {
     name: 'Shotgunner', hp: 145, range: 0, dmg: 0, acc: 0,
@@ -139,8 +139,8 @@ const UNIT_TYPES = {
   officer: {
     name: 'Officer', hp: 95, range: 101, dmg: 9, acc: 0.5,
     rof: 0.9, burst: 1, burstGap: 0, speed: 44,
-    color: '#80814a', gun: 5, sfx: 'pistol',
-    desc: 'Nearby men fire faster and straighter, more so as he ranks up. Earns +1 TP / 30 s.',
+    color: '#80814a', gun: 5, sfx: 'pistol', flare: true,
+    desc: 'Nearby men fire faster and straighter, more so as he ranks up. Earns +1 TP / 30 s. Calls up flares to light up his sector at night.',
   },
   flamer: {
     name: 'Flamethrower', hp: 130, range: 78, dmg: 0, acc: 0,
@@ -249,7 +249,7 @@ const ENEMY_TYPES = {
     // counterpart: grenadier (range 231, speed 42)
     name: 'Grenadier', hp: 85, speed: 27, range: 101, dmg: 10, acc: 0.42,
     rof: 1.45, burst: 1, burstGap: 0, reward: 3,
-    color: '#555c68', gun: 5, sfx: 'pistol', priority: 2, grenade: true,
+    color: '#555c68', gun: 5, sfx: 'pistol', priority: 2, grenade: true, flare: true,
   },
   emg: {
     // counterpart: gunner (range 179, speed 36) — range capped to 179
@@ -263,7 +263,7 @@ const ENEMY_TYPES = {
     // counterpart: officer (range 101, speed 44)
     name: 'Officer', hp: 95, speed: 24, range: 94, dmg: 9, acc: 0.48,
     rof: 0.92, burst: 1, burstGap: 0, reward: 4,
-    color: '#4f5661', gun: 5, sfx: 'pistol', priority: 5, aura: true,
+    color: '#4f5661', gun: 5, sfx: 'pistol', priority: 5, aura: true, flare: true,
   },
   esniper: {
     // counterpart: sniper (range 249, speed 38)
@@ -659,6 +659,12 @@ const EVENT_INFO = [
     desc: 'A smoke round lands on the field and pumps out a screen that rides the wind. Nobody can see through it: troops on either side cannot target each other at all until they are almost touching. Lasts 20-60 seconds, and the wind shifts every wave.',
   },
   {
+    key: 'night',
+    name: 'Nightfall',
+    wave: 3,
+    desc: 'Vision collapses. Nobody can target past close range unless a flare lights the ground under them — call one in (FLARE) or count on a grenadier/officer (Wehrmacht: grenadier/officer too) to throw one. Firing a weapon briefly gives its position away.',
+  },
+  {
     key: 'fng',
     name: 'FNG Reinforcements',
     wave: 3,
@@ -708,7 +714,7 @@ const PLACEABLES = [
   { key: 'gunner', label: 'GUNNER', cost: 9, kind: 'unit', hotkey: '2',
     desc: 'BAR gunner. Long-range automatic fire. Ranking up makes him shoot faster, straighter, and harder.' },
   { key: 'grenadier', label: 'GRENADIER', cost: 7, kind: 'unit', hotkey: '3',
-      desc: 'Carbine + frag grenades. Blast can hit your men. Can catch and return enemy grenades. Rank: more frequent, accurate, harder grenades.' },
+      desc: 'Carbine + frag grenades. Blast can hit your men. Can catch and return enemy grenades. Lobs a flare to light his sector at night. Rank: more frequent, accurate, harder grenades.' },
     { key: 'shotgunner', label: 'SHOTGUN', cost: 5, kind: 'unit', hotkey: 'G',
       desc: 'M97 trench gun and body armor. High HP; each blast hits every enemy in the cone. Rank: tighter spread, extended range.' },
     { key: 'bazooka', label: 'BAZOOKA', cost: 12, kind: 'unit', hotkey: 'B',
@@ -722,7 +728,7 @@ const PLACEABLES = [
     { key: 'engineer', label: 'ENGINEER', cost: 14, kind: 'unit', hotkey: 'E',
       desc: 'Repairs and upgrades fortifications, and lets you build emplacements forward of the deploy line within his radius. Slowly patches vehicles and AT guns. SMG close range. Rank: faster repairs, extended range.' },
     { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
-      desc: 'Sidearm. Aura boosts nearby soldiers\' fire. Bonus grows with rank. Earns bonus TP. Snipers hunt him.' },
+      desc: 'Sidearm. Aura boosts nearby soldiers\' fire. Bonus grows with rank. Earns bonus TP. Calls up flares at night. Snipers hunt him.' },
     { key: 'flamer', label: 'FLAMER', cost: 7, kind: 'unit', hotkey: 'F',
       desc: 'M2 flamethrower. Burns everything in the cone — friend and foe. Rank: more burn damage, tighter stream.' },
     { key: 'jeep', label: 'JEEP', cost: 26, kind: 'unit', hotkey: 'J',
@@ -753,6 +759,8 @@ const PLACEABLES = [
     desc: '6 mortar shells on target. DANGER CLOSE — friendly fire is real.' },
   { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 12, kind: 'support', hotkey: 'A',
     desc: '105mm barrage: 16 heavy shells, wide spread. Devastating. Indiscriminate.' },
+  { key: 'flare', label: 'FLARE', cost: 4, kind: 'support', hotkey: 'N',
+    desc: 'Fires a flare over the target point. Lights up the ground below it for targeting — essential once night falls.' },
   { key: 'bodyarmor', label: 'BODY ARMOR', cost: 1, kind: 'support', hotkey: '',
     desc: 'Straps a plate carrier on one infantryman. Its own bar soaks up bullet damage until it breaks — HP is untouched while it holds. Re-buy to refill.' },
   { key: 'flakarmor', label: 'FLAK ARMOR', cost: 1, kind: 'support', hotkey: '',
@@ -769,7 +777,7 @@ const AXIS_PLACEABLES = [
   { key: 'esmg', label: 'STORMTROOP', cost: 4, kind: 'eunit', hotkey: '2',
     desc: 'MP40 assault trooper. Fast mover, deadly up close.' },
   { key: 'egren', label: 'GRENADIER', cost: 10, kind: 'eunit', hotkey: '3',
-    desc: 'Carries stick grenades into the fray. Blast ignores friend and foe.' },
+    desc: 'Carries stick grenades into the fray. Blast ignores friend and foe. Lobs flares to light his sector at night.' },
   { key: 'emg', label: 'MG42 TEAM', cost: 9, kind: 'eunit', hotkey: '4',
     desc: 'MG42 gunner. Pins the Americans down from long range.' },
   { key: 'esniper', label: 'SNIPER', cost: 10, kind: 'eunit', hotkey: '5',
@@ -777,7 +785,7 @@ const AXIS_PLACEABLES = [
   { key: 'eflame', label: 'FLAMMEN', cost: 6, kind: 'eunit', hotkey: 'F',
     desc: 'Flammenwerfer operator in a flak vest. Burns through wire, sandbags and flesh alike.' },
   { key: 'eoff', label: 'OFFICER', cost: 15, kind: 'eunit', hotkey: '6',
-    desc: 'Leutnant. Nearby troops fight harder; earns +1 TP every 30 s while alive.' },
+    desc: 'Leutnant. Nearby troops fight harder; earns +1 TP every 30 s while alive. Calls up flares at night.' },
   { key: 'emortar', label: 'GRANATWERFER', cost: 14, kind: 'eunit', hotkey: 'M',
     desc: '81mm mortar team. Long-range indirect fire; blind inside 147 px.' },
   { key: 'ebazooka', label: 'PANZERFAUST', cost: 18, kind: 'eunit', hotkey: 'B',
@@ -792,6 +800,8 @@ const AXIS_PLACEABLES = [
     desc: '75mm cannon and thick armor. The American line\'s worst nightmare.' },
   { key: 'ebarrage', label: 'ARTILLERY', cost: 16, kind: 'support', hotkey: 'A',
     desc: 'German 105mm barrage: 10 heavy shells on target. Indiscriminate.' },
+  { key: 'flare', label: 'LEUCHTPISTOLE', cost: 4, kind: 'support', hotkey: 'N',
+    desc: 'Fires a flare over the target point. Lights up the ground below it for targeting — essential once night falls.' },
 ];
 
 // endless testing mode: the German roster dropped in freely anywhere on the
@@ -917,6 +927,24 @@ const SMOKE_SEE_THROUGH = 26;
 // radius so what the player sees is the volume that actually screens
 const SMOKE_SPRITE_FIT = 2.06;
 
+// ---- Night event & flares (js/night.js). Vision collapses to near-nothing;
+// a flare (support strike or thrown by a unit) carves out a lit circle where
+// targeting still works, mirroring smoke's box-cached LOS gate but keyed on
+// proximity to a light source rather than depth-on-the-sight-line.
+const NIGHT_DUR_MIN = 50;       // seconds the event lasts, start to lifting
+const NIGHT_DUR_MAX = 80;
+const NIGHT_SIGHT_RANGE = 140;  // px a man can still make out in the pitch dark, no light needed
+const NIGHT_MUZZLE_REVEAL = 1.6; // seconds a shooter stays "seen" after firing, muzzle flash gave him away
+const FLARE_RADIUS = 130;       // px of ground a lit flare illuminates
+const FLARE_CAP = 5;            // live flares, oldest dropped when a new one lands
+const FLARE_DUR_MIN = 16;       // burn time for a called-in flare strike
+const FLARE_DUR_MAX = 22;
+const FLARE_THROW_DUR_MIN = 10; // burn time for a unit's hand-thrown flare — shorter than a called strike
+const FLARE_THROW_DUR_MAX = 14;
+const FLARE_THROW_CD_MIN = 14;  // seconds between a flare-carrying unit's autonomous throws
+const FLARE_THROW_CD_MAX = 20;
+const FLARE_THROW_RANGE = 220;  // px — how far a flare-carrying unit will lob one toward a dark foe
+
 // testing-mode-only ability: an instant field promotion for every unit —
 // American and German alike — caught inside the blast-style radius.
 const TESTING_ABILITIES = [
@@ -937,6 +965,8 @@ const TESTING_EVENTS = [
     desc: 'Rolls fog across the field — everyone shoots worse until it lifts.' },
   { key: 'smokescreen', label: 'SMOKE', cost: 0, kind: 'event', hotkey: '',
     desc: 'Drops a smoke round that screens the field downwind — nobody can target through it.' },
+  { key: 'night', label: 'NIGHT', cost: 0, kind: 'event', hotkey: '',
+    desc: 'Collapses vision field-wide until a flare lights a sector, or a shot gives its shooter away.' },
   { key: 'fng', label: 'FNG', cost: 0, kind: 'event', hotkey: '',
     desc: 'A replacement rifleman reports to the back line.' },
   { key: 'paradrop', label: 'PARADROP', cost: 0, kind: 'event', hotkey: '',

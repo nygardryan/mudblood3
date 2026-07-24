@@ -118,7 +118,7 @@ function triggerAirRaid(w) {
 
 function triggerEvent() {
   const w = G.wave;
-  const events = ['fog', 'fng', 'smokescreen'];
+  const events = ['fog', 'fng', 'smokescreen', 'night'];
   if (w >= 4) events.push('airraid');
   if (w >= 12) events.push('airraid');
   if (w >= 24) events.push('airraid');
@@ -142,6 +142,10 @@ function runEvent(ev, w) {
     G.fog = 25.3;
   } else if (ev === 'smokescreen') {
     triggerSmokescreen();
+  } else if (ev === 'night') {
+    showBanner('NIGHTFALL');
+    SFX.event();
+    G.night = rand(NIGHT_DUR_MIN, NIGHT_DUR_MAX);
   } else if (ev === 'fng') {
     showBanner('REINFORCEMENTS: FNG REPORTING');
     SFX.event();

@@ -391,6 +391,21 @@ body {
 .tool-btn .cost { display: block; color: #ffd94a; font-weight: bold; font-size: calc(8px * var(--tool-scale)); }
 .tool-btn:hover { border-color: #a49f7d; background: rgba(51, 48, 29, .95); }
 .tool-btn.active { border-color: #ffd94a; background: rgba(61, 56, 25, .95); }
+/* sticky back button — stays visible while scrolling through the category list */
+.tool-back-btn {
+  position: sticky;
+  z-index: 2;
+}
+/* desktop/landscape: sticky at top of vertical scroll */
+#toolbar:not(#stage.mobile-portrait #toolbar) .tool-back-btn {
+  top: 0;
+  left: 0;
+}
+/* mobile portrait: sticky at left of horizontal scroll */
+#stage.mobile-portrait #toolbar .tool-back-btn {
+  left: 0;
+  top: auto;
+}
 .tool-btn:disabled {
   opacity: .38;
   cursor: not-allowed;

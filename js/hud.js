@@ -235,6 +235,8 @@ let toolButtons = [];
 let toolbarPlaceables = [];
 let toolbarView = 'categories';
 let toolbarCollapsedForSelection = false;
+// remembers scroll position per category so the user picks up where they left off
+const _catScrollPos = {};
 
 function placeablesForCategory(categoryId) {
   const cat = TOOLBAR_CATEGORIES.find(c => c.id === categoryId);
@@ -395,6 +397,14 @@ function renderToolbar() {
       bar.appendChild(b);
       toolButtons.push({ p, el: b });
     }
+    // restore scroll position where the user left off
+    const saved = _catScrollPos[toolbarView];
+    if (saved) {
+      requestAnimationFrame(() => {
+        bar.scrollLeft = saved.x;
+        bar.scrollTop = saved.y;
+      });
+    }
   }
 
   syncToolbarVisibility();
@@ -452,6 +462,11 @@ function selectPlaceable(p) {
   if (!canAffordTP(placeableCost(p))) { SFX.error(); mobileVibrate(12); return; }
   if (p.key === 'officer' && officerCount() >= officerLimit()) { SFX.error(); mobileVibrate(12); return; }
   SFX.click();
+  // save scroll position before the toolbar rebuilds into placement mode
+  if (toolbarView !== 'categories') {
+    const bar = el('toolbar');
+    if (bar) _catScrollPos[toolbarView] = { x: bar.scrollLeft, y: bar.scrollTop };
+  }
   placing = (placing === p) ? null : p;
   if (placing) mobileToolbarMinimized = false;
   if (placing && toolbarView === 'categories') {

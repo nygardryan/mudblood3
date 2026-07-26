@@ -192,6 +192,59 @@ function drawSidearm(c, fx, fy, gunLen, face, us) {
   }
 }
 
+// the boss's hand cannon — a long heavy revolver: thick barrel, a prominent
+// cylinder with chamber dots, wood grip. Reads as a sidearm scaled up to match
+// the man carrying it.
+function drawRevolver(c, fx, fy, gunLen, face) {
+  const tipX = fx * gunLen, tipY = fy * gunLen;
+  const px = -fy, py = fx;
+  // barrel: dark core with a steel top strap
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 2.6;
+  c.beginPath();
+  c.moveTo(fx * 2.2, fy * 2.2);
+  c.lineTo(tipX, tipY);
+  c.stroke();
+  c.strokeStyle = '#3a3830';
+  c.lineWidth = 1.1;
+  c.beginPath();
+  c.moveTo(fx * 2.4 - px * 0.9, fy * 2.4 - py * 0.9);
+  c.lineTo(tipX - px * 0.7, tipY - py * 0.7);
+  c.stroke();
+  // the cylinder — the revolver's signature mass behind the barrel. Placed
+  // proportionally so it clears the boss's coat ellipse and stays visible.
+  const cylX = fx * gunLen * 0.68, cylY = fy * gunLen * 0.68;
+  c.fillStyle = '#4a4844';
+  c.beginPath(); c.arc(cylX, cylY, 1.8, 0, 7); c.fill();
+  c.strokeStyle = '#1e1e18';
+  c.lineWidth = 0.6;
+  c.beginPath(); c.arc(cylX, cylY, 1.8, 0, 7); c.stroke();
+  c.fillStyle = '#22221c';
+  for (const a of [0.6, 2.7, 4.8]) {
+    c.beginPath(); c.arc(cylX + Math.cos(face + a) * 1, cylY + Math.sin(face + a) * 1, 0.4, 0, 7); c.fill();
+  }
+  // wood grip, raked back
+  c.fillStyle = '#3a2c20';
+  c.beginPath();
+  c.moveTo(fx * 2.6 + px * 1.2, fy * 2.6 + py * 1.2);
+  c.lineTo(fx * 2.2 + px * 3.6, fy * 2.2 + py * 3.6);
+  c.lineTo(fx * 1.4 + px * 3.2, fy * 1.4 + py * 3.2);
+  c.lineTo(fx * 2.1 + px * 1, fy * 2.1 + py * 1);
+  c.closePath(); c.fill();
+  c.strokeStyle = '#241a12';
+  c.lineWidth = 0.5;
+  c.stroke();
+  // hammer spur + muzzle
+  c.strokeStyle = '#2a2a24';
+  c.lineWidth = 0.9;
+  c.beginPath();
+  c.moveTo(fx * 2.4 - px * 0.4, fy * 2.4 - py * 0.4);
+  c.lineTo(fx * 1.7 - px * 1.2, fy * 1.7 - py * 1.2);
+  c.stroke();
+  c.fillStyle = '#141410';
+  c.beginPath(); c.arc(tipX, tipY, 1, 0, 7); c.fill();
+}
+
 function drawOfficerCap(c, fx, fy, us) {
   c.fillStyle = us ? '#3f4a2e' : '#4a4840';
   c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill();

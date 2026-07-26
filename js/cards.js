@@ -76,6 +76,11 @@ const SHELLSHOCK_DURATION = 1;   // seconds an enemy is stunned per hit
 
 function maybeShellShock(e, from) {
   if (e.dead || !from || from.side !== 'us' || from.type !== 'mortarman') return;
+  // the boss never reads his stun timer (dispatch order in updateEnemy), so
+  // skip the daze outright — otherwise the floating text would be a lie. Same
+  // for the Yamato and her parts: nothing ticks a part's stun down, so a daze
+  // set here would latch on forever while the battery kept firing anyway.
+  if (e.t.germanBoss || e.t.japBoss || e.t.shipPart) return;
   if (!(G.cardsOwned && G.cardsOwned.has('shellshocked'))) return;
   e.stun = Math.max(e.stun || 0, SHELLSHOCK_DURATION);
   G.texts.push({ x: e.x, y: e.y - 24, text: 'SHELL SHOCKED', ttl: 1.2 });
@@ -480,12 +485,7 @@ const CARD_UNIQUES = {
     desc: 'Raises the officer limit from 5 to 10.',
     hooks: {},
   },
-  impactfuze: {
-    unit: 'grenadier', name: 'Impact Fuze', cost: 10, weight: 4,
-    desc: 'Grenadier frags detonate the instant they land instead of cooking off after a fuse. Also halves the throw cooldown.',
-    hooks: {},
-  },
-  // flag-only, like Impact Fuze: the grenade explosion in update.js reads
+  // flag-only: the grenade explosion in update.js reads
   // G.cardsOwned and calls spawnShrapnel when a grenadier's frag goes off.
   fraggrenades: {
     unit: 'grenadier', name: 'Frag Grenades', cost: 11, weight: 4,

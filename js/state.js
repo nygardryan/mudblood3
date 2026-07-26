@@ -204,7 +204,9 @@ function enemyHpRamp() {
 
 function makeEnemy(type, x, y, nation) {
   const t = ENEMY_TYPES[type];
-  const hp = Math.round(t.hp * enemyHpRamp());
+  // noRamp (the boss): his HP is a hand-set multiple of a tank's, not a
+  // trooper's — the difficulty ramp would silently triple it on hard
+  const hp = Math.round(t.hp * (t.noRamp ? 1 : enemyHpRamp()));
   // an enemy's nation follows its type unless a caller forces one: alternate
   // rosters carry their own faction ('jp'/'zo'), everything else is Wehrmacht ('de')
   if (nation == null) nation = t.faction || 'de';

@@ -58,10 +58,25 @@ function explode(x, y, r, dmg, big, by) {
   // HE vs armor: anything that carries its own armorMult (bazooka rockets,
   // the V2 warhead) hits armored/wheeled targets far harder than it hits flesh
   const blastArmorMult = by && by.t && (by.t.rocket || by.t.v2) && (by.t.rocket || by.t.v2).armorMult;
+  // The Yamato's hull is five actors sharing one HP pool — four belt sections
+  // plus the hull core itself, which is the amidships hitbox — so a single shell
+  // landing on her would otherwise be counted two to four times over. They are
+  // all held back here and only the NEAREST takes the blast: nearest rather than
+  // first-in-array so hitArea's distance falloff stays honest, and the core is in
+  // the group because a shell amidships would otherwise hit the core AND the
+  // section beside it (measured: 473 damage where 230 was correct).
+  // Her turrets and gun tubs are deliberately NOT de-duped: they have their own
+  // pools, which is what makes a shell that lands on a battery hurt twice.
+  let belt = null, beltHd = 0, beltD2 = Infinity;
   for (const e of G.enemies) {
     if (e.chute > 0) continue;   // blast passes under the descending stick
     let hd = hitArea(e);
     if (hd > 0) {
+      if (e.t.hullSection || e.t.ship) {
+        const bdx = e.x - x, bdy = e.y - y, bd2 = bdx * bdx + bdy * bdy;
+        if (bd2 < beltD2) { beltD2 = bd2; belt = e; beltHd = hd; }
+        continue;
+      }
       if (e.t.tank) {
         hd *= blastArmorMult != null ? blastArmorMult : 2.2;
       } else if ((e.t.vehicle || e.t.apc) && blastArmorMult != null) {
@@ -69,6 +84,10 @@ function explode(x, y, r, dmg, big, by) {
       } else if (e.t.blastResist) hd *= (1 - e.t.blastResist);
       damageEnemy(e, hd, by || { x, y }, 'blast');
     }
+  }
+  if (belt) {
+    damageEnemy(belt, beltHd * (blastArmorMult != null ? blastArmorMult : 2.2),
+      by || { x, y }, 'blast');
   }
   for (const u of G.units) {
     let hd = hitArea(u);

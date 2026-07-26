@@ -24,10 +24,10 @@ const CODEX_CODE = {
   flamer: 'FLM', jeep: 'JEP', sherman: 'SHM', atgun: 'ATG', aagun: 'AAG',
   erifle: 'RFL', esmg: 'STM', egren: 'GRN', emg: 'MG', eoff: 'OFF', esniper: 'SNP',
   eflame: 'FLM', emortar: 'GWF', ebazooka: 'PZF', ebike: 'KRD', ejeep: 'KBW',
-  ehalftrack: '251', panzer: 'PZ4', estug: 'STG', etiger: 'TGR', ev2: 'V2',
+  ehalftrack: '251', panzer: 'PZ4', estug: 'STG', etiger: 'TGR', ev2: 'V2', eboss: 'SCH',
   jrifle: 'RFL', jbanzai: 'BNZ', jsmg: 'SNL', jgren: 'GRN', jlmg: 'T99',
   jhmg: 'T92', jsniper: 'SNP', jknee: 'KNE', jmortar: 'MTR', jlunge: 'LNG',
-  joff: 'OFF', jflame: 'FLM', jhago: 'HGO', jtank: 'CHI', jchinu: 'CHN',
+  joff: 'OFF', jflame: 'FLM', jhago: 'HGO', jtank: 'CHI', jchinu: 'CHN', jyamato: 'YMT',
   zshambler: 'SHM', zrunner: 'RUN', zcrawler: 'CRW', zhound: 'HND', zbrute: 'BRT',
   zspitter: 'SPT', zbloater: 'BLT', zscreamer: 'SCR', zrevenant: 'REV', zabom: 'ABM',
   wire: 'WIR', sandbags: 'SBG', dummy: 'DMY', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
@@ -474,7 +474,17 @@ function renderPortrait(typeKey, side) {
     actor.turret = actor.face;
 
     const t = actor.t;
-    if (t.tank) {
+    if (t.ship) {
+      // Her hull only, and via the PURE paint function — drawYamato reads
+      // actor.parts, which a bare makeEnemy() here doesn't have. Scaled right
+      // down: she is 300px long against a portrait a fraction of that.
+      ctx.save();
+      ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 2);
+      ctx.scale(0.21, 0.21);
+      ctx.rotate(Math.PI);   // bow to the left, so she reads bow-on like the rest
+      paintYamatoHull(ctx, actor);
+      ctx.restore();
+    } else if (t.tank) {
       ctx.save();
       ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 4);
       ctx.scale(0.72, 0.72);
@@ -991,7 +1001,10 @@ function codexEntries(tab) {
     }));
   }
   if (tab === 'enemies') {
-    return Object.entries(ENEMY_TYPES).map(([key, t]) => {
+    // the Yamato's belt sections, batteries and gun tubs are all real ENEMY_TYPES
+    // entries, but they're parts of her — not foes in their own right, and three
+    // extra cards would just clutter the roster
+    return Object.entries(ENEMY_TYPES).filter(([, t]) => !t.shipPart).map(([key, t]) => {
       const parts = [`${t.hp} HP`, `${t.reward} TP REWARD`];
       if (t.dmg > 0) parts.splice(1, 0, `${t.dmg} DMG`);
       if (t.range > 0) parts.splice(t.dmg > 0 ? 2 : 1, 0, `${t.range} RNG`);

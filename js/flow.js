@@ -36,6 +36,69 @@ function resumeGame() {
   refreshHUD();
 }
 
+// Copy for the shared boss-victory overlay. Both bosses come through the same
+// screen, so the wording has to follow whichever one just fell — the Yamato is a
+// ship, and calling her "the executioner" or "him" would read as a bug.
+function bossVictoryCopy() {
+  if (G && G.enemyFaction === 'jp') {
+    return {
+      title: 'THE YAMATO BURNS',
+      lead: 'The land battleship is a wreck.',
+      stats: `Wave ${G.wave} — the Yamato is burning and the sector is yours. ` +
+        `Stand down with the win, or hold the line and meet her again a hundred waves on.`,
+      recap: 'You broke the Yamato',
+    };
+  }
+  return {
+    title: 'DER SCHLÄCHTER FALLS',
+    lead: 'The executioner is down.',
+    stats: `Wave ${G.wave} — the executioner is down and the sector is yours. ` +
+      `Stand down with the win, or hold the line and meet him again a hundred waves on.`,
+    recap: 'You cut down Der Schlächter',
+  };
+}
+
+// the boss is down: freeze the field and offer the choice — take the win now
+// (full recap flow, marked victorious) or fight on, in which case the run
+// continues and the boss returns at the next hundredth wave
+function bossVictory() {
+  if (!running || !G || G.over) return;
+  paused = true;
+  clearPlacing();
+  drag = null;
+  clearViewPan();
+  placeTouch = null;
+  mobileToolbarMinimized = false;
+  G.selected = [];
+  const copy = bossVictoryCopy();
+  el('boss-victory-title').textContent = copy.title;
+  el('boss-victory-stats').textContent = copy.stats;
+  el('boss-victory').classList.remove('hidden');
+  refreshHUD();
+}
+
+function bossFightOn() {
+  el('boss-victory').classList.add('hidden');
+  paused = false;
+  lastT = performance.now();
+  SFX.click();
+  refreshHUD();
+}
+
+function bossEndRun() {
+  el('boss-victory').classList.add('hidden');
+  paused = false;
+  const t = Math.floor(G.time);
+  const diffPrefix = G.difficulty ? `${G.difficulty.name} — ` : '';
+  let stats = `${diffPrefix}${bossVictoryCopy().recap} and held for ${G.wave} waves ` +
+    `and ${t} seconds. ${G.kills} ${factionPlural()} will not go home.`;
+  if (G.medalsEarned > 0) {
+    stats += ` +${G.medalsEarned} medal${G.medalsEarned === 1 ? '' : 's'} earned — ` +
+      `${loadEndlessCards().medals} banked for the card shop.`;
+  }
+  endRun(true, 'SECTOR HELD', stats);
+}
+
 function returnToMenu() {
   running = false;
   paused = false;
@@ -46,6 +109,7 @@ function returnToMenu() {
   activePointers.clear();
   viewGesture = null;
   el('pause').classList.add('hidden');
+  el('boss-victory').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('endless-endgame').classList.add('hidden');
   el('recap').classList.add('hidden');
@@ -203,6 +267,7 @@ function startGame(levelId, difficultyId) {
     : level.placeables;
   buildToolbar(placeables);
   el('intro').classList.add('hidden');
+  el('boss-victory').classList.add('hidden');
   el('gameover').classList.add('hidden');
   el('endless-endgame').classList.add('hidden');
   el('recap').classList.add('hidden');

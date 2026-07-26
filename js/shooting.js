@@ -29,6 +29,8 @@ function tryGoProne(u, chance) {
   // Japanese infantry are fanatics: they never hit the dirt. Standing tall
   // costs them — but it means they never stall, they only close the distance.
   if (u.t.faction === 'jp') return;
+  // bosses never dive — prone's 60% dodge would BUFF a damage sponge
+  if (u.t.boss) return;
   if (u.prone > 0 || u.proneCd > 0 || u.moveTo) return;          // running men keep running
   if (braveStandsFast(u)) return;                                // brave-card men hold their ground
   if (Math.random() >= chance) return;
@@ -53,6 +55,7 @@ function suppress(u, chance, hold) {
   // the dead don't take cover for anything — the Horde's whole identity is
   // that it never stops closing, and a single BAR was freezing it solid.
   if (u.t.faction === 'jp' || u.t.faction === 'zo') return;
+  if (u.t.boss) return;   // a boss walks through the beaten zone
   if (u.moveTo) return;
   if (braveStandsFast(u)) return;
   if (Math.random() >= chance) return;
@@ -208,7 +211,11 @@ function fireShot(shooter, target, opts) {
       return;
     }
     let dmg = t.dmg * rand(0.75, 1.25) * (opts && opts.dmgMult ? opts.dmgMult : 1);
-    if (target.t && target.t.tank) dmg *= 0.04;   // rifle rounds ping off armor
+    if (t.revolver && target.t && (target.t.tank || target.t.apc || target.t.vehicle || target.t.gunEmplacement)) {
+      // the boss's hand cannon: a flat anti-materiel round instead of the
+      // smallarms armor scaling below — 49% of a Sherman's hull per hit
+      dmg = t.revolver.armorDmg;
+    } else if (target.t && target.t.tank) dmg *= 0.04;   // rifle rounds ping off armor
     else if (target.t && target.t.apc) dmg *= 0.3; // halftrack plate shrugs off most of it
     // Armor Piercing (gunner unique): AP belt punches through light armor,
     // so jeeps, halftracks and motorcycles take the multiplier on top
@@ -310,7 +317,17 @@ function flameSpray(actor, dt, opts) {
     if (dist2(actor, a2) > reach2) return;
     if (Math.abs(angleDiff(Math.atan2(a2.y - actor.y, a2.x - actor.x), bearing)) > fl.arc) return;
     let dmg = dps * dt * rand(0.8, 1.2);
-    if (a2.t.tank) dmg *= 0.6;
+    // A flamethrower cannot touch a battleship's armor belt. This clause is not
+    // flavour: burn is applied per-actor with no dedupe, and the Yamato's five
+    // belt sections sit 62px apart, so 2-3 land inside the 78px cone and each
+    // pours its full DPS into the same pool. At the ×0.6 tank floor that made one
+    // veteran flamer worth ~120 dps against her (two, with Vampiric Flame, ~280
+    // while healing) — comfortably the best anti-battleship weapon in the game,
+    // from a man standing at FORWARD_Y. The gun tubs are another matter: jymg
+    // isn't `tank`, so it takes the whole stream, which is exactly the role we
+    // want the flamer in — burn the crews, not the plate.
+    if (a2.t.hullSection || a2.t.ship) dmg *= 0.06;
+    else if (a2.t.tank) dmg *= 0.6;
     // creditKill ignores German shooters, so passing actor is always safe
     if (a2.side === 'us') {
       damageUnit(a2, dmg, actor, 'flame');   // flame bypasses body/flak armor

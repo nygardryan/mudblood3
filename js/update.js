@@ -162,17 +162,13 @@ function update(dt) {
     if (f >= 1) { b.done = true; bileBurst(b.tx, b.ty, b.r, b.dmg, b.infect, b.by); }
   }
 
-  // grenades in flight, then a 3-second fuse once they hit the ground —
-  // unless the grenadier's thrown ones (self- or catch-and-return) carry
-  // Impact Fuze, in which case they go off the instant they land
+  // grenades in flight, then a 3-second fuse once they hit the ground
   for (const g of G.grenades) {
     if (!g.landed) {
       g.t += dt;
       if (g.t >= g.dur) {
         g.landed = true;
-        const impactFuze = g.by && g.by.type === 'grenadier' && G.cardsOwned && G.cardsOwned.has('impactfuze');
-        if (impactFuze) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); maybeFragShrapnel(g); }
-        else g.fuse = 3;
+        g.fuse = 3;
       }
     } else {
       g.fuse -= dt;
@@ -226,6 +222,11 @@ function update(dt) {
 
   // breaches: an enemy that reaches the bottom edge cracks the line
   for (const e of G.enemies) {
+    // The Yamato is clamped to YAM_SAFE_Y and can never get here — but this loop
+    // has no break, so if that clamp ever regressed all twelve of her actors
+    // would breach in the SAME frame, blowing straight past breachLimit into an
+    // instant gameOver(). Cheap insurance against a one-line tuning mistake.
+    if (e.t.ship || e.t.shipPart) continue;
     if (!e.dead && e.y > H + 10) {
       e.dead = true; e.breached = true;
       G.breaches++;

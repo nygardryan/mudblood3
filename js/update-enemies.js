@@ -45,6 +45,17 @@ function updateEnemy(e, dt) {
   }
   if (e.tutHold) return;   // tutorial: frozen in place until the script releases him
 
+  // the boss runs his own state machine, and dispatching above the stun/prone
+  // blocks is his immunity to both — he never even reads those timers
+  if (e.t.germanBoss) { updateGermanBoss(e, dt); return; }
+  // the Yamato likewise runs her own machine, and her parts run NOTHING: they're
+  // positioned, aimed and fired entirely from updateYamato. The bare return is
+  // load-bearing — parts carry tank:true, so falling through to the dispatch
+  // below would hand them to updateTank, which drives them off the hull and then
+  // throws in updateTankCombat on an mg spec they don't have.
+  if (e.t.ship) { updateYamato(e, dt); return; }
+  if (e.t.shipPart) return;
+
   // Shell Shocked: dazed by a mortar hit — no shooting, no advancing, and it
   // overrides prone recovery so the daze runs its full second first
   if (e.stun > 0) {
@@ -450,6 +461,377 @@ function japBanzaiCommand(e, dt) {
     SFX.scream();
     G.texts.push({ x: e.x, y: e.y - 24, text: 'BANZAI!', ttl: 1.6 });
   }
+}
+
+// ---- Der Schlächter: the German final boss's advance/retreat/rally cycle ----
+// Tuning lives in the BOSS_ block in constants.js. The cycle: walk down a lane
+// firing six revolver shots, jog back to the backline, refit armor + call in
+// two reinforcement plays, then advance again down a DIFFERENT lane so each
+// pass hits another stretch of the player's defenses.
+
+// lazy init on the first update tick, so both the wave-100 spawn hook and a
+// bare TEST.deploy('eboss', ...) produce a fully working boss
+function initGermanBoss(e) {
+  e.bossInit = true;
+  e.bossState = 'advance';
+  e.shots = BOSS_REVOLVER_SHOTS;
+  // open in the lane nearest wherever he walked on
+  e.lane = 0;
+  for (let i = 1; i < BOSS_LANES.length; i++) {
+    if (Math.abs(BOSS_LANES[i] * W - e.x) < Math.abs(BOSS_LANES[e.lane] * W - e.x)) e.lane = i;
+  }
+  e.laneX = BOSS_LANES[e.lane] * W;
+  e.loiterT = 0;
+  e.bodyArmor = e.maxBodyArmor = BOSS_BODY_ARMOR;
+  e.flakArmor = e.maxFlakArmor = BOSS_FLAK_ARMOR;
+}
+
+// next advance corridor: any lane at least 2 indices away (every lane has >= 2
+// such candidates), so consecutive passes always hit a different part of the line
+function nextBossLane(e) {
+  const cands = [];
+  for (let i = 0; i < BOSS_LANES.length; i++) if (Math.abs(i - e.lane) >= 2) cands.push(i);
+  e.lane = pick(cands);
+  e.laneX = BOSS_LANES[e.lane] * W;
+}
+
+function updateGermanBoss(e, dt) {
+  if (!e.bossInit) initGermanBoss(e);
+  const t = e.t;
+  e.cd -= dt;
+
+  if (e.bossState === 'advance') {
+    const range = unitRange(e, t.range) * fogMult();
+    const target = primaryUnitTarget(e, range);
+    if (target) {
+      e.loiterT = 0;
+      e.face = Math.atan2(target.y - e.y, target.x - e.x);
+      // an executioner works close: keep walking the shot in while firing, so
+      // the accuracy falloff doesn't waste the cylinder at arm's length
+      if (dist2(e, target) > range * range * 0.3 && e.y < BOSS_SAFE_Y) {
+        pursuePoint(e, target.x, target.y, t.speed, dt);
+        e.y = Math.min(e.y, BOSS_SAFE_Y);
+        e.face = Math.atan2(target.y - e.y, target.x - e.x);
+      }
+      if (e.cd <= 0 && e.shots > 0) {
+        fireShot(e, target, null);
+        e.shots--;
+        e.cd = t.rof * rand(0.9, 1.1);
+        if (e.shots <= 0) { e.bossState = 'retreat'; nextBossLane(e); }
+      }
+    } else if (e.y < BOSS_ENGAGE_Y) {
+      pursuePoint(e, e.laneX, BOSS_ENGAGE_Y, t.speed, dt);
+      // pursuePoint has no bottom clamp (chargers breach) — the boss never does
+      e.y = Math.min(e.y, BOSS_SAFE_Y);
+    } else {
+      // at the engage line with rounds left and nothing visible (smoke, a dead
+      // lane): give it a beat, then fall back anyway — he can't soft-lock
+      e.loiterT += dt;
+      if (e.loiterT >= BOSS_LOITER_TIME) {
+        e.loiterT = 0;
+        e.bossState = 'retreat';
+        nextBossLane(e);
+      }
+    }
+    return;
+  }
+
+  if (e.bossState === 'retreat') {
+    // back turned, holding fire, headed for the NEXT lane's backline slot —
+    // this walk is the punish window
+    pursuePoint(e, e.laneX, BOSS_BACKLINE_Y, t.speed * BOSS_RETREAT_SPEED_MULT, dt);
+    if (dist(e, { x: e.laneX, y: BOSS_BACKLINE_Y }) < 8) {
+      e.bossState = 'rally';
+      e.rallyT = BOSS_RALLY_TIME;
+      e.face = Math.PI / 2;
+      bossRefit(e);
+      bossCallReinforcements();
+    }
+    return;
+  }
+
+  // rally: stand at the backline while the call goes out
+  e.rallyT -= dt;
+  if (e.rallyT <= 0) e.bossState = 'advance';
+}
+
+function bossRefit(e) {
+  e.shots = BOSS_REVOLVER_SHOTS;
+  e.bodyArmor = e.maxBodyArmor = BOSS_BODY_ARMOR;
+  e.flakArmor = e.maxFlakArmor = BOSS_FLAK_ARMOR;
+  G.texts.push({ x: e.x, y: e.y - 26, text: 'REFIT', ttl: 1.4 });
+}
+
+// two DISTINCT plays per rally, drawn from five: the two beneficial random
+// events (smokescreen, bombing raid), a paradrop, a vehicle column, a human
+// wave. runEvent ignores wave gating and brings its own banner/SFX; the two
+// bespoke spawns are cut-down takes on the panzerkeil/sturm special waves.
+const BOSS_CALLS = ['smokescreen', 'airraid', 'paradrop', 'vehicles', 'humanwave'];
+function bossCallReinforcements() {
+  const bag = BOSS_CALLS.slice();
+  for (let i = bag.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [bag[i], bag[j]] = [bag[j], bag[i]];
+  }
+  for (const call of bag.slice(0, 2)) bossReinforce(call);
+}
+
+function bossReinforce(call) {
+  const w = G.wave;
+  if (call === 'smokescreen') { runEvent('smokescreen', w); return; }
+  if (call === 'airraid') { runEvent('airraid', w); return; }
+  if (call === 'paradrop') { triggerParadrop(); return; }
+  const tier = Math.max(1, w / 10), m = specialWaveMult(tier);
+  if (call === 'vehicles') {
+    showBanner('DER SCHLÄCHTER CALLS THE PANZER RESERVE!');
+    SFX.event();
+    const cx = rand(180, W - 180);
+    const panzers = Math.max(1, Math.floor(m * tier / 4));
+    for (let i = 0; i < panzers; i++) spawnEnemyAt('panzer', cx + rand(-120, 120), -40 - i * 150);
+    const tracks = Math.max(1, Math.floor(m * tier / 5));
+    for (let i = 0; i < tracks; i++) spawnEnemyAt('ehalftrack', cx + rand(-160, 160), -110 - i * 130);
+    spawnEnemyAt('ejeep', cx + rand(-200, 200), -70);
+    return;
+  }
+  // humanwave — a field-wide line of shock infantry behind an officer
+  showBanner('DER SCHLÄCHTER ORDERS THE STURMANGRIFF!');
+  SFX.event();
+  const count = Math.floor(m * (6 + tier));
+  for (let i = 0; i < count; i++) {
+    const x = (W / (count + 1)) * (i + 1) + rand(-25, 25);
+    const roll = Math.random();
+    spawnEnemyAt(roll < 0.5 ? 'esmg' : roll < 0.65 ? 'eflame' : 'erifle', x, rand(-90, -20));
+  }
+  spawnEnemyAt('eoff', rand(120, W - 120), rand(-130, -90));
+}
+
+// ---- The Yamato: an Imperial land battleship -------------------------------
+// Tuning lives in the YAM_ block in constants.js. She is a PARENT hull actor
+// plus eleven child part actors, all real entries in G.enemies: five armor-belt
+// sections (pure hitboxes, redirecting into the hull's pool), two triple main
+// batteries and four gun tubs (each with its own HP, each hunting its own
+// target). Part world positions are recomputed from the hull every tick, so the
+// art and the hitboxes can never drift apart.
+//
+// The parts are driven ONLY from updateYamato — updateEnemy gives them a bare
+// return. That isn't tidiness: they carry tank:true, so reaching the normal
+// dispatch would hand them to updateTank, which drives them off the hull and
+// then throws in updateTankCombat on a t.mg they don't have.
+
+// lazy init on the first update tick, so both the wave-100 hook and a bare
+// TEST.deploy('jyamato', ...) produce a whole working ship
+function initYamato(e) {
+  e.yamInit = true;
+  e.heading = pick([0, Math.PI]);        // broadside-on from the off
+  e.legT = rand(YAM_LEG_MIN, YAM_LEG_MAX);
+  e.wantHeading = e.heading;
+  e.landCd = rand(YAM_LAND_CD_MIN, YAM_LAND_CD_MAX);
+  e.repairCd = rand(YAM_REPAIR_CD_MIN, YAM_REPAIR_CD_MAX);
+  e.parts = [];
+
+  const addPart = (type, sOff, bOff) => {
+    const p = makeEnemy(type, e.x, e.y, 'jp');
+    p.sOff = sOff; p.bOff = bOff;
+    p.shipOf = e;
+    p.fireT = 0;
+    p.tur = e.heading;
+    e.parts.push(p);
+    G.enemies.push(p);
+    return p;
+  };
+
+  for (const s of YAM_BELT_S) addPart('jyhull', s, 0);
+  e.turrets = YAM_TURRET_S.map(s => addPart('jyturret', s, 0));
+  e.mounts = [];
+  for (const s of YAM_MG_S) {
+    for (const b of [-YAM_MG_B, YAM_MG_B]) e.mounts.push(addPart('jymg', s, b));
+  }
+  syncYamatoParts(e);
+}
+
+// which broadside faces the player. cos(heading) is held away from 0 by
+// YAM_LEG_ANGLE precisely so this sign is never ambiguous mid-leg.
+function yamatoPlayerSide(e) {
+  return Math.cos(e.heading) >= 0 ? 1 : -1;
+}
+
+// the one place part positions are computed. Everything else — the AI, the
+// renderer, every hit test — reads p.x/p.y, so there is no second source of
+// truth to fall out of step.
+function syncYamatoParts(e) {
+  const ch = Math.cos(e.heading), sh = Math.sin(e.heading);
+  for (const p of e.parts) {
+    if (p.dead) continue;
+    p.x = e.x + ch * p.sOff - sh * p.bOff;
+    p.y = e.y + sh * p.sOff + ch * p.bOff;
+    // the belt sections share the hull's pool, so mirror it: their own hp is
+    // never decremented (damageEnemy redirects), and without this the inspector,
+    // TEST.roster() and TEST.inspect() would all report a full bar on a dying ship
+    if (p.t.hullSection) { p.hp = e.hp; p.maxhp = e.maxhp; }
+  }
+}
+
+// A triple 18.1" battery. Picks its own target, lays its own bearing, and rolls
+// out three shells rather than one crack — the ripple is what reads as a battery
+// firing instead of a big tank. Modelled on the tank cannon in updateTankCombat:
+// no accuracy roll, just distance-scaled scatter into the shell queue.
+function updateYamatoTurret(ship, p, dt) {
+  p.fireT = Math.max(0, p.fireT - dt);
+  p.cd -= dt;
+  const side = yamatoPlayerSide(ship);
+  const beam = ship.heading + side * Math.PI / 2;
+  // a battery cannot fire through its own superstructure: the traverse is a
+  // wedge either side of the engaged beam, so she has to come about to bring the
+  // guns onto anything behind her
+  const range = unitRange(p, p.t.range) * fogMult();
+  const target = tieredUnitTarget(p, range, [
+    u => u.t.tank || u.t.gunEmplacement,      // armor and staked guns first
+    u => !!u.t.sup || u.type === 'mortarman',  // then the crews that hurt her
+    () => true,
+  ]);
+  if (target && Math.abs(angleDiff(Math.atan2(target.y - p.y, target.x - p.x), beam)) <= YAM_TURRET_ARC) {
+    const want = Math.atan2(target.y - p.y, target.x - p.x);
+    p.tur += clamp(angleDiff(want, p.tur), -YAM_TURRET_TRACK * dt, YAM_TURRET_TRACK * dt);
+    if (p.cd <= 0 && Math.abs(angleDiff(want, p.tur)) <= YAM_TURRET_FIRE_TOL) {
+      SFX.boom(true);
+      p.fireT = 0.22;
+      const d = dist(p, target);
+      const scatter = Math.max(20, YAM_SHELL_SCATTER + d * 0.05);
+      for (let i = 0; i < YAM_SHELL_COUNT; i++) {
+        scheduleShell(target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
+          YAM_SHELL_FLIGHT + i * YAM_SHELL_GAP, YAM_SHELL_R, YAM_SHELL_DMG, true, p);
+      }
+      p.cd = YAM_TURRET_ROF * rand(0.9, 1.1);
+    }
+  } else {
+    // nothing it can bear on: creep back to the beam so it's laid ready
+    p.tur += clamp(angleDiff(beam, p.tur), -YAM_TURRET_TRACK * dt, YAM_TURRET_TRACK * dt);
+  }
+  // hard clamp, so a hull turning under the mount can never walk it round
+  p.tur = beam + clamp(angleDiff(p.tur, beam), -YAM_TURRET_ARC, YAM_TURRET_ARC);
+}
+
+// An open 25mm tub on a sponson. Only the two mounts on the engaged broadside can
+// see anything — that's what "two guns a side" is for. Driven through runWeapon
+// rather than fireShot so it gets bursts AND suppressArea pinning for free.
+function updateYamatoMount(ship, p, dt) {
+  const side = yamatoPlayerSide(ship);
+  const bearing = ship.heading + Math.sign(p.bOff) * Math.PI / 2;
+  const engaged = Math.sign(p.bOff) === side;
+  const range = unitRange(p, p.t.range) * fogMult();
+  const target = engaged
+    ? nearestUnitInRange(p, range, u => inFireCone(p, u, bearing, YAM_MG_ARC))
+    : null;
+  runWeapon(p, target, dt, null);
+  // fireShot owns .face while there's a target — overwriting it after the shot
+  // would snap the tub's art back off whatever it just fired at
+  if (!target) {
+    p.face = p.face == null ? bearing : p.face + clamp(angleDiff(bearing, p.face), -1.2 * dt, 1.2 * dt);
+  }
+}
+
+// Pick the next leg. She runs mostly lateral, but angles a leg up or down often
+// enough that the range to the player's line keeps changing. Reversing takes
+// ~12s at YAM_TURN_RATE, and that long swing — guns trailing off the beam — is
+// her punish window, the same role the eboss's retreat walk plays.
+function nextYamatoLeg(e) {
+  e.legT = rand(YAM_LEG_MIN, YAM_LEG_MAX);
+  // reverse if she's run out of room, otherwise usually hold course
+  const nearEdge = e.x < YAM_X_MARGIN + 30 || e.x > W - YAM_X_MARGIN - 30;
+  let base = Math.cos(e.heading) >= 0 ? 0 : Math.PI;
+  if (nearEdge) base = e.x < W / 2 ? 0 : Math.PI;
+  else if (Math.random() < 0.3) base = base === 0 ? Math.PI : 0;
+  // a diagonal, biased toward whichever keeps her inside the patrol band
+  let tilt = 0;
+  if (Math.random() < 0.55) {
+    tilt = rand(0.2, YAM_LEG_ANGLE);
+    const wantDown = e.y < (YAM_Y_MIN + YAM_Y_MAX) / 2;
+    // +y is toward the player; sin(heading) drives her y, and heading π flips it
+    if (!wantDown) tilt = -tilt;
+    if (base === Math.PI) tilt = -tilt;
+  }
+  e.wantHeading = base + tilt;
+}
+
+// Her signature play, and the fight's whole economy: the ramps come down and
+// naval infantry pour out along both flanks. Killing escorts is what pays for the
+// artillery that actually kills her — small arms can't touch the belt, so without
+// this the fight would have no funding loop at all.
+function yamatoLandingParty(e) {
+  showBanner('YAMATO PUTS THE NAVAL INFANTRY ASHORE!');
+  SFX.event();
+  const tier = Math.max(1, G.wave / 10);
+  const count = Math.floor(specialWaveMult(tier) * 6);
+  const ch = Math.cos(e.heading), sh = Math.sin(e.heading);
+  for (let i = 0; i < count; i++) {
+    // spill out of the hull along the keel, alternating sides
+    const s = rand(-YAM_LEN / 2, YAM_LEN / 2);
+    const b = (i % 2 ? 1 : -1) * rand(YAM_HALF_BEAM + 6, YAM_HALF_BEAM + 22);
+    const x = e.x + ch * s - sh * b;
+    const y = e.y + sh * s + ch * b;
+    // spawnEnemyAt clamps x and plates them like any other troops
+    spawnEnemyAt(pick(YAM_LAND_POOL), x, clamp(y, 20, YAM_SAFE_Y + 30));
+  }
+}
+
+// Damage control. Brings ONE knocked-out part back, part-worn, so stripping her
+// guns is a race rather than a one-time solve. The re-push is not optional:
+// compactInPlace physically drops dead actors out of G.enemies, and every
+// targeting scan iterates that array — a revived part left out of it would fire
+// and draw while being impossible to shoot back at.
+function yamatoDamageControl(e) {
+  const gone = e.parts.filter(p => p.dead);
+  if (!gone.length) return false;
+  const p = pick(gone);
+  p.dead = false;
+  p.hp = Math.max(1, Math.round(p.maxhp * YAM_REPAIR_FRAC));
+  p.cd = rand(1, 3);
+  p.burstLeft = 0; p.burstTimer = 0;
+  G.enemies.push(p);
+  G.texts.push({ x: p.x, y: p.y - 22, text: 'DAMAGE CONTROL', ttl: 1.6 });
+  return true;
+}
+
+function updateYamato(e, dt) {
+  if (!e.yamInit) initYamato(e);
+
+  e.landCd -= dt;
+  if (e.landCd <= 0) {
+    e.landCd = rand(YAM_LAND_CD_MIN, YAM_LAND_CD_MAX);
+    yamatoLandingParty(e);
+  }
+  e.repairCd -= dt;
+  if (e.repairCd <= 0) {
+    // only spend the cooldown when there was actually something to fix, so the
+    // first thing the player knocks out doesn't sit there for a full cycle
+    if (yamatoDamageControl(e)) e.repairCd = rand(YAM_REPAIR_CD_MIN, YAM_REPAIR_CD_MAX);
+    else e.repairCd = 2;
+  }
+
+  // ease onto the leg's heading, then drive it
+  e.legT -= dt;
+  if (e.legT <= 0) nextYamatoLeg(e);
+  e.heading += clamp(angleDiff(e.wantHeading, e.heading), -YAM_TURN_RATE * dt, YAM_TURN_RATE * dt);
+  e.x += Math.cos(e.heading) * YAM_SPEED * dt;
+  e.y += Math.sin(e.heading) * YAM_SPEED * dt;
+  // She is a gun platform, not a breacher. YAM_SAFE_Y bounds every PART, so the
+  // centre clamp has to back off by however much of the hull's length is
+  // currently pointing down-field — clamping the centre alone let her stern swing
+  // to y=364. The effect is that she can only push to YAM_Y_MAX while lying flat
+  // and has to pull back as she angles. The x clamp keeps every part on screen:
+  // targeting scans reject y < 0 but never x, so a bow off the edge would be
+  // shootable and invisible.
+  const yReach = Math.abs(Math.sin(e.heading)) * Math.max(...YAM_BELT_S.map(Math.abs))
+    + Math.abs(Math.cos(e.heading)) * YAM_MG_B;
+  e.x = clamp(e.x, YAM_X_MARGIN, W - YAM_X_MARGIN);
+  e.y = clamp(e.y, YAM_Y_MIN, Math.min(YAM_Y_MAX, YAM_SAFE_Y - yReach));
+  // turned around at the edge or pinned on the band, end the leg early so she
+  // doesn't grind along a clamp for its full duration
+  if ((e.x <= YAM_X_MARGIN || e.x >= W - YAM_X_MARGIN) && e.legT > 0.5) e.legT = 0.5;
+
+  syncYamatoParts(e);
+  for (const p of e.turrets) if (!p.dead) updateYamatoTurret(e, p, dt);
+  for (const p of e.mounts) if (!p.dead) updateYamatoMount(e, p, dt);
 }
 
 // ---- The Horde: bite & infection, spitters, bloaters, the screamer's frenzy ----

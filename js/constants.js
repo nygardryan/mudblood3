@@ -212,6 +212,142 @@ const ENEMY_ARMOR_MAX_CHANCE = 0.98; // "nearing 100%", never a dead certainty
 const ENEMY_ARMOR_BODY_MIN = 30, ENEMY_ARMOR_BODY_MAX = 75; // body plate points (lerp'd by wave)
 const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points (lerp'd by wave)
 
+// ---- German final boss (eboss, "Der Schlächter"). He cycles: advance down a
+// lane firing six revolver shots, fall back to the backline, refit his plate
+// and call in two reinforcement plays, then come again down a DIFFERENT lane.
+// The rally point must sit ON-field (y > 0) — every US targeting scan skips
+// staged enemies at y < 0 — and, more importantly, inside the reach of the
+// player's indirect fire, because shelling the refit is the whole counterplay.
+// It sat at 54 first, which LOOKED right and was useless: a mortar (range 348)
+// placed anywhere sane is ~446px away from there, so nothing could touch him
+// and the fight had no punish window at all. A mortar (range 348) staked at the
+// back of the deploy zone sits at y~558, so the rally point has to be at least
+// 210 for a shell to reach it — 200 was still 10px short and measured zero
+// damage taken during rally. 220 gives margin: any mortar up to y=568 can
+// range him, and he's still pulled 250px back off his engage line.
+const BOSS_WAVE_INTERVAL = 100;      // arrives at wave 100, 200, 300...
+const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
+// Plate refilled at every backline rally. These have to stay BELOW what a line
+// can put into him in one advance, or the refill silently makes him immortal:
+// at 600/450 the armor ate every round the player landed and his HP never moved
+// at all (measured: 244 damage in an hour against a 23-man line that could not
+// die). A plated trooper carries 75/55, so 240/180 still reads as boss-grade
+// kit while leaving real damage to spill through onto HP every cycle.
+const BOSS_BODY_ARMOR = 240;
+const BOSS_FLAK_ARMOR = 180;
+const BOSS_LANES = [0.12, 0.31, 0.5, 0.69, 0.88];  // × W — advance corridors
+const BOSS_ENGAGE_Y = H - 150;       // deepest he pushes hunting a target
+const BOSS_SAFE_Y = H - 80;          // hard clamp — the boss can never breach
+const BOSS_BACKLINE_Y = 220;         // rally point (see note above)
+const BOSS_RETREAT_SPEED_MULT = 1.5; // he jogs back, doesn't stroll
+const BOSS_RALLY_TIME = 3.5;         // seconds standing at the backline
+const BOSS_LOITER_TIME = 4;          // shots left but no target: wait, then fall back
+
+// ---- The Yamato (jyamato) — an Imperial LAND battleship, the Japanese wave-100
+// boss. She drives across the field broadside-on, working two triple main
+// batteries and four light MG mounts that each pick their own target.
+//
+// She is the first actor in this game that needs more than one hitbox, and the
+// engine has no such concept: every actor is a bare (x,y) point, and the size
+// ternaries scattered around input/inspector/mines are never read by the combat
+// sim. So the ship is a PARENT actor plus eleven child part actors, all real
+// entries in G.enemies, whose world positions are recomputed from the hull's
+// x/y/heading every tick (syncYamatoParts). Parts are still points, so targeting,
+// fireShot, explode splash, mouse-pick, focus-fire and the inspector all work on
+// her unchanged — no hot loop in targeting.js is touched.
+//
+// The five belt sections are pure hitboxes: a hit on any of them redirects into
+// the hull's single pool (see the top of damageEnemy). The turrets and gun tubs
+// carry their own HP and can be silenced. That split is the whole fight.
+const YAM_WAVE_INTERVAL = 100;       // arrives at wave 100, 200, 300... (mirrors the eboss)
+const YAM_LEN = 300, YAM_HALF_BEAM = 23;
+const YAM_SPR_W = 320, YAM_SPR_H = 104;   // hull bitmap footprint; makeSprite clips outside it
+// Priced off a measurement, not an estimate, and anchored to Der Schlächter's 9000
+// — a number this game has already proven. The paper figure said a strong line puts
+// ~206 dps into her; measured, it is ~65, because that estimate quietly assumed
+// every weapon was in range and still alive. Most of a line's nominal damage is
+// riflemen doing x0.04 to an armor belt, and the few heavy weapons that actually
+// bite are also the ones her batteries hunt first. 30000 took 463s (a chore, not a
+// set piece); 14000 still outlasted the line. 11000 is a little above the German
+// boss because her turrets and tubs soak damage he doesn't have. (11000 with a
+// 44-damage shell overshot the other way — she died in 70-110s losing every gun.)
+const YAM_HULL_HP = 14000;
+const YAM_TURRET_HP = 1400;          // per battery — killing one silences three guns
+const YAM_MG_HP = 320;               // per mount; jymg is NOT `tank`, so rifles work on it
+// Part offsets in the ship's own frame: sOff along the keel (bow positive),
+// bOff abeam. Stored on the part instances so one loop places all eleven.
+// No section at 0: the hull core actor already sits amidships and is a hitbox in
+// its own right, so putting one there stacked two hitboxes on one point.
+const YAM_BELT_S = [-124, -62, 62, 124];
+const YAM_TURRET_S = [86, -86];      // forward and aft battery
+const YAM_MG_S = [44, -44];
+// This offset is a MECHANIC, not decoration. Every US scan picks by raw distance
+// and nothing in the engine can express "deprioritise this actor", so whether
+// riflemen shoot the gun crews or uselessly ping the ×0.04 armor belt is purely
+// a function of this number. It has to exceed the 23px half-beam: for a defender
+// 250px down-field of a ship steaming east the engaged tub sits 220 away against
+// 250.6 for the nearest belt section — so the tub always wins, and the off-side
+// tub (280) is never nearest. Drop it to 0 and small arms have nothing to shoot.
+const YAM_MG_B = 30;                 // tubs read as sponsons overhanging the belt
+const YAM_SPEED = 14;
+const YAM_TURN_RATE = 0.25;          // rad/s — a 180° reversal takes ~12s: the punish window
+// The band she patrols decides which of the player's weapons can reach her at
+// all. From the deploy line (y~392) to a hull at 240 is 152px, so bazooka (243),
+// Sherman (262) and mortarman (348) all engage. Lift the band above y~130 and
+// bazookas fall out entirely, leaving an AT-gun-and-artillery-only problem.
+const YAM_Y_MIN = 160, YAM_Y_MAX = 240;
+// A bound on every PART, not on the hull centre — which is the distinction that
+// matters, because a part sits up to 124px along the keel and swings 95px of that
+// into y on a steep diagonal. Clamping the centre to 240 alone let her stern reach
+// y=364, 124px deeper than intended. updateYamato subtracts the current y-reach
+// from the centre clamp, so she can only push to YAM_Y_MAX while she's flat and
+// has to pull back as she angles — DEPLOY_Y is 380, so the line is never in reach.
+const YAM_SAFE_Y = 300;
+const YAM_X_MARGIN = 140;            // hull-centre clamp; keeps every section on screen
+// Steepest diagonal leg. Note this caps the leg's TARGET heading, not the heading
+// she passes through: reversing 0 -> pi eases through pi/2, where she is bow-on,
+// cos(heading) is ~0 and NEITHER broadside bears. That is correct and it is the
+// punish window — but it does mean `playerSide` is degenerate for a moment mid-turn,
+// so nothing may depend on it being stable within a leg.
+const YAM_LEG_ANGLE = 0.6;           // rad — steepest diagonal leg
+const YAM_LEG_MIN = 4, YAM_LEG_MAX = 9;    // seconds per leg
+const YAM_SHELL_COUNT = 3, YAM_SHELL_GAP = 0.22;   // three guns ripple, not a single crack
+// Her main batteries were the whole problem in playtest, twice. Measured against a
+// 21-man line with two AT guns and a Sherman, with her escorts and the wave clock
+// switched off so she was the ONLY thing on the field: at the first tuning
+// (190 dmg / r58 / 7.5s) she wiped the line in 60s and took 3% damage; at the
+// second (82 / r44 / 9s) she still wiped it in 120s and took 25%. A source
+// breakdown settled where it was coming from — over 60s her shells did 3082
+// damage to the player and her four gun tubs did 142. The salvo IS the fight, and
+// the tubs and her suppression were never the problem.
+//
+// So the shell budget is now ~17 dmg/s against ~152 at the first pass, a 9x cut.
+// She has to be a siege, not a lawnmower: a salvo should wound and scatter a line
+// — leaving work for a medic — not delete it, because a line that dies in the
+// first minute can never put the damage into her that the fight is priced around.
+//
+// Worth knowing while tuning these: cover does NOT answer her. coverBlock is only
+// consulted in fireShot, so sandbags and bunkers do nothing against blast — the
+// only mitigations her shelling has are men going prone (x0.5 in explode's
+// hitArea), flak armor, and a medic. That makes shell output an unusually blunt
+// dial, and it is why it came down this far rather than her HP going up.
+const YAM_SHELL_DMG = 50;
+const YAM_SHELL_R = 44;
+const YAM_SHELL_FLIGHT = 1.5, YAM_SHELL_SCATTER = 34;
+const YAM_TURRET_ROF = 14, YAM_TURRET_TRACK = 0.22;
+const YAM_TURRET_ARC = 1.35;         // traverse wedge off the beam — she can't fire through herself
+const YAM_TURRET_FIRE_TOL = 0.14;    // laid on target within this and the battery speaks
+const YAM_MG_ARC = 1.05;             // ~60° broadside cone per mount
+const YAM_LAND_CD_MIN = 22, YAM_LAND_CD_MAX = 32;
+const YAM_LAND_POOL = ['jsmg', 'jsmg', 'jbanzai', 'jbanzai', 'jflame', 'joff'];
+// Fast, because the fight has a tipping point: the moment the player strips her
+// guns her output collapses and the rest is a grind against a helpless hull — at
+// 26-38s she never got a battery back and died in 70-110s with the line barely
+// scratched. Damage control has to contest the strip, so knocking a gun out buys
+// a window rather than settling the matter.
+const YAM_REPAIR_CD_MIN = 12, YAM_REPAIR_CD_MAX = 18;
+const YAM_REPAIR_FRAC = 0.55;        // damage control brings a part back part-worn, not new
+
 // both staked guns share a traverse cone, a crew that never goes prone, and
 // the engineer-repairs-but-medics-don't rule; this returns whichever spec a
 // given emplacement carries
@@ -351,6 +487,23 @@ const ENEMY_TYPES = {
     // armorMult makes it brutal against anything on wheels or tracks.
     v2: { range: W * 0.625, min: 168, cdMin: 21, cdMax: 30, r: 65, dmg: 95, flight: 3.4, scatter: 70, armorMult: 6 },
   },
+  // "Der Schlächter" — the German final boss (see the BOSS_ block above for the
+  // cycle tuning). The range/speed-never-exceeds-the-counterpart rule is waived:
+  // he has no counterpart, and he's the exception the rule exists for.
+  // 9000 HP — ~6.4x a Panzer IV, and roughly a dozen advances against a good
+  // line. noRamp keeps enemyHpRamp from tripling it on hard. fireShot rolls dmg
+  // 0.75-1.25, so 190 one-shots any infantryman on the roster;
+  // revolver.armorDmg replaces the smallarms 0.04 tank scaling with a flat 490
+  // (49% of a Sherman's 1000) per round on anything armored.
+  eboss: {
+    name: 'Der Schlächter', hp: 9000, speed: 30, range: 120, dmg: 190, acc: 0.85,
+    rof: 1.6, burst: 1, burstGap: 0, reward: 200,
+    // gun 14: long enough that the barrel clears his greatcoat at the 1.35x
+    // sprite scale — at 10 the revolver drew entirely under the coat ellipse
+    color: '#3a3b45', gun: 14, sfx: 'sniper', priority: 5,
+    germanBoss: true, boss: true, noRamp: true,
+    revolver: { armorDmg: 490 },
+  },
 };
 
 // ---- Imperial Japanese Army roster: the alternate endless-mode foe. Every
@@ -487,6 +640,62 @@ for (const t of Object.values(ENEMY_TYPES)) {
   if (t.faction === 'jp' && !t.tank) t.hp = Math.round(t.hp * 1.2);
 }
 
+// ---- The Yamato and her parts. Declared AFTER the +20% pass above on purpose:
+// jymg is Japanese and isn't `tank`, so that loop would silently inflate it and
+// the numbers in the YAM_ block would stop being the numbers in play.
+//
+// Every one of these carries noRamp — makeEnemy multiplies t.hp by enemyHpRamp(),
+// capped at 3x, so at wave 100 on hard the hull would quietly become 90000.
+// `fixed` goes on the PARTS only: it's already the prone/suppression exemption,
+// and it keeps them out of isJapaneseInfantry so an escorting officer can't hand
+// a banzai charge order to a gun tub. The hull deliberately omits it so the
+// inspector doesn't print IMMOBILE over a ship that is visibly driving.
+Object.assign(ENEMY_TYPES, {
+  jyamato: {
+    name: 'Yamato', hp: YAM_HULL_HP, speed: YAM_SPEED, range: 0, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 400,
+    color: '#5d5f52', gun: 0, sfx: 'boom', priority: 5,
+    // tank: small arms ping off at x0.04 and HE bites at x2.2 — the counter-play
+    // is artillery, AT guns and bazookas, which is right for an armor belt
+    tank: true, heavy: true, boss: true, japBoss: true, ship: true,
+    noRamp: true, faction: 'jp',
+  },
+  jyhull: {
+    // an armor-belt section: a hitbox, not a target. damageEnemy redirects
+    // everything that lands here into the hull's own pool, so its hp is only ever
+    // a mirror of the ship's (kept in sync by syncYamatoParts for the readouts).
+    name: 'Yamato — Armor Belt', hp: YAM_HULL_HP, speed: 0, range: 0, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 0,
+    color: '#5d5f52', gun: 0, sfx: 'boom', priority: 0,
+    tank: true, heavy: true, shipPart: true, hullSection: true,
+    fixed: true, noRamp: true, faction: 'jp',
+  },
+  jyturret: {
+    // a triple 18.1" battery. Picks its own target and lays its own bearing;
+    // killing it silences three guns until damage control gets to it.
+    // range 330, not the 470 a real main battery would suggest: at 470 she shelled
+    // the entire field from her patrol band while the player's AT guns and mortars
+    // were the only things that could answer, so the counter-play was "own the
+    // right two units or lose". 330 still covers the deploy line from her band and
+    // still out-ranges a bazooka — but she has to be closed with.
+    name: 'Yamato — Main Battery', hp: YAM_TURRET_HP, speed: 0, range: 330, dmg: 0, acc: 0,
+    rof: YAM_TURRET_ROF, burst: 1, burstGap: 0, reward: 60, shellDmg: YAM_SHELL_DMG,
+    color: '#63655a', gun: 0, sfx: 'boom', priority: 5,
+    tank: true, shipPart: true, shipTurret: true, fixed: true, noRamp: true, faction: 'jp',
+  },
+  jymg: {
+    // an open 25mm tub on a sponson. NOT `tank` — this is the one part of the
+    // ship a rifleman can hurt, and sniperTarget skips t.tank outright, so the
+    // high priority here quietly gets snipers picking off the gun crews.
+    // Stats live on the type (not in an mg:{} spec) so runWeapon can drive it,
+    // which is what buys bursts AND suppressArea pinning.
+    name: 'Yamato — Gun Tub', hp: YAM_MG_HP, speed: 0, range: 190, dmg: 9, acc: 0.42,
+    rof: 0.95, burst: 7, burstGap: 0.09, reward: 14,
+    color: '#6b6a3c', gun: 9, sfx: 'mg', priority: 4, sup: true,
+    shipPart: true, shipMg: true, fixed: true, noRamp: true, faction: 'jp',
+  },
+});
+
 // ---- The Horde roster: the fourth alternate endless-mode foe, and the only one
 // that isn't a national army. Every type carries faction:'zo', routing it through
 // makeEnemy's nation pick and the zombie renderer (js/render-zombie.js). The whole
@@ -614,6 +823,7 @@ const ENEMY_INFO = {
   estug: 'StuG III assault gun. Low-profile casemate mount; hunts bunkers and armor from range.',
   etiger: 'Tiger I heavy tank. Nearly impenetrable frontal armor and a devastating 88mm.',
   ev2: 'A20 rocket battery. Mostly holds position but pushes forward under fire like any infantry, covers most of the map, and hits hard where it lands — wildly inaccurate, but it hunts vehicles first and wrecks them fast. Doesn\'t show up until the fighting gets desperate.',
+  eboss: 'Der Schlächter — the dark-haired executioner who takes the field every hundredth wave. Six revolver shots, each one a kill, and enough of a punch to hole a Sherman. When the cylinder runs dry he falls back to the top of the field, refits his plate and calls in reinforcements, then comes again down a different lane. Shell him while he reloads.',
   // Imperial Japanese Army — the alternate endless foe. All of them are
   // fanatics: they never hit the dirt, closing the distance instead of pinning.
   jrifle: 'Imperial infantry with a Type 38 Arisaka and a long bayonet. Fanatical — never goes to ground, just keeps coming.',
@@ -631,6 +841,10 @@ const ENEMY_INFO = {
   jhago: 'Type 95 Ha-Go light tank. Thin-skinned and armed with only a 37mm gun, but fast — and it shows up long before the heavier armor.',
   jtank: 'Type 97 Chi-Ha. Lighter and faster than a Panzer, with a stubby 57mm gun and a hull MG. Small arms still bounce off it.',
   jchinu: 'Type 3 Chi-Nu. The heaviest tank Japan fielded — a 75mm gun and thick armor. Slow, late, and ruinous. Use AT weapons.',
+  jyamato: 'The Yamato — a battleship put on treads and driven inland. Arrives every hundredth wave and never reaches your line. Rifle fire simply rings off the armor belt: bring artillery, AT guns and bazookas. Her two triple batteries and four gun tubs each hunt their own target, and the tubs ARE soft — strip them and the broadside goes quiet. Damage control patches what you break, and her landing parties keep coming ashore.',
+  jyhull: 'A section of the Yamato\'s armor belt. Not a target in itself — everything that lands here goes straight into the ship.',
+  jyturret: 'A triple 18.1" main battery. Lays its own bearing and picks its own target. Wreck it and three guns fall silent — until damage control reaches it.',
+  jymg: 'An open 25mm gun tub on a sponson. The one part of the Yamato with no armor over it, and the one thing your riflemen and snipers can actually kill.',
   // The Horde — the undead endless foe. No army, no discipline: just a rising tide
   // of the dead. Their bite can INFECT your men, who then turn against you.
   zshambler: 'A slow, relentless walking corpse. No weapon — it claws its way to your line and bites. Its bite can infect; an infected man who dies rises against you. Cheap and endless.',
@@ -804,6 +1018,8 @@ const TESTING_GERMAN_PLACEABLES = [
   // 140. Testing mode is exactly where you'd want to drop one in on demand.
   { key: 'ev2', label: 'V2 BATTERY', cost: 100, kind: 'egerman', hotkey: '',
     desc: 'A20 rocket battery. Normally locked behind wave 140 in endless — testing mode lets you place one immediately.' },
+  { key: 'eboss', label: 'SCHLÄCHTER', cost: 200, kind: 'egerman', hotkey: '',
+    desc: 'The German final boss. Normally arrives at wave 100 — testing mode drops him in on demand.' },
 ];
 
 // endless testing/deploy roster for the Imperial Japanese Army. Reuses the
@@ -840,6 +1056,10 @@ const TESTING_JAPANESE_PLACEABLES = [
     desc: 'Type 97 Chi-Ha. Lighter, quicker armor with a 57mm gun.' },
   { key: 'jchinu', label: 'CHI-NU', cost: 120, kind: 'egerman', hotkey: '',
     desc: 'Type 3 Chi-Nu. Heavy armor and a 75mm gun. Slow and late.' },
+  // the hull only — her eleven parts are built by initYamato on the first tick,
+  // so deploying the ship deploys the whole thing
+  { key: 'jyamato', label: 'YAMATO', cost: 400, kind: 'egerman', hotkey: '',
+    desc: 'The Japanese final boss: a land battleship. Normally arrives at wave 100 — testing mode drives one in on demand.' },
 ];
 
 // endless testing/deploy roster for The Horde. Same 'egerman' routing as the other

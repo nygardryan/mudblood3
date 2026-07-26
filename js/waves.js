@@ -210,6 +210,7 @@ function armorEnemy(e, w) {
   const t = e.t;
   if (t.tank || t.vehicle || t.apc || t.bike || t.v2) return; // already armored hulls
   if (t.boss) return;                                         // bosses already sponge damage via HP
+  if (t.shipPart) return;                                     // a gun tub doesn't wear a flak vest
   // Foot soldiers of every faction qualify, the undead included — reanimated
   // men still wear the plate they died in.
   const chance = enemyArmorChance(w);
@@ -491,14 +492,73 @@ const ZOM_SPECIAL_WAVES = [
 ];
 
 function spawnSpecialWave(w) {
-  const tier = w / 10;
   const f = enemyFaction();
+  // every 100th German wave belongs to the boss. He REPLACES that wave's
+  // special (his first rally summons a set piece within ~30s anyway); if the
+  // last one is somehow still alive at the next hundred, the wave falls
+  // through to its normal themed assault instead of doubling him up.
+  if (f === 'de' && w % BOSS_WAVE_INTERVAL === 0
+      && !G.enemies.some(e => !e.dead && e.type === 'eboss')) {
+    spawnGermanBoss(w);
+    G.spawnTimer = spawnIntervalForWave(w) + 6;
+    return;
+  }
+  // and every 100th Japanese wave belongs to the Yamato, on the same terms
+  if (f === 'jp' && w % YAM_WAVE_INTERVAL === 0
+      && !G.enemies.some(e => !e.dead && e.type === 'jyamato')) {
+    spawnJapaneseBoss(w);
+    G.spawnTimer = spawnIntervalForWave(w) + 6;
+    return;
+  }
+  const tier = w / 10;
   const set = f === 'jp' ? JP_SPECIAL_WAVES : f === 'zo' ? ZOM_SPECIAL_WAVES : SPECIAL_WAVES;
   const theme = set[(tier - 1) % set.length];
   showBanner(theme.banner);
   theme.spawn(tier);
   // a breather while you police up the aftermath
   G.spawnTimer = spawnIntervalForWave(w) + 6;
+}
+
+// the boss walks on from staging at centre field with a modest rifle screen.
+// armorEnemy skips boss:true, so his plate comes from initGermanBoss (he
+// refills it himself at every rally). Each hundredth-wave return is tougher:
+// wave 200 fields him at 2x HP, wave 300 at 3x, and so on — noRamp keeps the
+// difficulty HP ramp from compounding on top of that.
+function spawnGermanBoss(w) {
+  showBanner('DER SCHLÄCHTER — HE COMES FOR THE LINE!');
+  SFX.event();
+  const b = spawnEnemyAt('eboss', W / 2, -40);
+  const mult = w / BOSS_WAVE_INTERVAL;
+  if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.eboss.hp * mult);
+  const n = Math.floor(specialWaveMult(w / 10) * 6);
+  for (let i = 0; i < n; i++) {
+    spawnEnemyAt(pick(['erifle', 'esmg', 'esmg', 'egren']),
+      clamp(W / 2 + rand(-140, 140), 30, W - 30), rand(-90, -20));
+  }
+}
+
+// She drives on already ON the field, unlike every other spawn: her parts have to
+// be on-field to be targetable at all (every US scan skips y < 0), and a hull that
+// long would have half its length in the staging strip anyway. Same idea as the
+// ev2 spawn-Y override in launchWave. Escorts come on from staging as normal.
+// Each hundredth-wave return is tougher — wave 200 fields her at 2x HP — and the
+// belt sections have to be re-mirrored after the scaling or they'd advertise the
+// base pool on a ship carrying double.
+function spawnJapaneseBoss(w) {
+  showBanner('YAMATO — THE LAND BATTLESHIP ROLLS IN!');
+  SFX.event();
+  const b = spawnEnemyAt('jyamato', W / 2, (YAM_Y_MIN + YAM_Y_MAX) / 2);
+  const mult = w / YAM_WAVE_INTERVAL;
+  if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.jyamato.hp * mult);
+  // build her parts now rather than waiting for the first tick, so the HP mirror
+  // below has something to write to
+  if (!b.yamInit) initYamato(b);
+  syncYamatoParts(b);
+  const n = Math.floor(specialWaveMult(w / 10) * 6);
+  for (let i = 0; i < n; i++) {
+    spawnEnemyAt(pick(['jrifle', 'jsmg', 'jsmg', 'jbanzai']),
+      clamp(W / 2 + rand(-160, 160), 30, W - 30), rand(-90, -20));
+  }
 }
 
 function launchWave(w) {

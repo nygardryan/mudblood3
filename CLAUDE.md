@@ -63,15 +63,78 @@ economy/difficulty *feels*; use `deploy` to force a board state. Both route
 creation through the game's own `applyPlacement()` (in `js/input.js`), so a
 harness placement can never drift from a toolbar placement.
 
+**Der Schlächter** (`eboss`) is the German final boss: a dark-haired revolver
+man who takes the field every 100th German wave (`spawnGermanBoss` hook at the
+top of `spawnSpecialWave` in `js/waves.js`; replaces that wave's themed
+special, and each return is `w/100 ×` HP). 9000 HP (`noRamp:true` exempts him
+from `enemyHpRamp`), self-plated body+flak armor, and a three-state AI
+(`updateGermanBoss` in `js/update-enemies.js`): advance down one of five
+`BOSS_LANES` firing 6 revolver shots (190 dmg; `revolver.armorDmg` = flat 490
+vs anything armored — see `fireShot`), retreat to `BOSS_BACKLINE_Y` (on-field,
+so artillery can punish the refit), refill armor and call two DISTINCT
+reinforcement plays (`bossCallReinforcements`: smokescreen/airraid via
+`runEvent`, paradrop, vehicle column, human wave), then advance again down a
+lane ≥ 2 indices away. Immune to prone/suppression (`t.boss` checks in
+`tryGoProne`/`suppress`) and stun (dispatch order + `maybeShellShock`); can
+never breach (`BOSS_SAFE_Y` clamp). Killing him fires `bossVictory()`
+(`js/flow.js`): the sim pauses under a `#boss-victory` overlay offering FIGHT
+ON (run continues, boss returns at the next ×100) or END RUN — VICTORY (full
+`endRun(true, …)` recap). **That overlay is shared with the Yamato** — its title
+and copy come from `bossVictoryCopy()`, keyed on `G.enemyFaction`, so anything
+added there needs wording for both. Tuning in the `BOSS_` block in `js/constants.js`;
+art is `paintGermanBoss` (`js/render-soldier.js`) + `drawRevolver`
+(`js/render-weapons.js`); wide always-on bars via `drawBossOverlays`. He is drawn
+as nothing but an OVERSIZED INFANTRYMAN: an officer's body ellipse, a standard
+head, and the rifleman's own belt kit (`drawErifleKit`), all pushed through one
+uniform `BOSS_SPRITE_SCALE` (1.35×) — his `gun:14` exists so the barrel clears
+the scaled coat. Every attempt to make him look important by adding GIRTH
+instead of size (a 1.45× scale, a rear coat-flare ellipse, a wide pale collar
+crescent, shoulder boards) read as a dark blob rather than a man, because they
+widened him without lengthening him. Change the scale, never the local ratios.
+`deploy('eboss', …)` works (he's in `TESTING_GERMAN_PLACEABLES`) and his state
+lives on the enemy object: `bossState`/`shots`/`lane`/`laneX`/`rallyT`.
+
 The **Imperial Japanese Army** is the alternate endless foe (`faction:'jp'` in
-`ENEMY_TYPES`, 15 keys: `jrifle`/`jbanzai`/`jsmg`/`jgren`/`jlmg`/`jhmg`/`jsniper`/
-`jknee`/`jmortar`/`jlunge`/`joff`/`jflame`/`jhago`/`jtank`/`jchinu`). `deploy`
-spawns any of them (they're in
+`ENEMY_TYPES`, 15 line keys: `jrifle`/`jbanzai`/`jsmg`/`jgren`/`jlmg`/`jhmg`/`jsniper`/
+`jknee`/`jmortar`/`jlunge`/`joff`/`jflame`/`jhago`/`jtank`/`jchinu`, plus the boss
+and her parts below). `deploy` spawns any of them (they're in
 `TESTING_JAPANESE_PLACEABLES`); wave spawning routes through `japWaveComposition`
 and `JP_SPECIAL_WAVES` when `G.enemyFaction === 'jp'`. Japanese infantry are
 fanatics (never prone — see `tryGoProne`); `jbanzai` is a melee charger and
 `jlunge` a suicide anti-tank unit, both with their own AI in `js/update-enemies.js`.
 Their art lives in `js/render-japanese.js` (`paintJapaneseSoldier`).
+
+The **Yamato** (`jyamato`) is the Japanese wave-100 boss — a land battleship on
+treads, arriving every 100th JP wave (`spawnJapaneseBoss`, hooked in
+`spawnSpecialWave` beside the German one). She is **the only multi-hitbox actor in
+the game**, and that is the thing to understand before touching her: every other
+actor here is a bare `(x,y)` point — there is no `r`/`w`/`h` field anywhere in
+`UNIT_TYPES`/`ENEMY_TYPES`, and the size ternaries in input/inspector/mines are
+never read by the combat sim. So she is a **parent actor plus ten child part
+actors, all real entries in `G.enemies`**, repositioned from her `x`/`y`/`heading`
+every tick by `syncYamatoParts`. Parts are still points, so targeting, `fireShot`,
+`explode`, mouse-pick, focus-fire and the inspector all work on her unchanged.
+- `jyhull` ×4 — armor-belt hitboxes. Pure hitboxes: `damageEnemy` **redirects** them
+  into the hull's pool at the top of the function. The hull core is itself the
+  amidships hitbox, which is why there's no belt section at `sOff 0`.
+- `jyturret` ×2 — triple batteries, own HP, each picking its own target and laying
+  its own bearing (`p.tur`, absolute world angle, clamped to a wedge off the beam).
+- `jymg` ×4 — gun tubs, own HP, **not** `tank`, so small arms work on them. Only the
+  two on the engaged broadside fire; `YAM_MG_B` (their abeam offset) is a mechanic,
+  not decoration — every scan picks by raw distance, so that offset is the only
+  reason riflemen shoot crews instead of pinging the ×0.04 belt.
+
+Two damage paths had to be de-duped or one hit counted 3-5× (`explode`'s enemy loop,
+and `flameSpray`, whose ×0.6 tank floor made one veteran flamer the best
+anti-battleship weapon in the game at ~120 dps — now ×0.06 vs the belt, so flamers
+strip her tubs instead). She's driven entirely from `updateYamato`; parts get a bare
+`return` in `updateEnemy`, because `tank:true` would otherwise route them to
+`updateTank` and throw. Abilities: an SNLF landing party (the fight's economy — her
+escorts pay for the artillery that kills her) and damage control, which revives one
+knocked-out part and **must re-`push` it into `G.enemies`**. Tuning is the `YAM_`
+block in `js/constants.js`; art is `js/render-yamato.js` (`drawYamatoPass` runs
+before the enemy loop so escorts paint over her deck). Note `TEST.state().enemies`
+total and HP are **inflated by her parts** — 11 actors, and the belt mirrors her pool.
 
 **The Horde** is the third endless foe (`faction:'zo'` in `ENEMY_TYPES`, 10 keys:
 `zshambler`/`zrunner`/`zcrawler`/`zhound`/`zbrute`/`zspitter`/`zbloater`/

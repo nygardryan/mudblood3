@@ -37,6 +37,9 @@ function hostileRoster() {
 
 // same click targets selection uses — vehicles and tanks are bigger
 function actorHitRadius(a) {
+  // 34 for the Yamato: her hitboxes are 62px apart, and 26 would leave gaps
+  // between them that the hover would fall straight through
+  if (a.t.shipPart || a.t.ship) return 34;
   return a.t.tank ? 26 : a.t.vehicle ? 20 : a.t.gunEmplacement ? 18 : 14;
 }
 

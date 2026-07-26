@@ -63,6 +63,8 @@ function paintSoldierBody(c, a) {
   // The Horde has its own painter — rotted, groping walking dead: shamblers,
   // brutes, spitters, bloaters, hounds, the Abomination and the rest
   if (a.nation === 'zo') { paintZombieSoldier(c, a); return; }
+  // Der Schlächter gets his own painter: bigger, bare dark-haired head, greatcoat
+  if (a.type === 'eboss') { paintGermanBoss(c, a); return; }
   const type = a.type;
   const us = (a.nation || a.side) === 'us';
   const isSniper = type === 'sniper' || type === 'esniper';
@@ -959,9 +961,126 @@ function paintSoldierBody(c, a) {
   c.restore();
 }
 
+// Der Schlächter — the German final boss. He is deliberately drawn as nothing
+// more than an OVERSIZED INFANTRYMAN: the same body ellipse an officer gets
+// (6.6 x 5.2, same 1.27 aspect), the same head radius (4.2), the same shadow,
+// all pushed through one uniform scale. Every earlier pass tried to make him
+// look important by adding girth — a 1.45x scale, a rear coat-flare ellipse, a
+// wide standing-collar crescent — and each of those read as a dark blob rather
+// than a man, because they widened him without lengthening him. Size alone does
+// the work now: at 1.35x he is a head taller and broader than the troops around
+// him while keeping a soldier's proportions. Rule for edits here: change the
+// SCALE, never the local ellipse ratios.
+//
+// Contrast is the other constraint. His bare dark head is his whole silhouette
+// read among the gray Wehrmacht helmets, so it must stay legible — hence the
+// collar strip, which keeps near-black hair from merging into a near-black
+// greatcoat at game zoom.
+const BOSS_SPRITE_SCALE = 1.35;
+function paintGermanBoss(c, a) {
+  const fx = Math.cos(a.face), fy = Math.sin(a.face);
+  c.save();
+  c.scale(BOSS_SPRITE_SCALE, BOSS_SPRITE_SCALE);
+
+  // shadow — same footprint a standard soldier gets, carried up by the scale
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  c.beginPath(); c.ellipse(0, 3, 8, 4, 0, 0, 7); c.fill();
+
+  // the revolver, thrust ahead (drawn under the body like every weapon).
+  // gunLen is divided by the scale so the WORLD-space muzzle lands at t.gun —
+  // where fireShot spawns its flash and tracer.
+  drawRevolver(c, fx, fy, a.t.gun / BOSS_SPRITE_SCALE, a.face);
+
+  // body — an officer's greatcoat silhouette, no skirt flare behind it
+  c.fillStyle = a.t.color;
+  c.beginPath(); c.ellipse(0, 0, 6.6, 5.2, a.face, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(14,15,11,0.6)'; c.lineWidth = 1.1; c.stroke();
+  // coat front, inset like every other officer's. It has to be DARKER than the
+  // body and small enough to leave a rim of coat showing round it: a lighter
+  // panel filling the whole body turned him into a pale disc with no shoulders.
+  c.fillStyle = '#32333c';
+  c.beginPath(); c.ellipse(fx * 0.9, fy * 0.9, 5.5, 4.4, a.face, 0, 7); c.fill();
+
+  // The SAME belt kit a Wehrmacht rifleman wears — Y-straps, belt, ammo
+  // pouches, bread bag, canteen. This is what actually makes him read as an
+  // enlarged infantryman: a bespoke smooth greatcoat with no gear on it is a
+  // blob at any size, because the gear is what gives a top-down man his
+  // shoulders and his front-to-back direction.
+  drawErifleKit(c, fx, fy, a.face);
+
+  // NO pale shoulder boards. There is nowhere to put them from directly above:
+  // out at the coat rim they stick off his sides as ears, and pulled inboard
+  // they tuck under the 4.2-radius head and become earmuffs. Both readings add
+  // exactly the width this sprite is meant to shed, and the head plus the
+  // rifleman kit already single him out. Rank lives on the HP bar, not the coat.
+
+  // collar: a short dark strip across the back of the neck. Anything wider or
+  // paler than this reads as a bright hood halo — the exact failure of the two
+  // previous passes — and pads the shoulders back out into a blob.
+  c.strokeStyle = '#4a4b57';
+  c.lineWidth = 1.6;
+  c.beginPath();
+  c.arc(-fx * 0.5, -1 - fy * 0.5, 4, a.face + Math.PI * 0.72, a.face + Math.PI * 1.28);
+  c.stroke();
+
+  // the head: DARK HAIR, no helmet — standard soldier head size. The hair is a
+  // COOL near-black, not the warm brown tried first: warm brown at this radius
+  // read as a big chocolate disc sitting on top of a gray coat.
+  c.fillStyle = '#241f1e';
+  c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 0.9;
+  c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.stroke();
+  // face peeking out at the leading edge. Small on purpose: at 2.1x1.6 it was a
+  // tan egg covering half the head and he read as a ball, not a man.
+  c.fillStyle = '#c9a184';
+  c.beginPath(); c.ellipse(fx * 2.7, -1 + fy * 2.7, 1.7, 1.15, a.face, 0, 7); c.fill();
+  // hairline over the brow, and a comb sheen across the crown
+  c.strokeStyle = '#15100f';
+  c.lineWidth = 0.7;
+  c.beginPath();
+  c.arc(0, -1, 4.2, a.face - 1.05, a.face + 1.05);
+  c.stroke();
+  c.strokeStyle = '#43403c';
+  c.lineWidth = 0.7;
+  c.beginPath();
+  c.arc(-fx * 0.8, -1 - fy * 0.8, 2.6, a.face + Math.PI * 0.6, a.face + Math.PI * 1.4);
+  c.stroke();
+
+  c.restore();
+}
+
+// wide, always-on bars for the boss — his health is a headline, not a footnote.
+// Same palette as the standard overlays, raised for the bigger sprite.
+function drawBossOverlays(a) {
+  const bw = 30, x0 = a.x - bw / 2;
+  const f = clamp(a.hp / a.maxhp, 0, 1);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(x0, a.y - 18, bw, 3.5);
+  ctx.fillStyle = f > 0.5 ? '#7ec850' : f > 0.25 ? '#e0b040' : '#d04030';
+  ctx.fillRect(x0, a.y - 18, bw * f, 3.5);
+  if (a.bodyArmor > 0) {
+    const fb = clamp(a.bodyArmor / a.maxBodyArmor, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x0, a.y - 21.5, bw, 2.2);
+    ctx.fillStyle = '#8fb3d9';          ctx.fillRect(x0, a.y - 21.5, bw * fb, 2.2);
+  }
+  if (a.flakArmor > 0) {
+    const ff = clamp(a.flakArmor / a.maxFlakArmor, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x0, a.y - 24.5, bw, 2.2);
+    ctx.fillStyle = '#b7a94e';          ctx.fillRect(x0, a.y - 24.5, bw * ff, 2.2);
+  }
+  if (G.selected.includes(a)) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.arc(a.x, a.y, 14, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
 // health bar, rank chevrons, selection ring: drawn whether standing or prone
 function drawSoldierOverlays(a) {
   if (a._ghost) return;
+  if (a.t.germanBoss) { drawBossOverlays(a); return; }
 
   // Horde infection: a bitten man festers with a sickly green cast, a pulsing
   // aura, and a rot bar that fills as he turns. A medic can still save him.

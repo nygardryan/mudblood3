@@ -56,6 +56,8 @@ el('pause-btn').addEventListener('click', pauseGame);
 el('pause-resume-btn').addEventListener('click', resumeGame);
 el('pause-codex-btn').addEventListener('click', openCodexFromPause);
 el('pause-menu-btn').addEventListener('click', returnToMenu);
+el('boss-fight-on-btn').addEventListener('click', bossFightOn);
+el('boss-end-run-btn').addEventListener('click', bossEndRun);
 el('mobile-deselect').addEventListener('click', () => {
   if (!G) return;
   G.selected = [];

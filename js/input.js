@@ -72,7 +72,10 @@ function enemyAtWorld(x, y) {
   let best = null, bd = Infinity;
   for (const e of G.enemies) {
     if (e.dead || e.y < 0 || e.chute > 0) continue;
-    const base = e.t.tank ? 26 : e.t.apc ? 22 : e.t.vehicle || e.t.bike ? 20
+    // the Yamato's hitboxes sit 62px apart, so a 26px tank radius would leave an
+    // 8px dead band at every midpoint and clicks would fall THROUGH her hull
+    const base = e.t.shipPart || e.t.ship ? 34
+               : e.t.tank ? 26 : e.t.apc ? 22 : e.t.vehicle || e.t.bike ? 20
                : e.t.v2 ? 24 : 14;
     const d = dist(e, { x, y });
     if (d < touchHitRadius(base) && d < bd) { bd = d; best = e; }

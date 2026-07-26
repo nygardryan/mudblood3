@@ -1064,6 +1064,7 @@ body {
 
 #gameover h1 { color: #c22; }
 #gameover h1.victory { color: #8fbf5a; }
+#boss-victory h1.victory { color: #8fbf5a; }
 #go-stats {
   font-size: clamp(14px, 4vw, 17px);
   color: #ffd94a;

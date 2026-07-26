@@ -151,7 +151,12 @@ function draw() {
     ctx.fill();
   }
 
+  // the Yamato paints before the troops, so escorting infantry reads as being in
+  // front of her hull rather than swallowed by it (this loop is not y-sorted)
+  drawYamatoPass();
+
   for (const e of G.enemies) {
+    if (e.t.ship || e.t.shipPart) continue;   // drawn whole, by drawYamatoPass above
     if (!inView(e.x, e.y, 64)) continue;   // canopy/hull margin
     if (e.chute > 0) drawParatrooper(e);
     else if (e.t.tank) drawTank(e);

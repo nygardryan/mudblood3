@@ -635,6 +635,11 @@ function creditKill(u) {
 
 function damageEnemy(e, dmg, from, kind) {
   if (e.chute > 0) return; // untouchable while the canopy is up
+  // The Yamato's armor belt is five actors on ONE pool: a hit anywhere along it
+  // is a hit on the ship. Doing this here rather than per-weapon means bullets,
+  // blast, flame and melee all route correctly for free. Keyed on the type flag
+  // so a stray TEST.deploy('jyhull') with no parent can't throw.
+  if (e.t.hullSection && e.shipOf && !e.dead) return damageEnemy(e.shipOf, dmg, from, kind);
   const incoming = dmg;
   // Body/Flak Armor (endless: some enemies spawn plated — see armorEnemy).
   // Bullets chip body armor, explosions chip flak; a hit bigger than the bar
@@ -664,11 +669,36 @@ function damageEnemy(e, dmg, from, kind) {
   }
   if (e.hp <= 0 && !e.dead) {
     e.dead = true;
+    // A gun tub or a battery going quiet pays TP and credits the shooter, but it
+    // is not a man: it never touches the kill count or the recap, leaves no
+    // corpse, and takes an early return rather than a clause in the vehicle
+    // chain below so that chain never has to be re-audited for it.
+    if (e.t.shipPart) {
+      earnTP(e.t.reward);
+      creditKill(from);
+      G.texts.push({ x: e.x, y: e.y - 20, text: 'KNOCKED OUT', ttl: 1.4 });
+      explode(e.x, e.y, 30, 40, false);
+      const spi = G.selected.indexOf(e);
+      if (spi !== -1) G.selected.splice(spi, 1);
+      return;
+    }
     G.kills++;
     earnTP(e.t.reward);
     creditKill(from);
     recapEnemyKilled(e, from);
-    if (e.t.tank) {
+    if (e.t.ship) {
+      // she goes up all along her length. The parts are killed DIRECTLY and the
+      // secondaries go through the shell queue rather than calling explode here:
+      // explode -> damageEnemy -> this block -> explode would recurse.
+      for (let i = 0; i < e.parts.length; i++) {
+        const p = e.parts[i];
+        if (p.dead) continue;
+        p.dead = true;
+        scheduleShell(p.x, p.y, 0.12 + i * 0.16, 55, 60, true, null);
+      }
+      stampWreck(e);
+      explode(e.x, e.y, 70, 90, true);
+    } else if (e.t.tank) {
       stampWreck(e);
       explode(e.x, e.y, 50, 60, true);
     } else if (e.t.bike) {
@@ -697,6 +727,9 @@ function damageEnemy(e, dmg, from, kind) {
     // hit-squad mode: drop the fallen man from the player's selection
     const si = G.selected.indexOf(e);
     if (si !== -1) G.selected.splice(si, 1);
+    // the boss falling is a victory: freeze the field and offer the choice
+    // to take the win or fight on (flow.js)
+    if (e.t.germanBoss || e.t.japBoss) bossVictory();
   }
   if (dmg >= 3) tryGoProne(e, 0.65);
   // Shell Shocked: a surviving enemy hit by a mortarman is dazed for a beat

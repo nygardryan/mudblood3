@@ -143,6 +143,7 @@ function recapOppositionName() {
   const f = enemyFaction();
   return f === 'jp' ? 'Imperial Japanese Army'
     : f === 'zo' ? 'The Horde (undead)'
+    : f === 'it' ? 'Regio Esercito'
     : 'German Wehrmacht';
 }
 

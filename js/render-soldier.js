@@ -63,6 +63,9 @@ function paintSoldierBody(c, a) {
   // The Horde has its own painter — rotted, groping walking dead: shamblers,
   // brutes, spitters, bloaters, hounds, the Abomination and the rest
   if (a.nation === 'zo') { paintZombieSoldier(c, a); return; }
+  // the Regio Esercito has its own painter too — M33 helmets, Carcanos, the
+  // Bersagliere plume, the officer's bustina and the Folgore's rimless bowl
+  if (a.nation === 'it') { paintItalianSoldier(c, a); return; }
   // Der Schlächter gets his own painter: bigger, bare dark-haired head, greatcoat
   if (a.type === 'eboss') { paintGermanBoss(c, a); return; }
   const type = a.type;

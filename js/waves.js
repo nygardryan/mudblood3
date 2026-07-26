@@ -190,6 +190,74 @@ function zomWaveComposition(w) {
   return out;
 }
 
+// Regio Esercito composition. Same size/tempo curve as the others; its own
+// character is the DIGGER/CHARGER split — most of the line garrisons the works
+// the sappers put up, and a smaller share of assault troops exists to come back
+// out of them. (Phase 0: the roster is still three types deep, so the split is
+// only sketched here — the engineer trickle and the depth-shifting charger share
+// land with the full roster.)
+function itaWaveComposition(w) {
+  const late = wavesPast99(w);
+  const mult = enemySpawnMult(w);
+  const baseSize = Math.min(
+    2 + Math.floor(w / 2.5) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 4),
+    9 + Math.floor(w / 14) + Math.floor(late / 6),
+  );
+  const minSize = w > 4 ? 3 : 1;
+  const size = Math.max(minSize, Math.round(baseSize * mult));
+  // The roster splits in two, and the split IS the faction. DIGGERS garrison the
+  // works and fight from them; CHARGERS never dig and exist for the AVANTI. Early
+  // waves are mostly diggers — the player grinds against a line that keeps
+  // creeping — and the charger share climbs with depth, so by the time the works
+  // are thick the surge coming out of them is genuinely dangerous.
+  const diggers = ['ifante', 'ifante', 'ifante'];
+  if (w >= 3) diggers.push('imosch');
+  if (w >= 6) diggers.push('ibreda');
+  if (w >= 8) diggers.push('ibrixia');
+  if (w >= 9) diggers.push('ifiat');
+  if (w >= 13) diggers.push('icecc');
+  if (w >= 16) diggers.push('imortaio');
+
+  const chargers = ['ibersa'];
+  if (w >= 11) chargers.push('iflame');
+  if (w >= 15) chargers.push('ifolgore');
+  if (w >= 17) chargers.push('iardito');
+
+  // 15% chargers early, climbing to half the wave by the late game
+  const chargerShare = Math.min(0.5, 0.15 + Math.max(0, w - 6) * 0.012);
+  const out = [];
+  for (let i = 0; i < size; i++) {
+    const useCharger = w >= 7 && Math.random() < chargerShare;
+    out.push(pick(useCharger ? chargers : diggers));
+  }
+
+  // Sappers ride OUTSIDE the pool, as a guaranteed trickle — the dig is the
+  // faction, so it can't be left to a random draw that might not come up for
+  // three waves. Suppressed once the field is full: a builder with nowhere to
+  // build is just a bad rifleman.
+  if (w >= 4 && G.itWorks.length < IT_WORK_CAP) {
+    out.push('iguast');
+    if (w >= 12 && Math.random() < 0.45 * mult) out.push('iguast');
+  }
+  // the officer runs the AVANTI clock, so he turns up a touch more often than
+  // the other factions' leaders
+  if (w >= 10 && Math.random() < (0.40 + late * 0.004) * mult) out.push('iuff');
+
+  // Armour is tankette-heavy: the L3 flame tankette is the signature threat and
+  // it swarms early, with the mediums arriving late as a second echelon.
+  const armorChance = (0.10 + Math.max(0, w - 11) * 0.002) * (1 + late * 0.05) * mult;
+  if (w >= 11 && Math.random() < armorChance) out.push('il3');
+  if (w >= 16 && Math.random() < armorChance) out.push('il3');
+  if (w >= 24 && Math.random() < armorChance) out.push('im13');
+  if (w >= 42 && Math.random() < armorChance * 0.7) out.push('isemo');
+  if (late > 0) {
+    const armorShare = Math.min(0.4, late * 0.012);
+    const armorPool = ['il3', 'im13', 'im13', 'isemo'];
+    for (let i = 0; i < Math.round(size * armorShare); i++) out.push(pick(armorPool));
+  }
+  return out;
+}
+
 // ---- themed set-piece assaults: every 10th wave the enemy commits to a
 // scripted attack. Themes cycle; the tier (wave/10) keeps climbing forever,
 // so each theme returns bigger and meaner the next time around.
@@ -212,6 +280,7 @@ function armorEnemy(e, w) {
   if (t.boss) return;                                         // bosses already sponge damage via HP
   if (t.shipPart) return;                                     // a gun tub doesn't wear a flak vest
   if (t.bossPart) return;                                     // nor does a sac of pus
+  if (t.trainPart) return;                                    // nor does a wagon or its gun crew
   // Foot soldiers of every faction qualify, the undead included — reanimated
   // men still wear the plate they died in.
   const chance = enemyArmorChance(w);
@@ -343,6 +412,84 @@ const SPECIAL_WAVES = [
 
 // Imperial Japanese set-piece assaults — their own rotation of themed waves,
 // leaning on banzai charges, night infiltration, and knee-mortar bombardment.
+// Regio Esercito set pieces, cycling on the faction's own pulse: they dig, they
+// grind you from cover, they come out all at once, and their armour cleans up.
+const ITA_SPECIAL_WAVES = [
+  {
+    key: 'genio',
+    banner: 'IL GENIO! THE SAPPERS DIG IN!',
+    // The build wave. Deliberately LOW direct threat — the danger isn't this
+    // wave, it's what's still standing on the field during the next four.
+    spawn(t) {
+      const sappers = Math.floor(specialWaveMult(t) * (3 + t / 2));
+      for (let i = 0; i < sappers; i++) {
+        const g = spawnEnemyAt('iguast', rand(60, W - 60), rand(-90, -20));
+        g.buildState = 'seek';
+        g.buildsDone = 0;
+        g.t = Object.assign({}, g.t, { builder: Object.assign({}, g.t.builder, { per: 3 }) });
+      }
+      // a covering party so the player can't just walk up and shoot the diggers
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (3 + t)); i++) {
+        spawnEnemyAt(pick(['ifante', 'ifante', 'ibreda', 'ifiat']), rand(50, W - 50), rand(-110, -30));
+      }
+      if (t >= 3) spawnEnemyAt('isemo', rand(120, W - 120), rand(-120, -80));
+    },
+  },
+  {
+    key: 'avanti',
+    banner: 'AVANTI SAVOIA! THE WHOLE LINE COMES!',
+    // The payoff wave: assault troops arrive AND the order goes out immediately,
+    // so the new force and every man already sitting in a work surge together.
+    spawn(t) {
+      const count = Math.floor(specialWaveMult(t) * (8 + 2 * t));
+      for (let i = 0; i < count; i++) {
+        const x = (W / (count + 1)) * (i + 1) + rand(-24, 24);
+        spawnEnemyAt(pick(['ibersa', 'ibersa', 'ibersa', 'imosch', 'ifolgore']), x, rand(-90, -20));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (1 + t / 4)); i++) {
+        spawnEnemyAt('iuff', rand(120, W - 120), rand(-120, -80));
+      }
+      // arm the charge: the telegraph fires on the next tick of updateAvanti
+      G.itCharge = -IT_AVANTI_TELEGRAPH;
+      G.itLastAvanti = G.time;
+    },
+  },
+  {
+    key: 'sbarramento',
+    banner: 'SBARRAMENTO! MORTAR BOMBARDMENT!',
+    // Massed tubes that arrive garrison-hungry: they make straight for the works
+    // and shell the line from inside cover. The wave that makes you buy a mortar.
+    spawn(t) {
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 3)); i++) {
+        spawnEnemyAt('imortaio', rand(60, W - 60), rand(-130, -70));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 2)); i++) {
+        spawnEnemyAt('ibrixia', rand(60, W - 60), rand(-110, -50));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (3 + t / 2)); i++) {
+        spawnEnemyAt(pick(['ifiat', 'ibreda', 'icecc']), rand(50, W - 50), rand(-100, -30));
+      }
+    },
+  },
+  {
+    key: 'carristi',
+    banner: 'CARRISTI! TANKETTE SWARM!',
+    // Punishes a player who has over-invested in anti-infantry: a wall of flame
+    // on tracks, with the mediums coming in behind it.
+    spawn(t) {
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (3 + t)); i++) {
+        spawnEnemyAt('il3', rand(60, W - 60), rand(-110, -30));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (t / 2)); i++) {
+        spawnEnemyAt('im13', rand(80, W - 80), rand(-150, -90));
+      }
+      for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 2)); i++) {
+        spawnEnemyAt(pick(['imosch', 'ifante']), rand(50, W - 50), rand(-90, -30));
+      }
+    },
+  },
+];
+
 const JP_SPECIAL_WAVES = [
   {
     key: 'banzai',
@@ -518,8 +665,16 @@ function spawnSpecialWave(w) {
     G.spawnTimer = spawnIntervalForWave(w) + 6;
     return;
   }
+  // and every 100th Italian wave belongs to the Treno Armato, on the same terms
+  if (f === 'it' && w % TRAIN_WAVE_INTERVAL === 0
+      && !G.enemies.some(e => !e.dead && e.type === 'itrain')) {
+    spawnItalianBoss(w);
+    G.spawnTimer = spawnIntervalForWave(w) + 6;
+    return;
+  }
   const tier = w / 10;
-  const set = f === 'jp' ? JP_SPECIAL_WAVES : f === 'zo' ? ZOM_SPECIAL_WAVES : SPECIAL_WAVES;
+  const set = f === 'jp' ? JP_SPECIAL_WAVES : f === 'zo' ? ZOM_SPECIAL_WAVES
+    : f === 'it' ? ITA_SPECIAL_WAVES : SPECIAL_WAVES;
   const theme = set[(tier - 1) % set.length];
   showBanner(theme.banner);
   theme.spawn(tier);
@@ -589,6 +744,27 @@ function spawnHordeBoss(w) {
   }
 }
 
+// The train rolls on from staging like the German boss — it's a column, not a
+// broadside, so only its engine pokes below the top edge at first and the rest
+// of the consist follows it down the rails. Its parts are built by initWarTrain
+// on the first tick and deliberately NOT forced here — like the Progenitor there
+// is no HP mirror to prime, and leaving it lazy keeps this hook and
+// TEST.deploy('itrain') on one identical code path. Each hundredth-wave return
+// is tougher: wave 200 fields it at 2x HP (the engine only; wagons stay base,
+// same rule as the Yamato's turrets).
+function spawnItalianBoss(w) {
+  showBanner('TRENO ARMATO — THE ARMORED TRAIN ROLLS DOWN THE LINE!');
+  SFX.event();
+  const b = spawnEnemyAt('itrain', rand(TRAIN_LANE_MARGIN, W - TRAIN_LANE_MARGIN), -30);
+  const mult = w / TRAIN_WAVE_INTERVAL;
+  if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.itrain.hp * mult);
+  const n = Math.floor(specialWaveMult(w / 10) * 6);
+  for (let i = 0; i < n; i++) {
+    spawnEnemyAt(pick(['ifante', 'imosch', 'ibersa', 'iguast']),
+      clamp(b.x + rand(-150, 150), 30, W - 30), rand(-90, -20));
+  }
+}
+
 function launchWave(w) {
   if (w % 10 === 0) {
     spawnSpecialWave(w);
@@ -596,7 +772,8 @@ function launchWave(w) {
   }
   const f = enemyFaction();
   const comp = f === 'jp' ? japWaveComposition(w)
-    : f === 'zo' ? zomWaveComposition(w) : waveComposition(w);
+    : f === 'zo' ? zomWaveComposition(w)
+    : f === 'it' ? itaWaveComposition(w) : waveComposition(w);
   const cx = rand(100, W - 100);
   for (const type of comp) {
     const x = clamp(cx + rand(-90, 90), 30, W - 30);
@@ -615,12 +792,14 @@ function launchWave(w) {
 function spawnWave() {
   G.wave++;
   shiftWindForWave();
+  decayItalianWorks();   // the enemy line weathers between waves; abandoned works go
   awardWaveMedals();
   launchWave(G.wave);
   if (G.wave === 1) {
     const f = enemyFaction();
     showBanner(f === 'jp' ? 'THE IMPERIAL ARMY ATTACKS'
       : f === 'zo' ? 'THE DEAD ARE RISING'
+      : f === 'it' ? 'THE REGIO ESERCITO ATTACKS'
       : 'HERE THEY COME');
   }
 }

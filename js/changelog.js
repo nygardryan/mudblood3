@@ -4,9 +4,34 @@
 const CHANGELOG = [
   {
     date: '2026-07-26',
-    title: 'Testing Mode: HORDE Tab',
+    title: 'Italian Boss: The Treno Armato',
+    changes: [
+      'Every 100th Italian wave now belongs to the TRENO ARMATO — an armored war train that rolls straight down its rail lane from the north and PARKS at the bottom of your sector. The rails go down first: you can read exactly where it will stop.',
+      'Five wagons: a very tanky engine with no weapons, two turret wagons that shell your line, an infantry wagon that unloads squads of fanteria beside the track, and a gun wagon crewed by four machine gunners, two per side.',
+      'The engine is the boss — three health chunks, and every chunk you strip away makes the train sound its whistle and hurl the ENTIRE Italian army into an AVANTI charge. Kill it to derail the run\'s victory screen.',
+      'Every wagon has its own health: knock out a turret and its gun stays silent (no damage control on this boss), kill the boxcar and the squads stop coming. Small arms only hurt the gun crews — the wagons want explosives.',
+      'Anything you built on the rails is kindling: the train crushes sandbags, wire and emplacements under its wheels on the way down.',
+    ],
+  },
+  {
+    date: '2026-07-26',
+    title: 'New Faction: The Regio Esercito',
+    changes: [
+      'Endless runs can now roll a fourth enemy — the Italians. They are the only foe that BUILDS: their assault sappers dig sandbag parapets, bunkers and watch towers out in the open, and the works are still standing next wave.',
+      'The enemy front creeps. Each new work goes up a little further down the field than the last, until their line is sitting just short of the forward line — and their infantry moves in and fights from behind it.',
+      'Your rifles can\'t touch a work. Bring explosives: grenadiers, bazookas, mortars, the Sherman, or a mortar/artillery strike. Rounds a parapet stops for its garrison do wear it down, so a rifle line grinds one away eventually.',
+      'AVANTI SAVOIA! Every so often the whole army comes out of cover at once behind a banner — and for those few seconds nothing pins them. The banner is your warning; a mortar on a line that is still bunched up is the answer. Their officers bring the charge sooner just by being alive.',
+      'Sixteen new units, including the Guastatore who builds their line, the Arditi demolition man who plants fused charges on YOUR emplacements, a Cecchino who outranges your line from a hardened watch tower, and the L3 Lf — the only flame-throwing tank on any front.',
+      'Fixed: an Italian run could drop German Fallschirmjäger, report "German Wehrmacht" on the after-action report, and file its units under WEHRMACHT in the codex.',
+      'Fixed: enemy shotgunners kept their muzzle flash drawn forever, and Italian dead wore German helmets.',
+    ],
+  },
+  {
+    date: '2026-07-26',
+    title: 'Testing Mode: HORDE & ITALIAN Tabs',
     changes: [
       'Added a HORDE tab to testing mode — spawn the full undead roster on demand, from shamblers up to the Progenitor.',
+      'Added an ITALIAN tab — the full Regio Esercito roster can now be placed on demand like every other faction, along with their field works.',
       'Infection now works whenever something bites: a man dropped while infected rises against his line, and medics cure the rot, even in a run that didn\'t roll the Horde.',
       'Fixed the Panzer IV missing from the testing GERMANS tab — the roster tabs now split by faction instead of by the first letter of the internal key.',
     ],

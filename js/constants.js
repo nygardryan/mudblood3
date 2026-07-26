@@ -945,6 +945,361 @@ for (const t of Object.values(ENEMY_TYPES)) {
   if (t.zombie && !t.big && !t.boss) t.hp = Math.round(t.hp * 1.15);
 }
 
+// ---- Regio Esercito field works -------------------------------------------
+// The Italians build the same three fortifications the player can, but they live
+// in their OWN array (G.itWorks) instead of G.sandbags/G.bunkers/G.watchtowers.
+// That separation is the whole design: every player-side consumer of those arrays
+// walks the array with no notion of a side — updateEngineer's repair and fortify
+// passes, watchtowerRangeMult, engineerRepairCount, the Blast Shelter card — so
+// sharing them would quietly have a US engineer hardening an Italian bunker, or
+// an enemy watch tower extending your riflemen's range. A separate array can't
+// leak: forgetting a site means the works don't participate in something, never
+// that the player buffs the enemy.
+//
+// One array with a `kind` tag rather than three, because works need whole-
+// collection passes (draw, cover, compaction, the garrison claim, the cap) and
+// one loop each is cheaper and easier to audit than three.
+//
+// HP sits below the player's equivalents (660 / 2040 / 500) on purpose: rifles
+// can't target a work at all — only explosives, and the chip a work takes when it
+// actually stops a round — so the player has fewer tools to break one than the
+// enemy has to break his.
+// `dodge`/`chip` are indexed by fortification tier (base / up / up2) and mirror
+// the player's own numbers in coverBlock. `chip` is the crucial half: a work
+// loses HP every time it stops a round, so rifles that can't target a work still
+// grind one down — slowly, and only while it is actually sheltering somebody.
+// That is what keeps "explosives are the answer" from meaning "rifles are useless".
+//
+// The watch tower is the odd one out. It barely stops anything; what it does is
+// LENGTHEN the reach of the man up it, mirroring watchtowerRangeMult on the
+// player's side. A marksman in a hardened tower outranges most of the line, which
+// is what makes a tower worth shelling ahead of a bunker.
+const IT_WORK_KINDS = {
+  sandbags:   { label: 'Sandbag Parapet', hp: 430,  cap: 2, box: { hw: 22, hh: 12 },
+                dodge: [0.50, 0.65, 0.78], chip: [4, 3, 2] },
+  bunker:     { label: 'Bunker',          hp: 1240, cap: 3, box: { hw: 28, hh: 13 },
+                dodge: [0.75, 0.85, 0.92], chip: [2, 1, 1] },
+  watchtower: { label: 'Watch Tower',     hp: 340,  cap: 1, box: { hw: 15, hh: 15 },
+                dodge: [0.10, 0.10, 0.10], chip: [3, 3, 3],
+                rangeMult: [1.25, 1.35, 1.5] },
+};
+
+// AVANTI SAVOIA — the other half of the faction's pulse. Entrenching alone makes
+// a turtle: men who sit in works shoot instead of advancing, and the line stops
+// being a threat. So on a cadence the WHOLE force turns out of cover at once and
+// comes at the line together. Wave-level, not a radius command like the banzai or
+// frenzy orders — every Italian on the field goes, wherever he is.
+const IT_AVANTI_CD_MIN = 45;      // seconds between charges, before officers hurry it
+const IT_AVANTI_CD_MAX = 70;
+const IT_AVANTI_TELEGRAPH = 1.6;  // banner up, nobody moving yet — the player's window
+                                  // to drop a mortar on a line that is still bunched up
+const IT_AVANTI_DUR = 7;          // how long the surge runs
+const IT_AVANTI_MIN_WAVE = 5;     // no charges before the player has anything to charge
+const IT_AVANTI_MIN_FORCE = 5;    // a two-man charge is sad, not frightening
+const IT_AVANTI_PRESSURE_FORCE = 10;  // ...and how many it takes for the "can't dig any
+                                      // further, so go" urge to apply
+// Both of these HURRY the clock rather than firing it. Keep their sum modest: if
+// acceleration can drive the period below IT_AVANTI_MIN_GAP, the floor becomes the
+// cadence and every constant above stops meaning anything.
+const IT_AVANTI_OFFICER_URGE = 0.3;   // per officer, up to two — so at most x1.6
+const IT_AVANTI_PRESSURE_URGE = 0.25; // dug out to the wall with a crowd behind it
+const IT_AVANTI_MIN_GAP = 20;     // true safety floor: should rarely be what binds
+
+const GARRISON_STANDOFF = 8;   // how far north of the work a man stands — the work
+                               // ends up between him and the player, which is the
+                               // whole point of standing there
+const GARRISON_SLOT_W = 13;    // lateral spacing between men sharing one work
+const GARRISON_REACH = 5;      // close enough to count as manning it
+const GARRISON_BACKSTEP = 40;  // he'll step this far back into cover, no further:
+                               // without it men slosh back up-field to old works
+                               // and the line stops moving forward
+
+// How the front creeps, and the four independent limits that stop it running
+// away. Persistent structures are the one thing in this game that accumulate
+// across waves, so each limit guards a different failure: the field filling up,
+// the enemy line reaching the player's own build pocket, one sapper digging
+// forever, and a rear line of abandoned works never going away.
+const IT_WORK_CAP = 24;              // hard ceiling on works alive at once
+const IT_WORK_MIN_Y = 50;            // no closer to the top edge than this
+const IT_WORK_MAX_Y = FORWARD_Y - 24;  // ~182: the DEPTH WALL. The creep stops here,
+                                     // short of FORWARD_Y, so the enemy line can never
+                                     // enter the ground the player's own units contest.
+const IT_FRONT_Y_START = 64;         // where the first line goes up, and where the
+                                     // front resets to if the player levels every work
+const IT_CREEP_MIN = 26;             // how much further down each new work is sited
+const IT_CREEP_MAX = 46;             // than the current deepest one — 3-4 steps to the wall
+const IT_WORK_SPACING = 46;          // minimum gap between two works
+const IT_SITE_CLEAR = 40;            // and how far a site keeps off the player's emplacements
+const IT_BUILDS_PER_MAN = 2;         // works one guastatore will raise before he picks up his rifle
+const IT_WORK_START_FRAC = 0.25;     // a freshly staked work stands at this much of its HP —
+                                     // the window in which the player can cheaply shell it flat
+const IT_BUILD_RATE = 46;            // HP raised per 0.4s build tick
+const IT_FORTIFY_RATE = 0.4;         // fortification progress per build tick (6 completes a tier)
+const IT_TEND_RANGE = 260;           // how far a sapper will walk to tend an existing work
+const IT_TICK = 0.5;                 // seconds between works-cache rebuilds
+const IT_WAVE_DECAY = 0.04;          // fraction of max HP every work loses each wave
+const IT_ABANDON_HP = 0.35;          // an unmanned work below this at a wave boundary is abandoned
+
+// ---- Regio Esercito roster: the fourth endless-mode foe. Every type carries
+// faction:'it', routing it through makeEnemy's nation pick and the Italian
+// soldier renderer (js/render-italian.js). Their signature is that they BUILD:
+// engineers throw up sandbags, bunkers and watch towers out on the open field,
+// the line infantry GARRISONS them, and the works persist between waves so the
+// enemy front creeps down the map. Periodically the whole force pours back out
+// of cover in an AVANTI charge. Range/speed never exceed the allied counterpart,
+// same discipline as the other rosters.
+Object.assign(ENEMY_TYPES, {
+  ifante: {
+    // counterpart: rifleman (range 154, speed 42). Carcano M91 + folding bayonet.
+    // The backbone: he is unremarkable in the open and hard to shift once he has
+    // a parapet in front of him.
+    name: 'Fante', hp: 74, speed: 24, range: 140, dmg: 12, acc: 0.44,
+    rof: 1.4, burst: 1, burstGap: 0, reward: 2,
+    color: '#74775a', gun: 8, sfx: 'rifle', priority: 1, faction: 'it',
+    garrison: true,
+  },
+  iuff: {
+    // counterpart: officer (range 101, speed 44) — the linchpin. His aura
+    // stiffens the troops the same way every officer's does; his real weight is
+    // on the AVANTI clock, which runs faster for every one of him still alive.
+    name: 'Ufficiale', hp: 92, speed: 26, range: 96, dmg: 10, acc: 0.5,
+    rof: 0.9, burst: 1, burstGap: 0, reward: 6,
+    color: '#828763', gun: 6, sfx: 'pistol', priority: 5, faction: 'it',
+    aura: true, garrison: true, avantiUrge: true,
+  },
+  iguast: {
+    // NO allied counterpart — the faction's engine. A Guastatore walks out into
+    // no-man's-land and RAISES the works the rest of the line fights from, each
+    // one a little further down the field than the last. He is deliberately a
+    // poor soldier: killing him is how the player stops the front creeping, so
+    // he has to be worth the bullet while he's digging and not much after.
+    // `per` is his budget — once he's spent it he shoulders his rifle for good
+    // (updateGuastatore's 'fight' state), which bounds the dig per wave rather
+    // than per lifetime.
+    name: 'Guastatore', hp: 90, speed: 26, range: 96, dmg: 10, acc: 0.40,
+    rof: 1.5, burst: 1, burstGap: 0, reward: 5,
+    color: '#6d7052', gun: 8, sfx: 'rifle', priority: 2, faction: 'it',
+    builder: { kinds: ['sandbags', 'sandbags', 'sandbags', 'bunker', 'watchtower'],
+               per: IT_BUILDS_PER_MAN },
+  },
+  imosch: {
+    // counterpart: gunner (range 179, speed 36) — Beretta MAB 38. Fast enough to
+    // reach a forward work before the line does and hold it.
+    name: 'Moschettiere', hp: 82, speed: 34, range: 92, dmg: 9, acc: 0.45,
+    rof: 0.9, burst: 3, burstGap: 0.08, reward: 2,
+    color: '#6b6f52', gun: 6, sfx: 'mg', priority: 1, faction: 'it',
+    garrison: true,
+  },
+  ibreda: {
+    // counterpart: gunner (range 179, speed 36) — Breda 30 light machine gun.
+    // Slow on his feet and useless in the open; the whole point of him is that he
+    // reaches a parapet and then rakes the field from behind it.
+    name: 'Breda Gunner', hp: 100, speed: 15, range: 168, dmg: 10, acc: 0.34,
+    rof: 1.8, burst: 4, burstGap: 0.10, reward: 3,
+    color: '#6a6e50', gun: 10, sfx: 'mg', priority: 3, faction: 'it',
+    garrison: true,
+  },
+  ifiat: {
+    // counterpart: gunner (range 179, speed 36) — Fiat-Revelli M35 on a tripod.
+    // The bunker gun: he heads for concrete by preference and pins a whole line
+    // from inside it, where a 92% dodge means rifles barely touch him.
+    name: 'Fiat HMG', hp: 120, speed: 10, range: 176, dmg: 11, acc: 0.37,
+    rof: 1.9, burst: 5, burstGap: 0.09, reward: 4, sup: true,
+    color: '#666a4c', gun: 11, sfx: 'mg', priority: 3, faction: 'it',
+    garrison: true, garrisonPrefer: 'bunker',
+  },
+  icecc: {
+    // counterpart: sniper (range 249, speed 38) — scoped Carcano. He makes for a
+    // watch tower, and from a hardened one his 200 reach becomes 300: further
+    // than most of the player's line can answer. Shell the tower.
+    name: 'Cecchino', hp: 66, speed: 12, range: 200, dmg: 44, acc: 0.70,
+    rof: 6.0, burst: 1, burstGap: 0, reward: 4,
+    color: '#5c6046', gun: 12, sfx: 'sniper', priority: 4, faction: 'it',
+    garrison: true, garrisonPrefer: 'watchtower',
+  },
+  ibrixia: {
+    // Brixia Model 35 45mm — the light mortar. Short reach (20% under the
+    // Cecchino's, so a sniper outranges it) but it fires often, from cover.
+    name: 'Brixia Mortar', hp: 80, speed: 16, range: 78, dmg: 7, acc: 0.42,
+    rof: 1.1, burst: 1, burstGap: 0, reward: 4,
+    color: '#717555', gun: 5, sfx: 'pistol', priority: 4, faction: 'it',
+    garrison: true,
+    mortar: { range: 160, min: 70, cdMin: 5, cdMax: 7, r: 30, dmg: 55, flight: 1.3, scatter: 46 },
+  },
+  imortaio: {
+    // counterpart: mortarman (mortar range 348) — Mortaio da 81. Long reach and a
+    // heavy shell from behind the works; blind up close.
+    name: 'Mortaio 81', hp: 88, speed: 15, range: 78, dmg: 7, acc: 0.44,
+    rof: 1.0, burst: 1, burstGap: 0, reward: 5,
+    color: '#6d7153', gun: 5, sfx: 'pistol', priority: 4, faction: 'it',
+    garrison: true,
+    mortar: { range: 330, min: 120, cdMin: 9, cdMax: 12, r: 40, dmg: 80, flight: 1.6, scatter: 52 },
+  },
+  ifolgore: {
+    // NO true counterpart — elite paratrooper. Tough, fast and grenade-armed, and
+    // he never digs in: he is the spearhead of the AVANTI, not part of the line.
+    name: 'Folgore', hp: 112, speed: 36, range: 112, dmg: 11, acc: 0.46,
+    rof: 1.1, burst: 1, burstGap: 0, reward: 5,
+    color: '#565a40', gun: 9, sfx: 'rifle', priority: 3, faction: 'it',
+    grenade: true,
+  },
+  iardito: {
+    // NO allied counterpart, and the thematic keystone: the mirror of the
+    // guastatore. Where the sapper builds a line forward, the Arditi tears the
+    // player's down — he hunts EMPLACEMENTS by preference and plants a demolition
+    // charge on them. Unlike the Japanese lunge-mine man he does not die for it:
+    // the charge is on a fuse, he backs off, and he does it again on a cooldown.
+    // The fuse is the player's counter-play — the marker is visible, so men can
+    // be walked out of the blast.
+    name: 'Arditi', hp: 100, speed: 34, range: 108, dmg: 11, acc: 0.45,
+    rof: 1.2, burst: 1, burstGap: 0, reward: 5,
+    color: '#5e6244', gun: 9, sfx: 'rifle', priority: 4, faction: 'it',
+    grenade: true, blastResist: 0.4,
+    demo: { r: 42, dmg: 175, fuse: 2.2, reach: 20, cdMin: 9, cdMax: 14, hunt: 200 },
+  },
+  iflame: {
+    // counterpart: flamer (flame range 78, speed 38) — Lanciafiamme Modello 40.
+    // The tool for cracking the player's OWN works open, and a charger by nature.
+    name: 'Lanciafiamme', hp: 100, speed: 32, range: 76, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 4,
+    color: '#6f7350', gun: 8, sfx: 'rifle', priority: 3, faction: 'it',
+    flame: { range: 76, arc: 0.45, dps: 40 }, blastResist: 0.5,
+  },
+  il3: {
+    // counterpart: sherman (range 262, speed 14) — L3/35 Lf flame tankette. The
+    // ONLY flame-throwing armour any faction fields, and it costs no new code:
+    // `tankFlame` plumbing has been live and callerless in update-friendlies.js
+    // and update-enemies.js since the faction was first cut. Tiny, thin-skinned
+    // and early — a wall of fire on tracks.
+    name: 'L3 Lf Tankette', hp: 360, speed: 20, range: 112, dmg: 0, acc: 0,
+    rof: 3.4, burst: 1, burstGap: 0, reward: 8,
+    color: '#7e7a5a', gun: 0, sfx: 'boom', priority: 0, tank: true, light: true, faction: 'it',
+    fireCone: { arc: 0.30 },
+    tankFlame: { range: 112, arc: 0.40, dps: 46 },
+    mg: { range: 128, dmg: 6, acc: 0.4, burst: 6, burstGap: 0.07, gun: 20, sfx: 'mg' },
+  },
+  im13: {
+    // counterpart: sherman (range 262, speed 14) — M13/40 medium. Riveted, slow,
+    // and the heaviest thing Italy fielded in numbers.
+    name: 'M13/40', hp: 850, speed: 12, range: 200, dmg: 0, acc: 0,
+    rof: 4.4, burst: 1, burstGap: 0, reward: 14, shellDmg: 80,
+    color: '#847f5c', gun: 0, sfx: 'boom', priority: 0, tank: true, faction: 'it',
+    fireCone: { arc: 0.25 },
+    mg: { range: 150, dmg: 7, acc: 0.4, burst: 5, burstGap: 0.08, gun: 22, sfx: 'mg' },
+  },
+  isemo: {
+    // counterpart: sherman (range 262, speed 14) — Semovente 75/18. A casemate
+    // assault gun: the answer to a PLAYER bunker, standing off and shelling it.
+    name: 'Semovente', hp: 780, speed: 12, range: 210, dmg: 0, acc: 0,
+    rof: 4.0, burst: 1, burstGap: 0, reward: 13, shellDmg: 108,
+    color: '#787454', gun: 0, sfx: 'boom', priority: 0, tank: true, casemate: true, faction: 'it',
+    fireCone: { arc: 0.20 },
+    mg: { range: 134, dmg: 6, acc: 0.38, burst: 4, burstGap: 0.08, gun: 20, sfx: 'mg' },
+  },
+  ibersa: {
+    // NO true counterpart — an elite close-assault shotgunner (Bersaglieri,
+    // plumed helmet). He runs the open ground to get inside buckshot range, then
+    // stops and fights: the enemy shotgun AI holds ground while a target is in
+    // range. Tough enough to cross the field, and he never digs in.
+    name: 'Bersagliere', hp: 120, speed: 38, range: 0, dmg: 0, acc: 0,
+    rof: 1.4, burst: 1, burstGap: 0, reward: 4,
+    color: '#5f6347', gun: 8, sfx: 'shotgun', priority: 2, faction: 'it',
+    shotgun: { range: 90, arc: 0.5, pellets: 8, dmg: 11, spread: 0.46 },
+  },
+});
+
+// ---- The Treno Armato: the Regio Esercito's wave-100 boss ------------------
+// An armored war train that rolls straight down a rail lane from the north and
+// PARKS at the bottom of the field — it never breaches, it just sits there as a
+// fortress inside your lines until it's killed. The third multi-actor boss: an
+// engine (the parent, and the boss's whole HP pool) plus seven wagon/crew part
+// actors, all real entries in G.enemies, repositioned each tick by
+// syncTrainParts. Unlike the Yamato's belt there is NO shared pool — every part
+// owns its HP (the Progenitor rule), so explode/flameSpray need no de-dupe
+// clause and adding one would be a bug. AI in js/update-enemies.js
+// (updateWarTrain); art in js/render-train.js.
+const TRAIN_WAVE_INTERVAL = 100;     // arrives at wave 100, 200... (mirrors the others)
+const TRAIN_HP = 10000;              // the ENGINE pool — killing it ends the fight
+const TRAIN_SEGMENTS = 3;            // ONE pool, drawn as three bars; each break sounds the AVANTI
+const TRAIN_SPEED = 9;               // px/s down the lane: ~70s from the top to the stop
+const TRAIN_STOP_Y = H - 70;         // "the bottom of the screen": it parks here, short of a breach
+const TRAIN_SPACING = 46;            // wagon-to-wagon centre distance along the rails
+const TRAIN_LANE_MARGIN = 110;       // lane-centre clamp keeps every wagon + MG post on screen
+// consist, engine first: engine / turret wagon / infantry wagon / gun wagon / turret wagon
+const TRAIN_TURRET_S = [-TRAIN_SPACING, -TRAIN_SPACING * 4];
+const TRAIN_WAGON_S = -TRAIN_SPACING * 2;
+const TRAIN_GUNWAGON_S = -TRAIN_SPACING * 3;
+// the gun wagon's four posts: two per side, paired fore and aft. The abeam
+// offset is a MECHANIC for exactly the reason YAM_MG_B is: every US scan picks
+// by raw distance, so this offset is the only reason riflemen shoot the crews
+// instead of pinging an armored wagon at x0.04.
+const TRAIN_MG_B = 22;
+const TRAIN_MG_S = 9;
+const TRAIN_TURRET_HP = 1200;        // per wagon — killing one silences its gun for good
+const TRAIN_WAGON_HP = 1400;         // the infantry wagon: kill it and the squads stop coming
+const TRAIN_MG_HP = 300;             // per post; itmg is NOT `tank`, so rifles work on it
+const TRAIN_TURRET_ROF = 9;
+const TRAIN_TURRET_TRACK = 0.35;     // rad/s traverse
+const TRAIN_TURRET_ARC = 2.0;        // wedge off straight down-field: can't fire back up its own train
+const TRAIN_TURRET_FIRE_TOL = 0.14;
+const TRAIN_SHELL_DMG = 70;
+const TRAIN_SHELL_R = 40;
+const TRAIN_SHELL_FLIGHT = 1.4, TRAIN_SHELL_SCATTER = 30;
+// the infantry wagon's squads are the fight's economy, same as the Yamato's
+// landing parties: killing them pays for the artillery that kills the train
+const TRAIN_DROP_CD_MIN = 16, TRAIN_DROP_CD_MAX = 24;
+const TRAIN_DROP_MULT = 8;
+const TRAIN_DROP_POOL = ['ifante', 'ifante', 'imosch', 'ibersa', 'ifolgore', 'iuff'];
+// anything the player built on the rails is so much kindling under the wheels
+const TRAIN_CRUSH_R = 20;
+const TRAIN_CRUSH_DPS = 500;
+
+// Every type carries noRamp (the difficulty HP ramp would silently triple the
+// engine on hard) and the parts carry `fixed`: it's the prone exemption, and it
+// keeps them out of isItalianFoot so the AVANTI order the train itself sounds
+// can never hand a charge to a bolted-down gun post.
+Object.assign(ENEMY_TYPES, {
+  itrain: {
+    // the engine: very tanky, no weapons. The whole boss pool lives here —
+    // itaBoss is the "killing this ends the fight" flag (mirror of germanBoss /
+    // japBoss / hordeBoss); boss:true separately buys the prone/suppression/
+    // armor-roll exemptions every boss gets.
+    name: 'Treno Armato', hp: TRAIN_HP, speed: TRAIN_SPEED, range: 0, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 400,
+    color: '#6f6b4e', gun: 0, sfx: 'boom', priority: 5,
+    tank: true, heavy: true, boss: true, itaBoss: true, noRamp: true, faction: 'it',
+  },
+  ittur: {
+    // a turret wagon: its own HP (NOT a hitbox into the engine's pool), so
+    // shooting one off permanently silences its gun — there is no damage control
+    // on this boss. trainPart is the child-actor flag, kept separate from
+    // shipPart/bossPart so all three sets of touchpoints keep meaning what their
+    // comments say.
+    name: 'Treno Armato — Turret Wagon', hp: TRAIN_TURRET_HP, speed: 0, range: 290,
+    dmg: 0, acc: 0, rof: TRAIN_TURRET_ROF, burst: 1, burstGap: 0, reward: 50,
+    shellDmg: TRAIN_SHELL_DMG,
+    color: '#787454', gun: 0, sfx: 'boom', priority: 5,
+    tank: true, trainPart: true, trainTurret: true, fixed: true, noRamp: true, faction: 'it',
+  },
+  itwag: {
+    // the infantry wagon: an armored boxcar that unloads squads beside the track
+    // on a cadence. No weapon — killing it is how the player turns the tap off.
+    name: 'Treno Armato — Infantry Wagon', hp: TRAIN_WAGON_HP, speed: 0, range: 0,
+    dmg: 0, acc: 0, rof: 1, burst: 1, burstGap: 0, reward: 60,
+    color: '#7a765a', gun: 0, sfx: 'boom', priority: 4,
+    tank: true, trainPart: true, fixed: true, noRamp: true, faction: 'it',
+  },
+  itmg: {
+    // an open gun post on the gun wagon, two per side. NOT `tank` — this is the
+    // one part of the train a rifleman can hurt, same role as the Yamato's tubs.
+    // Stats live on the type so runWeapon can drive it: bursts AND suppression.
+    name: 'Treno Armato — Gun Post', hp: TRAIN_MG_HP, speed: 0, range: 240,
+    dmg: 8, acc: 0.4, rof: 1.0, burst: 7, burstGap: 0.09, reward: 12,
+    color: '#6b6a44', gun: 9, sfx: 'mg', priority: 4, sup: true,
+    trainPart: true, trainMg: true, fixed: true, noRamp: true, faction: 'it',
+  },
+});
+
 const ENEMY_INFO = {
   erifle: 'Standard Wehrmacht infantry. Slow, steady, and expendable — but there are always more of them.',
   esmg: 'Assault troops with MP40s. Fast movers who shred your line in close bursts.',
@@ -998,6 +1353,25 @@ const ENEMY_INFO = {
   zabom: 'The Abomination — a towering mound of fused corpses, the horde\'s boss. Enormous HP, ground-shaking slow, a sweeping blow that flattens men and smashes emplacements, and near-certain infection on survivors. Burn it, shell it, or mine it.',
   zprogen: 'The Progenitor — the mass the whole horde came out of, and the thing waiting at wave 100. It crawls slower than anything on the field and swallows whole any man it reaches. Five pus modules ring its hide, lobbing infectious bile; shoot them off and its reach dies with them. It splits open every few seconds to birth a fresh brood, and every time a third of it dies it calls every corpse nearby back onto its feet — yours included. Do not let bodies pile up around it.',
   zpod: 'A pus module swollen out of the Progenitor\'s hide. Its own flesh, its own HP: burst it and that sac stops spitting bile for good. They sit between you and the mass, so rifles chew through them first.',
+  // The Regio Esercito — the entrenching foe. They dig in where they stop, and
+  // the works they leave behind are still there next wave.
+  iguast: 'Guastatore — the assault sapper, and the reason the Italian line moves. He walks into the open and digs: a parapet, a bunker, a watch tower, each one a little further down the field than the last, and they are all still standing next wave. He raises two, then shoulders his rifle and fights like anyone else. Shoot him while he is digging or you will be fighting his work for the rest of the run.',
+  ifante: 'Carcano rifleman — the backbone of the line. Ordinary in the open; a different problem entirely once he has a parapet in front of him.',
+  iuff: 'Ufficiale. His presence stiffens the troops like any officer\'s — but he is also the clock: every one of him alive on the field brings the AVANTI charge sooner. Kill the officers and you buy yourself digging time.',
+  imosch: 'Moschettiere with a Beretta MAB 38. Quick enough to reach a forward work ahead of the line and hold it, and deadly in short bursts once he is in one.',
+  ibreda: 'Breda 30 light machine gun. Slow on his feet and unremarkable in the open — the whole point of him is that he reaches a parapet and rakes your line from behind it.',
+  ifiat: 'Fiat-Revelli M35 heavy machine gun. He makes for a bunker by preference and pins a whole line from inside it, where rifle fire barely touches him. Shell the bunker, or bring a flamethrower.',
+  icecc: 'Cecchino with a scoped Carcano. He climbs a watch tower, and from a hardened one his reach stretches from 200 to 300 — further than most of your line can answer. Bring the tower down.',
+  ibrixia: 'Brixia Model 35 45mm light mortar. Short-legged — a sniper outranges it — but it fires fast and it fires from cover.',
+  imortaio: 'Mortaio da 81 team. Long reach and a heavy shell, dropped on your backfield from behind the works. Blind up close.',
+  ifolgore: 'Folgore paratrooper. Tough, fast and grenade-armed, and he never digs in — he is the spearhead of the AVANTI, not part of the line.',
+  iardito: 'Arditi demolition man — the mirror of the sapper. Where the Guastatore builds a line forward, the Arditi tears yours down: he hunts your emplacements and plants a charge on them, then backs off and does it again. The fuse is your warning — walk your men clear.',
+  iflame: 'Lanciafiamme Modello 40. The tool for cracking a dug-in line open, and he burns through wire, sandbags and flesh alike — his own men included.',
+  il3: 'L3/35 Lf flame tankette. The only flame-throwing armour on any front: no cannon, it drives into short range and washes your line in fire. Thin-skinned and tiny, and it arrives early and in numbers.',
+  im13: 'M13/40 medium tank. Riveted, slow, and armed with a 47mm — the heaviest thing Italy fielded in numbers. Small arms bounce off it.',
+  isemo: 'Semovente 75/18 assault gun. A low casemate mount with no turret and the best anti-tank punch the Italians bring; it stands off and shells your bunkers and armour.',
+  ibersa: 'Bersagliere close-assault trooper in a plumed helmet. Elite and quick — he runs the open ground to get inside buckshot range, then stops and shreds your line at point-blank. He never digs in; he is what comes out of the works at you.',
+  itrain: 'The Italian final boss: an armored war train that rolls straight down its rails and PARKS at the bottom of your sector. Two turret wagons shell your line, four gun posts rake it, and an infantry wagon unloads fanteria beside the track. Small arms only reach the gun crews — bring explosives. Every third of the engine\'s health you strip away, the whole army answers with an AVANTI charge.',
 };
 
 const EVENT_INFO = [
@@ -1230,6 +1604,58 @@ const TESTING_ZOMBIE_PLACEABLES = [
   // tick, so deploying the boss deploys the whole thing
   { key: 'zprogen', label: 'PROGENITOR', cost: 300, kind: 'egerman', hotkey: '',
     desc: 'The Horde final boss: a crawling mass that devours men, births broods, and raises the dead. Normally arrives at wave 100 — testing mode drags one in on demand.' },
+];
+
+// endless testing/deploy roster for the Regio Esercito. Same 'egerman' routing as
+// the other alternate factions (makeEnemy reads faction:'it' off each type). Costs
+// mirror the closest allied counterpart named in each type's comment — rifleman,
+// officer, shotgunner — the same rule AXIS_PLACEABLES follows.
+const TESTING_ITALIAN_PLACEABLES = [
+  { key: 'iguast', label: 'GUASTATORE', cost: 5, kind: 'egerman', hotkey: '',
+    desc: 'Assault sapper. Digs sandbags, bunkers and watch towers further down the field each time, then picks up his rifle.' },
+  { key: 'ifante', label: 'FANTE', cost: 4, kind: 'egerman', hotkey: '',
+    desc: 'Line infantryman with a Carcano and folding bayonet. Unremarkable in the open, stubborn once he has a parapet in front of him.' },
+  { key: 'ibersa', label: 'BERSAGLIERE', cost: 5, kind: 'egerman', hotkey: '',
+    desc: 'Plumed close-assault shotgunner. Runs the open ground to get inside buckshot range, then holds and fights. Never digs in.' },
+  { key: 'imosch', label: 'MOSCHETTIERE', cost: 5, kind: 'egerman', hotkey: '',
+    desc: 'MAB 38 SMG. Fast enough to reach a forward work before the line does, deadly in short bursts.' },
+  { key: 'ibreda', label: 'BREDA GUNNER', cost: 6, kind: 'egerman', hotkey: '',
+    desc: 'Breda 30 LMG. Slow and unremarkable in the open; rakes the field from behind a parapet.' },
+  { key: 'ifiat', label: 'FIAT HMG', cost: 8, kind: 'egerman', hotkey: '',
+    desc: 'Fiat-Revelli M35. Heads for a bunker and pins a line from inside it.' },
+  { key: 'icecc', label: 'CECCHINO', cost: 9, kind: 'egerman', hotkey: '',
+    desc: 'Sniper. Climbs a watch tower; from a hardened one he reaches 300 and outranges your line.' },
+  { key: 'ibrixia', label: 'BRIXIA MORTAR', cost: 8, kind: 'egerman', hotkey: '',
+    desc: 'Light 45mm mortar. Short reach, fires often, and it fires from cover.' },
+  { key: 'imortaio', label: 'MORTAIO 81', cost: 10, kind: 'egerman', hotkey: '',
+    desc: '81mm mortar team. Long reach and a heavy shell from behind the works.' },
+  { key: 'ifolgore', label: 'FOLGORE', cost: 9, kind: 'egerman', hotkey: '',
+    desc: 'Elite paratrooper. Tough, fast, grenade-armed, and never digs in — the spearhead of the AVANTI.' },
+  { key: 'iardito', label: 'ARDITI', cost: 10, kind: 'egerman', hotkey: '',
+    desc: 'Demolition man. Hunts YOUR emplacements and plants a fused charge on them, then does it again.' },
+  { key: 'iflame', label: 'LANCIAFIAMME', cost: 9, kind: 'egerman', hotkey: '',
+    desc: 'Flamethrower. Cracks a dug-in line open; burns wire, sandbags and men alike.' },
+  { key: 'il3', label: 'L3 LF TANKETTE', cost: 16, kind: 'egerman', hotkey: '',
+    desc: 'Flame tankette — the only flame-throwing armour anywhere. Thin, fast, early, and it swarms.' },
+  { key: 'im13', label: 'M13/40', cost: 24, kind: 'egerman', hotkey: '',
+    desc: 'Medium tank. Riveted and slow, with a 47mm gun and a hull MG.' },
+  { key: 'isemo', label: 'SEMOVENTE', cost: 24, kind: 'egerman', hotkey: '',
+    desc: 'Casemate assault gun. Stands off and shells bunkers and armour with a 75mm.' },
+  { key: 'iuff', label: 'UFFICIALE', cost: 15, kind: 'egerman', hotkey: '',
+    desc: 'Officer. Aura stiffens nearby troops, and every one of him alive brings the AVANTI charge sooner.' },
+  // the engine only — its seven wagon/crew parts are built by initWarTrain on
+  // the first tick, so deploying the boss deploys the whole consist
+  { key: 'itrain', label: 'TRENO ARMATO', cost: 400, kind: 'egerman', hotkey: '',
+    desc: 'The Italian final boss: an armored war train that parks at the bottom of the field. Normally arrives at wave 100 — testing mode rolls one in on demand.' },
+  // The field works. Their own kind ('itwork') because they aren't units — they
+  // route through applyPlacement's G.itWorks branch, not makeEnemy. `workKind`
+  // indexes IT_WORK_KINDS; the key only has to be unique in the toolbar.
+  { key: 'itwork_sandbags', workKind: 'sandbags', label: 'IT PARAPET', cost: 4, kind: 'itwork', hotkey: '',
+    desc: 'An Italian sandbag parapet. Rifles can\'t touch it — shell it, or grind it down by making it stop rounds.' },
+  { key: 'itwork_bunker', workKind: 'bunker', label: 'IT BUNKER', cost: 15, kind: 'itwork', hotkey: '',
+    desc: 'An Italian bunker. The toughest thing the sappers put up, and it holds three men.' },
+  { key: 'itwork_watchtower', workKind: 'watchtower', label: 'IT TOWER', cost: 10, kind: 'itwork', hotkey: '',
+    desc: 'An Italian watch tower. Holds one man and lengthens his reach — a Cecchino up one outranges your line.' },
 ];
 
 // ---- Infection: the Horde's signature mechanic. A zombie bite (and bile/gas

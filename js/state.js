@@ -3,7 +3,7 @@
 'use strict';
 
 let G = null;         // game state
-let G_forceFaction = null; // test harness: pin the endless enemy faction roll ('de' | 'jp' | 'zo')
+let G_forceFaction = null; // test harness: pin the endless enemy faction roll ('de' | 'jp' | 'zo' | 'it')
 let placing = null;   // placeable currently being placed
 let mouse = { x: W / 2, y: H / 2, inside: false };
 let drag = null;      // marquee selection in progress: { x0, y0, x1, y1, active }
@@ -56,11 +56,11 @@ function enemyFaction() {
 }
 function factionAdjUpper() {
   const f = enemyFaction();
-  return f === 'jp' ? 'JAPANESE' : f === 'zo' ? 'HORDE' : 'GERMAN';
+  return f === 'jp' ? 'JAPANESE' : f === 'zo' ? 'HORDE' : f === 'it' ? 'ITALIAN' : 'GERMAN';
 }
 function factionPlural() {
   const f = enemyFaction();
-  return f === 'jp' ? 'Japanese' : f === 'zo' ? 'undead' : 'Germans';
+  return f === 'jp' ? 'Japanese' : f === 'zo' ? 'undead' : f === 'it' ? 'Italians' : 'Germans';
 }
 
 // is the infection mechanic live this run? Normally that's just the 'zo' roll,
@@ -116,6 +116,15 @@ function newGame(level, difficulty) {
     wires: [],
     mines: [],
     watchtowers: [],
+    itWorks: [],     // Regio Esercito field works — enemy-built, and they outlive the wave
+    itFrontY: IT_FRONT_Y_START,   // deepest live work: what new sites are measured from
+    itTick: 0,                    // countdown to the next works-cache rebuild
+    // AVANTI: one signed clock. NEGATIVE counts up through the telegraph, POSITIVE
+    // counts down through the surge, 0 is idle — so a single comparison answers
+    // both "is a charge coming" and "is one running".
+    itCharge: 0,
+    itAvantiCd: rand(IT_AVANTI_CD_MIN, IT_AVANTI_CD_MAX),
+    itLastAvanti: -999,           // G.time of the last charge, for the minimum gap
     camoNests: [],
     ammoCrates: [],
     dummies: [],     // decoy scarecrows: enemies waste fire on them, then may wise up
@@ -165,7 +174,7 @@ function newGame(level, difficulty) {
   // other mode (tutorials, campaigns) stays German so their scripted enemy types
   // keep working. A caller (test harness) may pre-set G_forceFaction to lock the roll.
   G.enemyFaction = level.id === 'endless'
-    ? (G_forceFaction || pick(['de', 'jp', 'zo']))
+    ? (G_forceFaction || pick(['de', 'jp', 'zo', 'it']))
     : 'de';
   // starting an endless run refreshes the shop's reroll price back to base
   if (level.id === 'endless') resetRerollCost();
@@ -217,7 +226,7 @@ function makeEnemy(type, x, y, nation) {
   // trooper's — the difficulty ramp would silently triple it on hard
   const hp = Math.round(t.hp * (t.noRamp ? 1 : enemyHpRamp()));
   // an enemy's nation follows its type unless a caller forces one: alternate
-  // rosters carry their own faction ('jp'/'zo'), everything else is Wehrmacht ('de')
+  // rosters carry their own faction ('jp'/'zo'/'it'), everything else is Wehrmacht ('de')
   if (nation == null) nation = t.faction || 'de';
   return {
     side: 'de', nation, type, t, x, y,
@@ -237,6 +246,25 @@ function makeEnemy(type, x, y, nation) {
     mortCd: rand(4, 8),
     v2Cd: rand(8, 16),
     v2FireT: 0,
+  };
+}
+
+// A Regio Esercito field work. Deliberately NOT an actor: it has no `t`, no
+// `side: 'de'`, and never enters G.enemies — it's inert scenery that the
+// garrison AI and the cover check read. `frac` lets a builder stake one out at
+// partial strength, so a work under construction can be shelled before it's
+// finished (see updateGuastatore). `occ` is a per-tick rebuilt count of how many
+// men are in it, never a list of refs: compactInPlace splices the dead out the
+// frame they fall, so a stored crew array would leak dead actors immediately.
+function makeItalianWork(kind, x, y, frac = 1) {
+  const k = IT_WORK_KINDS[kind];
+  if (!k) throw new Error('unknown Italian work kind "' + kind + '" — valid: ' + Object.keys(IT_WORK_KINDS).join(', '));
+  const maxhp = k.hp;
+  return {
+    kind, side: 'it', x, y,
+    hp: Math.max(1, Math.round(maxhp * frac)), maxhp,
+    up: false, up2: false, workProg: 0,
+    cap: k.cap, occ: 0,
   };
 }
 

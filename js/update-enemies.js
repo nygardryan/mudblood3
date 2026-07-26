@@ -37,6 +37,10 @@ function updateEnemy(e, dt) {
   if (e.v2FireT > 0) e.v2FireT -= dt;
   if (e.slashT > 0) e.slashT -= dt;          // banzai bayonet-swing animation
   if (e.chargeT > 0) e.chargeT -= dt;        // banzai-command speed surge
+  // fireShotgun stamps this on whoever pulled the trigger, but only updateUnit
+  // used to wind it back down — an enemy shotgunner (the Bersagliere) kept his
+  // muzzle blast drawn forever and never read as idle again
+  if (e.shotgunBlastT > 0) e.shotgunBlastT -= dt;
 
   // still under canopy: drift down, sway in the wind, do nothing else
   if (e.chute > 0) {
@@ -63,6 +67,13 @@ function updateEnemy(e, dt) {
   // nothing is in bile range.
   if (e.t.hordeBoss) { updateProgenitor(e, dt); return; }
   if (e.t.bossPart) return;
+  // And the Treno Armato: its own machine, its parts run NOTHING here — they're
+  // positioned, aimed and fired entirely from updateWarTrain. The bare return is
+  // load-bearing for the same reason as the ship's: the turret wagons and the
+  // boxcar carry tank:true, so falling through would hand them to updateTank,
+  // which drives them off the rails.
+  if (e.t.itaBoss) { updateWarTrain(e, dt); return; }
+  if (e.t.trainPart) return;
 
   // Shell Shocked: dazed by a mortar hit — no shooting, no advancing, and it
   // overrides prone recovery so the daze runs its full second first
@@ -95,6 +106,19 @@ function updateEnemy(e, dt) {
   if (e.t.vehicle) { updateEnemyJeep(e, dt); return; }
   if (e.t.banzai) { updateBanzai(e, dt, buffed, command); return; }
   if (e.t.lunge) { updateLunge(e, dt, buffed, command); return; }
+  // A guastatore digs until his budget is spent, then falls THROUGH to the
+  // standard ranged path below and fights like any rifleman for the rest of his
+  // life — which is why 'fight' is a state he leaves the dispatch by, rather
+  // than a combat routine duplicated in here.
+  if (e.t.builder && e.buildState !== 'fight' && !command) { updateGuastatore(e, dt, buffed); return; }
+  // A man heading for a work spends the frame walking; once he's in it he falls
+  // THROUGH to the ordinary weapon path and fights from cover — so this is a
+  // pre-step, not a dispatch. Placed after the special-behaviour hand-offs so a
+  // tank or a charger can never be talked into standing in a trench.
+  if (e.t.garrison && !command && updateGarrison(e, dt, buffed)) return;
+  // same pre-step shape: he goes after the player's emplacements when there is
+  // one worth a charge, and otherwise fights like any assault trooper
+  if (e.t.demo && !command && updateArdito(e, dt, buffed)) return;
   // The Horde: the Spitter is a ranged biler; every other melee zombie claws and
   // bites (the Revenant has no `zombie` flag and falls through to the gun path).
   if (e.t.spit) { updateSpitter(e, dt, buffed, command); return; }
@@ -279,13 +303,13 @@ function updateEnemy(e, dt) {
     rollEnemyPushUrge(e, engageTarget, dt, command);
     runWeapon(e, target, dt, buffed ? { rofMult: 0.8 } : null);
     // fast assault troops keep pushing under fire — always closing the distance
-    if (!command && e.t.speed >= 30 && dist2(e, target) > range * range * 0.25) {
+    if (!command && e.t.speed >= 30 && !e.garrisoned && dist2(e, target) > range * range * 0.25) {
       advance(e, dt, buffed);
     }
   } else if (engageTarget) {
     // rocket/mortar range but outside the sidearm — hold and engage, push only on urge
     rollEnemyPushUrge(e, engageTarget, dt, command);
-  } else if (!command && e.t.speed > 0) {
+  } else if (!command && e.t.speed > 0 && !e.garrisoned) {
     advance(e, dt, buffed);
   }
 }
@@ -329,7 +353,9 @@ function fireV2Rocket(e, target, vk) {
 
 // discipline only goes so far: periodically stop shooting and push upfield
 function rollEnemyPushUrge(e, target, dt, command) {
-  if (command || !target || e.t.speed === 0) return;   // fixed emplacements never push
+  // a man in a work never gets the urge to leave it — same idiom as a fixed
+  // emplacement. Only the AVANTI order turns him out (see avantiCharge).
+  if (command || !target || e.t.speed === 0 || e.garrisoned) return;
   e.pushCd -= dt;
   if (e.pushCd <= 0) {
     e.pushCd = rand(3, 6);
@@ -446,6 +472,406 @@ function detonateLunge(e) {
 
 function isJapaneseInfantry(e) {
   return !e.dead && e.t.faction === 'jp' && !e.t.tank && !e.t.fixed;
+}
+
+// ---- Regio Esercito: the dig ----------------------------------------------
+
+// Per-faction bookkeeping, on its own slow tick. Runs from update() beside the
+// officer-aura cache and for the same reason: this is whole-array work that
+// nothing needs at frame resolution.
+//
+// G.itFrontY is the deepest live work, and it is the ONLY thing siting new ones
+// reads — which is what makes the line creep forward instead of sprawling. It
+// resets to IT_FRONT_Y_START when no works are left, so levelling the enemy line
+// genuinely pushes them back to the top of the field rather than letting them
+// resume at the depth they'd already won.
+function updateItalians(dt) {
+  if (enemyFaction() !== 'it' && !G.itWorks.length) return;
+  // the charge runs EVERY frame, not on the tick — a 1.6s telegraph and a 7s
+  // surge both need finer resolution than half-second bookkeeping
+  updateAvanti(dt);
+  G.itTick -= dt;
+  if (G.itTick > 0) return;
+  G.itTick = IT_TICK;
+  let front = IT_FRONT_Y_START;
+  for (const w of G.itWorks) {
+    w.occ = 0;
+    if (w.hp > 0 && w.y > front) front = w.y;
+  }
+  G.itFrontY = front;
+  // Occupancy is RECOUNTED here rather than tracked by hand, and the works hold a
+  // count rather than a list of men. compactInPlace splices dead actors out the
+  // frame they fall, so a stored crew array would leak dead refs immediately —
+  // this way a man's death releases his slot for free, within one tick.
+  for (const e of G.enemies) {
+    if (e.dead || !e.garrison) continue;
+    if (e.garrison.hp <= 0) { releaseGarrison(e); continue; }
+    e.garrison.occ++;
+    e.garrison.mannedThisWave = true;   // read by decayItalianWorks: a work someone
+  }                                     // held all wave is never abandoned
+}
+
+// Every work loses a little each wave, and one that nobody manned and that is
+// already broken is abandoned outright. This is what keeps "the front creeps"
+// literally true: without it the field just fills, because works only ever get
+// added. With it the rear line rots while the manned front line holds, and the
+// steady state over a long run is a moving BAND rather than a growing pile.
+function decayItalianWorks() {
+  for (const w of G.itWorks) {
+    w.hp -= w.maxhp * IT_WAVE_DECAY;
+    if (!w.mannedThisWave && w.hp < w.maxhp * IT_ABANDON_HP) w.hp = 0;
+    w.mannedThisWave = false;
+  }
+}
+
+// Somewhere to put the next work: a little further down the field than the
+// deepest one already standing, near the man who'll dig it, clear of everything.
+// Deliberately NOT placementValid/emplacementBox — those are written for the
+// player's mouse and carry TP checks, the deploy line and an engineer-reach
+// rule, none of which mean anything to an AI walking around in no-man's-land.
+function pickBuildSite(e) {
+  for (let i = 0; i < 5; i++) {
+    const y = clamp(G.itFrontY + rand(IT_CREEP_MIN, IT_CREEP_MAX), IT_WORK_MIN_Y, IT_WORK_MAX_Y);
+    const x = clamp(e.x + rand(-40, 40), 40, W - 40);
+    if (buildSiteClear(x, y)) return { x, y };
+  }
+  return null;
+}
+
+function buildSiteClear(x, y) {
+  const pt = { x, y };
+  const s2 = IT_WORK_SPACING * IT_WORK_SPACING;
+  for (const w of G.itWorks) if (dist2(w, pt) < s2) return false;
+  // and keep off the player's own emplacements. forEachEmplacement walks the
+  // Italian works too, but those were just checked at the tighter spacing.
+  const c2 = IT_SITE_CLEAR * IT_SITE_CLEAR;
+  let clear = true;
+  forEachEmplacement((obj) => {
+    if (!clear || obj.side === 'it') return;
+    if (dist2(obj, pt) < c2) clear = false;
+  });
+  return clear;
+}
+
+// the nearest work that still wants work done on it — damaged first, then
+// un-fortified. What a sapper does when there's nowhere new to dig.
+function neediestWork(e) {
+  let best = null, bestScore = Infinity;
+  const r2 = IT_TEND_RANGE * IT_TEND_RANGE;
+  for (const w of G.itWorks) {
+    if (w.hp <= 0) continue;
+    const d2 = dist2(e, w);
+    if (d2 > r2) continue;
+    const needsRepair = w.hp < w.maxhp;
+    const needsTier = !w.up2;
+    if (!needsRepair && !needsTier) continue;
+    // repairing beats fortifying, so a damaged work outranks an intact one at
+    // any distance inside the walk radius
+    const score = d2 + (needsRepair ? 0 : 1e6);
+    if (score < bestScore) { bestScore = score; best = w; }
+  }
+  return best;
+}
+
+function buildSparks(w) {
+  if (Math.random() < 0.35) SFX.hammer();
+  for (let i = 0; i < 3; i++) {
+    G.particles.push({
+      x: w.x + rand(-10, 10), y: w.y + rand(-6, 6), vx: rand(-22, 22), vy: rand(-40, -8),
+      ttl: rand(0.15, 0.35), grav: 240, size: 1.3,
+      color: pick(['#c8b872', '#a89878', '#8a7a60']),
+    });
+  }
+}
+
+// Guastatore: stake out a work, raise it, move on. When his budget is spent — or
+// there's nowhere left to dig — he picks up his rifle for good.
+const GUAST_REACH = 7;   // how close he stands to work on something
+function updateGuastatore(e, dt, buffed) {
+  if (!e.buildState) { e.buildState = 'seek'; e.buildsDone = 0; }
+
+  if (e.buildState === 'seek') {
+    if (e.buildsDone >= e.t.builder.per) { e.buildState = 'fight'; return; }
+    // a fresh site if the field has room, otherwise improve what's already up —
+    // so the line stops spreading and starts HARDENING once it hits the cap
+    if (G.itWorks.length < IT_WORK_CAP) {
+      e.siteCd = (e.siteCd == null ? 0 : e.siteCd) - dt;
+      if (e.siteCd > 0) { advance(e, dt, buffed); return; }
+      e.siteCd = rand(1, 2);
+      const site = pickBuildSite(e);
+      if (site) { e.buildSite = site; e.work = null; e.buildState = 'build'; return; }
+    }
+    const tend = neediestWork(e);
+    if (tend) { e.work = tend; e.buildSite = null; e.buildState = 'build'; return; }
+    e.buildState = 'fight';
+    return;
+  }
+
+  // walk to the spot, then work on it
+  const at = e.work || e.buildSite;
+  if (!at || (e.work && e.work.hp <= 0)) { e.work = null; e.buildSite = null; e.buildState = 'seek'; return; }
+  if (dist(e, at) > GUAST_REACH) {
+    pursuePoint(e, at.x, at.y, e.t.speed * (buffed ? 1.15 : 1), dt);
+    return;
+  }
+  // arrived at a fresh site: stake the work out at a fraction of its strength,
+  // visible and shellable from the moment it appears
+  if (!e.work) {
+    // re-check clearance at the moment of staking, not just when the site was
+    // chosen: two sappers can pick overlapping ground while both are still
+    // walking to it, and only the first one there gets to keep it
+    if (G.itWorks.length >= IT_WORK_CAP || !buildSiteClear(e.buildSite.x, e.buildSite.y)) {
+      e.buildSite = null;
+      e.buildState = 'seek';
+      return;
+    }
+    const w = makeItalianWork(pick(e.t.builder.kinds), e.buildSite.x, e.buildSite.y, IT_WORK_START_FRAC);
+    G.itWorks.push(w);
+    e.work = w;
+    e.freshWork = true;
+    e.buildSite = null;
+    G.texts.push({ x: w.x, y: w.y - 16, text: 'SCAVANDO!', ttl: 1.4 });
+  }
+  e.face = Math.PI / 2;
+  e.healTick = (e.healTick || 0) - dt;
+  if (e.healTick > 0) return;
+  e.healTick = 0.4;
+
+  const w = e.work;
+  if (w.hp < w.maxhp) {                       // raise it / patch it
+    w.hp = Math.min(w.maxhp, w.hp + IT_BUILD_RATE);
+    buildSparks(w);
+    return;
+  }
+  // A work he raised himself is finished the moment it stands at full strength.
+  // The fortification tiers are deliberately NOT part of building a new one:
+  // otherwise every work on the field ends up at 1.5x HP and the whole line
+  // inflates. Hardening is what he does with nowhere left to dig — see 'seek'.
+  if (e.freshWork) {
+    e.freshWork = false;
+    e.work = null;
+    e.buildsDone++;
+    e.buildState = 'seek';
+    return;
+  }
+  if (!w.up2) {                               // then push it up a fortification tier
+    w.workProg += IT_FORTIFY_RATE;
+    buildSparks(w);
+    if (w.workProg >= 6) {
+      w.workProg = 0;
+      w.maxhp = Math.round(w.maxhp * 1.5);
+      w.hp = w.maxhp;
+      if (!w.up) { w.up = true; G.texts.push({ x: w.x, y: w.y - 16, text: 'RINFORZATO', ttl: 2.0 }); }
+      else { w.up2 = true; G.texts.push({ x: w.x, y: w.y - 16, text: 'BLINDATO', ttl: 2.0 }); }
+      e.work = null;
+      e.buildsDone++;
+      e.buildState = 'seek';
+    }
+    return;
+  }
+  e.work = null;
+  e.buildsDone++;
+  e.buildState = 'seek';
+}
+
+// ---- Regio Esercito: the Arditi demolition man ------------------------------
+
+// the nearest thing of the player's worth blowing up. Mines are skipped — a
+// satchel charge on a mine is a waste of a man — and so are the Italians' own
+// works, which forEachEmplacement now walks alongside the player's.
+function nearestPlayerEmplacement(e, maxD) {
+  let best = null, bestD2 = maxD * maxD;
+  forEachEmplacement((obj, key) => {
+    if (key === 'mine' || obj.side === 'it' || !(obj.hp > 0)) return;
+    const d2 = dist2(e, obj);
+    if (d2 < bestD2) { bestD2 = d2; best = obj; }
+  });
+  return best;
+}
+
+// Returns TRUE if he spent the frame on demolition work. Like the garrison
+// pre-step, falling through means "nothing to blow up right now" and he fights
+// as an ordinary assault trooper.
+function updateArdito(e, dt, buffed) {
+  const d = e.t.demo;
+  if (e.demoCd > 0) e.demoCd -= dt;
+  // backing away from a charge he just set — the fuse is short and the blast
+  // would take him with it otherwise
+  if (e.demoBackT > 0) {
+    e.demoBackT -= dt;
+    const ang = Math.atan2(e.y - e.demoAwayY, e.x - e.demoAwayX);
+    e.x = clamp(e.x + Math.cos(ang) * e.t.speed * dt, 14, W - 14);
+    e.y += Math.sin(ang) * e.t.speed * dt;
+    e.face = ang;
+    return true;
+  }
+  if (e.demoCd > 0) return false;
+  const target = nearestPlayerEmplacement(e, d.hunt);
+  if (!target) return false;
+  if (dist(e, target) > d.reach) {
+    pursuePoint(e, target.x, target.y, e.t.speed * (buffed ? 1.15 : 1), dt);
+    return true;
+  }
+  // plant it. A scheduled shell rather than an immediate explode(): it gives the
+  // player a visible marker and time to walk men clear, and it lets the Arditi
+  // live — explode() is side-blind, so an instant charge would kill him too.
+  scheduleShell(target.x, target.y, d.fuse, d.r, d.dmg, true, e);
+  G.texts.push({ x: e.x, y: e.y - 20, text: 'GUASTATORI!', ttl: 1.4 });
+  SFX.hammer();
+  e.demoCd = rand(d.cdMin, d.cdMax);
+  e.demoAwayX = target.x;
+  e.demoAwayY = target.y;
+  e.demoBackT = d.fuse;
+  return true;
+}
+
+// ---- Regio Esercito: AVANTI SAVOIA -----------------------------------------
+
+// Everyone the order applies to: foot troops of the faction, wherever they are.
+// Armour drives its own fight, and `fixed` things can't charge by definition.
+function isItalianFoot(e) {
+  return !e.dead && e.t.faction === 'it' && !e.t.tank && !e.t.fixed && !(e.chute > 0);
+}
+
+// one pass for both numbers the trigger needs
+function italianForce() {
+  let force = 0, officers = 0;
+  for (const e of G.enemies) {
+    if (!isItalianFoot(e)) continue;
+    force++;
+    if (e.t.avantiUrge) officers++;
+  }
+  return { force, officers };
+}
+
+function updateAvanti(dt) {
+  if (G.itCharge > 0) {                       // surge running
+    G.itCharge -= dt;
+    if (G.itCharge <= 0) {
+      G.itCharge = 0;
+      G.itAvantiCd = rand(IT_AVANTI_CD_MIN, IT_AVANTI_CD_MAX);
+    }
+    return;
+  }
+  if (G.itCharge < 0) {                       // telegraphed, winding up
+    G.itCharge += dt;
+    if (G.itCharge >= 0) { G.itCharge = IT_AVANTI_DUR; avantiCharge(); }
+    return;
+  }
+  if (G.wave < IT_AVANTI_MIN_WAVE) return;
+  if (G.time - G.itLastAvanti < IT_AVANTI_MIN_GAP) return;
+  const { force, officers } = italianForce();
+  if (force < IT_AVANTI_MIN_FORCE) return;
+  // Everything that hurries the order does it by running ONE clock faster, never
+  // by firing outright. An early version let pressure trigger directly, and
+  // because the front sits at the depth wall permanently once it gets there, that
+  // condition is always true — so every charge fired the instant IT_AVANTI_MIN_GAP
+  // expired and the safety floor silently became the cadence (measured: 30.0s,
+  // 30.0s, 30.0s). A rate keeps the tuning in the tuning constants.
+  //
+  // The officer's whole job in this faction is this multiplier: he doesn't rally
+  // anybody, he brings the charge sooner, so killing officers buys digging time.
+  let rate = 1 + IT_AVANTI_OFFICER_URGE * Math.min(officers, 2);
+  // ...and a big force that has dug as far forward as it is allowed to has
+  // nothing left to do but come out.
+  if (G.itFrontY >= IT_WORK_MAX_Y - 6 && force >= IT_AVANTI_PRESSURE_FORCE) {
+    rate += IT_AVANTI_PRESSURE_URGE;
+  }
+  G.itAvantiCd -= dt * rate;
+  if (G.itAvantiCd <= 0) startAvanti();
+}
+
+function startAvanti() {
+  G.itCharge = -IT_AVANTI_TELEGRAPH;
+  G.itLastAvanti = G.time;
+  showBanner('AVANTI SAVOIA! — THEY COME OUT OF THE WORKS');
+  SFX.event();
+  // ragged, staggered shouts rather than one synchronised flash
+  for (const e of G.enemies) {
+    if (!isItalianFoot(e) || Math.random() > 0.45) continue;
+    G.texts.push({ x: e.x, y: e.y - 22, text: 'AVANTI!', ttl: 1.3 + Math.random() * 0.6 });
+  }
+}
+
+// The order lands: every man drops what he's doing and goes. Emptying the works
+// is the point — the image of the faction is the line pouring out of cover at
+// once — and garCd is what stops a man ducking straight back into the parapet he
+// just left while the surge is still running.
+function avantiCharge() {
+  SFX.scream();
+  for (const e of G.enemies) {
+    if (!isItalianFoot(e)) continue;
+    if (e.garrison) e.garrison.occ = Math.max(0, e.garrison.occ - 1);
+    e.garrison = null;
+    e.garrisoned = false;
+    e.garSlot = 0;
+    e.garCd = IT_AVANTI_DUR + rand(1, 3);
+    e.chargeT = IT_AVANTI_DUR;                        // x1.4 speed in advance()
+    e.pushT = Math.max(e.pushT || 0, IT_AVANTI_DUR);  // and forced forward, ignoring targets
+    if (e.t.builder) e.buildState = 'fight';          // sappers drop their tools for good
+  }
+}
+
+// ---- Regio Esercito: manning the works -------------------------------------
+
+// Where a man stands to man a work: on the NORTH face, so the work itself ends
+// up between him and the player's line. Slots fan out sideways so a bunker's
+// three men don't stack in one spot.
+function garrisonPoint(w, slot) {
+  const spread = (slot - (w.cap - 1) / 2) * GARRISON_SLOT_W;
+  return { x: clamp(w.x + spread, 14, W - 14), y: w.y - GARRISON_STANDOFF };
+}
+
+function releaseGarrison(e) {
+  e.garrison = null;
+  e.garrisoned = false;
+  e.garSlot = 0;
+  e.garCd = rand(1.5, 3);
+}
+
+// Pick a work to move into. The `w.y < e.y - GARRISON_BACKSTEP` rejection is
+// load-bearing: without it men drift back up-field into the works behind them and
+// the whole force stops advancing. He'll duck back a little into cover, not retreat.
+function claimWork(e) {
+  let best = null, bestScore = Infinity;
+  const prefer = e.t.garrisonPrefer;
+  for (const w of G.itWorks) {
+    if (w.hp <= 0 || w.occ >= w.cap) continue;
+    if (w.y < e.y - GARRISON_BACKSTEP) continue;
+    // scores are squared distances, so the 0.6 preference weight is 0.36 here
+    const score = dist2(e, w) * (prefer && w.kind === prefer ? 0.36 : 1);
+    if (score < bestScore) { bestScore = score; best = w; }
+  }
+  return best;
+}
+
+// Returns TRUE if the man spent his frame getting to his work (so the caller
+// skips combat), FALSE if he's either stationed — in which case he falls through
+// and fights from cover like anyone else — or has nowhere to go.
+function updateGarrison(e, dt, buffed) {
+  if (e.garrison && e.garrison.hp <= 0) releaseGarrison(e);
+  if (!e.garrison) {
+    e.garrisoned = false;
+    if (!G.itWorks.length) return false;
+    e.garCd = (e.garCd == null ? 0 : e.garCd) - dt;
+    if (e.garCd > 0) return false;
+    e.garCd = rand(1.5, 3);
+    const w = claimWork(e);
+    if (!w) return false;
+    e.garrison = w;
+    e.garSlot = w.occ;
+    w.occ++;            // optimistic; the works tick recounts it from scratch
+  }
+  const gp = garrisonPoint(e.garrison, e.garSlot);
+  if (dist2(e, gp) > GARRISON_REACH * GARRISON_REACH) {
+    e.garrisoned = false;
+    pursuePoint(e, gp.x, gp.y, e.t.speed * (buffed ? 1.15 : 1), dt);
+    return true;
+  }
+  e.x = gp.x;
+  e.y = gp.y;
+  e.garrisoned = true;
+  return false;
 }
 
 // Banzai command: on a cooldown the officer hurls every Japanese soldier around
@@ -840,6 +1266,238 @@ function updateYamato(e, dt) {
   syncYamatoParts(e);
   for (const p of e.turrets) if (!p.dead) updateYamatoTurret(e, p, dt);
   for (const p of e.mounts) if (!p.dead) updateYamatoMount(e, p, dt);
+}
+
+// ---- Regio Esercito: the Treno Armato --------------------------------------
+
+// Build the consist. Same parent+parts pattern as the ship and the mass, and the
+// Progenitor's HP rule: every part owns its pool — nothing here mirrors or
+// redirects into the engine, so damage.js needs no clause for it.
+function initWarTrain(e) {
+  e.trainInit = true;
+  e.phase = 0;                  // health segments broken so far (0..TRAIN_SEGMENTS-1)
+  e.laneX = clamp(e.x, TRAIN_LANE_MARGIN, W - TRAIN_LANE_MARGIN);
+  e.x = e.laneX;
+  e.face = Math.PI / 2;
+  e.parts = [];
+
+  const addPart = (type, sOff, bOff) => {
+    const p = makeEnemy(type, e.laneX + (bOff || 0), e.y + sOff, 'it');
+    p.sOff = sOff; p.bOff = bOff || 0;
+    p.trainOf = e;
+    p.fireT = 0;
+    p.tur = Math.PI / 2;
+    e.parts.push(p);
+    // BOTH lists, always: e.parts is what drives and draws it, G.enemies is what
+    // makes it shootable (same trap the pods document).
+    G.enemies.push(p);
+    return p;
+  };
+
+  e.turrets = TRAIN_TURRET_S.map(s => addPart('ittur', s, 0));
+  e.wagon = addPart('itwag', TRAIN_WAGON_S, 0);
+  e.wagon.dropCd = rand(4, 7);   // the first squad comes out early, as the train arrives
+  e.mounts = [];
+  for (const s of [TRAIN_GUNWAGON_S + TRAIN_MG_S, TRAIN_GUNWAGON_S - TRAIN_MG_S]) {
+    for (const b of [-TRAIN_MG_B, TRAIN_MG_B]) e.mounts.push(addPart('itmg', s, b));
+  }
+  syncTrainParts(e);
+}
+
+// the one place part positions are computed (the syncYamatoParts rule). Dead
+// wagons are repositioned too, unlike hers: there is no damage control here, so
+// a knocked-out wagon is a burnt hulk that stays COUPLED and rides the rest of
+// the way down the rails — the renderer draws it from e.parts at this position.
+function syncTrainParts(e) {
+  for (const p of e.parts) {
+    p.x = e.laneX + p.bOff;
+    p.y = e.y + p.sOff;
+  }
+}
+
+// A turret wagon. Modelled on the Yamato battery: picks its own target, lays its
+// own bearing, distance-scaled scatter into the shell queue. The traverse wedge
+// is centred straight down-field — it can swing onto almost anything except back
+// up its own train.
+function updateTrainTurret(train, p, dt) {
+  p.fireT = Math.max(0, p.fireT - dt);
+  p.cd -= dt;
+  const down = Math.PI / 2;
+  const range = unitRange(p, p.t.range) * fogMult();
+  const target = tieredUnitTarget(p, range, [
+    u => u.t.tank || u.t.gunEmplacement,       // armor and staked guns first
+    u => !!u.t.sup || u.type === 'mortarman',  // then the crews that hurt it
+    () => true,
+  ]);
+  if (target && Math.abs(angleDiff(Math.atan2(target.y - p.y, target.x - p.x), down)) <= TRAIN_TURRET_ARC) {
+    const want = Math.atan2(target.y - p.y, target.x - p.x);
+    p.tur += clamp(angleDiff(want, p.tur), -TRAIN_TURRET_TRACK * dt, TRAIN_TURRET_TRACK * dt);
+    if (p.cd <= 0 && Math.abs(angleDiff(want, p.tur)) <= TRAIN_TURRET_FIRE_TOL) {
+      SFX.boom(true);
+      p.fireT = 0.22;
+      const d = dist(p, target);
+      const scatter = Math.max(18, TRAIN_SHELL_SCATTER + d * 0.05);
+      scheduleShell(target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
+        TRAIN_SHELL_FLIGHT, TRAIN_SHELL_R, TRAIN_SHELL_DMG, true, p);
+      p.cd = TRAIN_TURRET_ROF * rand(0.9, 1.1);
+    }
+  } else {
+    // nothing it can bear on: creep back to straight ahead, laid ready
+    p.tur += clamp(angleDiff(down, p.tur), -TRAIN_TURRET_TRACK * dt, TRAIN_TURRET_TRACK * dt);
+  }
+  p.tur = down + clamp(angleDiff(p.tur, down), -TRAIN_TURRET_ARC, TRAIN_TURRET_ARC);
+}
+
+// An open gun post on the gun wagon: each of the four covers its own side.
+// Driven through runWeapon rather than fireShot so it gets bursts AND
+// suppressArea pinning for free (the updateYamatoMount rule).
+function updateTrainMount(train, p, dt) {
+  const bearing = p.bOff > 0 ? 0 : Math.PI;
+  const range = unitRange(p, p.t.range) * fogMult();
+  const target = nearestUnitInRange(p, range, u => inFireCone(p, u, bearing, YAM_MG_ARC));
+  runWeapon(p, target, dt, null);
+  // fireShot owns .face while there's a target — overwriting it after the shot
+  // would snap the crew's art back off whatever it just fired at
+  if (!target) {
+    p.face = p.face == null ? bearing : p.face + clamp(angleDiff(bearing, p.face), -1.2 * dt, 1.2 * dt);
+  }
+}
+
+// The infantry wagon's play, and the fight's whole economy — the same role the
+// Yamato's landing parties fill: small arms can't touch the engine, so the
+// squads spilling out beside the track are what pay for the artillery that can.
+function trainDisembark(e, wag) {
+  showBanner('THE TRENO ARMATO UNLOADS ITS FANTERIA!');
+  SFX.event();
+  wag.dropT = 0.9;              // render tell: the boxcar doors stand open
+  const tier = Math.max(1, G.wave / 10);
+  const count = Math.max(4, Math.floor(specialWaveMult(tier) * TRAIN_DROP_MULT));
+  for (let i = 0; i < count; i++) {
+    // spill out both doors, alternating sides of the track
+    const side = i % 2 ? 1 : -1;
+    const x = wag.x + side * rand(18, 34);
+    const y = wag.y + rand(-16, 16);
+    spawnEnemyAt(pick(TRAIN_DROP_POOL), x, clamp(y, 20, H - 60));
+  }
+}
+
+// A health segment breaks and the whole army answers. This is the train's bond
+// with its faction: it doesn't fire the charge itself, it arms the SAME signed
+// clock the ambient AVANTI machinery runs (updateAvanti), so the telegraph, the
+// suppression immunity and the surge all come from one code path. The ambient
+// cooldown is pushed back so the field doesn't owe a second charge right after.
+function trainSoundsCharge(e) {
+  showBanner('THE TRENO ARMATO SOUNDS THE CHARGE — AVANTI!');
+  SFX.event();
+  addShake(4);
+  G.itLastAvanti = G.time;
+  G.itAvantiCd = rand(IT_AVANTI_CD_MIN, IT_AVANTI_CD_MAX);
+  if (G.itCharge > 0) {
+    // a surge is already running: the whistle renews it rather than queueing one
+    G.itCharge = IT_AVANTI_DUR;
+    avantiCharge();
+  } else if (G.itCharge === 0) {
+    G.itCharge = -IT_AVANTI_TELEGRAPH;
+  }
+  // (telegraph already winding up: leave it — the charge is coming anyway)
+  for (const en of G.enemies) {
+    if (!isItalianFoot(en) || Math.random() > 0.45) continue;
+    G.texts.push({ x: en.x, y: en.y - 22, text: 'AVANTI!', ttl: 1.3 + Math.random() * 0.6 });
+  }
+  // armor plate shearing off the engine
+  for (let i = 0; i < 14; i++) {
+    G.particles.push({
+      x: e.x + rand(-14, 14), y: e.y + rand(-20, 20),
+      vx: rand(-70, 70), vy: rand(-90, -20),
+      ttl: rand(0.3, 0.7), grav: 200, size: rand(1.5, 3),
+      color: pick(['#c8b872', '#8a8468', '#57492f']),
+    });
+  }
+}
+
+// Anything the player built on the rails is kindling under the wheels. Only runs
+// while the train is actually rolling, and only against the player's arrays —
+// G.itWorks is deliberately spared, or the boss would grind up its own line's
+// cover on the way down.
+function trainCrush(e, dt) {
+  const chew = (o) => {
+    if (Math.abs(o.x - e.laneX) > TRAIN_CRUSH_R) return;
+    for (const p of e.parts) {
+      if (Math.abs(o.y - p.y) < TRAIN_CRUSH_R + 6) {
+        o.hp -= TRAIN_CRUSH_DPS * dt;
+        if (Math.random() < 0.15) buildSparks(o);
+        return;
+      }
+    }
+    if (Math.abs(o.y - e.y) < TRAIN_CRUSH_R + 6) o.hp -= TRAIN_CRUSH_DPS * dt;
+  };
+  for (const s of G.sandbags) chew(s);
+  for (const b of G.bunkers) chew(b);
+  for (const wt of G.watchtowers) chew(wt);
+  for (const cn of G.camoNests) chew(cn);
+  for (const ac of G.ammoCrates) chew(ac);
+  for (const d of G.dummies) chew(d);
+  // wire is a wide belt, not a point: crush the strand wherever the track crosses it
+  for (const wr of G.wires) {
+    if (Math.abs(wr.x - e.laneX) < 35 + TRAIN_CRUSH_R
+        && Math.abs(wr.y - e.y - TRAIN_WAGON_S) < TRAIN_SPACING * 2.5) {
+      wr.hp -= TRAIN_CRUSH_DPS * dt;
+    }
+  }
+}
+
+function updateWarTrain(e, dt) {
+  if (!e.trainInit) initWarTrain(e);
+
+  // ONE HP pool drawn as TRAIN_SEGMENTS bars — the Progenitor's poll, verbatim:
+  // polled here rather than hooked into damageEnemy so it's robust to every
+  // damage source, and a WHILE because one big hit can empty two segments and
+  // each crossing owes its own charge. The phase guard stops at the last
+  // segment: emptying THAT one is death, not an ability.
+  while (e.phase < TRAIN_SEGMENTS - 1
+      && e.hp <= e.maxhp * (1 - (e.phase + 1) / TRAIN_SEGMENTS)) {
+    e.phase++;
+    trainSoundsCharge(e);
+  }
+
+  // roll south down the lane until the buffer hits TRAIN_STOP_Y, then park.
+  // The stop — not a clamp fighting an AI, an actual terminus — is why the
+  // breach loop in update.js skips the whole consist: parked at H-70 the engine
+  // sits past nothing, but a regressed constant would end the run in one frame.
+  if (e.y < TRAIN_STOP_Y) {
+    e.y = Math.min(TRAIN_STOP_Y, e.y + TRAIN_SPEED * dt);
+    trainCrush(e, dt);
+    // stack smoke while under way
+    if (Math.random() < 0.4) {
+      const ttl = rand(0.8, 1.6);
+      G.particles.push({
+        x: e.x + rand(-3, 3), y: e.y + 14, vx: rand(-8, 8), vy: rand(-34, -16),
+        ttl, maxTtl: ttl, grav: -12, size: rand(3, 6),
+        kind: 'smoke', color: pick(['#3d362a', '#4e4536', '#2a2318']),
+      });
+    }
+  }
+  e.x = e.laneX;
+  syncTrainParts(e);
+
+  // the boxcar unloads on a cadence, but only once it's actually on the field —
+  // squads spawning above the top edge would just be a silent trickle
+  const wag = e.wagon;
+  if (wag && !wag.dead) {
+    if (wag.dropT > 0) wag.dropT -= dt;
+    if (wag.y > 30) {
+      wag.dropCd -= dt;
+      if (wag.dropCd <= 0) {
+        wag.dropCd = rand(TRAIN_DROP_CD_MIN, TRAIN_DROP_CD_MAX);
+        trainDisembark(e, wag);
+      }
+    }
+  }
+
+  // guns come alive as each wagon clears the top edge (targeting scans skip
+  // y < 0, so firing from staging would be shooting from behind glass)
+  for (const p of e.turrets) if (!p.dead && p.y > 10) updateTrainTurret(e, p, dt);
+  for (const p of e.mounts) if (!p.dead && p.y > 10) updateTrainMount(e, p, dt);
 }
 
 // ---- The Horde: bite & infection, spitters, bloaters, the screamer's frenzy ----

@@ -44,6 +44,9 @@ function actorHitRadius(a) {
   // they get a tight radius or they'd swallow every click meant for the core
   if (a.t.hordeBoss) return 30;
   if (a.t.bossPart) return 12;
+  // gun posts tight (they ride 22px off the wagon centreline), wagons tank-sized
+  if (a.t.trainMg) return 10;
+  if (a.t.itaBoss || a.t.trainPart) return 26;
   return a.t.tank ? 26 : a.t.vehicle ? 20 : a.t.gunEmplacement ? 18 : 14;
 }
 
@@ -429,6 +432,10 @@ function drawPlacementGhost() {
       } else if (p.kind === 'defense') {
         drawPlacementDefenseGhost(p.key, pos.x, pos.y, valid);
         drawDefenseRangeIndicator(p.key, pos.x, pos.y);
+      } else if (p.kind === 'itwork') {
+        // an enemy work previews as the fortification it is — workKind indexes
+        // the same geometry the player's own emplacement ghost uses
+        drawPlacementDefenseGhost(p.workKind, pos.x, pos.y, valid);
       }
     }
     const ut = UNIT_TYPES[p.key];

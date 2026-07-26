@@ -229,6 +229,9 @@ function updateHUD() {
 // instead looks equivalent and isn't: 'panzer' starts with neither 'e' nor 'j',
 // so the Panzer IV fell through every category and was unreachable.
 function enemyPlaceableFaction(p) {
+  // the Italian field works aren't units and route through their own kind, but
+  // they belong on the Italian roster tab rather than falling out of every one
+  if (p.kind === 'itwork') return 'it';
   if (p.kind !== 'egerman') return null;
   const t = ENEMY_TYPES[p.key];
   return (t && t.faction) || 'de';
@@ -241,6 +244,7 @@ const TOOLBAR_CATEGORIES = [
   { id: 'germans', label: 'GERMANS', filter: p => enemyPlaceableFaction(p) === 'de' },
   { id: 'japanese', label: 'JAPANESE', filter: p => enemyPlaceableFaction(p) === 'jp' },
   { id: 'horde', label: 'HORDE', filter: p => enemyPlaceableFaction(p) === 'zo' },
+  { id: 'italian', label: 'ITALIAN', filter: p => enemyPlaceableFaction(p) === 'it' },
   { id: 'events', label: 'EVENTS', filter: p => p.kind === 'event' },
 ];
 

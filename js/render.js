@@ -156,10 +156,13 @@ function draw() {
   drawYamatoPass();
   // and the Progenitor, so the brood it births paints over the mass, not under it
   drawProgenitorPass();
+  // and the Treno Armato, so the fanteria it unloads paint over the wagons
+  drawWarTrainPass();
 
   for (const e of G.enemies) {
     if (e.t.ship || e.t.shipPart) continue;   // drawn whole, by drawYamatoPass above
     if (e.t.hordeBoss || e.t.bossPart) continue;   // ditto, by drawProgenitorPass
+    if (e.t.itaBoss || e.t.trainPart) continue;    // ditto, by drawWarTrainPass
     if (!inView(e.x, e.y, 64)) continue;   // canopy/hull margin
     if (e.chute > 0) drawParatrooper(e);
     else if (e.t.tank) drawTank(e);

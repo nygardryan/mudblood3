@@ -52,6 +52,16 @@ function bossVictoryCopy() {
       recap: 'You put down the Progenitor',
     };
   }
+  if (G && G.enemyFaction === 'it') {
+    return {
+      title: 'THE TRENO ARMATO IS DERAILED',
+      lead: 'The armored train burns on its rails.',
+      stats: `Wave ${G.wave} — the armored train burns from engine to rear turret ` +
+        `and the sector is yours. Stand down with the win, or hold the line and meet ` +
+        `it again a hundred waves on.`,
+      recap: 'You derailed the Treno Armato',
+    };
+  }
   if (G && G.enemyFaction === 'jp') {
     return {
       title: 'THE YAMATO BURNS',
@@ -276,7 +286,8 @@ function startGame(levelId, difficultyId) {
   syncSpeedButton();
   const placeables = difficulty && difficulty.testing
     ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES, ...TESTING_JAPANESE_PLACEABLES,
-       ...TESTING_ZOMBIE_PLACEABLES, ...TESTING_ABILITIES, ...TESTING_EVENTS]
+       ...TESTING_ZOMBIE_PLACEABLES, ...TESTING_ITALIAN_PLACEABLES,
+       ...TESTING_ABILITIES, ...TESTING_EVENTS]
     : level.placeables;
   buildToolbar(placeables);
   el('intro').classList.add('hidden');
@@ -301,8 +312,8 @@ function startGame(levelId, difficultyId) {
     : '';
   el('tipbar').textContent = (difficulty && difficulty.testing
     ? touchUI()
-      ? 'Testing: unlimited TP, no enemies spawn on their own. Open GERMANS, JAPANESE or HORDE to place enemy units, or EVENTS to summon one on demand.'
-      : 'Testing: unlimited TP, no enemies spawn on their own. Open GERMANS, JAPANESE or HORDE to place enemy units, or EVENTS to summon one on demand; right-click / Esc cancels placement.'
+      ? 'Testing: unlimited TP, no enemies spawn on their own. Open any enemy roster — GERMANS, JAPANESE, HORDE, ITALIAN — to place units, or EVENTS to summon one on demand.'
+      : 'Testing: unlimited TP, no enemies spawn on their own. Open any enemy roster — GERMANS, JAPANESE, HORDE, ITALIAN — to place units, or EVENTS to summon one on demand; right-click / Esc cancels placement.'
     : difficulty && difficulty.sandbox
       ? touchUI()
         ? 'Sandbox: unlimited TP. Use +1 / +5 / +10 in the HUD to jump ahead in waves.'

@@ -55,6 +55,12 @@ function suppress(u, chance, hold) {
   // the dead don't take cover for anything — the Horde's whole identity is
   // that it never stops closing, and a single BAR was freezing it solid.
   if (u.t.faction === 'jp' || u.t.faction === 'zo') return;
+  // ...and an Italian for as long as the AVANTI order is running. A seven-second
+  // set piece that a single machine gun can cancel isn't a set piece — the same
+  // failure documented above for the Horde. Note this is suppression only: they
+  // still go PRONE from a near miss (tryGoProne is untouched), so rifles keep
+  // mattering against a charge.
+  if (u.t.faction === 'it' && G.itCharge > 0) return;
   if (u.t.boss) return;   // a boss walks through the beaten zone
   if (u.moveTo) return;
   if (braveStandsFast(u)) return;
@@ -99,11 +105,28 @@ function suppressArea(actor, target, hold) {
   }
 }
 
+// A garrisoned Italian's cover. O(1) — the man's garrison link already answers
+// "which work is in front of him", so unlike the player-side scan below there is
+// nothing to search. Chipping the work's HP on every stopped round is what lets
+// rifles wear a work down even though they can't target one directly.
+function italianCoverBlock(target) {
+  if (!target.garrisoned) return false;
+  const w = target.garrison;
+  if (!w || w.hp <= 0) return false;
+  const k = IT_WORK_KINDS[w.kind];
+  const tier = w.up2 ? 2 : w.up ? 1 : 0;
+  if (Math.random() >= k.dodge[tier]) return false;
+  w.hp -= k.chip[tier];
+  return true;
+}
+
 function coverBlock(target) {
-  // friendly units near sandbags dodge some incoming fire (vehicles don't duck)
-  if (target.side !== 'us' || target.t.tank || target.t.vehicle) return false;
+  // crews buttoned into armour don't duck, on either side
+  if (target.t.tank || target.t.vehicle) return false;
   // a scarecrow doesn't take cover — it just soaks the round (see damageDummy)
   if (target.isDummy) return false;
+  // the enemy has its own works to hide behind, and its own way of resolving them
+  if (target.side !== 'us') return italianCoverBlock(target);
   // bunker walls first: they stop more fire and barely notice small arms
   for (const b of G.bunkers) {
     const r = b.up2 ? 38 : b.up ? 34 : 30;

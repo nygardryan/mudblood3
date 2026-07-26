@@ -32,6 +32,9 @@ function update(dt) {
     for (const u of G.units) if (!u.dead && u.type === 'officer') earnTP(1 + u.rank / 3, 'steady');
   }
 
+  // Regio Esercito: works bookkeeping (front line, occupancy) on its own slow tick
+  updateItalians(dt);
+
   // spawning: waves march in until the line breaks (paused in testing mode and
   // while a tutorial script is running the show)
   if (!isTestingMode() && !tutorialScriptActive()) {
@@ -230,6 +233,10 @@ function update(dt) {
     // Same insurance for the Progenitor: it is clamped to PROG_SAFE_Y, but if
     // that clamp regressed all six of its actors would breach in one frame.
     if (e.t.hordeBoss || e.t.bossPart) continue;
+    // And the Treno Armato: it PARKS at TRAIN_STOP_Y by design — reaching the
+    // bottom is its whole act, not a breakthrough, and a regressed stop constant
+    // would otherwise end the run with all eight of its actors in one frame.
+    if (e.t.itaBoss || e.t.trainPart) continue;
     if (!e.dead && e.y > H + 10) {
       e.dead = true; e.breached = true;
       G.breaches++;
@@ -263,6 +270,7 @@ function update(dt) {
   compactDefenses(G.camoNests, stampCamoNestRubble);
   compactDefenses(G.ammoCrates, stampAmmoCrateRubble);
   compactDefenses(G.dummies, stampDummyRubble);
+  compactDefenses(G.itWorks, stampItalianWorkRubble);
   compactInPlace(G.wires, w => w.hp > 0);
   compactInPlace(G.mines, m => !m.dead);
   compactInPlace(G.shells, s => !s.done);

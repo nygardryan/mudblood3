@@ -76,6 +76,9 @@ function enemyAtWorld(x, y) {
     // 8px dead band at every midpoint and clicks would fall THROUGH her hull
     const base = e.t.shipPart || e.t.ship ? 34
                : e.t.hordeBoss ? 30 : e.t.bossPart ? 12
+               // a gun post sits 22px off the wagon's centreline, so it gets a
+               // tight radius or it would swallow every click meant for the wagon
+               : e.t.trainMg ? 10 : e.t.itaBoss || e.t.trainPart ? 26
                : e.t.tank ? 26 : e.t.apc ? 22 : e.t.vehicle || e.t.bike ? 20
                : e.t.v2 ? 24 : 14;
     const d = dist(e, { x, y });
@@ -110,6 +113,19 @@ function placementValid(p, x, y) {
       if (dist(e, { x, y }) < gap) return false;
     }
     return true;
+  }
+  // enemy field works go anywhere on the field like enemy units, but still can't
+  // be stacked on an existing emplacement (forEachEmplacement now walks them too)
+  if (p.kind === 'itwork') {
+    if (x < 16 || x > W - 16 || y < 14 || y > H - 14) return false;
+    const nb = IT_WORK_KINDS[p.workKind].box;
+    let clear = true;
+    forEachEmplacement((obj, key) => {
+      if (!clear) return;
+      const ob = emplacementBox(key);
+      if (Math.abs(obj.x - x) < nb.hw + ob.hw && Math.abs(obj.y - y) < nb.hh + ob.hh) clear = false;
+    });
+    return clear;
   }
   const positions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
   const minY = placementMinY(p);
@@ -176,6 +192,9 @@ function forEachEmplacement(fn) {
   for (const d of G.dummies) fn(d, 'dummy');
   for (const w of G.wires) fn(w, 'wire');
   for (const m of G.mines) { if (!m.dead) fn(m, 'mine'); }
+  // enemy field works occupy ground too — the player can't drop a bunker on top
+  // of an Italian one. Their `kind` already matches the box keys above.
+  for (const w of G.itWorks) fn(w, w.kind);
 }
 
 // An engineer extends the build zone: an emplacement sited inside a friendly
@@ -195,6 +214,10 @@ function engineerBuildReach(x, y) {
 }
 
 function placementMinY(p) {
+  // testing-mode enemy pieces (units and Italian works) go anywhere on the
+  // field, so nothing up-field is out of bounds for them — without this the
+  // ghost shades the whole top of the map red while the placement still succeeds
+  if (p.kind === 'egerman' || p.kind === 'itwork') return 0;
   // mines/wire lay up to the forward line; the camo nest and dummy are forward
   // pieces too (a hidden ambush position and a decoy to draw fire), so they get
   // the same reach — everything else holds behind the deploy line.
@@ -283,6 +306,12 @@ function applyPlacement(p, x, y) {
     G.dummies.push({ x, y, hp: DUMMY_HP, maxhp: DUMMY_HP, up: false, up2: false,
       workProg: 0, fortifyAdd: DUMMY_HP, isDummy: true, side: 'us', type: 'dummy',
       t: DUMMY_T, id: ++dummySeq });
+  } else if (p.kind === 'itwork') {
+    // testing-mode only: stake out an enemy field work directly, so a board
+    // state can be forced without waiting for a guastatore to build one
+    const w = makeItalianWork(p.workKind, x, y);
+    G.itWorks.push(w);
+    return w;
   } else if (p.key === 'sandbags') {
     G.sandbags.push({ x, y, hp: SANDBAG_HP, maxhp: SANDBAG_HP, up: false, workProg: 0 });
   } else if (p.key === 'bunker') {

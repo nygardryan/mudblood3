@@ -31,6 +31,10 @@ const CODEX_CODE = {
   zshambler: 'SHM', zrunner: 'RUN', zcrawler: 'CRW', zhound: 'HND', zbrute: 'BRT',
   zspitter: 'SPT', zbloater: 'BLT', zscreamer: 'SCR', zrevenant: 'REV', zabom: 'ABM',
   zprogen: 'PRG', zpod: 'POD',
+  ifante: 'FNT', iuff: 'OFF', ibersa: 'BRS', iguast: 'GUA',
+  imosch: 'MSC', ibreda: 'BRD', ifiat: 'FIA', icecc: 'CEC', ibrixia: 'BRX',
+  imortaio: 'M81', ifolgore: 'FLG', iardito: 'ARD', iflame: 'FLM',
+  il3: 'L3', im13: 'M13', isemo: 'SMV', itrain: 'TRN',
   wire: 'WIR', sandbags: 'SBG', dummy: 'DMY', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
   ammocrate: 'AMM', mine: 'MIN', mortar: 'MST', artillery: 'ART',
   fog: 'FOG', fng: 'FNG', airraid: 'RAD', paradrop: 'PAR', airstrike: 'P47', special: 'SPC',
@@ -58,6 +62,7 @@ function codexFaction(tab, entry) {
     const et = entry && ENEMY_TYPES[entry.key];
     return et && et.faction === 'jp' ? 'IMPERIAL JAPANESE ARMY'
       : et && et.faction === 'zo' ? 'THE HORDE'
+      : et && et.faction === 'it' ? 'REGIO ESERCITO'
       : 'WEHRMACHT';
   }
   if (tab === 'defenses') return entry.kind || 'FIELD';
@@ -492,6 +497,15 @@ function renderPortrait(typeKey, side) {
       ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 4);
       ctx.scale(0.85, 0.85);
       paintProgenitorBody(ctx, actor);
+      ctx.restore();
+    } else if (t.itaBoss) {
+      // the engine only, and via the PURE painter — drawWarTrain reads
+      // actor.parts, which a bare makeEnemy() here doesn't have. Same situation
+      // as the ship and the mass.
+      ctx.save();
+      ctx.translate(CODEX_PW / 2, CODEX_PH / 2);
+      ctx.scale(1.05, 1.05);
+      paintTrainEngine(ctx, actor);
       ctx.restore();
     } else if (t.tank) {
       ctx.save();
@@ -1013,8 +1027,8 @@ function codexEntries(tab) {
     // the Yamato's belt sections, batteries and gun tubs are all real ENEMY_TYPES
     // entries, but they're parts of her — not foes in their own right, and three
     // extra cards would just clutter the roster
-    // (and the Progenitor's pus modules, for the same reason)
-    return Object.entries(ENEMY_TYPES).filter(([, t]) => !t.shipPart && !t.bossPart).map(([key, t]) => {
+    // (and the Progenitor's pus modules and the train's wagons, for the same reason)
+    return Object.entries(ENEMY_TYPES).filter(([, t]) => !t.shipPart && !t.bossPart && !t.trainPart).map(([key, t]) => {
       const parts = [`${t.hp} HP`, `${t.reward} TP REWARD`];
       if (t.dmg > 0) parts.splice(1, 0, `${t.dmg} DMG`);
       if (t.range > 0) parts.splice(t.dmg > 0 ? 2 : 1, 0, `${t.range} RNG`);

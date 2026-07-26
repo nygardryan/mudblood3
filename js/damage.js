@@ -272,6 +272,17 @@ function poseDismembered(c, cp, P) {
 }
 
 // launch a detached part outward from the death site
+// Helmet colour for a body, by nation. It lives here because spawnGib and
+// paintCorpse both need it and MUST agree — a man whose gibs don't match his
+// own corpse reads as two different soldiers. The Wehrmacht blue-grey is the
+// fallthrough, which is also what the Horde's reanimated Germans should wear.
+function corpseHelmet(cp) {
+  if ((cp.nation || cp.side) === 'us') return '#43503a';
+  if (cp.nation === 'jp') return '#585630';
+  if (cp.nation === 'it') return '#6f7150';   // M33 grigio-verde
+  return '#464b53';
+}
+
 function spawnGib(cp, kind, us) {
   const ang = rand(0, Math.PI * 2), spd = rand(45, 95);
   G.gibs.push({
@@ -280,7 +291,7 @@ function spawnGib(cp, kind, us) {
     rot: rand(0, 7), spin: rand(-14, 14),
     col: muteColor(cp.col, 0.32), limb: muteColor(cp.col, 0.5),
     skin: us ? '#9a7350' : '#9c7a58',
-    helmet: us ? '#43503a' : cp.nation === 'jp' ? '#585630' : '#464b53',
+    helmet: corpseHelmet(cp),
     landed: false, trail: 0, ttl: CORPSE_TTL,
   });
 }
@@ -364,7 +375,7 @@ function paintCorpse(c, cp) {
     tunic: muteColor(cp.col, 0.32),
     limb: muteColor(cp.col, 0.5),
     skin: us ? '#9a7350' : '#9c7a58',
-    helmet: us ? '#43503a' : cp.nation === 'jp' ? '#585630' : '#464b53',
+    helmet: corpseHelmet(cp),
   };
   c.lineCap = 'round';
 
@@ -412,6 +423,25 @@ function stampDummyRubble(d) {
   for (let i = 0; i < 5; i++) {
     gctx.beginPath();
     gctx.ellipse(d.x + rand(-12, 12), d.y + rand(-6, 6), rand(2, 4), rand(1, 2.5), rand(0, 3), 0, 7);
+    gctx.fill();
+  }
+}
+
+// A broken Regio Esercito work. One stamp for all three kinds, scaled off the
+// footprint — the ruin of a parapet and the ruin of a bunker read the same from
+// above, and what matters is that the ground stays marked so the player can see
+// where the enemy line used to run.
+function stampItalianWorkRubble(w) {
+  const box = IT_WORK_KINDS[w.kind].box;
+  gctx.fillStyle = w.kind === 'bunker' ? 'rgba(96,94,86,0.55)' : 'rgba(104,98,74,0.5)';
+  gctx.beginPath();
+  gctx.ellipse(w.x, w.y, box.hw * 0.9, box.hh * 0.75, 0, 0, 7);
+  gctx.fill();
+  gctx.fillStyle = 'rgba(74,70,58,0.5)';
+  for (let i = 0; i < 5; i++) {
+    gctx.beginPath();
+    gctx.ellipse(w.x + rand(-box.hw, box.hw), w.y + rand(-box.hh * 0.7, box.hh * 0.7),
+      rand(2.5, 6), rand(2, 4), rand(0, 3), 0, 7);
     gctx.fill();
   }
 }
@@ -627,6 +657,7 @@ function purgeRadius(x, y, r) {
   for (const ac of G.ammoCrates) if (dist(ac, at) < r) ac.hp = 0;
   for (const d of G.dummies) if (dist(d, at) < r) d.hp = 0;
   for (const wr of G.wires) if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp = 0;
+  for (const w of G.itWorks) if (dist(w, at) < r) w.hp = 0;
   for (const m of G.mines) if (!m.dead && dist(m, at) < r) m.dead = true;
 }
 
@@ -705,6 +736,19 @@ function damageEnemy(e, dmg, from, kind) {
       if (bpi !== -1) G.selected.splice(bpi, 1);
       return;
     }
+    // A wagon knocked out is the same kind of event as a gun tub going quiet:
+    // TP and credit, but no kill count, no recap, no corpse. Early return for
+    // the same reason as the other two part flags. The hulk stays coupled and
+    // rides on — syncTrainParts repositions dead parts on purpose.
+    if (e.t.trainPart) {
+      earnTP(e.t.reward);
+      creditKill(from);
+      G.texts.push({ x: e.x, y: e.y - 20, text: 'KNOCKED OUT', ttl: 1.4 });
+      explode(e.x, e.y, 30, 40, false);
+      const tpi = G.selected.indexOf(e);
+      if (tpi !== -1) G.selected.splice(tpi, 1);
+      return;
+    }
     G.kills++;
     earnTP(e.t.reward);
     creditKill(from);
@@ -735,6 +779,22 @@ function damageEnemy(e, dmg, from, kind) {
       bloodSplat(e.x, e.y, 30);
       addGroundMark({ type: 'blood', x: e.x, y: e.y, r: 46, rot1: rand(0, 3), rot2: rand(0, 3) });
       explode(e.x, e.y, 50, 40, true);
+    } else if (e.t.itaBoss) {
+      // the engine dies and the whole consist goes up along the rails. Parts are
+      // killed DIRECTLY and the secondaries go through the shell queue — the
+      // same recursion reasoning as the ship. Each wagon leaves its own wreck
+      // decal, so a burnt train stays stamped on the field where it stopped.
+      for (let i = 0; i < e.parts.length; i++) {
+        const p = e.parts[i];
+        if (p.dead) continue;
+        p.dead = true;
+        // wreck decals for the armored wagons only — four crew posts would just
+        // stamp one overlapping blob over the gun wagon's own
+        if (p.t.tank) stampWreck(p);
+        scheduleShell(p.x, p.y, 0.14 + i * 0.16, 45, 55, true, null);
+      }
+      stampWreck(e);
+      explode(e.x, e.y, 60, 80, true);
     } else if (e.t.tank) {
       stampWreck(e);
       explode(e.x, e.y, 50, 60, true);
@@ -766,7 +826,7 @@ function damageEnemy(e, dmg, from, kind) {
     if (si !== -1) G.selected.splice(si, 1);
     // the boss falling is a victory: freeze the field and offer the choice
     // to take the win or fight on (flow.js)
-    if (e.t.germanBoss || e.t.japBoss || e.t.hordeBoss) bossVictory();
+    if (e.t.germanBoss || e.t.japBoss || e.t.hordeBoss || e.t.itaBoss) bossVictory();
   }
   if (dmg >= 3) tryGoProne(e, 0.65);
   // Shell Shocked: a surviving enemy hit by a mortarman is dazed for a beat

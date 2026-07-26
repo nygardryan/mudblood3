@@ -478,11 +478,91 @@ function drawDummy(d) {
   c.restore();
 }
 
+// A Regio Esercito field work. Same geometry as the player's equivalent — it IS
+// the same fortification, just dug by the other side — recoloured cool and grey
+// against the player's warm tan, and staked with a tricolore so the two can never
+// be confused at a glance.
+//
+// The tint is BAKED, not applied live. `ctx.filter` layers per drawing operation,
+// and these routines issue dozens each: filtering them in place measured 2.3 ms
+// per work, i.e. 56 ms/frame at the 24-work cap — the game at 14 fps. Baking each
+// variant once into an offscreen canvas and blitting drops that to a single
+// drawImage. Same trick, same `ctx`-swap, as ghostBuffer in js/inspector.js.
+const IT_WORK_BUF_HALF = 40;   // world-space half-extent; the widest work is the bunker at 28
+const IT_WORK_BUF_SS = 3;      // supersample so the bitmap stays crisp when zoomed in
+// Cool, pale concrete-grey against the player's warm tan. Brightness above 1 is
+// the important part: an earlier pass darkened these to 0.78 to separate them
+// from the player's works, and it separated them from the GROUND too — olive-brown
+// structures on olive-brown dirt read as terrain, not as fortifications. Lift them
+// off the background first, then distinguish them from the player's second.
+const IT_WORK_TINT = 'saturate(0.3) brightness(1.14)';
+const _itWorkBufCache = new Map();
+
+// only the fields the three draw routines actually read: the fortify tiers, and
+// the damage-crack thresholds in drawBunker/drawWatchtower (0.66 / 0.33)
+function italianWorkBuffer(w) {
+  const tier = w.hp < w.maxhp * 0.33 ? 2 : w.hp < w.maxhp * 0.66 ? 1 : 0;
+  const key = w.kind + '|' + (w.up ? 1 : 0) + (w.up2 ? 1 : 0) + tier;
+  let buf = _itWorkBufCache.get(key);
+  if (buf) return buf;
+  const px = IT_WORK_BUF_HALF * 2 * IT_WORK_BUF_SS;
+  buf = document.createElement('canvas');
+  buf.width = px;
+  buf.height = px;
+  const octx = buf.getContext('2d');
+  octx.scale(IT_WORK_BUF_SS, IT_WORK_BUF_SS);
+  octx.translate(IT_WORK_BUF_HALF, IT_WORK_BUF_HALF);
+  octx.filter = IT_WORK_TINT;
+  // a stand-in at the origin carrying the same visual state as the real work
+  const proxy = { x: 0, y: 0, up: w.up, up2: w.up2,
+    hp: tier === 2 ? 1 : tier === 1 ? 50 : 100, maxhp: 100 };
+  const prevCtx = ctx;
+  ctx = octx;
+  try {
+    if (w.kind === 'sandbags') drawSandbag(proxy);
+    else if (w.kind === 'bunker') drawBunker(proxy);
+    else drawWatchtower(proxy);
+  } finally { ctx = prevCtx; }
+  _itWorkBufCache.set(key, buf);
+  return buf;
+}
+
+function drawItalianWork(w) {
+  const buf = italianWorkBuffer(w);
+  ctx.drawImage(buf, w.x - IT_WORK_BUF_HALF, w.y - IT_WORK_BUF_HALF,
+    IT_WORK_BUF_HALF * 2, IT_WORK_BUF_HALF * 2);
+  // the stake is drawn live and UNfiltered — the tricolore has to keep its real
+  // colours to do its job, and it's three fillRects
+  drawItalianWorkStake(w);
+}
+
+// the tricolore stake driven in beside a finished work — green/white/red, and the
+// one mark that reads instantly as "this one is theirs"
+function drawItalianWorkStake(w) {
+  const box = IT_WORK_KINDS[w.kind].box;
+  const sx = w.x - box.hw + 2, sy = w.y + box.hh - 2;
+  ctx.save();
+  // a dark post so the flag reads against both the pale bunker and dark ground
+  ctx.strokeStyle = '#241f16';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, sy - 13); ctx.stroke();
+  const cols = ['#2f7d3f', '#ece8d8', '#c02a22'];
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = cols[i];
+    ctx.fillRect(sx + 1, sy - 13 + i * 2.7, 7, 2.7);
+  }
+  ctx.strokeStyle = 'rgba(20,18,12,0.6)';
+  ctx.lineWidth = 0.7;
+  ctx.strokeRect(sx + 1, sy - 13, 7, 8.1);
+  ctx.restore();
+}
+
 function drawDefenses() {
   for (const wr of G.wires) drawWire(wr);
   for (const s of G.sandbags) drawSandbag(s);
   for (const b of G.bunkers) drawBunker(b);
   for (const t of G.watchtowers) drawWatchtower(t);
+  for (const w of G.itWorks) drawItalianWork(w);
   for (const cn of G.camoNests) drawCamoNestBase(cn);
   for (const ac of G.ammoCrates) drawAmmoCrate(ac);
   for (const dm of G.dummies) drawDummy(dm);

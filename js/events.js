@@ -27,19 +27,33 @@ function paradropCount(w) {
 const PARA_POOL = ['erifle', 'erifle', 'esmg', 'esmg', 'egren'];
 // Imperial airborne (Teishin Shudan) equivalent for the Japanese faction
 const PARA_POOL_JP = ['jrifle', 'jrifle', 'jbanzai', 'jbanzai'];
+// Folgore paracadutisti for the Regio Esercito — the actual airborne arm, so it
+// leans on the two types that never dig in rather than on the line infantry
+const PARA_POOL_IT = ['ifolgore', 'ifolgore', 'ibersa', 'imosch'];
+
+// Airborne per faction: the drop pool, the banner, and the heavy weapon that
+// joins the stick from wave 10. A table rather than a chain of ternaries — the
+// three-way version was already unreadable and a fourth faction reaching the
+// German fallthrough is exactly how German paratroopers ended up landing in an
+// Italian run. The Horde is absent on purpose: it has no aircraft, so
+// triggerParadrop hands it to triggerHordeRising before it ever reads this.
+const PARADROPS = {
+  de: { pool: PARA_POOL, banner: 'FALLSCHIRMJÄGER! PARATROOPERS!', heavy: 'emg' },
+  jp: { pool: PARA_POOL_JP, banner: 'TEISHIN PARATROOPERS!', heavy: 'jlmg' },
+  it: { pool: PARA_POOL_IT, banner: 'FOLGORE PARACADUTISTI!', heavy: 'ibreda' },
+};
 
 function triggerParadrop() {
   const f = enemyFaction();
   // The Horde doesn't drop from the sky — the dead claw their way up out of the
   // ground behind your line. Same "behind you" pressure, no transport, no canopy.
   if (f === 'zo') { triggerHordeRising(); return; }
-  const jp = f === 'jp';
-  showBanner(jp ? 'TEISHIN PARATROOPERS!'
-    : 'FALLSCHIRMJÄGER! PARATROOPERS!');
+  const drop = PARADROPS[f] || PARADROPS.de;
+  showBanner(drop.banner);
   spawnTransportFlyby();
   const w = G.wave;
-  const pool = (jp ? PARA_POOL_JP : PARA_POOL).slice();
-  if (w >= 10) pool.push(jp ? 'jlmg' : 'emg');
+  const pool = drop.pool.slice();
+  if (w >= 10) pool.push(drop.heavy);
   const count = paradropCount(w);
   const cx = rand(120, W - 120);
   for (let i = 0; i < count; i++) {

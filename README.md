@@ -24,10 +24,10 @@ workflow.
 ## Game modes
 
 - **Endless** — the classic. Each run rolls its foe: you face the **Germans**,
-  the **Imperial Japanese Army**, or **The Horde** (the
-  undead), attacking in endless waves from the top of the screen. Hold the line as
-  long as you can — if **7 enemies** slip past the bottom edge, your sector
-  collapses and it's game over. There is no victory, only a higher wave count.
+  the **Imperial Japanese Army**, **The Horde** (the undead), or the
+  **Regio Esercito**, attacking in endless waves from the top of the screen. Hold
+  the line as long as you can — if **7 enemies** slip past the bottom edge, your
+  sector collapses and it's game over. There is no victory, only a higher wave count.
   - **The Japanese** field a wholly different 15-unit roster: Arisaka riflemen
     with long bayonets, SNLF SMG troopers, grenadiers, Nambu light and Type 92
     heavy machine guns, nest snipers, knee mortars and 81mm mortar teams, sword
@@ -46,6 +46,31 @@ workflow.
     and **rises as a zombie against your own line**. A single lost soldier can
     become a hole in the wall. The one hard counter is the **medic**: keep him near
     the line and he burns the infection out of the bitten before they turn.
+  - **The Italians** are the only foe that **builds**. Their *Guastatori* assault
+    sappers walk out into the open and throw up the same fortifications you can —
+    sandbag parapets, bunkers, watch towers — each line a little further down the
+    field than the last, and **they are still standing next wave**. The infantry
+    then moves into them: a *Fante* behind a parapet is a different problem from a
+    *Fante* in the open, a Fiat heavy machine gun in a bunker shrugs off rifle fire
+    almost entirely, and a *Cecchino* up a hardened watch tower outranges most of
+    your line. Left alone, the enemy front creeps down the map until it is sitting
+    on your doorstep.
+    - **Your rifles cannot touch a work.** The answer is explosives — grenadiers,
+      bazookas, mortars, the Sherman, or a bought mortar/artillery strike. This is
+      the one faction that makes you spend on *attack* instead of defence. (Rounds
+      a work stops for its garrison do wear it down, so a rifle line grinds one
+      away eventually — slowly, and at a price.)
+    - Every so often the whole army stops shooting and comes out at once:
+      **AVANTI SAVOIA!** A banner goes up, the line pours out of cover, and for the
+      next few seconds nothing pins them. That short warning is your window to drop
+      a mortar on a force that is still bunched up behind its own parapets. Their
+      **Ufficiali** bring the charge sooner just by being alive — shoot the officers
+      and you buy yourself digging time.
+    - Two units mirror each other: the **Guastatore** builds their line forward,
+      and the **Arditi** demolition man tears *yours* down, planting fused charges
+      on your emplacements and walking away to do it again. Their armour is
+      tankette-heavy and led by the **L3 Lf** — the only flame-throwing tank on any
+      front — with M13/40 mediums and casemate Semoventi arriving late.
     - **Shamblers** are the slow, endless backbone; **runners**, **crawlers** and
       blazing-fast infected **hounds** swarm and close before you can thin them.
     - **Brutes** are swollen bruisers that soak lead and hit like a truck; the

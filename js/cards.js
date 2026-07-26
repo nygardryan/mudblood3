@@ -82,6 +82,7 @@ function maybeShellShock(e, from) {
   // set here would latch on forever while the battery kept firing anyway.
   if (e.t.germanBoss || e.t.japBoss || e.t.shipPart) return;
   if (e.t.hordeBoss || e.t.bossPart) return;   // ditto the Progenitor and its sacs
+  if (e.t.itaBoss || e.t.trainPart) return;    // and the train — nothing ticks a wagon's stun down
   if (!(G.cardsOwned && G.cardsOwned.has('shellshocked'))) return;
   e.stun = Math.max(e.stun || 0, SHELLSHOCK_DURATION);
   G.texts.push({ x: e.x, y: e.y - 24, text: 'SHELL SHOCKED', ttl: 1.2 });

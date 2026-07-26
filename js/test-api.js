@@ -33,9 +33,10 @@ const TEST = {
   help() {
     return {
       api: {
-        'start(levelId, difficulty?, faction?)': "validated startGame; throws on unknown ids; returns state(). faction ('de'|'jp'|'zo') pins the endless enemy roll",
+        'start(levelId, difficulty?, faction?)': "validated startGame; throws on unknown ids; returns state(). faction ('de'|'jp'|'zo'|'it') pins the endless enemy roll",
         'state()': 'compact JSON snapshot of the current game',
         'roster()': 'detailed per-actor lists {units, enemies}: type, pos, hp, rank, kills',
+        'works()': 'Regio Esercito field works: kind, pos, hp, fortify tier, occupancy',
         'catalog()': 'what the current mode can buy: {key, label, kind, cost, affordable, atCap}',
         'costs()': 'map of buyable key -> resolved TP cost (honours difficulty/cards/overrides)',
         'inspect(x, y)': 'hover-style blurb for the actor at a point: name, hp, rank, stats, desc',
@@ -64,8 +65,8 @@ const TEST = {
     if (difficultyId != null && !ENDLESS_DIFFICULTIES[difficultyId]) {
       throw new Error('unknown difficulty "' + difficultyId + '" — valid: ' + Object.keys(ENDLESS_DIFFICULTIES).join(', '));
     }
-    if (faction != null && faction !== 'de' && faction !== 'jp' && faction !== 'zo') {
-      throw new Error('unknown faction "' + faction + '" — valid: de, jp, zo');
+    if (faction != null && faction !== 'de' && faction !== 'jp' && faction !== 'zo' && faction !== 'it') {
+      throw new Error('unknown faction "' + faction + '" — valid: de, jp, zo, it');
     }
     // pin the endless enemy-faction roll for a deterministic test, then release
     G_forceFaction = faction || null;
@@ -106,7 +107,31 @@ const TEST = {
         windSpeed: +G.wind.speed.toFixed(1) },
       units: tally(G.units),
       enemies: tally(G.enemies),
+      // Regio Esercito: the field works and (from the garrison phase) who's in
+      // them. frontY is the deepest live work — the number that proves the enemy
+      // line is creeping rather than just churning.
+      it: {
+        works: G.itWorks.length,
+        worksHp: Math.round(G.itWorks.reduce((s, w) => s + Math.max(0, w.hp), 0)),
+        frontY: G.itWorks.length ? Math.round(Math.max(...G.itWorks.map(w => w.y))) : null,
+        garrisoned: G.enemies.filter(e => !e.dead && e.garrisoned).length,
+        // AVANTI: negative = telegraphed and winding up, positive = surging, 0 = idle
+        charge: +G.itCharge.toFixed(2),
+        avantiCd: +G.itAvantiCd.toFixed(1),
+        charging: G.enemies.filter(e => !e.dead && e.t.faction === 'it' && e.chargeT > 0).length,
+      },
     };
+  },
+
+  // Per-work detail for the Italian faction. Separate from state() because a
+  // works assertion usually needs positions and occupancy, not just a count.
+  works() {
+    if (!G) return { note: 'no game in progress — call TEST.start()' };
+    return G.itWorks.map(w => ({
+      kind: w.kind, x: Math.round(w.x), y: Math.round(w.y),
+      hp: Math.max(0, Math.ceil(w.hp)), maxhp: w.maxhp,
+      up: !!w.up, up2: !!w.up2, occ: w.occ, cap: w.cap,
+    }));
   },
 
   // Per-actor detail — coarser tally() hides rank/kills/HP that a test needs to
@@ -121,6 +146,10 @@ const TEST = {
         o.kills = a.xp;   // xp == kills for fighters, healing/repair points for support
       }
       if (a.dead) o.dead = true;
+      // Regio Esercito: what a sapper is currently doing, and (from the garrison
+      // phase) whether a man is in a work
+      if (a.buildState) { o.buildState = a.buildState; o.buildsDone = a.buildsDone; }
+      if (a.garrisoned) o.garrisoned = true;
       return o;
     };
     return {
@@ -192,6 +221,7 @@ const TEST = {
     add(typeof TESTING_GERMAN_PLACEABLES !== 'undefined' && TESTING_GERMAN_PLACEABLES);
     add(typeof TESTING_JAPANESE_PLACEABLES !== 'undefined' && TESTING_JAPANESE_PLACEABLES);
     add(typeof TESTING_ZOMBIE_PLACEABLES !== 'undefined' && TESTING_ZOMBIE_PLACEABLES);
+    add(typeof TESTING_ITALIAN_PLACEABLES !== 'undefined' && TESTING_ITALIAN_PLACEABLES);
     add(typeof TESTING_ABILITIES !== 'undefined' && TESTING_ABILITIES);
     this.__deployMap = m;
     return m;

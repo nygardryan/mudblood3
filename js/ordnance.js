@@ -135,6 +135,14 @@ function explode(x, y, r, dmg, big, by) {
       if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;
     }
   }
+  // Regio Esercito field works — OUTSIDE the Blast Shelter guard on purpose.
+  // That card is overhead cover the player buys for his own emplacements; letting
+  // it shield enemy works would have it defending the very thing the player needs
+  // artillery to break. Explosives are the main answer to a work, so this loop is
+  // the primary counter-play, not an incidental splash.
+  for (const w of G.itWorks) {
+    if (dist2(w, { x, y }) < r2) w.hp -= dmg * (w.kind === 'bunker' ? 0.4 : 0.8);
+  }
 }
 
 // Frag Grenades card: fling a ring of fragments out of a grenadier's blast.

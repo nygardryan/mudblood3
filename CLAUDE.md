@@ -32,8 +32,8 @@ TEST.start('endless', 'easy')      // validated start — THROWS on bad ids
                                    // (bare startGame() silently falls back to endless!)
 TEST.start('endless','easy','jp')  // 3rd arg pins the endless enemy faction roll:
                                    // 'de' (Wehrmacht), 'jp' (Imperial Japanese Army),
-                                   // or 'zo' (The Horde — undead).
-                                   // omitted = random per run (1-in-3 each).
+                                   // 'zo' (The Horde — undead), or 'it' (Regio Esercito).
+                                   // omitted = random per run (1-in-4 each).
                                    // state().enemyFaction reports it.
 TEST.deploy('gunner', 0.5, 0.75)   // FREE god-mode spawn; (0..1] coords = fractions of field
 TEST.deploy('sandbags', 0.4, 0.7)  // deploys ANY placeable — defenses, supports, German test units
@@ -43,6 +43,7 @@ TEST.state()                       // {mode, phase, wave, tp, kills, breaches, u
 TEST.roster()                      // per-actor detail {units,enemies}: type, pos, hp, rank, kills
 TEST.catalog()                     // what's buyable now: {key,label,kind,cost,affordable,atCap}
 TEST.costs()                       // {key: resolved TP cost} (honours difficulty/cards/overrides)
+TEST.works()                       // Regio Esercito field works: kind, pos, hp, fortify tier, occ/cap
 TEST.inspect(x, y)                 // hover blurb for the actor at a point: name, hp, rank, stats, desc
 TEST.event('smokescreen')          // fire a random event on demand, ignoring its wave gate
 TEST.setTP(100) / TEST.addTP(20)   // script TP for a scenario
@@ -251,6 +252,117 @@ vice versa. And the pot emits by DISTANCE (`smokeEmitInterval` keeps puffs
 band — otherwise a fast wind stretches the plume into a dotted line and troops
 shoot clean through the gaps (measured 15% of the plume body before this). Air paths are deliberately NOT blocked: bombers and AA pick
 targets with their own scans, since smoke screens the ground, not the sky.
+
+The **Regio Esercito** is the fourth endless foe (`faction:'it'` in `ENEMY_TYPES`,
+16 keys) and the only one that **builds**. It shipped once before and was cut for
+being dull — its mechanic was *morale*, men who broke and ran, the only
+SUBTRACTIVE faction gimmick in the game. Don't reintroduce it. The replacement is
+additive: engineers erect the same fortifications the player can, out in
+no-man's-land; the infantry garrisons them and fights from cover; the works
+**persist between waves** so the enemy front creeps permanently down the field;
+and periodically the whole force pours back out of them. The pulse is
+**dig in → grind → all-in charge → rebuild further forward**, and it is the only
+faction that erodes the player's GROUND rather than his ranks.
+
+**Their works are `G.itWorks`, deliberately NOT the player's defense arrays.**
+This is the single most important thing to understand before touching them. Every
+player-side consumer of `G.sandbags`/`G.bunkers`/`G.watchtowers` walks the array
+with no notion of a side — `updateEngineer`'s repair and fortify passes,
+`watchtowerRangeMult`, `engineerRepairCount`, the Blast Shelter card in `explode`
+— so sharing the arrays would silently have a US engineer hardening an Italian
+bunker or an enemy tower extending your riflemen's range. A separate array cannot
+leak: forgetting a site means the works don't participate in something, never that
+the player buffs the enemy. One array with a `kind` tag rather than three, because
+works need whole-collection passes (draw, cover, compaction, garrison claim, cap).
+`forEachDefense` (`js/helpers.js`) is untouched on purpose. Tuning is the `IT_`
+block in `js/constants.js`; `IT_WORK_KINDS` holds per-kind HP/cap/cover/box.
+
+**Rifles cannot target a work.** Player scans walk only `G.enemies`, so the answer
+to a work is explosives (`explode` is side-blind — grenadier, bazooka, mortarman,
+Sherman, mortar/artillery strikes all reach them with no special code), plus the
+chip a work takes every time `italianCoverBlock` stops a round for its garrison.
+That is what makes the faction demand OFFENSIVE spend, which no other foe does.
+The `G.itWorks` loop in `explode` sits deliberately **outside** the Blast Shelter
+guard — that card is the player's overhead cover and must not protect enemy works.
+
+Four independent limits stop the front running away, and each guards a different
+failure: `IT_WORK_MAX_Y` (the depth wall — the creep stops short of `FORWARD_Y`
+and can never enter the player's build pocket), `IT_WORK_CAP`, `IT_BUILDS_PER_MAN`,
+and per-wave decay in `decayItalianWorks`. Measured: 60 waves of pure digging
+pressure with no player interference plateaus at 12 works from wave 10 onward.
+
+Signature units and behaviours:
+- `iguast` (Guastatore) — `builder`. `updateGuastatore` runs seek → build → fight;
+  once his budget is spent he leaves the dispatch by state and falls THROUGH to the
+  ordinary rifle path, so combat isn't duplicated. He raises a new work at base
+  strength and only FORTIFIES when there's nowhere left to dig, which is what stops
+  every work on the field inflating to 1.5× HP.
+- `garrison:true` types — `updateGarrison` is a pre-step, not a dispatch: it
+  returns true only while a man is walking to his work, so a stationed man falls
+  through and fights from cover. Works hold a recounted `occ` COUNT, never a list
+  of men — `compactInPlace` splices the dead out the frame they fall, so a stored
+  crew array would leak dead refs. Death therefore frees a slot for free.
+  `italianCoverBlock` is O(1) (the garrison link already answers "which work is in
+  front of him"), and `italianTowerRangeMult` mirrors the player's tower bonus, so
+  a `icecc` in a hardened tower reaches 300.
+- **AVANTI** (`updateAvanti`/`avantiCharge`) — wave-level, not a radius command
+  like banzai/frenzy. `G.itCharge` is ONE SIGNED CLOCK: negative counts up through
+  the telegraph, positive counts down through the surge, 0 is idle. **Nothing
+  fires the order; officers and depth-wall pressure only make the clock run
+  faster.** An earlier version let pressure trigger directly and, because the front
+  sits at the wall permanently once it gets there, every charge fired the instant
+  the safety floor expired — the floor silently became the cadence (measured 30.0s,
+  30.0s, 30.0s). Keep the acceleration sum modest for the same reason. The charge
+  grants suppression immunity only (`js/shooting.js`); prone is deliberately NOT
+  exempted, so rifles still matter against it.
+- `iardito` (Arditi) — the mirror of the sapper: hunts the PLAYER's emplacements
+  and plants a charge. It's a `scheduleShell` on a fuse, not an immediate
+  `explode`, because explode is side-blind and would kill him too; the fuse is also
+  the player's warning to walk men clear.
+- `il3` (L3 Lf) — the only flame-throwing armour anywhere, via the `tankFlame`
+  spec. Note its acquisition in `tankTargets` is deliberately **not** cone-gated:
+  a tankette closes to ~90px, where its own lateral drift swings the target outside
+  a 0.30 arc, and the turret only traverses toward a target it can't see until it
+  has traversed — it deadlocked, halted at 91px doing nothing, until that was fixed.
+
+Wave spawning routes through `itaWaveComposition` and `ITA_SPECIAL_WAVES`; the
+roster splits into DIGGERS (garrison the works) and CHARGERS (exist for the surge),
+and the charger share climbs from 0% at wave 5 to ~47% by wave 45. Art is
+`js/render-italian.js` (`paintItalianSoldier`), whose variant dispatch is keyed on
+silhouettes via the `IT_ART` map, so a new type that looks like an existing one
+costs one line. `TEST.works()` and `TEST.state().it` are the inspection surface.
+
+The **Treno Armato** (`itrain`) is the Italian wave-100 boss — an armored war
+train (`spawnItalianBoss`, hooked in `spawnSpecialWave` beside the other three,
+`w/100 ×` HP on each return). It rolls straight down a rail lane (`e.laneX`,
+drawn ahead of it all the way to the stop — the telegraph) and **parks at
+`TRAIN_STOP_Y`**; it never breaches (skip in update.js's breach loop, like the
+ship and the mass). The **third multi-actor boss**, on the Progenitor's HP rule,
+which is the thing to get right: an engine parent (`itaBoss` — the whole boss
+pool, killing it fires `bossVictory()`) plus seven `trainPart` children that
+**each own their HP** — two `ittur` turret wagons (Yamato-battery clones firing
+`scheduleShell`, traverse wedge off straight-down so they can't fire back up
+their own train), one `itwag` infantry boxcar (unloads `TRAIN_DROP_POOL` squads
+on a cadence — the fight's economy, killing it stops the tap), and four `itmg`
+gun posts on the gun wagon, two per side at `±TRAIN_MG_B` (NOT `tank`, so small
+arms have a job; the flatcar itself is scenery, not an actor). No shared pool
+anywhere → no de-dupe clause in `explode`/`flameSpray`, and adding one would be
+a bug. No damage control: dead wagons stay COUPLED as hulks (`syncTrainParts`
+repositions dead parts on purpose, unlike hers). One pool drawn as
+`TRAIN_SEGMENTS` (3) bars, polled with a `while` in `updateWarTrain`; each
+break runs `trainSoundsCharge`, which arms the SAME `G.itCharge` signed clock
+the ambient AVANTI runs (telegraph included) rather than firing a charge of its
+own, and pushes `G.itAvantiCd` back so the field doesn't owe a second charge
+right after. It crushes the player's emplacements on its lane while rolling
+(`trainCrush` — `G.itWorks` deliberately spared). The wagons carry `tank:true`,
+so the `trainPart` bare return in `updateEnemy` is load-bearing (updateTank
+would drive them off the rails). Tuning is the `TRAIN_` block in
+`js/constants.js`; art is `js/render-train.js` (`paintTrainEngine` is PURE, for
+the codex portrait; `drawWarTrainPass` runs before the enemy loop).
+`deploy('itrain', …)` works — parts are built lazily by `initWarTrain` on the
+first tick — and `TEST.state().enemies` counts/HP are inflated by parts here
+too: 8 actors per train. `bossVictoryCopy` has an `'it'` branch; the German
+branch remains the unguarded fallthrough for any FIFTH faction.
 
 `deploy`/`spawnEnemy` accept off-field coords (they don't block) but return
 `offField: true` with a `warning` when a positional placement lands outside the

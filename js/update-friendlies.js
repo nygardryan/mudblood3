@@ -75,8 +75,19 @@ function ammoCrateRofMult(u) {
 // crews buttoned up in a vehicle or tank don't get the spotter's call either —
 // only the ammo crate (a resupply) helps armor. an engineer-fortified tower
 // (t.up) sees further and boosts the effect further.
+// The Italian half of the same idea: a man up one of THEIR watch towers sees
+// just as far. Read straight off his garrison link, so it costs nothing — the
+// player-side version below has to scan every tower on the field.
+function italianTowerRangeMult(u) {
+  if (!u.garrisoned || u.t.mortar || u.t.tank || u.t.vehicle) return 1;
+  const w = u.garrison;
+  if (!w || w.kind !== 'watchtower' || w.hp <= 0) return 1;
+  return IT_WORK_KINDS.watchtower.rangeMult[w.up2 ? 2 : w.up ? 1 : 0];
+}
+
 function watchtowerRangeMult(u) {
-  if (u.side !== 'us' || u.t.mortar || u.t.tank || u.t.vehicle || !G.watchtowers.length) return 1;
+  if (u.side !== 'us') return italianTowerRangeMult(u);
+  if (u.t.mortar || u.t.tank || u.t.vehicle || !G.watchtowers.length) return 1;
   let mult = 1;
   for (const wt of G.watchtowers) {
     if (dist2(wt, u) < WATCHTOWER_AURA * WATCHTOWER_AURA) {
@@ -822,7 +833,14 @@ function tankTargets(a) {
   if (eflame) {
     const flameRange = unitRange(a, eflame.range) * fog;
     return {
-      cannon: nearestUnitInRange(a, flameRange, inCone),
+      // Acquisition here is deliberately NOT cone-gated, unlike every other slot.
+      // A flame tankette closes to ~90px, and at that range its own lateral drift
+      // swings a target outside a 0.30 arc — which deadlocks it, because the
+      // turret only traverses toward a target it cannot see until it has already
+      // traversed. Measured: it halted at 91px and sat there indefinitely with a
+      // rifleman in front of it. The hull turns onto what it is closing on; the
+      // spray arc in flameSpray still decides who actually burns.
+      cannon: nearestUnitInRange(a, flameRange),
       mg: nearestUnitInRange(a, mgRange, u2 => !u2.t.tank && inCone(u2)),
     };
   }

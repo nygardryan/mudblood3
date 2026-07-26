@@ -761,7 +761,7 @@ function yamatoLandingParty(e) {
   showBanner('YAMATO PUTS THE NAVAL INFANTRY ASHORE!');
   SFX.event();
   const tier = Math.max(1, G.wave / 10);
-  const count = Math.floor(specialWaveMult(tier) * 6);
+  const count = Math.floor(specialWaveMult(tier) * YAM_LAND_MULT);
   const ch = Math.cos(e.heading), sh = Math.sin(e.heading);
   for (let i = 0; i < count; i++) {
     // spill out of the hull along the keel, alternating sides

@@ -321,23 +321,27 @@ const YAM_SHELL_COUNT = 3, YAM_SHELL_GAP = 0.22;   // three guns ripple, not a s
 // damage to the player and her four gun tubs did 142. The salvo IS the fight, and
 // the tubs and her suppression were never the problem.
 //
-// So the shell budget is now ~17 dmg/s against ~152 at the first pass, a 9x cut.
-// She has to be a siege, not a lawnmower: a salvo should wound and scatter a line
-// — leaving work for a medic — not delete it, because a line that dies in the
-// first minute can never put the damage into her that the fight is priced around.
+// The shell budget is now ~32 dmg/s against ~152 at the first pass. She has to be
+// a siege, not a lawnmower: a salvo should wound and scatter a line — leaving work
+// for a medic — not delete it, because a line that dies in the first minute can
+// never put the damage into her that the fight is priced around.
 //
 // Worth knowing while tuning these: cover does NOT answer her. coverBlock is only
 // consulted in fireShot, so sandbags and bunkers do nothing against blast — the
 // only mitigations her shelling has are men going prone (x0.5 in explode's
 // hitArea), flak armor, and a medic. That makes shell output an unusually blunt
-// dial, and it is why it came down this far rather than her HP going up.
-const YAM_SHELL_DMG = 50;
+// dial: it moves the fight faster than any other number here, so change it in
+// small steps and re-measure, and prefer moving her HP if you want a longer fight.
+const YAM_SHELL_DMG = 75;
 const YAM_SHELL_R = 44;
 const YAM_SHELL_FLIGHT = 1.5, YAM_SHELL_SCATTER = 34;
 const YAM_TURRET_ROF = 14, YAM_TURRET_TRACK = 0.22;
 const YAM_TURRET_ARC = 1.35;         // traverse wedge off the beam — she can't fire through herself
 const YAM_TURRET_FIRE_TOL = 0.14;    // laid on target within this and the battery speaks
 const YAM_MG_ARC = 1.05;             // ~60° broadside cone per mount
+// Landing parties come ashore in real strength — this multiplier is the fight's
+// economy, since killing escorts is what funds the artillery that kills her.
+const YAM_LAND_MULT = 24;
 const YAM_LAND_CD_MIN = 22, YAM_LAND_CD_MAX = 32;
 const YAM_LAND_POOL = ['jsmg', 'jsmg', 'jbanzai', 'jbanzai', 'jflame', 'joff'];
 // Fast, because the fight has a tipping point: the moment the player strips her
@@ -689,7 +693,10 @@ Object.assign(ENEMY_TYPES, {
     // high priority here quietly gets snipers picking off the gun crews.
     // Stats live on the type (not in an mg:{} spec) so runWeapon can drive it,
     // which is what buys bursts AND suppressArea pinning.
-    name: 'Yamato — Gun Tub', hp: YAM_MG_HP, speed: 0, range: 190, dmg: 9, acc: 0.42,
+    // range 247: reaches ~90px past the deploy line from the near edge of her
+    // patrol band, so the tubs engage a line standing where a line normally stands
+    // instead of only punishing men who push up
+    name: 'Yamato — Gun Tub', hp: YAM_MG_HP, speed: 0, range: 247, dmg: 9, acc: 0.42,
     rof: 0.95, burst: 7, burstGap: 0.09, reward: 14,
     color: '#6b6a3c', gun: 9, sfx: 'mg', priority: 4, sup: true,
     shipPart: true, shipMg: true, fixed: true, noRamp: true, faction: 'jp',

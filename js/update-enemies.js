@@ -55,6 +55,14 @@ function updateEnemy(e, dt) {
   // throws in updateTankCombat on an mg spec they don't have.
   if (e.t.ship) { updateYamato(e, dt); return; }
   if (e.t.shipPart) return;
+  // The Progenitor is the same shape of thing: its own machine, and its five pus
+  // modules run NOTHING here — they're positioned and fired from updateProgenitor.
+  // The bare return matters for the same reason as the ship parts', if for a
+  // different weapon: a pod carries a `spit` spec, so falling through would hand
+  // it to updateSpitter, which walks it off the boss on `advance` the moment
+  // nothing is in bile range.
+  if (e.t.hordeBoss) { updateProgenitor(e, dt); return; }
+  if (e.t.bossPart) return;
 
   // Shell Shocked: dazed by a mortar hit — no shooting, no advancing, and it
   // overrides prone recovery so the daze runs its full second first
@@ -1062,6 +1070,226 @@ function zombieFrenzyCommand(e, dt) {
     G.texts.push({ x: e.x, y: e.y - 24, text: 'SKREEE!', ttl: 1.6, color: '#c8e08a' });
     // a visible shockwave ring rolling out from the shriek
     G.flashes.push({ x: e.x, y: e.y, r: FRENZY_CMD_RADIUS, ttl: 0.5, max: 0.5, kind: 'ring', color: '#b6e88a' });
+  }
+}
+
+// ---- The Progenitor: the Horde's wave-100 boss ------------------------------
+// Tuning lives in the PROG_ block in constants.js. It is a CORE actor plus five
+// child pod actors, all real entries in G.enemies, repositioned from the core
+// every tick — the pattern the Yamato introduced, with one deliberate difference
+// spelled out in that constants block: her belt is five actors on ONE pool,
+// while every pod here owns its HP. That is why nothing in explode() or
+// flameSpray needed a clause for this boss.
+//
+// The pods are driven ONLY from here — updateEnemy gives them a bare return,
+// because they carry a `spit` spec and would otherwise be handed to
+// updateSpitter, which walks them off the boss the moment bile range is empty.
+
+// lazy init on the first update tick, so the wave-100 hook and a bare
+// TEST.deploy('zprogen', ...) build an identical boss down the same code path
+function initProgenitor(e) {
+  e.progInit = true;
+  e.phase = 0;                  // health segments broken so far (0..PROG_SEGMENTS-1)
+  e.pods = [];
+  e.spawnCd = rand(PROG_SPAWN_CD_MIN, PROG_SPAWN_CD_MAX);
+  e.devourCd = 0;
+  for (const ang of PROG_POD_ANGLES) {
+    const p = makeEnemy('zpod', e.x, e.y, 'zo');
+    p.pOff = ang;
+    p.bossOf = e;
+    p.spitCd = rand(PROG_POD_SPIT.cdMin, PROG_POD_SPIT.cdMax);
+    e.pods.push(p);
+    // BOTH lists, always: e.pods is what drives and draws it, G.enemies is what
+    // makes it shootable. A pod in only the first would spit bile from an
+    // invulnerable sac.
+    G.enemies.push(p);
+  }
+  syncProgenitorPods(e);
+}
+
+// the single source of truth for pod positions. World-frame fan, NOT rotated by
+// e.face: every PROG_POD_ANGLES entry has sin > 0, so the sacs always sit on the
+// down-field side between the mass and the player's line, which is what makes
+// raw-distance target scans pick them first (see the PROG_POD_R comment).
+function syncProgenitorPods(e) {
+  for (const p of e.pods) {
+    // compactInPlace splices dead actors out of G.enemies while e.pods keeps the
+    // stale reference — same trap the Yamato's part sync steps around
+    if (p.dead) continue;
+    p.x = e.x + Math.cos(p.pOff) * PROG_POD_R;
+    p.y = e.y + Math.sin(p.pOff) * PROG_POD_R;
+  }
+}
+
+// a pod is a Spitter that can't walk: same spec, same fireBile, same bileBurst
+// off G.biles in update.js. No min range — the sacs are the boss's close defence
+// as much as its artillery.
+function updateProgenitorPod(boss, p, dt) {
+  const sp = p.t.spit;
+  const target = nearestUnitInRange(p, unitRange(p, sp.range) * fogMult());
+  if (!target) return;
+  p.face = Math.atan2(target.y - p.y, target.x - p.x);
+  p.spitCd -= dt;
+  if (p.spitCd <= 0) {
+    p.spitCd = rand(sp.cdMin, sp.cdMax);
+    p.spitT = 0.3;              // render tell: the sac swells before it lets go
+    fireBile(p, target, sp);
+  }
+}
+
+// the mass splits open and vomits a brood of PROG_SPAWN_MIN..PROG_SPAWN_MAX.
+//
+// The size is drawn against a ceiling that climbs with the boss's RETURN COUNT
+// (G.wave / PROG_WAVE_INTERVAL — 1 at wave 100, 2 at 200), which is the only
+// thing about a boss that actually escalates; its HP scales on the same number.
+// specialWaveMult is deliberately NOT used here even though both other bosses
+// reach for it: it is a per-batch spawn DAMPER that only ever shrinks with wave
+// depth (0.78 -> 0.60 floor), so multiplying a small base by it pinned every
+// brood to exactly PROG_SPAWN_MIN forever, at every wave and every difficulty.
+function progenitorBirth(e) {
+  const ret = clamp(G.wave / PROG_WAVE_INTERVAL, 1, 4);
+  const peak = clamp(Math.round(12 + (PROG_SPAWN_MAX - 12) * ((ret - 1) / 3)),
+    PROG_SPAWN_MIN, PROG_SPAWN_MAX);
+  const n = randi(PROG_SPAWN_MIN, peak);
+  showBanner('THE PROGENITOR SPLITS OPEN!');
+  SFX.scream();
+  addShake(3);
+  for (let i = 0; i < n; i++) {
+    spawnEnemyAt(pick(PROG_SPAWN_POOL), e.x + rand(-34, 34),
+      clamp(e.y + rand(-20, 26), 20, PROG_SAFE_Y));
+  }
+  // afterbirth: a wet spray around the split
+  for (let i = 0; i < 18; i++) {
+    const ang = rand(0, Math.PI * 2), s = rand(30, 110);
+    G.particles.push({
+      x: e.x, y: e.y, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s * 0.6 - 24,
+      ttl: rand(0.4, 0.9), grav: 90, size: rand(2, 4),
+      color: pick(['#8fe06a', '#6fae44', '#7a2020', '#a33']),
+    });
+  }
+}
+
+// contact is a swallow, not a bite. Routed through damageUnit rather than setting
+// u.dead so the whole death path still runs — card beforeDeath saves, the recap,
+// the selection splice, the corpse, and the infected short-circuit that sends a
+// bitten man to reanimateAsUndead instead. purgeRadius already kills this way.
+// The corpse matters twice over: it is what the next segment break raises.
+// It heals the boss NOTHING — e.hp is never touched here, by design.
+function progenitorDevour(e, u) {
+  u.gib = true;               // spawnCorpse reads this and tears the body up
+  G.texts.push({ x: u.x, y: u.y - 22, text: 'DEVOURED', ttl: 1.5, color: '#c8402c' });
+  bloodSplat(u.x, u.y, 16);
+  addShake(3);
+  SFX.scream();
+  for (let i = 0; i < 12; i++) {
+    const ang = rand(0, Math.PI * 2), s = rand(20, 80);
+    G.particles.push({
+      x: u.x, y: u.y, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s * 0.6 - 20,
+      ttl: rand(0.3, 0.7), grav: 90, size: rand(1.8, 3.4),
+      color: pick(['#7a2020', '#a33', '#c22030']),
+    });
+  }
+  damageUnit(u, PROG_DEVOUR_DMG, e, null);   // null kind: bypasses body/flak armor
+}
+
+// a segment breaks and the field stands back up. G.corpses is the ONLY surviving
+// record of the dead — the actors themselves were spliced out of G.units/G.enemies
+// by compactInPlace the frame they fell — so this reads the corpse list directly.
+// It deliberately does NOT filter on side or nation: the horde's own dead and the
+// player's fallen men rise alike, which is the whole point of the ability.
+//
+// Note what never reaches G.corpses and so can never be raised: an infected
+// defender (damage.js short-circuits him into reanimateAsUndead), a Bloater, and
+// anything with an engine. So the pool is honestly "men who died clean", and this
+// scales with how bloody the fight has been rather than with the kill count.
+function progenitorResurrection(e) {
+  showBanner('THE PROGENITOR CALLS THE DEAD BACK UP!');
+  SFX.event();
+  addShake(6);
+  G.flashes.push({ x: e.x, y: e.y, r: PROG_RAISE_R, ttl: 0.7, max: 0.7,
+    kind: 'ring', color: '#8fe06a' });
+  const r2 = PROG_RAISE_R * PROG_RAISE_R;
+  let risen = 0;
+  for (const cp of G.corpses) {
+    if (risen >= PROG_RAISE_CAP) break;
+    if (cp.ttl <= 0) continue;
+    const dx = cp.x - e.x, dy = cp.y - e.y;
+    if (dx * dx + dy * dy > r2) continue;
+    cp.ttl = 0;                 // consumed; update.js sweeps it. Nothing rises twice.
+    // makeEnemy + push, not spawnEnemyAt: risen dead don't get a fresh armor roll.
+    // Mirrors reanimateAsUndead, including its light/heavy rule — evaluated back
+    // in spawnCorpse while the man's type still existed, and carried on cp.light.
+    const z = makeEnemy(cp.light ? 'zrunner' : 'zshambler', cp.x, cp.y);
+    z.reanimated = true;
+    G.enemies.push(z);
+    risen++;
+    addGroundMark({ type: 'blood', x: cp.x, y: cp.y, r: 9, rot1: rand(0, 3), rot2: rand(0, 3) });
+    for (let i = 0; i < 6; i++) {
+      G.particles.push({
+        x: cp.x + rand(-5, 5), y: cp.y + rand(-5, 5), vx: rand(-24, 24), vy: rand(-50, -12),
+        ttl: rand(0.4, 0.9), grav: 60, size: rand(1.6, 3),
+        color: pick(['#8fe06a', '#6fae44', '#5a4a32']),
+      });
+    }
+  }
+  G.texts.push({ x: e.x, y: e.y - 34, text: 'RISEN ×' + risen, ttl: 2.2, color: '#9fe06a' });
+}
+
+function updateProgenitor(e, dt) {
+  if (!e.progInit) initProgenitor(e);
+  zombieGroan(e, dt);
+
+  // ONE HP pool drawn as PROG_SEGMENTS bars. Polled here rather than hooked into
+  // damageEnemy, so this is robust to every damage source — bullet, blast, flame,
+  // melee, shrapnel, mines — without auditing any of them; the one-frame delay is
+  // invisible. A WHILE, not an IF: a single big hit can empty more than one
+  // segment and each crossing owes its own resurrection. The double-fire is
+  // self-limiting — the first pass sets every corpse in radius to ttl 0, so the
+  // second finds an empty field and raises nothing. The phase guard stops at the
+  // last segment: emptying THAT one is death, not an ability.
+  while (e.phase < PROG_SEGMENTS - 1
+      && e.hp <= e.maxhp * (1 - (e.phase + 1) / PROG_SEGMENTS)) {
+    e.phase++;
+    progenitorResurrection(e);
+  }
+
+  e.spawnCd -= dt;
+  if (e.spawnCd <= 0) {
+    e.spawnCd = rand(PROG_SPAWN_CD_MIN, PROG_SPAWN_CD_MAX);
+    progenitorBirth(e);
+  }
+
+  if (e.devourCd > 0) e.devourCd -= dt;
+
+  // It swallows men, not machines: a blob digesting a Sherman would read as a bug,
+  // and damageUnit(tank, 99999) would run stampWreck + explode. Armor isn't immune,
+  // it just isn't food — anything armored in reach gets mauled instead.
+  const edible = (u) => !(u.t.tank || u.t.vehicle || u.t.apc || u.t.gunEmplacement);
+  // the throttled scan: this runs every frame, so never nearestUnitInRange here
+  const target = primaryUnitTarget(e, 4000);
+  if (!target) {
+    advance(e, dt, false);
+  } else if (dist(e, target) > PROG_DEVOUR_REACH) {
+    // NOTE: e.chargeT is deliberately never read. A Screamer's frenzy will still
+    // set it on the core (it has no `fixed` flag, so isZombie accepts it), and
+    // honouring it would let the boss sprint — which breaks the one hard promise
+    // of this fight, that a player can always walk away from it.
+    pursuePoint(e, target.x, target.y, PROG_SPEED, dt);
+  } else if (e.devourCd <= 0) {
+    e.devourCd = PROG_DEVOUR_CD;
+    e.face = Math.atan2(target.y - e.y, target.x - e.x);
+    e.slashT = 0.3;
+    if (edible(target)) progenitorDevour(e, target);
+    else zombieBite(e, target);
+  }
+
+  // pursuePoint has no bottom clamp (chargers breach) — this thing never does
+  e.y = Math.min(e.y, PROG_SAFE_Y);
+  e.x = clamp(e.x, 20, W - 20);
+
+  syncProgenitorPods(e);
+  for (const p of e.pods) {
+    if (!p.dead) updateProgenitorPod(e, p, dt);
   }
 }
 

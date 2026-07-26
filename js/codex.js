@@ -30,6 +30,7 @@ const CODEX_CODE = {
   joff: 'OFF', jflame: 'FLM', jhago: 'HGO', jtank: 'CHI', jchinu: 'CHN', jyamato: 'YMT',
   zshambler: 'SHM', zrunner: 'RUN', zcrawler: 'CRW', zhound: 'HND', zbrute: 'BRT',
   zspitter: 'SPT', zbloater: 'BLT', zscreamer: 'SCR', zrevenant: 'REV', zabom: 'ABM',
+  zprogen: 'PRG', zpod: 'POD',
   wire: 'WIR', sandbags: 'SBG', dummy: 'DMY', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
   ammocrate: 'AMM', mine: 'MIN', mortar: 'MST', artillery: 'ART',
   fog: 'FOG', fng: 'FNG', airraid: 'RAD', paradrop: 'PAR', airstrike: 'P47', special: 'SPC',
@@ -483,6 +484,14 @@ function renderPortrait(typeKey, side) {
       ctx.scale(0.21, 0.21);
       ctx.rotate(Math.PI);   // bow to the left, so she reads bow-on like the rest
       paintYamatoHull(ctx, actor);
+      ctx.restore();
+    } else if (t.hordeBoss) {
+      // the mass only, and via the PURE painter — drawProgenitor reads actor.pods,
+      // which a bare makeEnemy() here doesn't have. Same situation as the ship.
+      ctx.save();
+      ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 4);
+      ctx.scale(0.85, 0.85);
+      paintProgenitorBody(ctx, actor);
       ctx.restore();
     } else if (t.tank) {
       ctx.save();
@@ -1004,7 +1013,8 @@ function codexEntries(tab) {
     // the Yamato's belt sections, batteries and gun tubs are all real ENEMY_TYPES
     // entries, but they're parts of her — not foes in their own right, and three
     // extra cards would just clutter the roster
-    return Object.entries(ENEMY_TYPES).filter(([, t]) => !t.shipPart).map(([key, t]) => {
+    // (and the Progenitor's pus modules, for the same reason)
+    return Object.entries(ENEMY_TYPES).filter(([, t]) => !t.shipPart && !t.bossPart).map(([key, t]) => {
       const parts = [`${t.hp} HP`, `${t.reward} TP REWARD`];
       if (t.dmg > 0) parts.splice(1, 0, `${t.dmg} DMG`);
       if (t.range > 0) parts.splice(t.dmg > 0 ? 2 : 1, 0, `${t.range} RNG`);

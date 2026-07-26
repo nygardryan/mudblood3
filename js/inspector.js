@@ -40,6 +40,10 @@ function actorHitRadius(a) {
   // 34 for the Yamato: her hitboxes are 62px apart, and 26 would leave gaps
   // between them that the hover would fall straight through
   if (a.t.shipPart || a.t.ship) return 34;
+  // the Progenitor's mass is ~26px of body; its sacs are small and ring it, so
+  // they get a tight radius or they'd swallow every click meant for the core
+  if (a.t.hordeBoss) return 30;
+  if (a.t.bossPart) return 12;
   return a.t.tank ? 26 : a.t.vehicle ? 20 : a.t.gunEmplacement ? 18 : 14;
 }
 

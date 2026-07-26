@@ -79,6 +79,13 @@ function spawnCorpse(a) {
     side: a.side, nation: a.nation, ttl: CORPSE_TTL,
     // muted base tunic tint drawn from the living unit, darkened toward the dirt
     col: (a.t && a.t.color) || (us ? '#4f6a3a' : '#565d67'),
+    // The Progenitor raises the dead straight off G.corpses, and by then the
+    // actor is long gone — compactInPlace splices it out the same frame it falls.
+    // reanimateAsUndead's light/heavy rule reads t.speed and maxhp, so it has to
+    // be evaluated HERE, while they still exist, and carried on the record. One
+    // boolean, one source of truth; an old corpse without it reads false and
+    // shambles, which is the safe default.
+    light: !!(a.t && (a.t.speed >= 34 || a.maxhp <= 90)),
     pose: randi(0, CORPSE_POSES.length - 1),
     // grab-bag of randoms; each pose reads whichever it needs
     arm1: rand(-0.9, -0.3), arm2: rand(0.3, 1.1),
@@ -551,7 +558,7 @@ function damageUnit(u, dmg, from, kind) {
       } else if (u.t.gunEmplacement) {
         stampATGunWreck(u);
         explode(u.x, u.y, 26, 35, false);
-      } else if (u.infected > 0 && G.enemyFaction === 'zo') {
+      } else if (u.infected > 0) {
         // a man lost while infected doesn't stay down — he rises against his line
         reanimateAsUndead(u);
       } else {
@@ -682,6 +689,22 @@ function damageEnemy(e, dmg, from, kind) {
       if (spi !== -1) G.selected.splice(spi, 1);
       return;
     }
+    // A pus module bursting is the same kind of event as a gun tub going quiet:
+    // it pays TP and credits the shooter, but it is not a man — no kill count, no
+    // recap, no corpse. Early return for the same reason, so the vehicle chain
+    // below never has to be re-audited for it. It vents rather than explodes: the
+    // sac is full of the same infectious bile it was spitting, so bursting one at
+    // close range costs the man who did it.
+    if (e.t.bossPart) {
+      earnTP(e.t.reward);
+      creditKill(from);
+      G.texts.push({ x: e.x, y: e.y - 20, text: 'POD BURST', ttl: 1.4, color: '#b6e88a' });
+      const sp = e.t.spit;
+      if (sp) bileBurst(e.x, e.y, sp.r * 0.8, sp.dmg * 0.8, sp.infect, e);
+      const bpi = G.selected.indexOf(e);
+      if (bpi !== -1) G.selected.splice(bpi, 1);
+      return;
+    }
     G.kills++;
     earnTP(e.t.reward);
     creditKill(from);
@@ -698,6 +721,20 @@ function damageEnemy(e, dmg, from, kind) {
       }
       stampWreck(e);
       explode(e.x, e.y, 70, 90, true);
+    } else if (e.t.hordeBoss) {
+      // the mass comes apart. Its pods are killed DIRECTLY and their bile vented
+      // by hand rather than by routing back through damageEnemy: this block IS
+      // the enemy death path, so re-entering it would recurse. Same reasoning as
+      // the ship above, and the reason neither uses explode() here.
+      for (const p of (e.pods || [])) {
+        if (p.dead) continue;
+        p.dead = true;
+        const sp = p.t.spit;
+        if (sp) bileBurst(p.x, p.y, sp.r * 0.8, sp.dmg * 0.8, sp.infect, e);
+      }
+      bloodSplat(e.x, e.y, 30);
+      addGroundMark({ type: 'blood', x: e.x, y: e.y, r: 46, rot1: rand(0, 3), rot2: rand(0, 3) });
+      explode(e.x, e.y, 50, 40, true);
     } else if (e.t.tank) {
       stampWreck(e);
       explode(e.x, e.y, 50, 60, true);
@@ -729,7 +766,7 @@ function damageEnemy(e, dmg, from, kind) {
     if (si !== -1) G.selected.splice(si, 1);
     // the boss falling is a victory: freeze the field and offer the choice
     // to take the win or fight on (flow.js)
-    if (e.t.germanBoss || e.t.japBoss) bossVictory();
+    if (e.t.germanBoss || e.t.japBoss || e.t.hordeBoss) bossVictory();
   }
   if (dmg >= 3) tryGoProne(e, 0.65);
   // Shell Shocked: a surviving enemy hit by a mortarman is dazed for a beat

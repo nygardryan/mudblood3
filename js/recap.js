@@ -70,7 +70,7 @@ function recapUnitLost(u, from) {
       kills: u.recKills || 0,
       healed: u.healed || 0,
       wave: G.wave,
-      turned: !!(u.infected > 0 && G.enemyFaction === 'zo'),
+      turned: u.infected > 0,
     });
   }
 }
@@ -193,7 +193,7 @@ function recapRemark(r, won, totals) {
   const spk = totals.kills > 0 ? r.shotsFired / totals.kills : 0;
   if (totals.kills === 0) return 'No confirmed kills. The report is short because the battle was.';
   if (totals.lost === 0 && totals.kills >= 20) return 'Not one man lost. The quartermaster wants to know how.';
-  if (G.enemyFaction === 'zo' && totals.turned > 0) {
+  if (totals.turned > 0) {
     return totals.turned === 1
       ? 'One name on this roll finished the battle on the other side of it.'
       : `${totals.turned} names on this roll finished the battle on the other side of it.`;

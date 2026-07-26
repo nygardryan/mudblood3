@@ -262,8 +262,9 @@ const BOSS_LOITER_TIME = 4;          // shots left but no target: wait, then fal
 const YAM_WAVE_INTERVAL = 100;       // arrives at wave 100, 200, 300... (mirrors the eboss)
 const YAM_LEN = 300, YAM_HALF_BEAM = 23;
 const YAM_SPR_W = 320, YAM_SPR_H = 104;   // hull bitmap footprint; makeSprite clips outside it
-// Priced off a measurement, not an estimate, and anchored to Der Schlächter's 9000
-// — a number this game has already proven. The paper figure said a strong line puts
+// Priced off a measurement, not an estimate, and originally anchored to Der
+// Schlächter's then-9000 (he has since been cut to 3150; her number stands on the
+// measurement below, not on his). The paper figure said a strong line puts
 // ~206 dps into her; measured, it is ~65, because that estimate quietly assumed
 // every weapon was in range and still alive. Most of a line's nominal damage is
 // riflemen doing x0.04 to an armor belt, and the few heavy weapons that actually
@@ -351,6 +352,102 @@ const YAM_LAND_POOL = ['jsmg', 'jsmg', 'jbanzai', 'jbanzai', 'jflame', 'joff'];
 // a window rather than settling the matter.
 const YAM_REPAIR_CD_MIN = 12, YAM_REPAIR_CD_MAX = 18;
 const YAM_REPAIR_FRAC = 0.55;        // damage control brings a part back part-worn, not new
+
+// ---- The Progenitor: the Horde's wave-100 boss ------------------------------
+// A slab of fused flesh the size of a bunker, crawling down the field with five
+// pus modules swollen out of its hide. It is the SECOND multi-actor boss and the
+// second consumer of the parent+parts pattern the Yamato introduced: a core
+// actor plus five child pod actors, all real entries in G.enemies, repositioned
+// from the core every tick by syncProgenitorPods.
+//
+// The difference from the Yamato is the whole reason the tuning below looks
+// nothing like hers, and it is the single easiest thing to get backwards:
+// her armor belt is FIVE ACTORS SHARING ONE HP POOL, which is why explode()
+// de-dupes it and flameSpray scales it to x0.06. Both of those fixes are about a
+// SHARED POOL, not about parts. Every Progenitor pod owns its HP — like her
+// turrets and gun tubs, which are deliberately NOT de-duped — so neither fix
+// applies here and neither file needs a clause for this boss. A shell landing in
+// the cluster legitimately hits the core once and each pod once, into six
+// independent pools; that is the reward for shelling it. If the core turns out
+// to melt too fast, move PROG_HP, never the flame multiplier — otherwise flamers
+// become the anti-boss weapon by accident, which is the exact bug that line in
+// shooting.js was written to fix.
+const PROG_WAVE_INTERVAL = 100;
+// Sits between Der Schlächter (3150 plus 240+180 of self-plated armor he refits
+// on every rally) and the Yamato (14000, but behind tank scaling that puts small
+// arms at x0.04 — so her real pool against a rifle line is enormous). The
+// Progenitor is soft flesh: no armor roll, no tank flag, so a rifle line's
+// NOMINAL dps is very close to its real dps here, and the raw number has to carry
+// the whole fight on its own. Counting the five 260-HP sacs the player also has
+// to chew through, its true pool is ~7300.
+// MEASURED, as artillery strikes centred on a parked boss with no brood pressure:
+//   Yamato   14000 HP, ~1097/strike (the x2.2 tank multiplier) -> 10 strikes
+//   this at   6000 HP,   ~275/strike                           -> 21 strikes
+//   this at   3500 HP                                          -> 10 strikes
+// 6000 made a sack of flesh twice the artillery grind of an actual battleship on
+// 43% of her HP. 3500 puts it level with her and just above Der Schlächter's
+// 3150 — and its TRUE pool is 4800, since the player also has to chew through
+// five 260-HP sacs to shut the bile off.
+// If the fight needs moving again, move THIS. See the flame note above for the
+// one knob not to reach for instead.
+const PROG_HP = 3500;
+const PROG_SEGMENTS = 3;             // ONE pool, drawn as three bars (see drawProgenitorOverlays)
+// Requirement, not flavour: the player must always be able to walk away from it.
+// Rifleman 42, medic 46, Sherman 14, the Abomination 9 — at 7 it is the slowest
+// thing on the field and repositioning is always an answer to it.
+const PROG_SPEED = 7;
+const PROG_SAFE_Y = H - 80;          // hard clamp, mirrors BOSS_SAFE_Y: it can never breach
+// NOTE: it deliberately carries NO blastResist. A 0.25 was tried and removed: the
+// brood screens the mass so completely that small arms almost never reach it (a
+// 20-man line fired for 55s and took it to 97.5%), which makes explosives the one
+// counter that lands — and the Yamato, actual naval armor, gets a x2.2 blast
+// MULTIPLIER from the tank branch in explode(). Taxing blast on a sack of soft
+// flesh was both backwards thematically and a tax on the only workable answer.
+
+// The maw. Contact is not a bite, it is a swallow: PROG_DEVOUR_DMG goes through
+// damageUnit (the route purgeRadius already takes) rather than setting u.dead, so
+// card beforeDeath hooks, the recap, the selection splice, the corpse and the
+// infected short-circuit all still run. It heals the boss NOTHING — its HP is the
+// fight's clock and a swallow must not rewind it.
+const PROG_DEVOUR_REACH = 22;
+const PROG_DEVOUR_CD = 1.5;
+const PROG_DEVOUR_DMG = 99999;
+
+// Pus modules. PROG_POD_R is a MECHANIC, not decoration, for exactly the reason
+// YAM_MG_B is: every US target scan picks by RAW DISTANCE and nothing in the
+// engine can express "deprioritise this actor". The pods are fanned across the
+// DOWN-FIELD semicircle in world space (every angle has sin > 0) and deliberately
+// NOT rotated with the core's facing, so the two or three nearest a defender are
+// always closer than the core itself and small arms strip the pods before they
+// ever touch the mass. Set this to 0 and rifles shoot the core instead, and the
+// modules become undamageable decoration.
+const PROG_POD_HP = 260;
+// 34, not 26: the sacs are ~7.5px across and five of them across a 130° arc are
+// exactly touching at 26, which reads as a bunch of grapes rather than five
+// modules grown out of the hide. 34 also puts them clear of the 26px body edge
+// and a little nearer the player, which only sharpens the targeting behaviour
+// this offset exists for.
+const PROG_POD_R = 34;
+const PROG_POD_ANGLES = [0.14, 0.32, 0.5, 0.68, 0.86].map(a => a * Math.PI);
+// Same shape as the Spitter's `spit` spec, field for field and on purpose:
+// fireBile/bileBurst read it unchanged, so a pod is a Spitter that can't walk.
+const PROG_POD_SPIT = { range: 260, min: 0, cdMin: 4.0, cdMax: 6.5, r: 34,
+                        dmg: 24, flight: 1.3, scatter: 30, infect: 0.45 };
+
+// The birthing cycle: the mass splits open and vomits a brood. specialWaveMult
+// keeps it scaling on return visits, and the clamp is the design brief — never
+// fewer than 5, never more than 20, however deep the run is.
+const PROG_SPAWN_CD_MIN = 9, PROG_SPAWN_CD_MAX = 11;
+const PROG_SPAWN_MIN = 5, PROG_SPAWN_MAX = 20;
+const PROG_SPAWN_POOL = ['zshambler', 'zshambler', 'zrunner', 'zcrawler', 'zhound'];
+
+// Resurrection, fired when a health SEGMENT empties (at 2/3 and 1/3). Every
+// corpse inside the radius stands up — the horde's own dead AND the player's
+// fallen men alike, sorted by reanimateAsUndead's light/heavy rule. The cap is a
+// frame-rate and a fairness bound: a long grind can leave 100+ bodies lying on
+// the line, and raising all of them at once is neither survivable nor smooth.
+const PROG_RAISE_R = 200;
+const PROG_RAISE_CAP = 40;
 
 // both staked guns share a traverse cone, a crew that never goes prone, and
 // the engineer-repairs-but-medics-don't rule; this returns whichever spec a
@@ -494,13 +591,14 @@ const ENEMY_TYPES = {
   // "Der Schlächter" — the German final boss (see the BOSS_ block above for the
   // cycle tuning). The range/speed-never-exceeds-the-counterpart rule is waived:
   // he has no counterpart, and he's the exception the rule exists for.
-  // 9000 HP — ~6.4x a Panzer IV, and roughly a dozen advances against a good
-  // line. noRamp keeps enemyHpRamp from tripling it on hard. fireShot rolls dmg
+  // 3150 HP — ~2.2x a Panzer IV, a few advances against a good line. (Was 9000,
+  // cut 65%: a dozen advances read as a slog, not a set piece.)
+  // noRamp keeps enemyHpRamp from tripling it on hard. fireShot rolls dmg
   // 0.75-1.25, so 190 one-shots any infantryman on the roster;
   // revolver.armorDmg replaces the smallarms 0.04 tank scaling with a flat 490
   // (49% of a Sherman's 1000) per round on anything armored.
   eboss: {
-    name: 'Der Schlächter', hp: 9000, speed: 30, range: 120, dmg: 190, acc: 0.85,
+    name: 'Der Schlächter', hp: 3150, speed: 30, range: 120, dmg: 190, acc: 0.85,
     rof: 1.6, burst: 1, burstGap: 0, reward: 200,
     // gun 14: long enough that the barrel clears his greatcoat at the 1.35x
     // sprite scale — at 10 the revolver drew entirely under the coat ellipse
@@ -803,6 +901,40 @@ Object.assign(ENEMY_TYPES, {
     color: '#4f5a3a', gun: 8, sfx: 'scream', priority: 4, faction: 'zo',
     zombie: true, infect: 0.5, boss: true,
   },
+  zprogen: {
+    // The Progenitor: the horde's wave-100 boss and the thing every other corpse
+    // on the field came out of. A crawling mass that swallows men whole, births a
+    // brood every ten seconds, and calls the dead back up each time a third of it
+    // dies. Tuning lives in the PROG_ block above; AI in js/update-enemies.js.
+    //
+    // hordeBoss is the "killing this ends the fight" flag (mirror of germanBoss /
+    // japBoss); boss:true separately buys the prone/suppression/armor-roll
+    // exemptions every boss gets. NO zombie flag — that would route it to
+    // updateZombie before the dispatch ever reached updateProgenitor.
+    // `dmg` is the MAUL, not the swallow: men are devoured outright (no damage
+    // number involved), but armor and emplacements aren't food, so they get
+    // zombieBite'd with this instead. 0 here would make that branch a no-op.
+    name: 'The Progenitor', hp: PROG_HP, speed: PROG_SPEED, range: 0,
+    dmg: 90, acc: 0, rof: PROG_DEVOUR_CD, burst: 1, burstGap: 0, reward: 300,
+    color: '#4a5834', gun: 0, sfx: 'scream', priority: 5,
+    hordeBoss: true, boss: true, noRamp: true, faction: 'zo',
+  },
+  zpod: {
+    // A pus module: one of the five swollen sacs ringing the Progenitor. Its own
+    // HP pool, so shooting it off permanently cuts the boss's ranged output.
+    //
+    // bossPart is the child-actor flag (the equivalent of shipPart, kept separate
+    // so the Yamato's nine touchpoints keep meaning what their comments say).
+    // `fixed` earns the prone exemption and keeps pods out of isZombie, so a
+    // Screamer's frenzy can't rouse a sac — the same reason jymg carries it. No
+    // zombie flag: it would route them to updateZombie and it is what the +15%
+    // melee-horde HP pass below keys on.
+    name: 'Pus Module', hp: PROG_POD_HP, speed: 0, range: 0, dmg: 0, acc: 0,
+    rof: 1, burst: 1, burstGap: 0, reward: 12,
+    color: '#7d8a44', gun: 0, sfx: 'scream', priority: 4,
+    bossPart: true, fixed: true, noRamp: true, faction: 'zo',
+    spit: PROG_POD_SPIT,
+  },
 });
 
 // The dead don't tire: a flat HP bump across the melee horde (gunmen excluded) so
@@ -864,6 +996,8 @@ const ENEMY_INFO = {
   zscreamer: 'The horde\'s driving force. Its presence enrages the dead around it, and on a cadence it looses a scream that hurls every nearby zombie into a frenzied sprint. Kill it to slow the whole pack.',
   zrevenant: 'A reanimated Wehrmacht soldier that never let go of his Kar98 — the horde\'s only gunman. Undead hands aim poorly and it fires slowly, but a corpse that shoots back is a nasty surprise.',
   zabom: 'The Abomination — a towering mound of fused corpses, the horde\'s boss. Enormous HP, ground-shaking slow, a sweeping blow that flattens men and smashes emplacements, and near-certain infection on survivors. Burn it, shell it, or mine it.',
+  zprogen: 'The Progenitor — the mass the whole horde came out of, and the thing waiting at wave 100. It crawls slower than anything on the field and swallows whole any man it reaches. Five pus modules ring its hide, lobbing infectious bile; shoot them off and its reach dies with them. It splits open every few seconds to birth a fresh brood, and every time a third of it dies it calls every corpse nearby back onto its feet — yours included. Do not let bodies pile up around it.',
+  zpod: 'A pus module swollen out of the Progenitor\'s hide. Its own flesh, its own HP: burst it and that sac stops spitting bile for good. They sit between you and the mass, so rifles chew through them first.',
 };
 
 const EVENT_INFO = [
@@ -1092,6 +1226,10 @@ const TESTING_ZOMBIE_PLACEABLES = [
     desc: 'Reanimated soldier with a Kar98. The horde\'s only gunman — poor aim, slow fire.' },
   { key: 'zabom', label: 'ABOMINATION', cost: 90, kind: 'egerman', hotkey: '',
     desc: 'Boss mound of fused corpses. Enormous HP, smashes emplacements, near-certain infection.' },
+  // the core only — its five pus modules are built by initProgenitor on the first
+  // tick, so deploying the boss deploys the whole thing
+  { key: 'zprogen', label: 'PROGENITOR', cost: 300, kind: 'egerman', hotkey: '',
+    desc: 'The Horde final boss: a crawling mass that devours men, births broods, and raises the dead. Normally arrives at wave 100 — testing mode drags one in on demand.' },
 ];
 
 // ---- Infection: the Horde's signature mechanic. A zombie bite (and bile/gas

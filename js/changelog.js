@@ -3,6 +3,15 @@
 // Add a new object to the TOP of this array whenever you ship changes.
 const CHANGELOG = [
   {
+    date: '2026-07-26',
+    title: 'Testing Mode: HORDE Tab',
+    changes: [
+      'Added a HORDE tab to testing mode — spawn the full undead roster on demand, from shamblers up to the Progenitor.',
+      'Infection now works whenever something bites: a man dropped while infected rises against his line, and medics cure the rot, even in a run that didn\'t roll the Horde.',
+      'Fixed the Panzer IV missing from the testing GERMANS tab — the roster tabs now split by faction instead of by the first letter of the internal key.',
+    ],
+  },
+  {
     date: '2026-07-24',
     title: 'Balance, Testing & UI Tweaks',
     changes: [

@@ -222,12 +222,25 @@ function updateHUD() {
   syncTutorialPulse();
 }
 
+// which enemy roster a testing-mode placeable belongs in. All three testing
+// rosters share kind 'egerman' (it just routes placement through makeEnemy), so
+// the split has to come from the type itself — ENEMY_TYPES carries faction 'jp'
+// / 'zo' and leaves the Wehrmacht unmarked. Keying off the key's first letter
+// instead looks equivalent and isn't: 'panzer' starts with neither 'e' nor 'j',
+// so the Panzer IV fell through every category and was unreachable.
+function enemyPlaceableFaction(p) {
+  if (p.kind !== 'egerman') return null;
+  const t = ENEMY_TYPES[p.key];
+  return (t && t.faction) || 'de';
+}
+
 const TOOLBAR_CATEGORIES = [
   { id: 'units', label: 'UNITS', filter: p => p.kind === 'unit' },
   { id: 'abilities', label: 'ABILITIES', filter: p => p.kind === 'support' },
   { id: 'emplacements', label: 'EMPLACEMENTS', filter: p => p.kind === 'defense' },
-  { id: 'germans', label: 'GERMANS', filter: p => p.kind === 'egerman' && p.key.startsWith('e') },
-  { id: 'japanese', label: 'JAPANESE', filter: p => p.kind === 'egerman' && p.key.startsWith('j') },
+  { id: 'germans', label: 'GERMANS', filter: p => enemyPlaceableFaction(p) === 'de' },
+  { id: 'japanese', label: 'JAPANESE', filter: p => enemyPlaceableFaction(p) === 'jp' },
+  { id: 'horde', label: 'HORDE', filter: p => enemyPlaceableFaction(p) === 'zo' },
   { id: 'events', label: 'EVENTS', filter: p => p.kind === 'event' },
 ];
 

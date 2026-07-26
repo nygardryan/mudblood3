@@ -227,6 +227,9 @@ function update(dt) {
     // would breach in the SAME frame, blowing straight past breachLimit into an
     // instant gameOver(). Cheap insurance against a one-line tuning mistake.
     if (e.t.ship || e.t.shipPart) continue;
+    // Same insurance for the Progenitor: it is clamped to PROG_SAFE_Y, but if
+    // that clamp regressed all six of its actors would breach in one frame.
+    if (e.t.hordeBoss || e.t.bossPart) continue;
     if (!e.dead && e.y > H + 10) {
       e.dead = true; e.breached = true;
       G.breaches++;

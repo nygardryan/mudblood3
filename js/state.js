@@ -63,6 +63,15 @@ function factionPlural() {
   return f === 'jp' ? 'Japanese' : f === 'zo' ? 'undead' : 'Germans';
 }
 
+// is the infection mechanic live this run? Normally that's just the 'zo' roll,
+// but the testing toolbar's HORDE tab drops zombies into a run of ANY faction,
+// and a bite there has to rot, cure and reanimate exactly as it would in a real
+// Horde run. Sites that already test u.infected don't need this — a man can only
+// be infected if something bit him; it's for the medic, who has no such signal.
+function infectionActive() {
+  return enemyFaction() === 'zo' || !!(G && G.difficulty && G.difficulty.testing);
+}
+
 function syncMuteButtons() {
   const muted = SFX.muted;
   const btn = el('settings-mute-btn');

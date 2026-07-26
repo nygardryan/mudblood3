@@ -36,10 +36,22 @@ function resumeGame() {
   refreshHUD();
 }
 
-// Copy for the shared boss-victory overlay. Both bosses come through the same
-// screen, so the wording has to follow whichever one just fell — the Yamato is a
-// ship, and calling her "the executioner" or "him" would read as a bug.
+// Copy for the shared boss-victory overlay. All three bosses come through the
+// same screen, so the wording has to follow whichever one just fell — the Yamato
+// is a ship and the Progenitor is a thing, so calling either "the executioner" or
+// "him" would read as a bug. Note the German branch is the FALLTHROUGH: a new
+// faction added without a branch here silently claims Der Schlächter's death.
 function bossVictoryCopy() {
+  if (G && G.enemyFaction === 'zo') {
+    return {
+      title: 'THE PROGENITOR IS STILL',
+      lead: 'The flesh has stopped moving.',
+      stats: `Wave ${G.wave} — the mass that birthed the horde lies open and quiet, ` +
+        `and the sector is yours. Stand down with the win, or hold the line and meet ` +
+        `it again a hundred waves on.`,
+      recap: 'You put down the Progenitor',
+    };
+  }
   if (G && G.enemyFaction === 'jp') {
     return {
       title: 'THE YAMATO BURNS',
@@ -263,7 +275,8 @@ function startGame(levelId, difficultyId) {
   gameSpeed = 1;
   syncSpeedButton();
   const placeables = difficulty && difficulty.testing
-    ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES, ...TESTING_JAPANESE_PLACEABLES, ...TESTING_ABILITIES, ...TESTING_EVENTS]
+    ? [...level.placeables, ...TESTING_GERMAN_PLACEABLES, ...TESTING_JAPANESE_PLACEABLES,
+       ...TESTING_ZOMBIE_PLACEABLES, ...TESTING_ABILITIES, ...TESTING_EVENTS]
     : level.placeables;
   buildToolbar(placeables);
   el('intro').classList.add('hidden');
@@ -288,8 +301,8 @@ function startGame(levelId, difficultyId) {
     : '';
   el('tipbar').textContent = (difficulty && difficulty.testing
     ? touchUI()
-      ? 'Testing: unlimited TP, no enemies spawn on their own. Open GERMANS or JAPANESE to place enemy units, or EVENTS to summon one on demand.'
-      : 'Testing: unlimited TP, no enemies spawn on their own. Open GERMANS or JAPANESE to place enemy units, or EVENTS to summon one on demand; right-click / Esc cancels placement.'
+      ? 'Testing: unlimited TP, no enemies spawn on their own. Open GERMANS, JAPANESE or HORDE to place enemy units, or EVENTS to summon one on demand.'
+      : 'Testing: unlimited TP, no enemies spawn on their own. Open GERMANS, JAPANESE or HORDE to place enemy units, or EVENTS to summon one on demand; right-click / Esc cancels placement.'
     : difficulty && difficulty.sandbox
       ? touchUI()
         ? 'Sandbox: unlimited TP. Use +1 / +5 / +10 in the HUD to jump ahead in waves.'

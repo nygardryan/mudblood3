@@ -398,7 +398,7 @@ function updateUnit(u, dt) {
     // rotting near him, faster than it spreads. Cure it before the man turns and
     // you keep a soldier instead of gaining a zombie. Runs every frame, not just
     // on the heal tick, so treatment is steady.
-    if (G.enemyFaction === 'zo') cureNearestInfected(u, dt);
+    if (infectionActive()) cureNearestInfected(u, dt);
     u.healTick -= dt;
     if (u.healTick <= 0) {
       u.healTick = 0.4;

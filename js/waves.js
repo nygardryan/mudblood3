@@ -211,6 +211,7 @@ function armorEnemy(e, w) {
   if (t.tank || t.vehicle || t.apc || t.bike || t.v2) return; // already armored hulls
   if (t.boss) return;                                         // bosses already sponge damage via HP
   if (t.shipPart) return;                                     // a gun tub doesn't wear a flak vest
+  if (t.bossPart) return;                                     // nor does a sac of pus
   // Foot soldiers of every faction qualify, the undead included — reanimated
   // men still wear the plate they died in.
   const chance = enemyArmorChance(w);
@@ -510,6 +511,13 @@ function spawnSpecialWave(w) {
     G.spawnTimer = spawnIntervalForWave(w) + 6;
     return;
   }
+  // and every 100th Horde wave belongs to the Progenitor, on the same terms
+  if (f === 'zo' && w % PROG_WAVE_INTERVAL === 0
+      && !G.enemies.some(e => !e.dead && e.type === 'zprogen')) {
+    spawnHordeBoss(w);
+    G.spawnTimer = spawnIntervalForWave(w) + 6;
+    return;
+  }
   const tier = w / 10;
   const set = f === 'jp' ? JP_SPECIAL_WAVES : f === 'zo' ? ZOM_SPECIAL_WAVES : SPECIAL_WAVES;
   const theme = set[(tier - 1) % set.length];
@@ -558,6 +566,26 @@ function spawnJapaneseBoss(w) {
   for (let i = 0; i < n; i++) {
     spawnEnemyAt(pick(['jrifle', 'jsmg', 'jsmg', 'jbanzai']),
       clamp(W / 2 + rand(-160, 160), 30, W - 30), rand(-90, -20));
+  }
+}
+
+// The Progenitor walks on from staging like the German boss rather than starting
+// on-field like the Yamato: it's a point actor with a 26px pod fan, not a 300px
+// hull, so nothing of it is stranded above the top edge. Its pods are built by
+// initProgenitor on the first tick and deliberately NOT forced here — unlike the
+// ship there is no HP mirror to prime, and leaving it lazy keeps this hook and
+// TEST.deploy('zprogen') on one identical code path. Each hundredth-wave return
+// is tougher: wave 200 fields it at 2x HP.
+function spawnHordeBoss(w) {
+  showBanner('THE PROGENITOR — THE FLESH THAT BIRTHS THE DEAD!');
+  SFX.event();
+  const b = spawnEnemyAt('zprogen', W / 2, -40);
+  const mult = w / PROG_WAVE_INTERVAL;
+  if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.zprogen.hp * mult);
+  const n = Math.floor(specialWaveMult(w / 10) * 6);
+  for (let i = 0; i < n; i++) {
+    spawnEnemyAt(pick(['zshambler', 'zrunner', 'zrunner', 'zbrute']),
+      clamp(W / 2 + rand(-150, 150), 30, W - 30), rand(-90, -20));
   }
 }
 

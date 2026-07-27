@@ -4,6 +4,15 @@
 const CHANGELOG = [
   {
     date: '2026-07-27',
+    title: 'New Card: Ricochet',
+    changes: [
+      'New unique DUMMY card — RICOCHET. There is something hard under the burlap. Every bullet that strikes a decoy has a 15% chance to deflect straight back down its own flight path and hit the man who fired it.',
+      'The deflected round carries the FULL damage it did to the scarecrow, so the card is only ever as strong as the gun pointed at it. A Kar98 round stings. A sustained MG42 burst into a decoy mauls the crew firing it.',
+      'Small arms only. Flame flows over straw, a bayonet is not a round, and a shell that lands on a decoy just tears it apart — none of the three come back. Nobody is credited with a ricochet kill either: it counts, it pays the bounty, and it earns no man a promotion.',
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'New Cards: Headshot',
     changes: [
       'New unique sniper card — HEADSHOT. Every round he lands has a 40% chance to find the head and drop the man on the spot, whatever he had left. A sniper firing one round every five seconds now ends something better than a third of the times he pulls the trigger.',

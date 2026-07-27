@@ -514,7 +514,7 @@ function stampAmmoCrateRubble(t) {
 // (40% per hit he wises up); a fortified one wearing a helmet, or a hardened
 // one in body armor, sells the disguise longer (30% / 20%). Once he's wise he
 // permanently ignores THIS decoy and moves on to a real target.
-function damageDummy(d, dmg, from) {
+function damageDummy(d, dmg, from, kind) {
   d.hp -= dmg;
   for (let i = 0; i < 3; i++) {
     G.particles.push({
@@ -524,6 +524,11 @@ function damageDummy(d, dmg, from) {
     });
   }
   if (d.hp <= 0) { d.dead = true; return; }   // swept up by compactDefenses in update()
+  // Ricochet (dummy unique): the round may come back off the decoy. Independent
+  // of the see-through roll below — a man can eat his own bullet and still wise
+  // up to the ruse in the same instant — and downstream of the death check, since
+  // a decoy coming apart this instant deflects nothing.
+  dummyRicochet(d, dmg, from, kind);
   // only an attributed direct attack from an enemy can see through the ruse
   if (from && from.t) {
     const seeThrough = d.up2 ? 0.20 : d.up ? 0.30 : 0.40;
@@ -545,7 +550,9 @@ function armorPing(u) {
 }
 
 function damageUnit(u, dmg, from, kind) {
-  if (u.isDummy) return damageDummy(u, dmg, from);
+  // `kind` is forwarded: Ricochet deflects bullets only, and this shunt is the
+  // one place that knows what sort of attack reached the decoy.
+  if (u.isDummy) return damageDummy(u, dmg, from, kind);
   // Escalation IV: every attack an enemy lands on your men, at the one point
   // they all funnel through. Every actor on the far side is side 'de' whatever
   // its nation, so this is a clean binary — and stray friendly blasts, which

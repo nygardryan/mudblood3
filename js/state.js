@@ -220,6 +220,8 @@ function makeUnit(type, x, y, nation = 'us') {
   if (u.type === 'medic') u.armed = !!(G.cardsOwned && G.cardsOwned.has('riflearm_medic'));
   // Seasoned Veteran card: muster this type in one rank higher
   maybeSeasonVeteran(u);
+  // Field Hardened card: muster this type with 30% more HP
+  maybeHarden(u);
   return u;
 }
 

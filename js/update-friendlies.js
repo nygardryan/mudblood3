@@ -132,6 +132,11 @@ function unitRangeMult(u) {
       && G.cardsOwned && G.cardsOwned.has('desperatemeasures')) {
     mult *= 1.3;
   }
+  // Follow Through: a kill arms the man's next shot with doubled reach. No card
+  // or side check here — the flag is only ever set by the type-scoped onKill
+  // hook, which buildCardHooks already restricts to US snipers and riflemen, so
+  // one truthy read is all this hot path pays.
+  if (u.longShot) mult *= LONG_SHOT_MULT;
   // Cannibalize: +10% range per repairable object in the engineer's radius
   if (u.type === 'engineer' && u.side === 'us' && G.cardsOwned && G.cardsOwned.has('cannibalize')) {
     const n = engineerRepairCount(u);

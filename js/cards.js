@@ -50,6 +50,11 @@ const EMERGENCY_REPAIR_HP_THRESHOLD = 0.3;
 const EMERGENCY_REPAIR_HP_RESTORE = 0.3;
 const EMERGENCY_REPAIR_COOLDOWN = 60;
 
+// Field Hardened: the spawn-time HP multiplier. Applied to hp AND maxhp in
+// makeUnit, so every ratio the game reads (bars, medic triage, Emergency
+// Repair's 30% threshold) scales with it rather than against it.
+const HARDENED_HP_MULT = 1.3;
+
 // Cluster Rounds: the mortarman drops a stick of shells per fire order instead
 // of one, but rushing the tube costs precision — every shell in the stick rolls
 // its scatter against the widened spread. The mortar fire block reads both.
@@ -309,6 +314,14 @@ function armorPiercingMult(shooter, target) {
 const HEADSHOT_CHANCE = { sniper: 0.40, rifleman: 0.05 };
 const HEADSHOT_CARD = { sniper: 'headshotsniper', rifleman: 'headshotrifleman' };
 
+// Follow Through (the other sniper/rifleman pair, defined in CARD_UNIQUES): a
+// kill arms the man's next shot with this range multiplier. Lives here rather
+// than in constants.js because card tuning does — update-friendlies.js already
+// reaches across for EMERGENCY_REPAIR_HP_THRESHOLD the same way. Read by
+// unitRangeMult, so the targeting scan, the accuracy falloff and the drawn
+// range ring all lengthen together.
+const LONG_SHOT_MULT = 2;
+
 // true when this round should kill outright. Infantry only: a headshot on a
 // tank, a halftrack, a jeep, a motorcycle, a rocket battery or a dug-in gun is
 // not a thing, and small arms already ping off armor at the 0.04 floor.
@@ -327,6 +340,45 @@ function headshotKills(shooter, target) {
   if (t.hordeBoss || t.bossPart) return false;
   if (t.itaBoss || t.trainPart) return false;
   return Math.random() < HEADSHOT_CHANCE[shooter.type];
+}
+
+// Ricochet: the decoy's own unique card. A round that hits the scarecrow has a
+// chance to deflect straight back down the path it came in on and strike the man
+// who fired it. Flag-only, like Shell Shocked: damageDummy reads G.cardsOwned
+// through the helper below.
+//
+// SMALL ARMS ONLY, and the `kind` gate is the whole of it. Flame flows over the
+// straw and a bayonet is not a round, so neither carries a `kind` down to
+// damageUnit; blasts never reach damageDummy at all (explode() subtracts from
+// d.hp directly). So one `kind === 'bullet'` test covers all three exclusions
+// with no list to keep in sync.
+const DUMMY_RICOCHET_CHANCE = 0.15;
+
+// A hit on the decoy that deflects back at the shooter. Returns the FULL damage
+// the decoy just took, so the card scales itself off whatever gun fired — a
+// Kar98 round stings, an MG42 burst mauls the crew firing it — and there is no
+// second number to tune against every weapon in the game.
+function dummyRicochet(d, dmg, from, kind) {
+  if (kind !== 'bullet') return;
+  if (!(G.cardsOwned && G.cardsOwned.has('ricochet'))) return;
+  // an attributed hit from a live enemy: a deflection needs somewhere to go
+  if (!from || !from.t || from.side !== 'de' || from.dead) return;
+  if (Math.random() >= DUMMY_RICOCHET_CHANCE) return;
+  // the round leaving the straw, drawn back up its own flight path
+  G.tracers.push({ x1: d.x, y1: d.y - 8, x2: from.x, y2: from.y, ttl: 0.09, life: 0.09 });
+  for (let i = 0; i < 2; i++) {
+    G.particles.push({
+      x: d.x + rand(-4, 4), y: d.y + rand(-12, 2), vx: rand(-60, 60), vy: rand(-80, -20),
+      ttl: rand(0.12, 0.28), grav: 200, size: rand(1, 1.6),
+      color: pick(['#f0e8b0', '#d8e0ea', '#aab4c0']),
+    });
+  }
+  // No firer credited ON PURPOSE. damageEnemy hands `from` to creditKill, which
+  // calls gainXP — passing the dummy would give a scarecrow a rank, a PROMOTED
+  // banner and the promotion jingle. null short-circuits creditKill and files
+  // the kill in recapEnemyKilled's existing '_indirect' bucket, which is what a
+  // bullet nobody aimed is. The kill count and the TP bounty still land.
+  damageEnemy(from, dmg, null, 'bullet');
 }
 
 // an instant reload is worth whatever the cooldown it erases is worth:
@@ -376,6 +428,16 @@ const CARD_COMMON_TEMPLATES = {
     // the flamer already halves blast damage on his own vest
     weight: type => type === 'flamer' ? 1 : 2,
     desc: t => `${t.name} takes 30% less damage from explosions.`,
+    hooks: type => ({}),
+  },
+  // 30% more HP on every unit type — no excludes, since every placeable soldier,
+  // gun and vehicle has an hp entry. Flag-only, like Seasoned Veteran: makeUnit
+  // reads `hardened_<type>` at spawn, so it never heals a man already fielded.
+  hardened: {
+    name: 'Field Hardened', cost: 7,
+    // survivability is worth most on what a run can least afford to re-buy
+    weight: type => ({ jeep: 3, atgun: 3, aagun: 3, sherman: 4 }[type] || 2),
+    desc: (t, type) => `${t.name} musters with 30% more HP — ${t.hp} up to ${hardenedHp(type)}.`,
     hooks: type => ({}),
   },
   // one free promotion at spawn. Every unit type carries a rank, so this stamps
@@ -548,6 +610,31 @@ const CARD_UNIQUES = {
     desc: `Every rifle round that connects has a ${Math.round(HEADSHOT_CHANCE.rifleman * 100)}% chance to find the head and kill outright, no matter how much health the man had left. A slim chance, but every rifleman on the field is rolling it. Enemy infantry only — armor, vehicles and bosses are unaffected.`,
     hooks: {},
   },
+  // Follow Through: the one card built on kill momentum, and the second pair
+  // the sniper and the rifleman each get their own copy of. onKill arms a flag
+  // that unitRangeMult reads; afterShot spends it on the next round, hit or
+  // miss — its `hit` argument is ignored ON PURPOSE, that is the spend rule.
+  // The order inside fireShot makes the chain work for free: afterShot fires
+  // BEFORE the damage dispatch that reaches creditKill, so a kill made with the
+  // armed shot clears the flag and then immediately re-arms it. Clearing
+  // _tgtUntil drops the 0.12s retarget cache so the longer reach is scanned on
+  // the very next tick rather than a frame and a bit later.
+  followthroughsniper: {
+    unit: 'sniper', name: 'Follow Through', cost: 12, weight: 4,
+    desc: `A confirmed kill steadies the sniper: his next shot reaches ${LONG_SHOT_MULT}x as far — far enough to cover the whole sector. Kill with it and it arms again. A miss spends it.`,
+    hooks: {
+      onKill: u => { u.longShot = true; u._tgtUntil = 0; },
+      afterShot: u => { u.longShot = false; },
+    },
+  },
+  followthroughrifleman: {
+    unit: 'rifleman', name: 'Follow Through', cost: 9, weight: 3,
+    desc: `A confirmed kill steadies the rifleman: his next shot reaches ${LONG_SHOT_MULT}x as far. Kill with it and it arms again. A miss spends it.`,
+    hooks: {
+      onKill: u => { u.longShot = true; u._tgtUntil = 0; },
+      afterShot: u => { u.longShot = false; },
+    },
+  },
   // these four don't gate on a per-shot/per-kill event, so they carry no
   // hooks — updateEngineer, the officer TP tick, and officerLimit() check
   // G.cardsOwned directly instead
@@ -678,6 +765,15 @@ const CARD_UNIQUES = {
     desc: `Requisition a reserve of supplies: begin every endless run with ${WAR_CHEST_TP} extra TP.`,
     hooks: {},
   },
+  // not a unit type either: `dummy` is a PLACEABLES key, so it carries a label
+  // like the emplacement and HQ cards above. The collection already has a bucket
+  // for it — the auto-generated War Surplus card uses the same unitType.
+  // Flag-only: damageDummy reads G.cardsOwned through dummyRicochet.
+  ricochet: {
+    unit: 'dummy', label: 'DUMMY', name: 'Ricochet', cost: 9, weight: 3,
+    desc: `Something hard under the burlap: every bullet that strikes a decoy has a ${Math.round(DUMMY_RICOCHET_CHANCE * 100)}% chance to deflect straight back at the man who fired it, for the full damage the round did. Small arms only — flame, bayonets and shells don't come back.`,
+    hooks: {},
+  },
 };
 
 // War Surplus also covers the things the player buys off the toolbar that
@@ -752,6 +848,18 @@ function maybeSeasonVeteran(u) {
   u.rank = SEASONED_VET_RANK;
   const rankMult = u.t.tank ? 2.5 : (u.t.rankMult || 1);
   u.xp = rk.kills * rankMult;
+}
+
+// Field Hardened: a unit whose type carries the card musters tougher. hp is
+// raised alongside maxhp so he arrives at full strength, and the rounding lives
+// here so the shop text and the spawned man can never disagree.
+function hardenedHp(type) {
+  return Math.round(UNIT_TYPES[type].hp * HARDENED_HP_MULT);
+}
+function maybeHarden(u) {
+  if (!G.cardsOwned || !G.cardsOwned.has('hardened_' + u.type)) return;
+  u.maxhp = hardenedHp(u.type);
+  u.hp = u.maxhp;
 }
 
 function defaultEndlessCards() {

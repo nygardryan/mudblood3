@@ -172,7 +172,6 @@ function returnToMenu() {
 
 function openEndlessSelect() {
   el('intro').classList.add('hidden');
-  syncCardShopButton();
   buildEscalationUI();   // rebuild from the save: a boss kill may have unlocked a rung
   el('endless-select').classList.remove('hidden');
 }

@@ -985,11 +985,6 @@ function commandPips(w) {
   return html;
 }
 
-function syncCardShopButton() {
-  const btn = el('card-shop-btn');
-  if (btn) btn.textContent = 'CARDS — ' + medalLabel(loadEndlessCards().medals);
-}
-
 function buildCardShopUI() {
   const data = loadEndlessCards();
   el('card-shop-medals').textContent = data.medals;
@@ -1047,7 +1042,6 @@ function buildCardShopUI() {
     }
   }
   buildBattlePlanUI();
-  syncCardShopButton();
 }
 
 // ---- battle plan UI: the collection grid + plan tabs under the shop row
@@ -1209,7 +1203,6 @@ function buildEndgameCard(card, medals) {
       SFX.click();
       renderEndgameCards();
       syncEndgameBanked();
-      syncCardShopButton();
     }
   });
   return btn;
@@ -1276,5 +1269,4 @@ function showEndlessEndgame() {
     lb.classList.toggle('hidden', !anyLb);
   }
   renderEndgameCards();
-  syncCardShopButton();
 }

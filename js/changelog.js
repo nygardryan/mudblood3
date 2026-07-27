@@ -4,6 +4,16 @@
 const CHANGELOG = [
   {
     date: '2026-07-27',
+    title: 'New Card: Beaten Zone',
+    changes: [
+      'New unique GUNNER card — BEATEN ZONE. Every BAR burst already beats the ground around whatever he fires on; now everything caught in it stays down twice as long, and a pinned man neither advances nor fires back.',
+      'It buys the gunner the one thing his damage never did: time. A lane he is talking down stops moving, and it stays stopped for four or five seconds after he swings the gun onto something else instead of two.',
+      'The pin is longer, not wider — the beaten zone covers the same ground it always did. Doubling the radius would have been four times the ground, and turned the gunner into the answer to a massed wave rather than a man holding one lane.',
+      'The counter-play is unchanged and still works: veterans shrug the pin off faster, and an officer in aura rallies his men out of it three times as fast as it runs down. Both just cost the enemy twice as much. Japanese fanatics, the Horde, an Italian mid-AVANTI and every boss ignore suppression as they always have.',
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'New Card: Counterattack',
     changes: [
       'New unique HQ card — COUNTERATTACK. Between assaults the reserve company moves up and takes back the ground you lost: every new wave scrubs one breach off the tally, down to none.',

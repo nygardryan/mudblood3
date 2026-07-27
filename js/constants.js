@@ -9,7 +9,7 @@ const LAYOUT_REF_W = 900;
 function lx(off) { return W / 2 + off * (W / LAYOUT_REF_W); }
 const DEPLOY_Y = 380;          // your side of the field starts here
 const FORWARD_Y = H / 3;       // units may advance and mines/wire may be laid this far up
-const MAX_BREACH = 7;
+const MAX_BREACH = 8;
 const MAX_OFFICERS = 5;
 const MEDIC_RANGE = 95;
 const ENGINEER_RANGE = 95;
@@ -596,9 +596,11 @@ const ENEMY_TYPES = {
   // noRamp keeps enemyHpRamp from tripling it on hard. fireShot rolls dmg
   // 0.75-1.25, so 190 one-shots any infantryman on the roster;
   // revolver.armorDmg replaces the smallarms 0.04 tank scaling with a flat 490
-  // (49% of a Sherman's 1000) per round on anything armored.
+  // (49% of a Sherman's 1000) per round on anything armored. acc 1 is real:
+  // fireShot skips the range falloff for a revolver, so every one of the six
+  // rounds is aimed true — only going prone or getting behind cover saves a man.
   eboss: {
-    name: 'Der Schlächter', hp: 3150, speed: 30, range: 120, dmg: 190, acc: 0.85,
+    name: 'Der Schlächter', hp: 3150, speed: 30, range: 120, dmg: 190, acc: 1,
     rof: 1.6, burst: 1, burstGap: 0, reward: 200,
     // gun 14: long enough that the barrel clears his greatcoat at the 1.35x
     // sprite scale — at 10 the revolver drew entirely under the coat ellipse

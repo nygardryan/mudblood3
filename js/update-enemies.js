@@ -945,8 +945,10 @@ function updateGermanBoss(e, dt) {
     if (target) {
       e.loiterT = 0;
       e.face = Math.atan2(target.y - e.y, target.x - e.x);
-      // an executioner works close: keep walking the shot in while firing, so
-      // the accuracy falloff doesn't waste the cylinder at arm's length
+      // an executioner works close: keep walking in while firing. His aim no
+      // longer needs it (the revolver ignores the range falloff — see fireShot),
+      // but closing is what puts him past the line's cover and prone dodges,
+      // and it's the only reason he ever comes within reach of a bazooka.
       if (dist2(e, target) > range * range * 0.3 && e.y < BOSS_SAFE_Y) {
         pursuePoint(e, target.x, target.y, t.speed, dt);
         e.y = Math.min(e.y, BOSS_SAFE_Y);

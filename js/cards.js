@@ -363,6 +363,35 @@ function armorPiercingMult(shooter, target) {
   return 1;
 }
 
+// Beaten Zone: the gunner's second unique. His bursts pin for twice as long.
+//
+// DURATION IS THE AXIS, not SUP_RADIUS, and that choice is the card. A pin's
+// length is the thing the suppression block in constants.js is built around —
+// the pin runs for the burst plus a tail precisely so that a longer belt holds
+// a sector down for longer — so doubling it is what "twice the suppression"
+// means here. Doubling the radius instead would be FOUR times the ground for a
+// card that claims two, and would quietly turn the gunner into the answer to
+// massed infantry rather than a man who holds one lane.
+//
+// It multiplies the whole pin (burst length + tail), applied in suppress()
+// before the veteran shrug — so a rank-3 enemy still recovers 45% faster than a
+// green one, and an officer's rally still burns it down at OFFICER_RALLY_MULT.
+// The counter-play survives; it just costs the enemy twice as much of it.
+//
+// Only reaches men suppression already reaches. Japanese fanatics, the Horde,
+// a charging Italian, bosses and crews are all exempt inside suppress(), and
+// twice nothing is nothing — the card is worth the most against the Wehrmacht,
+// which is the only army that takes cover for a machine gun at all.
+const BEATEN_ZONE_MULT = 2;
+
+// the pin multiplier for a gun that just beat a zone. Flag-only, like Armor
+// Piercing: suppressArea reads G.cardsOwned through here on every burst.
+function suppressionPinMult(actor) {
+  if (!actor || actor.side !== 'us' || actor.type !== 'gunner') return 1;
+  if (!(G.cardsOwned && G.cardsOwned.has('beatenzone'))) return 1;
+  return BEATEN_ZONE_MULT;
+}
+
 // HEAT Rounds: the bazooka's unique. A shaped charge does not grind a plate
 // down, it burns a hole through it — so his blast SKIPS the flak pool entirely
 // and lands on the man still wearing the vest.
@@ -691,6 +720,13 @@ const CARD_UNIQUES = {
   armorpiercing: {
     unit: 'gunner', name: 'Armor Piercing', cost: 9, weight: 3,
     desc: `The gunner loads AP rounds: his BAR deals ${ARMOR_PIERCING_MULT}x damage to enemy jeeps, halftracks, and motorcycles, and ${ARMOR_PIERCING_TANK_MULT}x against tanks — enough to chip armor, not to crack it like a bazooka.`,
+    hooks: {},
+  },
+  // flag-only, like Armor Piercing: suppressArea reads G.cardsOwned via
+  // suppressionPinMult on every burst a US gunner opens
+  beatenzone: {
+    unit: 'gunner', name: 'Beaten Zone', cost: 10, weight: 4,
+    desc: `The gunner walks his fire like a man who means to keep the ground: every burst pins the enemies around his aim point for ${BEATEN_ZONE_MULT}x as long, and a pinned man neither advances nor fires. Only what a machine gun can pin at all — fanatics, the dead and a charging Italian ignore a beaten zone as they always did.`,
     hooks: {},
   },
   // flag-only, like Armor Piercing: damageEnemy and damageUnit read

@@ -47,7 +47,8 @@ function tryGoProne(u, chance) {
 // that whole time plus a tail (SUP_PIN_MIN..MAX) before he dares lift his head.
 // Tying the pin to burst LENGTH is what makes a long belt worth more than a
 // short one — roll once, hold for as long as the gun talks.
-function suppress(u, chance, hold) {
+// `mult` scales the resulting pin (Beaten Zone; 1 for everyone else).
+function suppress(u, chance, hold, mult) {
   if (!u || u.dead || !u.t || u.chute > 0) return;
   if (u.t.tank || u.t.vehicle || u.t.apc || u.t.bike || u.t.fixed) return;
   // Two foes can't be pinned at all. Japanese fanatics don't take cover for a
@@ -66,7 +67,7 @@ function suppress(u, chance, hold) {
   if (braveStandsFast(u)) return;
   if (Math.random() >= chance) return;
   const rank = u.rank || 0;   // veterans shrug off the pin faster (codex: cover)
-  const pin = (hold || 0) + rand(SUP_PIN_MIN, SUP_PIN_MAX);
+  const pin = ((hold || 0) + rand(SUP_PIN_MIN, SUP_PIN_MAX)) * (mult || 1);
   u.prone = Math.max(u.prone, pin * (1 - rank * 0.15));
 }
 
@@ -80,8 +81,11 @@ function suppress(u, chance, hold) {
 function suppressArea(actor, target, hold) {
   const r2 = SUP_RADIUS * SUP_RADIUS;
   const receiving = actor.side === 'us' ? G.enemies : G.units;
+  // Beaten Zone (gunner unique) stretches the pin every man in the zone takes;
+  // 1 for every other gun on either side, so the enemy MGs are untouched.
+  const mult = suppressionPinMult(actor);
   for (const u of receiving) {
-    if (!u.dead && dist2(u, target) < r2) suppress(u, SUP_PIN_CHANCE, hold);
+    if (!u.dead && dist2(u, target) < r2) suppress(u, SUP_PIN_CHANCE, hold, mult);
   }
   actor.face = Math.atan2(target.y - actor.y, target.x - actor.x);
   const mx = actor.x + Math.cos(actor.face) * (actor.t.gun + 3);
@@ -196,7 +200,13 @@ function fireShot(shooter, target, opts) {
 
   let acc = t.acc * (opts && opts.accBonus ? 1 + opts.accBonus : 1);
   const d = dist(shooter, target);
-  acc *= clamp(1.15 - d / (unitRange(shooter, t.range) * 1.6), 0.35, 1);
+  // the boss's hand cannon never misses its aim: acc 1 flat, with the range
+  // falloff skipped so a shot at the edge of his reach is as sure as one at
+  // arm's length. This is his AIM only, exactly like a lifted accMult below —
+  // the prone-dodge and cover rolls further down can still take the round off
+  // him, which is what keeps hitting the dirt worth doing under his advance.
+  if (t.revolver) acc = 1;
+  else acc *= clamp(1.15 - d / (unitRange(shooter, t.range) * 1.6), 0.35, 1);
 
   // card hooks (US shooters in endless only): Zeroed In lifts the base to-hit
   // before the roll; beforeShot may force a hit; afterShot sees the final

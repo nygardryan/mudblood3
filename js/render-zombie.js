@@ -455,42 +455,21 @@ function drawProgenitor(a) {
   drawProgenitorOverlays(a);
 }
 
-// ONE HP pool, drawn as PROG_SEGMENTS separate bars with gaps between them rather
-// than one bar with tick marks: an emptied segment has to read as GONE, because
-// each one that empties buys a resurrection and the player needs to see the next
-// one coming. Segment i fills from its own i/n..(i+1)/n slice of the pool, so they
-// drain right to left. It is culled out of the normal enemy loop, so
-// drawSoldierOverlays never runs on it and this is the only overlay it gets.
+// ONE HP pool, and the bar says so: the Yamato's drawBossHpBar, which every boss
+// wears, with its tick marks moved off quarters onto the PROG_SEGMENTS phase
+// boundaries. Each tick the fill retreats past buys a resurrection, so the marks
+// are exactly the thing the player needs to see coming. (This was three gapped
+// bars in three colours before, which read as three pools rather than one.) It is
+// culled out of the normal enemy loop, so drawSoldierOverlays never runs on it
+// and this is the only overlay it gets.
 function drawProgenitorOverlays(a) {
   const c = ctx;
-  const bw = 110, gap = 3;
-  const segW = (bw - gap * (PROG_SEGMENTS - 1)) / PROG_SEGMENTS;
-  const x0 = a.x - bw / 2, y0 = a.y - PROG_BODY_R - 20;
-  const f = clamp(a.hp / a.maxhp, 0, 1);
-  for (let i = 0; i < PROG_SEGMENTS; i++) {
-    const lo = i / PROG_SEGMENTS, hi = (i + 1) / PROG_SEGMENTS;
-    const segF = clamp((f - lo) / (hi - lo), 0, 1);
-    const sx = x0 + i * (segW + gap);
-    c.fillStyle = 'rgba(0,0,0,0.62)';
-    c.fillRect(sx - 1, y0 - 1, segW + 2, 7);
-    c.fillStyle = i === 0 ? '#d04030' : i === 1 ? '#c07a2e' : '#7ea24a';
-    c.fillRect(sx, y0, segW * segF, 5);
-  }
-  c.fillStyle = 'rgba(228,224,208,0.9)';
-  c.font = '7px monospace';
-  c.textAlign = 'center';
-  c.fillText('THE PROGENITOR', a.x, y0 - 4);
-  c.textAlign = 'left';
+  const ticks = [];
+  for (let i = 1; i < PROG_SEGMENTS; i++) ticks.push(i / PROG_SEGMENTS);
+  drawBossHpBar(a, a.y - PROG_BODY_R - 20, 110, 'THE PROGENITOR', ticks);
 
   // per-sac condition, so the player can read which modules are still spitting
-  for (const p of (a.pods || [])) {
-    if (p.dead || p.hp >= p.maxhp) continue;
-    const pf = clamp(p.hp / p.maxhp, 0, 1);
-    c.fillStyle = 'rgba(0,0,0,0.6)';
-    c.fillRect(p.x - 7, p.y - 12, 14, 3);
-    c.fillStyle = pf > 0.4 ? '#c8d86a' : '#d04030';
-    c.fillRect(p.x - 7, p.y - 12, 14 * pf, 3);
-  }
+  for (const p of (a.pods || [])) drawBossPartBar(p, 12, 14);
 
   if (G.selected.includes(a)) {
     c.strokeStyle = 'rgba(255,255,255,0.85)';

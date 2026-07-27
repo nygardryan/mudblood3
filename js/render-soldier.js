@@ -1061,24 +1061,19 @@ function paintGermanBoss(c, a) {
   c.restore();
 }
 
-// wide, always-on bars for the boss — his health is a headline, not a footnote.
-// Same palette as the standard overlays, raised for the bigger sprite.
+// The boss wears the same headline bar the capital bosses do (drawBossHpBar, in
+// js/render-overlays.js) — he was the odd one out at 30px wide, on the ordinary
+// soldier ramp and with no name on him at all. He is only a man, so the bar is
+// sized to him rather than to a battleship; everything else is the house style.
+// His two plate pools stack UNDER it, because the caption owns the space above.
 function drawBossOverlays(a) {
-  const bw = 30, x0 = a.x - bw / 2;
-  const f = clamp(a.hp / a.maxhp, 0, 1);
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(x0, a.y - 18, bw, 3.5);
-  ctx.fillStyle = f > 0.5 ? '#7ec850' : f > 0.25 ? '#e0b040' : '#d04030';
-  ctx.fillRect(x0, a.y - 18, bw * f, 3.5);
+  const bw = 66, y0 = a.y - 34;
+  drawBossHpBar(a, y0, bw, 'DER SCHLÄCHTER');
   if (a.bodyArmor > 0) {
-    const fb = clamp(a.bodyArmor / a.maxBodyArmor, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x0, a.y - 21.5, bw, 2.2);
-    ctx.fillStyle = '#8fb3d9';          ctx.fillRect(x0, a.y - 21.5, bw * fb, 2.2);
+    drawBossPlateBar(a, y0 + 7, bw, clamp(a.bodyArmor / a.maxBodyArmor, 0, 1), '#8fb3d9');
   }
   if (a.flakArmor > 0) {
-    const ff = clamp(a.flakArmor / a.maxFlakArmor, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x0, a.y - 24.5, bw, 2.2);
-    ctx.fillStyle = '#b7a94e';          ctx.fillRect(x0, a.y - 24.5, bw * ff, 2.2);
+    drawBossPlateBar(a, y0 + 10.5, bw, clamp(a.flakArmor / a.maxFlakArmor, 0, 1), '#b7a94e');
   }
   if (G.selected.includes(a)) {
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';

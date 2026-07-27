@@ -62,6 +62,60 @@ function drawSelectionRing(a, r) {
   ctx.setLineDash([]);
 }
 
+// ---- boss overlays ----------------------------------------------------------
+// A boss's health is a headline, not a footnote, so unlike drawActorHpBar these
+// are always on, wide and captioned. The Yamato set the house style and the
+// other four had each drifted off it — tri-colour gapped segments on two, no
+// tick marks on three, no caption at all on the German boss, the caption above
+// the bar on some and below on others — so all five come through here now:
+// black surround, one 5px bar on the same ramp, ticks so a long bar still reads
+// as a fraction, and the name in 7px monospace 4px above it. Width is the only
+// thing a caller varies, because a bar should be about as wide as the thing
+// wearing it. `ticks` defaults to quarters; a boss whose pool breaks into
+// phases passes its own boundaries, so the tick marks the resurrection.
+const BOSS_BAR_TICKS = [0.25, 0.5, 0.75];
+
+function drawBossHpBar(a, y, w, label, ticks) {
+  const x0 = a.x - w / 2;
+  const f = clamp(a.hp / a.maxhp, 0, 1);
+  ctx.fillStyle = 'rgba(0,0,0,0.62)';
+  ctx.fillRect(x0 - 1, y - 1, w + 2, 7);
+  ctx.fillStyle = f > 0.5 ? '#c0562e' : f > 0.25 ? '#e0b040' : '#d04030';
+  ctx.fillRect(x0, y, w * f, 5);
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+  ctx.lineWidth = 1;
+  for (const q of (ticks || BOSS_BAR_TICKS)) {
+    ctx.beginPath(); ctx.moveTo(x0 + w * q, y); ctx.lineTo(x0 + w * q, y + 5); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(228,224,208,0.9)';
+  ctx.font = '7px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, a.x, y - 4);
+  ctx.textAlign = 'left';   // ctx.textAlign is global state, always put it back
+}
+
+// A plate row stacked under the main bar (the German boss's body/flak armor).
+// Under, not over: the caption owns the space above the bar, and stacking there
+// would move the name whenever a boss happened to be wearing armor.
+function drawBossPlateBar(a, y, w, f, color) {
+  const x0 = a.x - w / 2;
+  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x0, y, w, 2.2);
+  ctx.fillStyle = color;             ctx.fillRect(x0, y, w * f, 2.2);
+}
+
+// The condition bar over a boss's child actors — turrets, gun tubs, pus sacs,
+// wagons. The same idiom one size down, and like the ordinary actor bars it
+// stays hidden until the part has actually been hurt, so an intact boss wears
+// one bar rather than a constellation of them.
+function drawBossPartBar(p, dy, w) {
+  if (p.dead || p.hp >= p.maxhp) return;
+  const f = clamp(p.hp / p.maxhp, 0, 1);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(p.x - w / 2, p.y - dy, w, 3);
+  ctx.fillStyle = f > 0.4 ? '#c0562e' : '#d04030';
+  ctx.fillRect(p.x - w / 2, p.y - dy, w * f, 3);
+}
+
 // "SGT SHERMAN — 12 KILLS" under a lone selection. Only ever with one thing
 // selected: a caption per man across a whole squad is unreadable. Infantry
 // deliberately don't get one — their record shows in the inspector panel.

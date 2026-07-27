@@ -119,7 +119,7 @@ const UNIT_TYPES = {
     desc: 'Portable 60mm mortar. Indirect fire at range.',
   },
   sniper: {
-    name: 'Sniper', hp: 85, range: 249, dmg: 46, acc: 0.72,
+    name: 'Sniper', hp: 85, range: 274, dmg: 46, acc: 0.72,
     rof: 5.2, burst: 1, burstGap: 0, speed: 38,
     color: '#3f5730', gun: 12, sfx: 'sniper',
     desc: 'Springfield scoped rifle. Picks off officers, snipers, bazookas, and mortar teams first.',
@@ -152,7 +152,7 @@ const UNIT_TYPES = {
   },
   jeep: {
     name: 'Jeep', hp: 250, range: 221, dmg: 13, acc: 0.42,
-    rof: 12.0, burst: 64, burstGap: 0.07, speed: 110,
+    rof: 24.0, burst: 128, burstGap: 0.07, speed: 110,
     color: '#566f44', gun: 14, sfx: 'hmg', vehicle: true, rankMult: 3,
     desc: 'Willys jeep, pintle-mounted .50 cal. Fast and hard-hitting, but unarmored.',
   },
@@ -391,7 +391,7 @@ const PROG_WAVE_INTERVAL = 100;
 // If the fight needs moving again, move THIS. See the flame note above for the
 // one knob not to reach for instead.
 const PROG_HP = 3500;
-const PROG_SEGMENTS = 3;             // ONE pool, drawn as three bars (see drawProgenitorOverlays)
+const PROG_SEGMENTS = 3;             // ONE pool; the phase boundaries are the bar's tick marks
 // Requirement, not flavour: the player must always be able to walk away from it.
 // Rifleman 42, medic 46, Sherman 14, the Abomination 9 — at 7 it is the slowest
 // thing on the field and repositioning is always an answer to it.
@@ -503,7 +503,7 @@ const ENEMY_TYPES = {
     color: '#4f5661', gun: 5, sfx: 'pistol', priority: 5, aura: true,
   },
   esniper: {
-    // counterpart: sniper (range 249, speed 38)
+    // counterpart: sniper (range 274, speed 38)
     name: 'Sniper', hp: 70, speed: 14, range: 209, dmg: 44, acc: 0.70,
     rof: 6.0, burst: 1, burstGap: 0, reward: 4,
     color: '#4a515c', gun: 12, sfx: 'sniper', priority: 4,
@@ -659,7 +659,7 @@ Object.assign(ENEMY_TYPES, {
     color: '#5c5c33', gun: 11, sfx: 'mg', priority: 3, faction: 'jp',
   },
   jsniper: {
-    // counterpart: sniper (range 249, speed 38) — Type 97 in the treeline.
+    // counterpart: sniper (range 274, speed 38) — Type 97 in the treeline.
     name: 'Nest Sniper', hp: 68, speed: 13, range: 205, dmg: 44, acc: 0.70,
     rof: 6.0, burst: 1, burstGap: 0, reward: 4,
     color: '#565a30', gun: 12, sfx: 'sniper', priority: 4, faction: 'jp',
@@ -1111,7 +1111,7 @@ Object.assign(ENEMY_TYPES, {
     garrison: true, garrisonPrefer: 'bunker',
   },
   icecc: {
-    // counterpart: sniper (range 249, speed 38) — scoped Carcano. He makes for a
+    // counterpart: sniper (range 274, speed 38) — scoped Carcano. He makes for a
     // watch tower, and from a hardened one his 200 reach becomes 300: further
     // than most of the player's line can answer. Shell the tower.
     name: 'Cecchino', hp: 66, speed: 12, range: 200, dmg: 44, acc: 0.70,
@@ -1222,7 +1222,7 @@ Object.assign(ENEMY_TYPES, {
 // (updateWarTrain); art in js/render-train.js.
 const TRAIN_WAVE_INTERVAL = 100;     // arrives at wave 100, 200... (mirrors the others)
 const TRAIN_HP = 10000;              // the ENGINE pool — killing it ends the fight
-const TRAIN_SEGMENTS = 3;            // ONE pool, drawn as three bars; each break sounds the AVANTI
+const TRAIN_SEGMENTS = 3;            // ONE pool, ticked into three; each break sounds the AVANTI
 const TRAIN_SPEED = 9;               // px/s down the lane: ~70s from the top to the stop
 const TRAIN_STOP_Y = H - 70;         // "the bottom of the screen": it parks here, short of a breach
 const TRAIN_SPACING = 46;            // wagon-to-wagon centre distance along the rails

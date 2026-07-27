@@ -239,7 +239,12 @@ function updateUnit(u, dt) {
       }
     }
     const vt = primaryEnemyTarget(u, unitRange(u, u.t.range) * fogMult());
-    runWeapon(u, vt, dt, unitBuffs(u));
+    // the .50's belt is long and its reload longer, so an empty stretch must
+    // not drain it: hold the burst where it stands when nothing is in range.
+    // the reload clock keeps running, or the gunner would owe the whole 24s
+    // from the moment a target finally shows.
+    if (!vt && u.burstLeft > 0) u.cd -= dt;
+    else runWeapon(u, vt, dt, unitBuffs(u));
     // Bazooka Rider: the passenger works his own tube on a separate cooldown
     fireJeepBazooka(u, dt);
     return;

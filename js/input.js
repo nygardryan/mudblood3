@@ -357,8 +357,9 @@ function applyPlacement(p, x, y) {
     // his bar. placementValid already guaranteed there's a man here.
     const u = nearestArmorableUnit(x, y);
     if (u) {
-      if (p.key === 'bodyarmor') { u.maxBodyArmor = ARMOR_POINTS; u.bodyArmor = ARMOR_POINTS; }
-      else { u.maxFlakArmor = ARMOR_POINTS; u.flakArmor = ARMOR_POINTS; }
+      const pts = armorPlatePoints();   // doubled by the Reinforced Plate card
+      if (p.key === 'bodyarmor') { u.maxBodyArmor = pts; u.bodyArmor = pts; }
+      else { u.maxFlakArmor = pts; u.flakArmor = pts; }
       G.texts.push({ x: u.x, y: u.y - 22, text: p.label, ttl: 2.0 });
     }
     return u;

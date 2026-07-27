@@ -89,7 +89,11 @@ ON (run continues, boss returns at the next ×100) or END RUN — VICTORY (full
 and copy come from `bossVictoryCopy()`, keyed on `G.enemyFaction`, so anything
 added there needs wording for both. Tuning in the `BOSS_` block in `js/constants.js`;
 art is `paintGermanBoss` (`js/render-soldier.js`) + `drawRevolver`
-(`js/render-weapons.js`); wide always-on bars via `drawBossOverlays`. He is drawn
+(`js/render-weapons.js`); wide always-on bars via `drawBossOverlays`, which like
+every other boss's overlay is now just a call to the shared `drawBossHpBar` /
+`drawBossPartBar` in `js/render-overlays.js` — the Yamato's look (one 5px bar in a
+black surround, tick marks, the name in 7px monospace above it) is the house style
+for all five, so a fifth boss gets it by passing a width and a caption. He is drawn
 as nothing but an OVERSIZED INFANTRYMAN: an officer's body ellipse, a standard
 head, and the rifleman's own belt kit (`drawErifleKit`), all pushed through one
 uniform `BOSS_SPRITE_SCALE` (1.35×) — his `gun:14` exists so the barrel clears
@@ -218,7 +222,7 @@ segment break. Tuning is the `PROG_` block in `js/constants.js`; art is
 `js/render-zombie.js` (`paintProgenitorBody` is PURE, for the codex portrait;
 `drawProgenitorPass` runs before the enemy loop so the brood paints over the mass).
 
-Its HP is **one pool drawn as three bars** (`PROG_SEGMENTS`), polled in
+Its HP is **one pool ticked into three phases** (`PROG_SEGMENTS`), polled in
 `updateProgenitor` rather than hooked into `damageEnemy` — so it is robust to every
 damage source without auditing any of them. The poll is a `while`, not an `if`: one
 big hit can empty two segments and each crossing owes its own resurrection (the
@@ -353,8 +357,8 @@ gun posts on the gun wagon, two per side at `±TRAIN_MG_B` (NOT `tank`, so small
 arms have a job; the flatcar itself is scenery, not an actor). No shared pool
 anywhere → no de-dupe clause in `explode`/`flameSpray`, and adding one would be
 a bug. No damage control: dead wagons stay COUPLED as hulks (`syncTrainParts`
-repositions dead parts on purpose, unlike hers). One pool drawn as
-`TRAIN_SEGMENTS` (3) bars, polled with a `while` in `updateWarTrain`; each
+repositions dead parts on purpose, unlike hers). One pool ticked into
+`TRAIN_SEGMENTS` (3) phases, polled with a `while` in `updateWarTrain`; each
 break runs `trainSoundsCharge`, which arms the SAME `G.itCharge` signed clock
 the ambient AVANTI runs (telegraph included) rather than firing a charge of its
 own, and pushes `G.itAvantiCd` back so the field doesn't owe a second charge

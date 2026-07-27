@@ -292,42 +292,20 @@ function drawTrainGunWagon(e) {
 }
 
 // ---- overlays ---------------------------------------------------------------
-// ONE HP pool drawn as TRAIN_SEGMENTS separate bars, the Progenitor's overlay
-// verbatim: an emptied segment has to read as GONE, because each one that
-// empties sounds an AVANTI and the player needs to see the next one coming.
-// The bar sits SOUTH of the engine — the train comes at the player nose-first,
-// so that's the face of it they're always looking at.
+// ONE HP pool, the Progenitor's overlay verbatim — which is to say the Yamato's
+// drawBossHpBar with its ticks moved onto the TRAIN_SEGMENTS phase boundaries,
+// since each one the fill retreats past sounds an AVANTI and the player needs to
+// see the next one coming. The bar sits SOUTH of the engine — the train comes at
+// the player nose-first, so that's the face of it they're always looking at —
+// far enough out that the caption above it clears the cowcatcher.
 function drawWarTrainOverlays(a) {
   const c = ctx;
-  const bw = 110, gap = 3;
-  const segW = (bw - gap * (TRAIN_SEGMENTS - 1)) / TRAIN_SEGMENTS;
-  const x0 = a.x - bw / 2, y0 = a.y + 36;
-  const f = clamp(a.hp / a.maxhp, 0, 1);
-  for (let i = 0; i < TRAIN_SEGMENTS; i++) {
-    const lo = i / TRAIN_SEGMENTS, hi = (i + 1) / TRAIN_SEGMENTS;
-    const segF = clamp((f - lo) / (hi - lo), 0, 1);
-    const sx = x0 + i * (segW + gap);
-    c.fillStyle = 'rgba(0,0,0,0.62)';
-    c.fillRect(sx - 1, y0 - 1, segW + 2, 7);
-    c.fillStyle = i === 0 ? '#d04030' : i === 1 ? '#c07a2e' : '#7ea24a';
-    c.fillRect(sx, y0, segW * segF, 5);
-  }
-  c.fillStyle = 'rgba(228,224,208,0.9)';
-  c.font = '7px monospace';
-  c.textAlign = 'center';
-  c.fillText('TRENO ARMATO', a.x, y0 + 14);
-  c.textAlign = 'left';
+  const ticks = [];
+  for (let i = 1; i < TRAIN_SEGMENTS; i++) ticks.push(i / TRAIN_SEGMENTS);
+  drawBossHpBar(a, a.y + 46, 110, 'TRENO ARMATO', ticks);
 
   // per-wagon condition, so the player can read which guns are still in the fight
-  for (const p of (a.parts || [])) {
-    if (p.dead || p.hp >= p.maxhp) continue;
-    const pf = clamp(p.hp / p.maxhp, 0, 1);
-    const w = p.t.trainMg ? 10 : 22;
-    c.fillStyle = 'rgba(0,0,0,0.6)';
-    c.fillRect(p.x - w / 2, p.y - 16, w, 3);
-    c.fillStyle = pf > 0.4 ? '#c8d86a' : '#d04030';
-    c.fillRect(p.x - w / 2, p.y - 16, w * pf, 3);
-  }
+  for (const p of (a.parts || [])) drawBossPartBar(p, 16, p.t.trainMg ? 10 : 22);
 
   if (G.selected.includes(a)) {
     c.strokeStyle = 'rgba(255,255,255,0.85)';

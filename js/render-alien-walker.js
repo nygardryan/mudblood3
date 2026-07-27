@@ -167,22 +167,12 @@ function paintAlienWalker(c, a) {
   c.restore();
 }
 
-// wide HP bar + a state read-out, in the multi-segment bosses' idiom but with
-// one bar: this thing has no phases to break through.
+// The bosses' bar (drawBossHpBar, js/render-overlays.js) with the default ticks
+// at quarters — this thing has no phases to break through, so it has no
+// boundaries to mark instead. It stands with its feet at AW_GROUND_Y, so the bar
+// hangs below them, far enough out that the caption above it clears the legs.
 function drawAlienWalkerOverlays(a) {
-  const c = ctx;
-  const bw = 76;
-  const x0 = a.x - bw / 2, y0 = a.y + AW_GROUND_Y + 8;
-  const f = clamp(a.hp / a.maxhp, 0, 1);
-  c.fillStyle = 'rgba(0,0,0,0.62)';
-  c.fillRect(x0 - 1, y0 - 1, bw + 2, 7);
-  c.fillStyle = f > 0.5 ? '#5fd0c0' : f > 0.25 ? '#c07a2e' : '#d04030';
-  c.fillRect(x0, y0, bw * f, 5);
-  c.fillStyle = 'rgba(228,224,208,0.9)';
-  c.font = '7px monospace';
-  c.textAlign = 'center';
-  c.fillText('ALIEN WALKER', a.x, y0 + 14);
-  c.textAlign = 'left';   // ctx.textAlign is global state, always put it back
+  drawBossHpBar(a, a.y + AW_GROUND_Y + 14, 76, 'ALIEN WALKER');
 }
 
 function drawAlienWalkerPass() {

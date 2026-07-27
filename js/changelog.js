@@ -4,6 +4,16 @@
 const CHANGELOG = [
   {
     date: '2026-07-27',
+    title: 'New Card: Reinforced Plate',
+    changes: [
+      'New unique ARMOR card — REINFORCED PLATE. Heavier steel in the carrier: BODY ARMOR and FLAK ARMOR both fit 200 points of plate instead of 100, for the same 1 TP apiece.',
+      'It is the cheapest thing in the game to leverage. A plate carrier already costs a single point and soaks a rifleman\'s whole health bar before the man under it is even scratched; the card buys a second bar on top of that, on every vest you fit, for the rest of the run.',
+      'Plate already strapped on a man does not thicken by itself — re-buy his vest and it comes back at the new bar. An engineer with FIELD ARMORER patches the doubled plate back to full the same as he always did, just slower for the obvious reason.',
+      'It does nothing about what goes THROUGH a vest. A bazooka carrying HEAT ROUNDS holes your own men\'s flak armor exactly as before, and the plate never stops what it was never rated for: bullets chip body armor, explosions chip flak, and neither bar looks at the other.',
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'New Card: Beaten Zone',
     changes: [
       'New unique GUNNER card — BEATEN ZONE. Every BAR burst already beats the ground around whatever he fires on; now everything caught in it stays down twice as long, and a pinned man neither advances nor fires back.',

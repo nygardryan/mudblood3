@@ -236,6 +236,25 @@ function canisterHittable(e) {
   return !(t.tank || t.apc || t.vehicle || t.bike || t.v2);
 }
 
+// Reinforced Plate: a unique card on the two armor abilities, and the only one
+// that upgrades a thing the player BUYS rather than a man. Both plate carriers
+// come off the same ARMOR_POINTS number, so one multiplier covers both.
+//
+// Flag-only, like Rifled Slugs: the armor branch of applyPlacement (js/input.js)
+// asks armorPlatePoints() for the bar it fits. It stamps maxBodyArmor/
+// maxFlakArmor, so everything downstream that reads a fraction of the max — the
+// armor bars, the engineer's Field Armorer repair, the medic triage sort —
+// scales with the card rather than against it, exactly like Field Hardened's HP.
+// Plate already on a man is untouched; the card is read at the moment of
+// purchase, and re-buying refills to the new bar.
+const ARMOR_PLATE_MULT = 2;
+
+// how many points of plate one armor purchase fits on a man
+function armorPlatePoints() {
+  if (G.cardsOwned && G.cardsOwned.has('reinforcedplate')) return ARMOR_POINTS * ARMOR_PLATE_MULT;
+  return ARMOR_POINTS;
+}
+
 function frenzyReload(type) {
   const extra = FRENZY_EXTRA_CD[type];
   return u => {
@@ -922,6 +941,14 @@ const CARD_UNIQUES = {
   canistershot: {
     unit: 'atgun', name: 'Canister Shot', cost: 12, weight: 5,
     desc: `The 57mm carries a tin of lead balls that comes apart the moment it clears the muzzle. Enemy infantry that closes inside ${Math.round(CANISTER_RANGE_FRAC * 100)}% of the gun's reach catches the whole pattern, and canister rams faster than an AP round. Armor is still the first thing the gun answers and the shot does nothing to it — the pale wedge marks the ground the pattern covers.`,
+    hooks: {},
+  },
+  // not tied to a unit type either: `armor` is a pseudo-key covering BOTH armor
+  // abilities, since one plate number (ARMOR_POINTS) feeds both. Flag-only — the
+  // armor branch of applyPlacement reads G.cardsOwned through armorPlatePoints().
+  reinforcedplate: {
+    unit: 'armor', label: 'ARMOR', name: 'Reinforced Plate', cost: 11, weight: 4,
+    desc: `Heavier steel in the carrier: both BODY ARMOR and FLAK ARMOR fit ${ARMOR_PLATE_MULT}x the plate, ${ARMOR_POINTS * ARMOR_PLATE_MULT} points instead of ${ARMOR_POINTS}, for the same 1 TP. Plate already on a man is unchanged until you re-buy it, and an engineer with Field Armorer patches the thicker bar back to full.`,
     hooks: {},
   },
   // not tied to a unit type: carries a `label` so its chip reads HQ. Flag-only —

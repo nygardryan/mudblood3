@@ -316,37 +316,15 @@ function drawYamato(a) {
 // plus a small bar over every mount so the player can read at a glance which guns
 // are still in the fight. She is culled out of the normal enemy loop, so
 // drawSoldierOverlays never runs on her and this is the only overlay she gets.
+// The bar itself is drawBossHpBar (js/render-overlays.js), which every boss now
+// shares — this one was the pattern for it.
 function drawYamatoOverlays(a) {
   const c = ctx;
-  const bw = 200, x0 = a.x - bw / 2, y0 = a.y - YAM_HALF_BEAM - 34;
-  const f = clamp(a.hp / a.maxhp, 0, 1);
-  c.fillStyle = 'rgba(0,0,0,0.62)';
-  c.fillRect(x0 - 1, y0 - 1, bw + 2, 7);
-  c.fillStyle = f > 0.5 ? '#c0562e' : f > 0.25 ? '#e0b040' : '#d04030';
-  c.fillRect(x0, y0, bw * f, 5);
-  // tick marks at quarters, so a long bar still reads as a fraction
-  c.strokeStyle = 'rgba(0,0,0,0.45)';
-  c.lineWidth = 1;
-  for (const q of [0.25, 0.5, 0.75]) {
-    c.beginPath(); c.moveTo(x0 + bw * q, y0); c.lineTo(x0 + bw * q, y0 + 5); c.stroke();
-  }
-  c.fillStyle = 'rgba(228,224,208,0.9)';
-  c.font = '7px monospace';
-  c.textAlign = 'center';
-  c.fillText('YAMATO', a.x, y0 - 4);
-  c.textAlign = 'left';
+  drawBossHpBar(a, a.y - YAM_HALF_BEAM - 34, 200, 'YAMATO');
 
   // per-mount condition
   for (const p of (a.turrets || []).concat(a.mounts || [])) {
-    if (p.dead) continue;
-    if (p.hp >= p.maxhp) continue;
-    const w = p.t.shipTurret ? 26 : 14;
-    const pf = clamp(p.hp / p.maxhp, 0, 1);
-    const py = p.y - (p.t.shipTurret ? 19 : 11);
-    c.fillStyle = 'rgba(0,0,0,0.6)';
-    c.fillRect(p.x - w / 2, py, w, 3);
-    c.fillStyle = pf > 0.4 ? '#c0562e' : '#d04030';
-    c.fillRect(p.x - w / 2, py, w * pf, 3);
+    drawBossPartBar(p, p.t.shipTurret ? 19 : 11, p.t.shipTurret ? 26 : 14);
   }
 
   if (G.selected.includes(a)) {

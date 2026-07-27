@@ -157,6 +157,31 @@ function unitBlastMult(u) {
 const MEDIC_GUARD_DURATION = 1;     // seconds the guard holds after a patch-up
 const MEDIC_GUARD_REDUCTION = 0.2;  // fraction of incoming damage it eats
 
+// Counterattack: a unique HQ card, and the only one that touches the run's own
+// loss counter rather than a unit. Between assaults the reserve company moves up
+// and takes back a stretch of the line, so one breach comes off G.breaches.
+// Flag-only, read straight from G.cardsOwned: spawnWave (js/waves.js) calls the
+// helper below once per wave, before launchWave puts the next assault on the
+// field.
+//
+// It heals the LIVE tally and nothing else, which is the whole safety argument:
+// the breach loop in update.js calls gameOver() the instant G.breaches reaches
+// breachLimit, inside the same frame, so a wave that cracks the line past the
+// limit still ends the run. The card buys ground back between waves; it can
+// never resurrect one. Recovering to 0 also un-hots the HUD's breach plate for
+// free — hud.js reads G.breaches every frame and owns no state of its own.
+const BREACH_HEAL_PER_WAVE = 1;
+
+function healBreachesBetweenWaves() {
+  if (!(G.cardsOwned && G.cardsOwned.has('counterattack'))) return;
+  if (G.breaches <= 0) return;
+  G.breaches = Math.max(0, G.breaches - BREACH_HEAL_PER_WAVE);
+  // a floating notice rather than a banner, for awardWaveMedals' reason: this
+  // fires on the same tick a special wave announces itself, and that banner
+  // must not be stomped
+  G.texts.push({ x: W / 2, y: H * 0.56, text: 'GROUND RETAKEN — BREACH RECOVERED', ttl: 3.2 });
+}
+
 // Level the Barrels: the flak mount learns to depress. It keeps its full air
 // role, but anything that closes inside this range on the ground catches a
 // 40mm HE round. Deliberately short — this is a last-ditch self-defence wedge,
@@ -868,6 +893,13 @@ const CARD_UNIQUES = {
   warchest: {
     unit: 'hq', label: 'HQ', name: 'War Chest', cost: 10, weight: 2,
     desc: `Requisition a reserve of supplies: begin every endless run with ${WAR_CHEST_TP} extra TP.`,
+    hooks: {},
+  },
+  // the other HQ card, and the only one anywhere that heals the run itself
+  // rather than a man. Flag-only: spawnWave calls healBreachesBetweenWaves().
+  counterattack: {
+    unit: 'hq', label: 'HQ', name: 'Counterattack', cost: 14, weight: 1,
+    desc: `Reserves move up between assaults and take back the ground you lost: every new wave scrubs ${BREACH_HEAL_PER_WAVE} breach off the tally, down to none. It cannot save a line that breaks past the limit mid-wave — the run ends the moment the last breach lands.`,
     hooks: {},
   },
   // not a unit type either: `dummy` is a PLACEABLES key, so it carries a label

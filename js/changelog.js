@@ -4,6 +4,15 @@
 const CHANGELOG = [
   {
     date: '2026-07-27',
+    title: 'New Card: Counterattack',
+    changes: [
+      'New unique HQ card — COUNTERATTACK. Between assaults the reserve company moves up and takes back the ground you lost: every new wave scrubs one breach off the tally, down to none.',
+      'It is the only card that heals the run itself instead of a man. A line that leaks a single breakthrough a wave now holds forever, and a bad wave that costs you three is something you can dig out of over the next three instead of carrying to the end of the run.',
+      'It cannot save you mid-wave. The line still ends the run the instant the last breach lands — the reserves only ever arrive between assaults, and they only ever bring back one.',
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'New Card: Canister Shot',
     changes: [
       'New unique AT GUN card — CANISTER SHOT. The 57mm carries a tin of lead balls that comes apart the moment it clears the muzzle. Enemy infantry inside 30% of the gun\'s reach catches the whole pattern, and canister rams faster than an AP round.',

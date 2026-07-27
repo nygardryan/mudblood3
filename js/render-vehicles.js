@@ -147,46 +147,15 @@ function drawTank(a) {
   blitSprite(c, tankHullSprite(a), a.x, a.y, hullRot, 1);
   if (!a.t.casemate) blitSprite(c, tankTurretSprite(a), a.x, a.y, a.turret, 1);
 
-  if (a.hp < a.maxhp) {
-    const f = clamp(a.hp / a.maxhp, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(a.x - 22, a.y - 26, 44, 4);
-    ctx.fillStyle = us ? '#7ec850' : '#c0562e';
-    ctx.fillRect(a.x - 22, a.y - 26, 44 * f, 4);
-  }
+  drawActorHpBar(a, 26, 44, 4, us ? '#7ec850' : '#c0562e');
 
   // crew veterancy chevrons
-  if (us && a.rank > 0) {
-    ctx.strokeStyle = '#ffd94a';
-    ctx.lineWidth = 1;
-    let sx = a.x - (a.rank * 5 - 2) / 2;
-    const sy = a.y - 30;
-    for (let i = 0; i < a.rank; i++) {
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(sx + 1.5, sy - 2.5);
-      ctx.lineTo(sx + 3, sy);
-      ctx.stroke();
-      sx += 5;
-    }
-  }
+  if (us) drawRankChevrons(a, 30);
 
   if (us && G.selected.includes(a)) {
     drawUnitWeaponRange(a, { alpha: 0.3, bearing: a.turret });
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 3]);
-    ctx.beginPath(); ctx.arc(a.x, a.y, 30, 0, 7); ctx.stroke();
-    ctx.setLineDash([]);
-    if (G.selected.length === 1) {
-      ctx.font = 'bold 10px "Courier New", monospace';
-      ctx.textAlign = 'center';
-      const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' + a.xp + ' KILLS';
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.fillText(label, a.x + 1, a.y + 41);
-      ctx.fillStyle = '#ffe98a';
-      ctx.fillText(label, a.x, a.y + 40);
-    }
+    drawSelectionRing(a, 30);
+    drawSelectionLabel(a, 40);
   }
 }
 
@@ -452,43 +421,14 @@ function drawJeep(a) {
   if (a.type === 'jeep' && jeepHasBazookaRider()) drawJeepBazookaRider(a);
   blitSprite(c, jeepGunSprite(a), a.x, a.y, a.face, 1);
 
-  if (a.hp < a.maxhp) {
-    const f = clamp(a.hp / a.maxhp, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(a.x - 11, a.y - 19, 22, 3);
-    ctx.fillStyle = us ? '#7ec850' : '#c0562e';
-    ctx.fillRect(a.x - 11, a.y - 19, 22 * f, 3);
-  }
+  drawActorHpBar(a, 19, 22, 3, us ? '#7ec850' : '#c0562e');
 
   // crew chevrons / selection for our side
-  if (us && a.rank > 0) {
-    ctx.strokeStyle = '#ffd94a';
-    ctx.lineWidth = 1;
-    let sx = a.x - (a.rank * 5 - 2) / 2;
-    const sy = a.y - 23;
-    for (let i = 0; i < a.rank; i++) {
-      ctx.beginPath();
-      ctx.moveTo(sx, sy); ctx.lineTo(sx + 1.5, sy - 2.5); ctx.lineTo(sx + 3, sy);
-      ctx.stroke();
-      sx += 5;
-    }
-  }
+  if (us) drawRankChevrons(a, 23);
   if (us && G.selected.includes(a)) {
     drawUnitWeaponRange(a);
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 3]);
-    ctx.beginPath(); ctx.arc(a.x, a.y, 20, 0, 7); ctx.stroke();
-    ctx.setLineDash([]);
-    if (G.selected.length === 1) {
-      ctx.font = 'bold 10px "Courier New", monospace';
-      ctx.textAlign = 'center';
-      const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' \u2014 ' + a.xp + ' KILLS';
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.fillText(label, a.x + 1, a.y + 31);
-      ctx.fillStyle = '#ffe98a';
-      ctx.fillText(label, a.x, a.y + 30);
-    }
+    drawSelectionRing(a, 20);
+    drawSelectionLabel(a, 30);
   }
 }
 

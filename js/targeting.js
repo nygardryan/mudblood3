@@ -203,52 +203,85 @@ function inFireCone(shooter, target, bearing, arc) {
   return Math.abs(angleDiff(Math.atan2(target.y - shooter.y, target.x - shooter.x), bearing)) <= arc;
 }
 
-function drawFireCone(x, y, bearing, arc, range, alpha) {
-  ctx.strokeStyle = `rgba(255,255,255,${alpha != null ? alpha : 0.35})`;
-  ctx.lineWidth = 1;
+/* ---- range wedges ----
+
+   Every weapon cone on the field is one shape in a different palette: a
+   gradient laid down the bearing, a dashed arc edge, and — on the traversing
+   guns — a tick across each shoulder. They were five hand-copied arc paths,
+   which is how the flamer's edge ended up stroking whatever path happened to
+   be left over from its own fill. One painter, one spec per weapon.           */
+
+function coneWedgePath(x, y, bearing, arc, range) {
   ctx.beginPath();
   ctx.moveTo(x, y);
   ctx.arc(x, y, range, bearing - arc, bearing + arc);
   ctx.closePath();
+}
+
+// a short bar laid across the sight line out at `range` — the shoulder ticks
+// on a traverse wedge, and the compass ticks on the sniper's ring
+function strokeRadialTick(x, y, ang, range, len) {
+  const ox = x + Math.cos(ang) * range;
+  const oy = y + Math.sin(ang) * range;
+  const tx = Math.cos(ang + Math.PI / 2);
+  const ty = Math.sin(ang + Math.PI / 2);
+  ctx.beginPath();
+  ctx.moveTo(ox - tx * len, oy - ty * len);
+  ctx.lineTo(ox + tx * len, oy + ty * len);
   ctx.stroke();
+}
+
+// spec: { tip, fill: [[stop, css], ...], stroke, width, dash, ticks: {color, len} }
+// — `tip` is how far down the bearing the gradient runs out, as a fraction of
+// range; every field is optional, so a bare outline is just { stroke }.
+function drawRangeCone(x, y, bearing, arc, range, spec) {
+  if (spec.fill) {
+    const tipX = x + Math.cos(bearing) * range * spec.tip;
+    const tipY = y + Math.sin(bearing) * range * spec.tip;
+    const grad = ctx.createLinearGradient(x, y, tipX, tipY);
+    for (const [stop, css] of spec.fill) grad.addColorStop(stop, css);
+    ctx.fillStyle = grad;
+    coneWedgePath(x, y, bearing, arc, range);
+    ctx.fill();
+  }
+  if (spec.stroke) {
+    ctx.strokeStyle = spec.stroke;
+    ctx.lineWidth = spec.width != null ? spec.width : 1;
+    if (spec.dash) ctx.setLineDash(spec.dash);
+    coneWedgePath(x, y, bearing, arc, range);
+    ctx.stroke();
+    if (spec.dash) ctx.setLineDash([]);
+  }
+  if (spec.ticks) {
+    ctx.strokeStyle = spec.ticks.color;
+    ctx.lineWidth = 1;
+    for (const ang of [bearing - arc, bearing + arc]) {
+      strokeRadialTick(x, y, ang, range, spec.ticks.len);
+    }
+  }
+}
+
+function drawFireCone(x, y, bearing, arc, range, alpha) {
+  drawRangeCone(x, y, bearing, arc, range, {
+    stroke: `rgba(255,255,255,${alpha != null ? alpha : 0.35})`,
+  });
 }
 
 // anti-tank traverse wedge — steel fill, bright arc edges
 function drawATGunRangeCone(x, y, bearing, arc, range, alpha) {
   const a = alpha != null ? alpha : 0.35;
-  const tipX = x + Math.cos(bearing) * range * 0.7;
-  const tipY = y + Math.sin(bearing) * range * 0.7;
-  const grad = ctx.createLinearGradient(x, y, tipX, tipY);
-  grad.addColorStop(0, `rgba(200,210,230,${a * 0.48})`);
-  grad.addColorStop(0.45, `rgba(160,175,200,${a * 0.3})`);
-  grad.addColorStop(1, `rgba(80,90,110,${a * 0.07})`);
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.arc(x, y, range, bearing - arc, bearing + arc);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = `rgba(230,238,255,${Math.min(0.92, a * 1.25)})`;
-  ctx.lineWidth = 1.35;
-  ctx.setLineDash([7, 5]);
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.arc(x, y, range, bearing - arc, bearing + arc);
-  ctx.closePath();
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.strokeStyle = `rgba(255,255,255,${Math.min(0.88, a * 1.15)})`;
-  ctx.lineWidth = 1;
-  for (const ang of [bearing - arc, bearing + arc]) {
-    const ox = x + Math.cos(ang) * range;
-    const oy = y + Math.sin(ang) * range;
-    const tx = Math.cos(ang + Math.PI / 2);
-    const ty = Math.sin(ang + Math.PI / 2);
-    ctx.beginPath();
-    ctx.moveTo(ox - tx * 5, oy - ty * 5);
-    ctx.lineTo(ox + tx * 5, oy + ty * 5);
-    ctx.stroke();
-  }
+  drawRangeCone(x, y, bearing, arc, range, {
+    tip: 0.7,
+    fill: [
+      [0, `rgba(200,210,230,${a * 0.48})`],
+      [0.45, `rgba(160,175,200,${a * 0.3})`],
+      [1, `rgba(80,90,110,${a * 0.07})`],
+    ],
+    stroke: `rgba(230,238,255,${Math.min(0.92, a * 1.25)})`,
+    width: 1.35,
+    dash: [7, 5],
+    ticks: { color: `rgba(255,255,255,${Math.min(0.88, a * 1.15)})`, len: 5 },
+  });
 }
 
 // Level the Barrels: the flak gun's ground-fire slice — a red wedge sharing the
@@ -256,76 +289,48 @@ function drawATGunRangeCone(x, y, bearing, arc, range, alpha) {
 // air cone so the near band reads as "this arc also bites the ground."
 function drawAAGroundCone(x, y, bearing, arc, range, alpha) {
   const a = alpha != null ? alpha : 0.35;
-  const tipX = x + Math.cos(bearing) * range * 0.7;
-  const tipY = y + Math.sin(bearing) * range * 0.7;
-  const grad = ctx.createLinearGradient(x, y, tipX, tipY);
-  grad.addColorStop(0, `rgba(230,70,60,${a * 0.5})`);
-  grad.addColorStop(0.5, `rgba(200,45,40,${a * 0.32})`);
-  grad.addColorStop(1, `rgba(150,25,25,${a * 0.08})`);
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.arc(x, y, range, bearing - arc, bearing + arc);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = `rgba(255,90,80,${Math.min(0.9, a * 1.25)})`;
-  ctx.lineWidth = 1.35;
-  ctx.setLineDash([6, 4]);
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.arc(x, y, range, bearing - arc, bearing + arc);
-  ctx.closePath();
-  ctx.stroke();
-  ctx.setLineDash([]);
+  drawRangeCone(x, y, bearing, arc, range, {
+    tip: 0.7,
+    fill: [
+      [0, `rgba(230,70,60,${a * 0.5})`],
+      [0.5, `rgba(200,45,40,${a * 0.32})`],
+      [1, `rgba(150,25,25,${a * 0.08})`],
+    ],
+    stroke: `rgba(255,90,80,${Math.min(0.9, a * 1.25)})`,
+    width: 1.35,
+    dash: [6, 4],
+  });
 }
 
 // warm wedge for flamethrower reach — selection overlay and placement ghost
 function drawFlameRangeCone(x, y, bearing, arc, range, alpha) {
   const a = alpha != null ? alpha : 0.35;
-  const tipX = x + Math.cos(bearing) * range * 0.65;
-  const tipY = y + Math.sin(bearing) * range * 0.65;
-  const grad = ctx.createLinearGradient(x, y, tipX, tipY);
-  grad.addColorStop(0, `rgba(255,210,90,${a * 0.55})`);
-  grad.addColorStop(0.45, `rgba(255,120,30,${a * 0.35})`);
-  grad.addColorStop(1, `rgba(180,50,15,${a * 0.08})`);
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.arc(x, y, range, bearing - arc, bearing + arc);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = `rgba(255,180,60,${a * 0.85})`;
-  ctx.lineWidth = 1;
-  ctx.setLineDash([5, 4]);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  drawRangeCone(x, y, bearing, arc, range, {
+    tip: 0.65,
+    fill: [
+      [0, `rgba(255,210,90,${a * 0.55})`],
+      [0.45, `rgba(255,120,30,${a * 0.35})`],
+      [1, `rgba(180,50,15,${a * 0.08})`],
+    ],
+    stroke: `rgba(255,180,60,${a * 0.85})`,
+    dash: [5, 4],
+  });
 }
 
 // buckshot spread wedge — selection overlay and placement ghost. Shared: the
 // trench gun's own reach, and the AT gun's canister band under Canister Shot.
 function drawBuckshotCone(x, y, bearing, arc, range, alpha) {
   const a = alpha != null ? alpha : 0.35;
-  const tipX = x + Math.cos(bearing) * range * 0.58;
-  const tipY = y + Math.sin(bearing) * range * 0.58;
-  const grad = ctx.createLinearGradient(x, y, tipX, tipY);
-  grad.addColorStop(0, `rgba(210,200,170,${a * 0.52})`);
-  grad.addColorStop(0.45, `rgba(170,160,130,${a * 0.32})`);
-  grad.addColorStop(1, `rgba(90,85,70,${a * 0.07})`);
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.arc(x, y, range, bearing - arc, bearing + arc);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = `rgba(230,220,190,${a * 0.8})`;
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 5]);
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.arc(x, y, range, bearing - arc, bearing + arc);
-  ctx.closePath();
-  ctx.stroke();
-  ctx.setLineDash([]);
+  drawRangeCone(x, y, bearing, arc, range, {
+    tip: 0.58,
+    fill: [
+      [0, `rgba(210,200,170,${a * 0.52})`],
+      [0.45, `rgba(170,160,130,${a * 0.32})`],
+      [1, `rgba(90,85,70,${a * 0.07})`],
+    ],
+    stroke: `rgba(230,220,190,${a * 0.8})`,
+    dash: [4, 5],
+  });
 }
 
 // long-range sight line — bright reticle ring with crosshair ticks
@@ -340,17 +345,7 @@ function drawSniperRangeRing(x, y, range, alpha) {
   ctx.setLineDash([]);
   ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(0.95, a * 1.5)})`;
   ctx.lineWidth = 1.15;
-  for (let i = 0; i < 8; i++) {
-    const ang = i * Math.PI / 4;
-    const ox = x + Math.cos(ang) * range;
-    const oy = y + Math.sin(ang) * range;
-    const tx = Math.cos(ang + Math.PI / 2);
-    const ty = Math.sin(ang + Math.PI / 2);
-    ctx.beginPath();
-    ctx.moveTo(ox - tx * 6, oy - ty * 6);
-    ctx.lineTo(ox + tx * 6, oy + ty * 6);
-    ctx.stroke();
-  }
+  for (let i = 0; i < 8; i++) strokeRadialTick(x, y, i * Math.PI / 4, range, 6);
   ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(0.85, a * 1.25)})`;
   ctx.lineWidth = 1;
   ctx.beginPath();

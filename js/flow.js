@@ -15,8 +15,11 @@ function cycleSpeed() {
   SFX.click();
 }
 
-function pauseGame() {
-  if (!running || !G || G.over || paused) return;
+// Freeze the field under an overlay: stop the sim, then drop every piece of
+// in-progress input with it — a half-made placement, a drag, a pinch, the
+// selection — because none of it survives the screen the player is about to
+// look at, and a placement left armed lands the moment they dismiss it.
+function freezeField() {
   paused = true;
   clearPlacing();
   drag = null;
@@ -24,6 +27,37 @@ function pauseGame() {
   placeTouch = null;
   mobileToolbarMinimized = false;
   G.selected = [];
+}
+
+// Every overlay that owns the whole screen. Menus don't stack, so arriving
+// anywhere means clearing all of them — enumerated once, because a screen
+// added to only three of the four hide-lists is a screen that reappears
+// underneath the next one.
+const FULL_SCREEN_OVERLAYS = [
+  'pause', 'boss-victory', 'gameover', 'endless-endgame', 'recap', 'codex',
+  'changelog', 'settings', 'endless-select', 'esc-dossier', 'leaderboard-select',
+  'card-shop', 'tutorial-select',
+];
+
+function hideOverlays() {
+  for (const id of FULL_SCREEN_OVERLAYS) el(id).classList.add('hidden');
+}
+
+// leaving a run: no field, no pointer state, nothing half-issued
+function clearRunState() {
+  running = false;
+  paused = false;
+  placing = null;
+  touchInspect = null;
+  longPressFoe = null;
+  mobileToolbarMinimized = false;
+  activePointers.clear();
+  viewGesture = null;
+}
+
+function pauseGame() {
+  if (!running || !G || G.over || paused) return;
+  freezeField();
   el('pause').classList.remove('hidden');
   refreshHUD();
 }
@@ -36,57 +70,65 @@ function resumeGame() {
   refreshHUD();
 }
 
-// Copy for the shared boss-victory overlay. All three bosses come through the
+// Copy for the shared boss-victory overlay. All four bosses come through the
 // same screen, so the wording has to follow whichever one just fell — the Yamato
 // is a ship and the Progenitor is a thing, so calling either "the executioner" or
-// "him" would read as a bug. Note the German branch is the FALLTHROUGH: a new
-// faction added without a branch here silently claims Der Schlächter's death.
-function bossVictoryCopy() {
-  if (G && G.enemyFaction === 'zo') {
-    return {
-      title: 'THE PROGENITOR IS STILL',
-      lead: 'The flesh has stopped moving.',
-      stats: `Wave ${G.wave} — the mass that birthed the horde lies open and quiet, ` +
-        `and the sector is yours. Stand down with the win, or hold the line and meet ` +
-        `it again a hundred waves on.`,
-      recap: 'You put down the Progenitor',
-    };
-  }
-  if (G && G.enemyFaction === 'it') {
-    return {
-      title: 'THE TRENO ARMATO IS DERAILED',
-      lead: 'The armored train burns on its rails.',
-      stats: `Wave ${G.wave} — the armored train burns from engine to rear turret ` +
-        `and the sector is yours. Stand down with the win, or hold the line and meet ` +
-        `it again a hundred waves on.`,
-      recap: 'You derailed the Treno Armato',
-    };
-  }
-  if (G && G.enemyFaction === 'jp') {
-    return {
-      title: 'THE YAMATO BURNS',
-      lead: 'The land battleship is a wreck.',
-      stats: `Wave ${G.wave} — the Yamato is burning and the sector is yours. ` +
-        `Stand down with the win, or hold the line and meet her again a hundred waves on.`,
-      recap: 'You broke the Yamato',
-    };
-  }
-  return {
+// "him" would read as a bug. The stats line is one sentence in four dialects:
+// what fell, and what pronoun it takes when it comes back.
+//
+// Note 'de' is the FALLTHROUGH: a faction added without an entry here silently
+// claims Der Schlächter's death, so a fifth army needs a row in this table.
+const BOSS_COPY = {
+  de: {
     title: 'DER SCHLÄCHTER FALLS',
     lead: 'The executioner is down.',
-    stats: `Wave ${G.wave} — the executioner is down and the sector is yours. ` +
-      `Stand down with the win, or hold the line and meet him again a hundred waves on.`,
+    fallen: 'the executioner is down',
+    them: 'him',
     recap: 'You cut down Der Schlächter',
-  };
+    notDone: 'THEY ARE SENDING ANOTHER',
+  },
+  jp: {
+    title: 'THE YAMATO BURNS',
+    lead: 'The land battleship is a wreck.',
+    fallen: 'the Yamato is burning',
+    them: 'her',
+    recap: 'You broke the Yamato',
+    notDone: 'ANOTHER HULL IS STEAMING IN',
+  },
+  zo: {
+    title: 'THE PROGENITOR IS STILL',
+    lead: 'The flesh has stopped moving.',
+    fallen: 'the mass that birthed the horde lies open and quiet,',
+    them: 'it',
+    recap: 'You put down the Progenitor',
+    notDone: 'THE FLESH IS STILL TWITCHING',
+  },
+  it: {
+    title: 'THE TRENO ARMATO IS DERAILED',
+    lead: 'The armored train burns on its rails.',
+    fallen: 'the armored train burns from engine to rear turret',
+    them: 'it',
+    recap: 'You derailed the Treno Armato',
+    notDone: 'ANOTHER TRAIN IS COMING',
+  },
+};
+
+function bossCopy() {
+  return (G && BOSS_COPY[G.enemyFaction]) || BOSS_COPY.de;
+}
+
+function bossVictoryCopy() {
+  const c = bossCopy();
+  return Object.assign({}, c, {
+    stats: `Wave ${G.wave} — ${c.fallen} and the sector is yours. ` +
+      `Stand down with the win, or hold the line and meet ${c.them} again a hundred waves on.`,
+  });
 }
 
 // Escalation X (NO SURRENDER): the first kill buys nothing but the right to
 // keep going. Wording follows whichever boss just fell, same as the overlay.
 function bossNotDoneCopy() {
-  if (G && G.enemyFaction === 'zo') return 'THE FLESH IS STILL TWITCHING';
-  if (G && G.enemyFaction === 'it') return 'ANOTHER TRAIN IS COMING';
-  if (G && G.enemyFaction === 'jp') return 'ANOTHER HULL IS STEAMING IN';
-  return 'THEY ARE SENDING ANOTHER';
+  return bossCopy().notDone;
 }
 
 // the boss is down: freeze the field and offer the choice — take the win now
@@ -106,13 +148,7 @@ function bossVictory() {
   // rungs with unlimited TP. unlockEscalation() takes a max(), which is what
   // makes the wave-200/300 re-entry harmless.
   if (medalsEligible() && G.esc) unlockEscalation(G.esc.level + 1);
-  paused = true;
-  clearPlacing();
-  drag = null;
-  clearViewPan();
-  placeTouch = null;
-  mobileToolbarMinimized = false;
-  G.selected = [];
+  freezeField();
   const copy = bossVictoryCopy();
   el('boss-victory-title').textContent = copy.title;
   el('boss-victory-stats').textContent = copy.stats;
@@ -143,27 +179,8 @@ function bossEndRun() {
 }
 
 function returnToMenu() {
-  running = false;
-  paused = false;
-  placing = null;
-  touchInspect = null;
-  longPressFoe = null;
-  mobileToolbarMinimized = false;
-  activePointers.clear();
-  viewGesture = null;
-  el('pause').classList.add('hidden');
-  el('boss-victory').classList.add('hidden');
-  el('gameover').classList.add('hidden');
-  el('endless-endgame').classList.add('hidden');
-  el('recap').classList.add('hidden');
-  el('codex').classList.add('hidden');
-  el('changelog').classList.add('hidden');
-  el('settings').classList.add('hidden');
-  el('endless-select').classList.add('hidden');
-  el('esc-dossier').classList.add('hidden');
-  el('leaderboard-select').classList.add('hidden');
-  el('card-shop').classList.add('hidden');
-  el('tutorial-select').classList.add('hidden');
+  clearRunState();
+  hideOverlays();
   el('intro').classList.remove('hidden');
   hideTutorialMsg();
   syncMobileViewUI();
@@ -274,13 +291,7 @@ function finishTutorial() {
 
 // the completion screen's button: drop straight back into the lesson picker
 function backToTutorialSelect() {
-  running = false;
-  paused = false;
-  placing = null;
-  touchInspect = null;
-  longPressFoe = null;
-  mobileToolbarMinimized = false;
-  activePointers.clear();
+  clearRunState();
   el('tutorial-complete').classList.add('hidden');
   hideTutorialMsg();
   syncToolbarVisibility();
@@ -313,19 +324,7 @@ function startGame(levelId, difficultyId) {
     : level.placeables;
   buildToolbar(placeables);
   el('intro').classList.add('hidden');
-  el('boss-victory').classList.add('hidden');
-  el('gameover').classList.add('hidden');
-  el('endless-endgame').classList.add('hidden');
-  el('recap').classList.add('hidden');
-  el('codex').classList.add('hidden');
-  el('changelog').classList.add('hidden');
-  el('settings').classList.add('hidden');
-  el('endless-select').classList.add('hidden');
-  el('esc-dossier').classList.add('hidden');
-  el('leaderboard-select').classList.add('hidden');
-  el('card-shop').classList.add('hidden');
-  el('tutorial-select').classList.add('hidden');
-  el('pause').classList.add('hidden');
+  hideOverlays();
   hideTutorialMsg();   // clear any queued messages from a previous run
   if (G.tutorial) tutEnterStep(G.tutorial.step);   // enter each script's opening step
   syncMobileViewUI();

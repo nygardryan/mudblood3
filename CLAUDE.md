@@ -366,8 +366,10 @@ would drive them off the rails). Tuning is the `TRAIN_` block in
 the codex portrait; `drawWarTrainPass` runs before the enemy loop).
 `deploy('itrain', …)` works — parts are built lazily by `initWarTrain` on the
 first tick — and `TEST.state().enemies` counts/HP are inflated by parts here
-too: 8 actors per train. `bossVictoryCopy` has an `'it'` branch; the German
-branch remains the unguarded fallthrough for any FIFTH faction.
+too: 8 actors per train. `BOSS_COPY` (`js/flow.js`) has an `'it'` row — one
+table keyed on faction holding the victory title, the stats sentence's two
+variable halves (what fell, and its pronoun) and the Escalation-X "not done
+yet" banner; `de` remains the unguarded fallback for any FIFTH faction.
 
 The **Alien Walker** (`awalker`) is the easter egg that ends a run that won't end
 — a striding tripod that walks out of the treeline at wave 666 and sweeps a laser

@@ -213,13 +213,7 @@ function drawATGun(a) {
   ctx.lineWidth = 0.9;
   ctx.beginPath(); ctx.arc(bx - fy * 2.5, by + fx * 2.5 - 1, 3.4, 0, 7); ctx.stroke();
 
-  if (a.hp < a.maxhp) {
-    const f = clamp(a.hp / a.maxhp, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(a.x - 14, a.y - 24, 28, 3.5);
-    ctx.fillStyle = '#7ec850';
-    ctx.fillRect(a.x - 14, a.y - 24, 28 * f, 3.5);
-  }
+  drawActorHpBar(a, 24, 28, 3.5, '#7ec850');
 
   // crew veterancy chevrons
   if (a.rank > 0) {
@@ -377,45 +371,14 @@ function drawAAGun(a) {
   ctx.lineWidth = 0.9;
   ctx.beginPath(); ctx.arc(bx, by - 1, 3.4, 0, 7); ctx.stroke();
 
-  if (a.hp < a.maxhp) {
-    const f = clamp(a.hp / a.maxhp, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(a.x - 14, a.y - 24, 28, 3.5);
-    ctx.fillStyle = '#7ec850';
-    ctx.fillRect(a.x - 14, a.y - 24, 28 * f, 3.5);
-  }
+  drawActorHpBar(a, 24, 28, 3.5, '#7ec850');
 
-  if (a.rank > 0) {
-    ctx.strokeStyle = '#ffd94a';
-    ctx.lineWidth = 1;
-    let sx = a.x - (a.rank * 5 - 2) / 2;
-    const sy = a.y - 28;
-    for (let i = 0; i < a.rank; i++) {
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(sx + 1.5, sy - 2.5);
-      ctx.lineTo(sx + 3, sy);
-      ctx.stroke();
-      sx += 5;
-    }
-  }
+  drawRankChevrons(a, 28);
 
   if (G.selected.includes(a)) {
     drawUnitWeaponRange(a, { alpha: 0.3 });
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 3]);
-    ctx.beginPath(); ctx.arc(a.x, a.y, 22, 0, 7); ctx.stroke();
-    ctx.setLineDash([]);
-    if (G.selected.length === 1) {
-      ctx.font = 'bold 10px "Courier New", monospace';
-      ctx.textAlign = 'center';
-      const label = RANKS[a.rank].name + ' ' + a.t.name.toUpperCase() + ' — ' + a.xp + ' KILLS';
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.fillText(label, a.x + 1, a.y + 35);
-      ctx.fillStyle = '#ffe98a';
-      ctx.fillText(label, a.x, a.y + 34);
-    }
+    drawSelectionRing(a, 22);
+    drawSelectionLabel(a, 34);
   }
 }
 
@@ -577,13 +540,7 @@ function drawV2Launcher(a) {
 
   c.restore();
 
-  if (a.hp < a.maxhp) {
-    const f = clamp(a.hp / a.maxhp, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(a.x - 22, a.y - 34, 44, 4.5);
-    ctx.fillStyle = f > 0.5 ? '#c0562e' : '#8a2a20';
-    ctx.fillRect(a.x - 22, a.y - 34, 44 * f, 4.5);
-  }
+  drawActorHpBar(a, 34, 44, 4.5, f => (f > 0.5 ? '#c0562e' : '#8a2a20'));
 }
 
 // the V2 warhead in flight, in three acts: a boost climb off the rail under a

@@ -260,6 +260,7 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/update-enemies.js` — per-frame enemy unit logic
 - `js/tutorial.js` — tutorial scripts
 - `js/update.js` — main update loop
+- `js/render-overlays.js` — the badges every actor wears: health/armor bars, rank chevrons, selection ring & caption
 - `js/render-soldier.js` — soldier, kit & weapon drawing
 - `js/render-japanese.js` — the Imperial Japanese Army soldier renderer
 - `js/render-zombie.js` — The Horde (undead) renderer

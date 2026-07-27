@@ -1106,55 +1106,27 @@ function drawSoldierOverlays(a) {
     ctx.fillStyle = `rgba(120,200,80,${0.12 + turn * 0.22})`;
     ctx.beginPath(); ctx.arc(a.x, a.y, 8, 0, 7); ctx.fill();
     // rot progress bar, above the HP bar
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(a.x - 9, a.y - 22, 18, 2);
-    ctx.fillStyle = '#8fe06a';          ctx.fillRect(a.x - 9, a.y - 22, 18 * turn, 2);
+    drawActorBar(a, 22, 18, 2, turn, '#8fe06a');
   }
 
-  if (a.hp < a.maxhp) {
-    const f = clamp(a.hp / a.maxhp, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(a.x - 9, a.y - 13, 18, 3);
-    ctx.fillStyle = f > 0.5 ? '#7ec850' : f > 0.25 ? '#e0b040' : '#d04030';
-    ctx.fillRect(a.x - 9, a.y - 13, 18 * f, 3);
-  }
+  drawActorHpBar(a, 13, 18, 3);
 
   // Body/Flak Armor bars, stacked just above the HP bar, shown while armor holds
   if (a.bodyArmor > 0) {
-    const f = clamp(a.bodyArmor / a.maxBodyArmor, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(a.x - 9, a.y - 16, 18, 2);
-    ctx.fillStyle = '#8fb3d9';          ctx.fillRect(a.x - 9, a.y - 16, 18 * f, 2); // steel-blue = body armor
+    drawActorBar(a, 16, 18, 2, clamp(a.bodyArmor / a.maxBodyArmor, 0, 1), '#8fb3d9');  // steel-blue = body armor
   }
   if (a.flakArmor > 0) {
-    const f = clamp(a.flakArmor / a.maxFlakArmor, 0, 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(a.x - 9, a.y - 19, 18, 2);
-    ctx.fillStyle = '#b7a94e';          ctx.fillRect(a.x - 9, a.y - 19, 18 * f, 2); // olive = flak armor
+    drawActorBar(a, 19, 18, 2, clamp(a.flakArmor / a.maxFlakArmor, 0, 1), '#b7a94e');  // olive = flak armor
   }
 
   // rank chevrons for veterans (visual nation — US kit only)
-  if ((a.nation || a.side) === 'us' && a.rank > 0) {
-    ctx.strokeStyle = '#ffd94a';
-    ctx.lineWidth = 1;
-    let sx = a.x - (a.rank * 5 - 2) / 2;
-    const sy = a.y - 17;
-    for (let i = 0; i < a.rank; i++) {
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(sx + 1.5, sy - 2.5);
-      ctx.lineTo(sx + 3, sy);
-      ctx.stroke();
-      sx += 5;
-    }
-  }
+  if ((a.nation || a.side) === 'us') drawRankChevrons(a, 17);
 
   // selection ring
   if (G.selected.includes(a)) {
     drawUnitWeaponRange(a, { bearing: a.face });
     drawSpecialistRange(a);
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 3]);
-    ctx.beginPath(); ctx.arc(a.x, a.y, 12, 0, 7); ctx.stroke();
-    ctx.setLineDash([]);
+    drawSelectionRing(a, 12);
     // name/rank/kills now live in the single-selection info panel (inspector.js),
     // so the floating label under the unit is no longer drawn here
   }

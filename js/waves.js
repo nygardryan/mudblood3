@@ -32,31 +32,67 @@ function enemySpawnMult(w) {
   return Math.max(0.46, 0.60 - (w - 10) * 0.024);
 }
 
-function waveComposition(w) {
+/* ---- shared composition machinery ----
+
+   All four factions field a wave the same way — size it off the wave number,
+   draw that many men from a roster that unlocks with depth, then bolt on the
+   specials — and differ only in the numbers. That shape used to be copied out
+   four times, which meant a tempo change had to be transcribed four times to
+   land on every army. It's data now: one curve, one ladder walker.            */
+
+// Wave size. `army` is the disciplined-force curve every national roster uses;
+// the Horde is denser, because attrition is what it has instead of tactics.
+//   base/per/bump — batches open at `base` men and grow one every `per` waves,
+//                   plus a `bump` chance of one extra
+//   cap/capPer    — the ceiling, which climbs with the wave too
+//   late*         — past-99 growth, on both the batch and the ceiling
+//   floor*        — the minimum wave, so a scaled-up run never dribbles
+const WAVE_DENSITY = {
+  army: { base: 2, per: 2.5, bump: 0.35, lateStep: 4, cap: 9, capPer: 14, capLate: 6, floor: 3, floorFrom: 4, floorEarly: 1 },
+  horde: { base: 3, per: 2.2, bump: 0.40, lateStep: 3.5, cap: 11, capPer: 12, capLate: 5, floor: 4, floorFrom: 3, floorEarly: 2 },
+};
+
+function waveSizing(w, density) {
+  const d = WAVE_DENSITY[density || 'army'];
   const late = wavesPast99(w);
   const mult = enemySpawnMult(w);
-  // batches grow one man every 2.5 waves and the cap climbs fast (9 + w/14
-  // pre-99, plus late growth), so wave size ramps up sharply through the
-  // early-mid game instead of easing in
   const baseSize = Math.min(
-    2 + Math.floor(w / 2.5) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 4),
-    9 + Math.floor(w / 14) + Math.floor(late / 6),
+    d.base + Math.floor(w / d.per) + (Math.random() < d.bump ? 1 : 0) + Math.floor(late / d.lateStep),
+    d.cap + Math.floor(w / d.capPer) + Math.floor(late / d.capLate),
   );
-  // after wave 4, every wave fields at least 3 Germans so the assault never
-  // thins to a token dribble as the run scales up
-  const minSize = w > 4 ? 3 : 1;
-  const size = Math.max(minSize, Math.round(baseSize * mult));
-  const pool = ['erifle', 'erifle', 'erifle'];
+  const minSize = w > d.floorFrom ? d.floor : d.floorEarly;
+  return { late, mult, size: Math.max(minSize, Math.round(baseSize * mult)) };
+}
+
+// A roster that unlocks with depth: `base` from wave 1, then every
+// [wave, ...types] rung appended once the run has reached it. A type listed
+// twice is listed twice on purpose — repetition IS the draw weighting.
+function poolByWave(w, base, ladder) {
+  const pool = base.slice();
+  for (const rung of ladder) {
+    if (w >= rung[0]) for (let i = 1; i < rung.length; i++) pool.push(rung[i]);
+  }
+  return pool;
+}
+
+function pushPicks(out, pool, n) {
+  for (let i = 0; i < n; i++) out.push(pick(pool));
+}
+
+function waveComposition(w) {
+  const { late, mult, size } = waveSizing(w);
   // tougher types unlock earlier so the threat mix escalates faster
-  if (w >= 4) pool.push('esmg', 'esmg');
-  if (w >= 7) pool.push('egren');
-  if (w >= 9) pool.push('emg');
-  if (w >= 11) pool.push('eflame');
-  if (w >= 13) pool.push('esniper');
-  if (w >= 32) pool.push('emortar');
-  if (w >= 45) pool.push('ebazooka');
+  const pool = poolByWave(w, ['erifle', 'erifle', 'erifle'], [
+    [4, 'esmg', 'esmg'],
+    [7, 'egren'],
+    [9, 'emg'],
+    [11, 'eflame'],
+    [13, 'esniper'],
+    [32, 'emortar'],
+    [45, 'ebazooka'],
+  ]);
   const out = [];
-  for (let i = 0; i < size; i++) out.push(pick(pool));
+  pushPicks(out, pool, size);
   if (w >= 12 && Math.random() < (0.30 + late * 0.004) * mult) out.push('eoff');
   // a motorcycle team races ahead of some waves; as German logistics spin
   // up, bikes ramp from 20% at wave 9 to a 90% cap at wave 99, then keep climbing
@@ -77,10 +113,8 @@ function waveComposition(w) {
   // vehicles rolls in. vehShare climbs 1.5%/wave past 99 up to a 0.5 cap, so
   // vehicles top out at ~1/3 of the wave while infantry keeps the majority.
   if (late > 0) {
-    const vehShare = Math.min(0.5, late * 0.015);
     const vehPool = ['ejeep', 'ehalftrack', 'ehalftrack', 'panzer'];
-    const vehCount = Math.round(size * vehShare);
-    for (let i = 0; i < vehCount; i++) out.push(pick(vehPool));
+    pushPicks(out, vehPool, Math.round(size * Math.min(0.5, late * 0.015)));
   }
   // V2 battery: one at a time, and only once the fighting is desperate. Not
   // scaled by `mult` — that's a general enemy-volume knob and was crushing
@@ -98,26 +132,20 @@ function waveComposition(w) {
 // threat, there are no bikes/halftracks/gun cars, and suicide lunge-mine men
 // scale up sharply once the player has armor or emplacements to hunt.
 function japWaveComposition(w) {
-  const late = wavesPast99(w);
-  const mult = enemySpawnMult(w);
-  const baseSize = Math.min(
-    2 + Math.floor(w / 2.5) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 4),
-    9 + Math.floor(w / 14) + Math.floor(late / 6),
-  );
-  const minSize = w > 4 ? 3 : 1;
-  const size = Math.max(minSize, Math.round(baseSize * mult));
-  const pool = ['jrifle', 'jrifle', 'jrifle'];
-  if (w >= 3) pool.push('jbanzai', 'jbanzai');   // chargers early — the signature threat
-  if (w >= 4) pool.push('jsmg', 'jsmg');         // naval assault troops
-  if (w >= 6) pool.push('jlmg');
-  if (w >= 7) pool.push('jgren');
-  if (w >= 8) pool.push('jknee');
-  if (w >= 9) pool.push('jhmg');
-  if (w >= 11) pool.push('jflame');
-  if (w >= 13) pool.push('jsniper');
-  if (w >= 16) pool.push('jmortar');
+  const { late, mult, size } = waveSizing(w);
+  const pool = poolByWave(w, ['jrifle', 'jrifle', 'jrifle'], [
+    [3, 'jbanzai', 'jbanzai'],   // chargers early — the signature threat
+    [4, 'jsmg', 'jsmg'],         // naval assault troops
+    [6, 'jlmg'],
+    [7, 'jgren'],
+    [8, 'jknee'],
+    [9, 'jhmg'],
+    [11, 'jflame'],
+    [13, 'jsniper'],
+    [16, 'jmortar'],
+  ]);
   const out = [];
-  for (let i = 0; i < size; i++) out.push(pick(pool));
+  pushPicks(out, pool, size);
   if (w >= 12 && Math.random() < (0.30 + late * 0.004) * mult) out.push('joff');
   // lunge-mine suicide men: they only make sense against something worth ramming,
   // so they show from wave 18 and come thicker when the player fields armor or guns
@@ -134,10 +162,8 @@ function japWaveComposition(w) {
   if (w >= 25 && Math.random() < armorChance) out.push('jtank');
   if (w >= 45 && Math.random() < armorChance * 0.7) out.push('jchinu');
   if (late > 0) {
-    const armorShare = Math.min(0.4, late * 0.012);
     const armorPool = ['jhago', 'jtank', 'jtank', 'jchinu'];
-    const armorCount = Math.round(size * armorShare);
-    for (let i = 0; i < armorCount; i++) out.push(pick(armorPool));
+    pushPicks(out, armorPool, Math.round(size * Math.min(0.4, late * 0.012)));
   }
   return out;
 }
@@ -150,25 +176,19 @@ function japWaveComposition(w) {
 // the run drags on. What makes it dangerous isn't any one unit — it's that your
 // own casualties keep rising against you (see infection handling elsewhere).
 function zomWaveComposition(w) {
-  const late = wavesPast99(w);
-  const mult = enemySpawnMult(w);
   // the horde fields ~25% more bodies per wave than an army — attrition is the point
-  const baseSize = Math.min(
-    3 + Math.floor(w / 2.2) + (Math.random() < 0.4 ? 1 : 0) + Math.floor(late / 3.5),
-    11 + Math.floor(w / 12) + Math.floor(late / 5),
-  );
-  const minSize = w > 3 ? 4 : 2;
-  const size = Math.max(minSize, Math.round(baseSize * mult));
-  const pool = ['zshambler', 'zshambler', 'zshambler'];
-  if (w >= 2) pool.push('zrunner', 'zrunner');      // fresh runners from the start
-  if (w >= 3) pool.push('zcrawler');
-  if (w >= 5) pool.push('zhound');
-  if (w >= 7) pool.push('zrevenant');               // the odd gunman
-  if (w >= 9) pool.push('zbloater');
-  if (w >= 12) pool.push('zspitter');
-  if (w >= 14) pool.push('zbrute');
+  const { late, mult, size } = waveSizing(w, 'horde');
+  const pool = poolByWave(w, ['zshambler', 'zshambler', 'zshambler'], [
+    [2, 'zrunner', 'zrunner'],   // fresh runners from the start
+    [3, 'zcrawler'],
+    [5, 'zhound'],
+    [7, 'zrevenant'],            // the odd gunman
+    [9, 'zbloater'],
+    [12, 'zspitter'],
+    [14, 'zbrute'],
+  ]);
   const out = [];
-  for (let i = 0; i < size; i++) out.push(pick(pool));
+  pushPicks(out, pool, size);
   // the screamer drives the pack — like the Italian officer it shows a touch more
   // often, because it makes every zombie around it faster
   if (w >= 8 && Math.random() < (0.35 + late * 0.004) * mult) out.push('zscreamer');
@@ -187,9 +207,8 @@ function zomWaveComposition(w) {
   }
   // deep into a run the horde just keeps thickening: extra shamblers/runners piled on
   if (late > 0) {
-    const extra = Math.round(size * Math.min(0.5, late * 0.02));
     const swarmPool = ['zshambler', 'zrunner', 'zrunner', 'zcrawler', 'zbrute'];
-    for (let i = 0; i < extra; i++) out.push(pick(swarmPool));
+    pushPicks(out, swarmPool, Math.round(size * Math.min(0.5, late * 0.02)));
   }
   return out;
 }
@@ -201,31 +220,25 @@ function zomWaveComposition(w) {
 // only sketched here — the engineer trickle and the depth-shifting charger share
 // land with the full roster.)
 function itaWaveComposition(w) {
-  const late = wavesPast99(w);
-  const mult = enemySpawnMult(w);
-  const baseSize = Math.min(
-    2 + Math.floor(w / 2.5) + (Math.random() < 0.35 ? 1 : 0) + Math.floor(late / 4),
-    9 + Math.floor(w / 14) + Math.floor(late / 6),
-  );
-  const minSize = w > 4 ? 3 : 1;
-  const size = Math.max(minSize, Math.round(baseSize * mult));
+  const { late, mult, size } = waveSizing(w);
   // The roster splits in two, and the split IS the faction. DIGGERS garrison the
   // works and fight from them; CHARGERS never dig and exist for the AVANTI. Early
   // waves are mostly diggers — the player grinds against a line that keeps
   // creeping — and the charger share climbs with depth, so by the time the works
   // are thick the surge coming out of them is genuinely dangerous.
-  const diggers = ['ifante', 'ifante', 'ifante'];
-  if (w >= 3) diggers.push('imosch');
-  if (w >= 6) diggers.push('ibreda');
-  if (w >= 8) diggers.push('ibrixia');
-  if (w >= 9) diggers.push('ifiat');
-  if (w >= 13) diggers.push('icecc');
-  if (w >= 16) diggers.push('imortaio');
-
-  const chargers = ['ibersa'];
-  if (w >= 11) chargers.push('iflame');
-  if (w >= 15) chargers.push('ifolgore');
-  if (w >= 17) chargers.push('iardito');
+  const diggers = poolByWave(w, ['ifante', 'ifante', 'ifante'], [
+    [3, 'imosch'],
+    [6, 'ibreda'],
+    [8, 'ibrixia'],
+    [9, 'ifiat'],
+    [13, 'icecc'],
+    [16, 'imortaio'],
+  ]);
+  const chargers = poolByWave(w, ['ibersa'], [
+    [11, 'iflame'],
+    [15, 'ifolgore'],
+    [17, 'iardito'],
+  ]);
 
   // 15% chargers early, climbing to half the wave by the late game
   const chargerShare = Math.min(0.5, 0.15 + Math.max(0, w - 6) * 0.012);
@@ -255,9 +268,8 @@ function itaWaveComposition(w) {
   if (w >= 24 && Math.random() < armorChance) out.push('im13');
   if (w >= 42 && Math.random() < armorChance * 0.7) out.push('isemo');
   if (late > 0) {
-    const armorShare = Math.min(0.4, late * 0.012);
     const armorPool = ['il3', 'im13', 'im13', 'isemo'];
-    for (let i = 0; i < Math.round(size * armorShare); i++) out.push(pick(armorPool));
+    pushPicks(out, armorPool, Math.round(size * Math.min(0.4, late * 0.012)));
   }
   return out;
 }

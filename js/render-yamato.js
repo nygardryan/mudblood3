@@ -239,14 +239,20 @@ function paintYamatoTub(c, a) {
 }
 
 function yamatoHullSprite(a) {
+  const ext = SPRITES.get('yamato_hull');
+  if (ext) return ext;
   return sprite('yamhull', YAM_SPR_W, YAM_SPR_H, YAM_SPR_W / 2, YAM_SPR_H / 2,
     (c) => paintYamatoHull(c, a));
 }
 function yamatoTurretSprite(a) {
+  const ext = SPRITES.get('yamato_turret');
+  if (ext) return ext;
   return sprite('yamturret', YAM_TUR_SPR, YAM_TUR_SPR, YAM_TUR_SPR_A, YAM_TUR_SPR_A,
     (c) => paintYamatoTurret(c, a));
 }
 function yamatoTubSprite(a) {
+  const ext = SPRITES.get('yamato_tub');
+  if (ext) return ext;
   return sprite('yamtub', YAM_TUB_SPR, YAM_TUB_SPR, YAM_TUB_SPR_A, YAM_TUB_SPR_A,
     (c) => paintYamatoTub(c, a));
 }

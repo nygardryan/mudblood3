@@ -549,6 +549,55 @@ declared on `#endless-select .mm`, because an overlay lives inside the scaled
 `<button>` is prefixed `#endless-select` / `#esc-dossier` to outrank
 `.overlay button`, which repaints every overlay button gold.
 
+**SPRITE PACKS** (`js/sprites.js` + `js/export-sprites.js`) are the seam for replacing
+the procedural art with an artist's PNGs. `js/sprite-cache.js` was always written for
+this — a sprite record is `{img, w, h, ax, ay}` and `img` is anything `drawImage`
+accepts — and it needed **no changes**, because of the one rule that holds the feature
+together: **every call site asks `SPRITES.get(id)` FIRST and returns before it reaches
+`sprite()`.** That cache re-bakes any record whose `ss` doesn't match the current
+supersample (and `drawCorpse` carries the same guard per corpse); an `<img>` has one
+fixed resolution and would be re-baked forever. Check-first also means that with no pack
+installed the running code is what ran before the feature existed — `get()` returns null
+off an empty Map. Missing is normal: no `assets/sprites/manifest.json`, a half-finished
+pack, one deleted PNG — each falls through to the procedural art silently, the contract
+`js/audio.js` gives a missing `.ogg`.
+
+**Facing is never in an id.** The procedural soldier bakes 48 directional frames because
+much of a man's belt kit is screen-fixed rather than face-relative; a pack ships ONE
+image and `drawSoldier` blits it at `rot = a.face`, which also skips the live
+transient-pose branch (`soldierCacheable`). Same collapse for the halftrack's 32 buckets
+and the canopy's 32 descent frames. So a pack trades animation for art: the walk cycle,
+the MG swivel, the Progenitor's breathing, throw poses, AT recoil, train doors and
+per-corpse poses all freeze. Effects (muzzle flashes, tracers, flame, smoke) are separate
+layers and unaffected. Art is authored in the **same local frame its painter draws in**,
+so the rotation each site already passes is the rotation the sprite wants; the manifest
+records that per sprite, plus `gunTip` (the type's `gun`, where rounds actually spawn —
+sprites don't change it, so a barrel must end there).
+
+The exporter renders all **172** drawables to transparent PNGs at `EXPORT_SS` 4 px/world
+unit and ships them as one ZIP with the manifest the loader reads (`TEST.exportSprites()`,
+or the Artwork section in settings). Three things about it:
+- **`SPRITES.suspend()` wraps every bake.** Some recipes call the game's own `draw*`
+  functions, so exporting on top of an installed pack would otherwise re-encode that pack.
+- **`toDataURL`, never `toBlob`** — toBlob returns through a task callback, and a
+  background tab throttles those to ~1/sec, which turned a 1-second export into minutes.
+- `spriteDefs()` walks `UNIT_TYPES`/`ENEMY_TYPES` by flag rather than listing keys, so a
+  new type exports without anyone remembering this file exists. Boxes are the live bake
+  constants (`SOLDIER_SPR` etc.) so a repainted PNG lands on the same pixels; bosses need
+  a wider one (`paintGermanBoss` scales by `BOSS_SPRITE_SCALE`).
+
+Two extractions this needed, both verified pixel-identical: `paintATGun` /
+`paintAAGunBase` / `paintAAGunMount` out of `drawATGun`/`drawAAGun`, and
+`paintTrainTurret` / `paintTrainInfantryWagon` / `paintTrainGunWagon` out of the train
+wagons. Screen-fixed shadows stay OUTSIDE rotated blits (vehicles, the guns) and are
+baked INTO unrotated ones (soldiers, defenses) — and the two gun crews stay procedural,
+because a crewman's head carries a screen-fixed lift that doesn't rotate with the
+carriage. `DEFENSE_SPRITE_TIERS` (sprites.js) is what keeps the draw guard and the
+exporter asking for the same filename: a kind that has one look (a mine, the camo nest's
+ground layer) must not be looked up under three tier names. Verify with
+`TEST.spriteRoundtrip(id)` — it bakes, encodes, reloads and diffs; single-digit
+`meanChannelDiff` is resampling, tens mean a wrong anchor or a clipped box.
+
 Useful internals when TEST isn't enough: game state is the global `G`
 (`js/state.js:105` for its shape), `update(dt)` steps the sim, `draw()`
 renders, level catalog is `LEVELS`, unit catalogs are `UNIT_TYPES` /

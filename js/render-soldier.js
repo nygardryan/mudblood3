@@ -38,6 +38,15 @@ function soldierSprite(a) {
 }
 
 function drawSoldier(a) {
+  // A sprite pack ships ONE image per man and rotates it to his aim, so it
+  // replaces both the 48-bucket bake and the live transient-pose branch below:
+  // the throw/fire poses are procedural animation the art doesn't carry.
+  const ext = a.prone > 0 ? null : SPRITES.get(soldierSpriteId(a));
+  if (ext) {
+    blitSprite(ctx, ext, a.x, a.y, a.face, 1);
+    drawSoldierOverlays(a);
+    return;
+  }
   if (a.prone > 0) {
     drawProneSoldier(a);
     drawSoldierOverlays(a);

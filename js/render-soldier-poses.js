@@ -16,7 +16,8 @@ function proneSprite(a) {
 }
 
 function drawProneSoldier(a) {
-  blitSprite(ctx, proneSprite(a), a.x, a.y, a.face, 1);
+  const ext = SPRITES.get(proneSpriteId(a));
+  blitSprite(ctx, ext || proneSprite(a), a.x, a.y, a.face, 1);
 }
 
 // draws the prone body in local space (origin at the unit); the caller/bake handles
@@ -537,7 +538,21 @@ function drawParatrooper(e) {
   c.beginPath(); c.ellipse(e.x, e.y + 1, 4 + (1 - p) * 5, 3 + (1 - p) * 4, 0, 0, 7); c.fill();
 
   // canopy overhead — cached by descent fraction, spun to the sway bearing
-  blitSprite(c, canopySprite(p), e.x + wobX, e.y + wobY, wob * 0.15, 1);
+  const extC = SPRITES.get('fx_canopy');
+  if (extC) {
+    // a pack ships the chute once, at full deployment (radius 15, alpha 0.9);
+    // the descent fraction becomes a scale and a fade rather than 32 frames
+    c.save();
+    c.translate(e.x + wobX, e.y + wobY);
+    c.rotate(wob * 0.15);
+    const s = (4.5 + p * 10.5) / 15;
+    c.scale(s, s);
+    c.globalAlpha *= (0.3 + p * 0.6) / 0.9;
+    c.drawImage(extC.img, -extC.ax, -extC.ay, extC.w, extC.h);
+    c.restore();
+  } else {
+    blitSprite(c, canopySprite(p), e.x + wobX, e.y + wobY, wob * 0.15, 1);
+  }
 
   // the jumper below, seen from above: shoulders and helmet, sharpening as he drops
   c.save();

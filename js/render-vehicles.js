@@ -12,12 +12,16 @@
 const TANK_SPR = 92, TANK_SPR_A = 46;
 
 function tankHullSprite(a) {
+  const ext = SPRITES.get(tankHullSpriteId(a));
+  if (ext) return ext;
   const us = (a.nation || a.side) === 'us';
   return sprite('tankhull' + a.type + (us ? 'u' : 'e'),
     TANK_SPR, TANK_SPR, TANK_SPR_A, TANK_SPR_A, (c) => paintTankHull(c, a));
 }
 
 function tankTurretSprite(a) {
+  const ext = SPRITES.get(tankTurretSpriteId(a));
+  if (ext) return ext;
   const us = (a.nation || a.side) === 'us';
   return sprite('tankturret' + a.type + (us ? 'u' : 'e'),
     TANK_SPR, TANK_SPR, TANK_SPR_A, TANK_SPR_A, (c) => paintTankTurret(c, a));
@@ -357,12 +361,16 @@ function stampJeepWreck(a) {
 const JEEP_SPR = 44, JEEP_SPR_A = 22;
 
 function jeepHullSprite(a) {
+  const ext = SPRITES.get(jeepHullSpriteId(a));
+  if (ext) return ext;
   const us = (a.nation || a.side) === 'us';
   return sprite('jeephull' + a.type + (us ? 'u' : 'e'),
     JEEP_SPR, JEEP_SPR, JEEP_SPR_A, JEEP_SPR_A, (c) => paintJeepHull(c, a));
 }
 
 function jeepGunSprite(a) {
+  const ext = SPRITES.get(jeepGunSpriteId(a));
+  if (ext) return ext;
   const us = (a.nation || a.side) === 'us';
   return sprite('jeepgun' + a.type + (us ? 'u' : 'e'),
     JEEP_SPR, JEEP_SPR, JEEP_SPR_A, JEEP_SPR_A, (c) => paintJeepGun(c, a));
@@ -503,6 +511,9 @@ function stampHalftrackWreck(a) {
 const HALFTRACK_SPR = 48, HALFTRACK_SPR_A = 24, HALFTRACK_FACINGS = 32;
 
 function halftrackSprite(e) {
+  // a pack ships one body per load state; the bow MG's swivel is procedural
+  const ext = SPRITES.get(halftrackSpriteId(e));
+  if (ext) return ext;
   const us = (e.nation || e.side) === 'us';
   const fb = faceBucket(e.face, HALFTRACK_FACINGS);
   return sprite('halftrack' + e.type + (us ? 'u' : 'e') + (e.unloaded ? 'U' : 'L') + fb,
@@ -604,6 +615,8 @@ function drawBikeWheel(c, x, y, body) {
 const BIKE_SPR = 42, BIKE_SPR_A = 21;
 
 function bikeSprite(e) {
+  const ext = SPRITES.get(bikeSpriteId(e));
+  if (ext) return ext;
   const us = (e.nation || e.side) === 'us';
   return sprite('bike' + e.type + (us ? 'u' : 'e'),
     BIKE_SPR, BIKE_SPR, BIKE_SPR_A, BIKE_SPR_A, (c) => paintBikeBody(c, e));

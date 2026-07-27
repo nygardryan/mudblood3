@@ -348,6 +348,26 @@
           <input type="range" id="shake-amount-slider" min="0" max="100" step="5" value="50">
           <p class="settings-hint">Camera shake intensity when explosions go off. Set to 0 to turn it off.</p>
         </div>
+
+        <!-- Artwork section: the sprite-pack seam (js/sprites.js, js/export-sprites.js) -->
+        <div class="settings-section">
+          <div class="settings-section-title">Artwork</div>
+          <p class="settings-hint">Export every unit, vehicle, emplacement and defense in the game as
+            transparent PNGs, ready to hand to an artist. Repaint them and drop the folder back in as
+            <code>assets/sprites/</code> — anything you don't replace keeps its current art.</p>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin:2px 0 12px">
+            <button id="settings-export-sprites" class="secondary">EXPORT SPRITE PACK</button>
+          </div>
+          <div id="sprite-export-status" class="settings-value"></div>
+          <div class="settings-row">
+            <label class="settings-label">Custom sprites</label>
+            <div id="custom-sprites-label" class="settings-value">ON</div>
+          </div>
+          <p class="settings-hint">Turn off to draw the game's original artwork even with a sprite pack installed.</p>
+          <div style="display:flex;justify-content:flex-end;margin:2px 0 0">
+            <button id="settings-custom-sprites-btn" class="secondary">ART OFF</button>
+          </div>
+        </div>
       </div>
       <button id="settings-back-btn">BACK</button>
     </div>
@@ -437,6 +457,7 @@
 <script src="js/tutorial.js"></script>
 <script src="js/update.js"></script>
 <script src="js/sprite-cache.js"></script>
+<script src="js/sprites.js"></script>
 <script src="js/render-ground.js"></script>
 <script src="js/render-soldier-poses.js"></script>
 <script src="js/render-weapons.js"></script>
@@ -466,6 +487,7 @@
 <script src="js/recap.js"></script>
 <script src="js/flow.js"></script>
 <script src="js/main.js"></script>
+<script src="js/export-sprites.js"></script>
 <script src="js/test-api.js"></script>
 </body>
 </html>

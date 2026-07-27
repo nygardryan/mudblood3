@@ -50,6 +50,9 @@ const TEST = {
         'setTP(n) / addTP(n)': 'set or add tactical points, for scripting test scenarios',
         'autoplay(opts?)': 'autonomous endless player: spends TP on a scaling build every `every`s and steps for `seconds`. opts {seconds=120, every=15, plan?}. Returns {over, waves, log, final}',
         'reset()': 'stop the game and return to the main menu',
+        'sprites()': 'sprite-pack loader state: {enabled, state, listed, count, loaded[]}. `state` is none when no pack is installed in assets/sprites/',
+        'exportSprites(opts?)': 'render every drawable to a transparent PNG. opts {download=true} — pass {download:false} to render and report without a file. Returns {ok, count, bytes, ids, blank, errors}',
+        'spriteRoundtrip(id)': 'bake one sprite, encode it as PNG, load it back and diff against the procedural draw. Returns {litPixels, meanChannelDiff, ...} — a large diff means a wrong anchor or a clipped box',
       },
       levels: Object.keys(LEVELS),
       // 'medium'/'hard' left the menu when ESCALATION shipped but still start
@@ -493,6 +496,20 @@ const TEST = {
     if (running || G) returnToMenu();
     G = null;
     return { ok: true, at: 'main menu' };
+  },
+
+  sprites() {
+    return SPRITES.status();
+  },
+
+  // async, unlike everything else here: encoding a PNG goes through
+  // canvas.toBlob. Await it, or the promise is all you'll see.
+  exportSprites(opts) {
+    return exportSpritePack(opts || {});
+  },
+
+  spriteRoundtrip(id) {
+    return spriteRoundtrip(id);
   },
 };
 window.TEST = TEST;

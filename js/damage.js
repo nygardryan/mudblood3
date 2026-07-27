@@ -389,6 +389,11 @@ function paintCorpse(c, cp) {
 
 function drawCorpse(cp) {
   const alpha = clamp(cp.ttl / 8, 0, 1); // fade out over the last seconds
+  // A pack ships one body per army rather than a pose per type, so it is checked
+  // before the per-corpse bake — that record carries the same density guard an
+  // <img> can never satisfy.
+  const ext = SPRITES.get(corpseSpriteId(cp));
+  if (ext) { blitSprite(ctx, ext, cp.x, cp.y, cp.rot, alpha); return; }
   // (re)bake if missing or the display density changed under us
   if (!cp._sprite || cp._sprite.ss !== spriteSupersample()) {
     cp._sprite = makeSprite(CORPSE_SPR_W, CORPSE_SPR_H, CORPSE_SPR_AX, CORPSE_SPR_AY,

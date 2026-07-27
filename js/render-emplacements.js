@@ -59,17 +59,14 @@ function stampV2Wreck(a) {
   gctx.restore();
 }
 
-function drawATGun(a) {
-  const c = ctx;
+// The gun assembly in its own frame: barrel up -y, trails down +y — a single
+// rigid rotation by (turret + PI/2), which is what lets a sprite pack replace it
+// with one image. The ground shadow stays outside (screen-fixed, like a tank's)
+// and the crewman behind the piece is drawn live in world space, since his head
+// carries a screen-fixed lift that doesn't rotate with the carriage.
+function paintATGun(c, a) {
   const recoil = a.atgunFireT > 0 ? clamp(a.atgunFireT / 0.16, 0, 1) : 0;
   const kick = recoil * 5;
-  c.save();
-  c.translate(a.x, a.y);
-
-  c.fillStyle = 'rgba(0,0,0,0.28)';
-  c.beginPath(); c.ellipse(0, 5, 18, 11, 0, 0, 7); c.fill();
-
-  c.rotate(a.turret + Math.PI / 2);
 
   c.strokeStyle = '#3d4a34';
   c.lineWidth = 3.2;
@@ -174,8 +171,28 @@ function drawATGun(a) {
     c.beginPath(); c.arc(0, bTop - 3, 3.5 * recoil, 0, 7); c.fill();
     c.shadowBlur = 0;
   }
+}
+
+function drawATGun(a) {
+  const c = ctx;
+  c.save();
+  c.translate(a.x, a.y);
+
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  c.beginPath(); c.ellipse(0, 5, 18, 11, 0, 0, 7); c.fill();
 
   c.restore();
+
+  const ext = SPRITES.get('emplacement_atgun');
+  if (ext) {
+    blitSprite(c, ext, a.x, a.y, a.turret + Math.PI / 2, 1);
+  } else {
+    c.save();
+    c.translate(a.x, a.y);
+    c.rotate(a.turret + Math.PI / 2);
+    paintATGun(c, a);
+    c.restore();
+  }
 
   const bx = a.x - Math.cos(a.turret) * 12;
   const by = a.y - Math.sin(a.turret) * 12;
@@ -242,16 +259,10 @@ function drawATGun(a) {
 // 40mm Bofors on a cruciform outrigger base: four staked legs, a pedestal, and
 // twin barrels that sit high. Seen from above the tubes are foreshortened —
 // they're pointing up at something, not across the field like the 57mm.
-function drawAAGun(a) {
-  const c = ctx;
-  const recoil = a.atgunFireT > 0 ? clamp(a.atgunFireT / 0.16, 0, 1) : 0;
-  const kick = recoil * 4;
-  c.save();
-  c.translate(a.x, a.y);
-
-  c.fillStyle = 'rgba(0,0,0,0.28)';
-  c.beginPath(); c.ellipse(0, 5, 18, 12, 0, 0, 7); c.fill();
-
+// The Bofors splits into two layers for the same reason a tank does: the
+// cruciform outriggers are staked into the ground and never turn, the mount
+// above rotates with the bearing. A sprite pack supplies one image for each.
+function paintAAGunBase(c) {
   // cruciform outriggers stay fixed to the ground; only the mount above rotates
   c.strokeStyle = '#3d4a34';
   c.lineWidth = 3;
@@ -266,8 +277,11 @@ function drawAAGun(a) {
     const fx2 = Math.cos(ang) * 17, fy2 = Math.sin(ang) * 13;
     c.beginPath(); c.ellipse(fx2, fy2, 3.4, 2.6, 0, 0, 7); c.fill();
   }
+}
 
-  c.rotate(a.turret + Math.PI / 2);
+function paintAAGunMount(c, a) {
+  const recoil = a.atgunFireT > 0 ? clamp(a.atgunFireT / 0.16, 0, 1) : 0;
+  const kick = recoil * 4;
 
   // turntable and pedestal
   c.fillStyle = '#3a4832';
@@ -323,8 +337,32 @@ function drawAAGun(a) {
     }
     c.shadowBlur = 0;
   }
+}
+
+function drawAAGun(a) {
+  const c = ctx;
+  c.save();
+  c.translate(a.x, a.y);
+
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  c.beginPath(); c.ellipse(0, 5, 18, 12, 0, 0, 7); c.fill();
+
+  const extBase = SPRITES.get('emplacement_aagun_base');
+  if (extBase) blitSprite(c, extBase, 0, 0, 0, 1);
+  else paintAAGunBase(c);
 
   c.restore();
+
+  const extMount = SPRITES.get('emplacement_aagun_mount');
+  if (extMount) {
+    blitSprite(c, extMount, a.x, a.y, a.turret + Math.PI / 2, 1);
+  } else {
+    c.save();
+    c.translate(a.x, a.y);
+    c.rotate(a.turret + Math.PI / 2);
+    paintAAGunMount(c, a);
+    c.restore();
+  }
 
   // loader crouched at the rear of the mount, feeding clips
   const bx = a.x - Math.cos(a.turret) * 13;
@@ -394,12 +432,16 @@ function drawAAGun(a) {
 const V2_SPR = 64, V2_SPR_A = 32;
 
 function v2HullSprite(a) {
+  const ext = SPRITES.get(v2HullSpriteId(a));
+  if (ext) return ext;
   const us = (a.nation || a.side) === 'us';
   return sprite('v2hull' + a.type + (us ? 'u' : 'e'),
     V2_SPR, V2_SPR, V2_SPR_A, V2_SPR_A, (c) => paintV2Hull(c, a));
 }
 
 function v2RailSprite(a) {
+  const ext = SPRITES.get(v2RailSpriteId(a));
+  if (ext) return ext;
   const us = (a.nation || a.side) === 'us';
   return sprite('v2rail' + a.type + (us ? 'u' : 'e'),
     V2_SPR, V2_SPR, V2_SPR_A, V2_SPR_A, (c) => paintV2Rail(c, a));

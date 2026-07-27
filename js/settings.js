@@ -149,8 +149,20 @@ function saveShakeAmount(pct) {
   localStorage.setItem(SHAKE_AMOUNT_KEY, String(amount));
 }
 
+// Whether an installed sprite pack is drawn at all. The pack's own loader owns
+// the localStorage key, so this only mirrors the state into the panel.
+function applyCustomSprites() {
+  const on = SPRITES.isEnabled();
+  const label = el('custom-sprites-label');
+  const btn = el('settings-custom-sprites-btn');
+  if (label) label.textContent = on ? 'ON' : 'OFF';
+  if (btn) btn.textContent = on ? 'ART OFF' : 'ART ON';
+  return on;
+}
+
 function applySavedSettings() {
   applyToolbarSize(loadToolbarSize());
+  applyCustomSprites();
   applySoundVolume(loadSoundVolume());
   applySoundMuted(loadSoundMuted());
   applyMusicVolume(loadMusicVolume());
@@ -195,4 +207,26 @@ el('music-volume-slider').addEventListener('input', e => {
 });
 el('shake-amount-slider').addEventListener('input', e => {
   saveShakeAmount(Number(e.target.value));
+});
+el('settings-custom-sprites-btn').addEventListener('click', () => {
+  SPRITES.setEnabled(!SPRITES.isEnabled());
+  applyCustomSprites();
+});
+el('settings-export-sprites').addEventListener('click', async () => {
+  const btn = el('settings-export-sprites');
+  const out = el('sprite-export-status');
+  // it renders every drawable in the roster, which takes a few seconds
+  btn.disabled = true;
+  btn.textContent = 'RENDERING…';
+  out.textContent = '';
+  try {
+    const r = await exportSpritePack();
+    out.textContent = r.count + ' sprites, ' + Math.round(r.bytes / 1024) + ' KB'
+      + (r.errors.length ? ' — ' + r.errors.length + ' failed' : '');
+  } catch (e) {
+    out.textContent = 'Export failed: ' + ((e && e.message) || e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'EXPORT SPRITE PACK';
+  }
 });

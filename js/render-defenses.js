@@ -4,6 +4,8 @@
 'use strict';
 
 function drawWire(wr) {
+  const ext = SPRITES.get(defenseSpriteId('wire', wr.up, wr.up2));
+  if (ext) { blitSprite(ctx, ext, wr.x, wr.y, 0, 1); return; }
   ctx.save();
   ctx.translate(wr.x, wr.y);
   ctx.strokeStyle = '#2c2820';
@@ -25,6 +27,8 @@ function drawWire(wr) {
 }
 
 function drawSandbag(s) {
+  const ext = SPRITES.get(defenseSpriteId('sandbags', s.up, s.up2));
+  if (ext) { blitSprite(ctx, ext, s.x, s.y, 0, 1); return; }
   ctx.save();
   ctx.translate(s.x, s.y);
   ctx.fillStyle = 'rgba(0,0,0,0.2)';
@@ -78,6 +82,8 @@ function drawDecorSandbag(cx, cy, rx, ry) {
 }
 
 function drawBunker(b) {
+  const ext = SPRITES.get(defenseSpriteId('bunker', b.up, b.up2));
+  if (ext) { blitSprite(ctx, ext, b.x, b.y, 0, 1); return; }
   ctx.save();
   ctx.translate(b.x, b.y);
   if (b.up) {
@@ -149,6 +155,8 @@ function drawBunker(b) {
 }
 
 function drawMine(m) {
+  const ext = SPRITES.get(defenseSpriteId('mine'));
+  if (ext) { blitSprite(ctx, ext, m.x, m.y, 0, 1); return; }
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   ctx.beginPath(); ctx.ellipse(m.x, m.y + 2, 6, 3, 0, 0, 7); ctx.fill();
   ctx.fillStyle = '#3a372b';
@@ -162,6 +170,8 @@ function drawMine(m) {
 }
 
 function drawWatchtower(t) {
+  const ext = SPRITES.get(defenseSpriteId('watchtower', t.up, t.up2));
+  if (ext) { blitSprite(ctx, ext, t.x, t.y, 0, 1); return; }
   ctx.save();
   ctx.translate(t.x, t.y);
   // drop shadow
@@ -232,6 +242,8 @@ const CAMONET_EDGE = [
 ];
 
 function drawCamoNestBase(cn) {
+  const ext = SPRITES.get(defenseSpriteId('camonest_base', cn.up, cn.up2));
+  if (ext) { blitSprite(ctx, ext, cn.x, cn.y, 0, 1); return; }
   ctx.save();
   ctx.translate(cn.x, cn.y);
   // soft ground shadow of the raised net — the gap under it sells the overhead read
@@ -252,6 +264,8 @@ function drawCamoNestBase(cn) {
 }
 
 function drawCamoNestCanopy(cn) {
+  const ext = SPRITES.get(defenseSpriteId('camonest_canopy', cn.up, cn.up2));
+  if (ext) { blitSprite(ctx, ext, cn.x, cn.y, 0, 1); return; }
   ctx.save();
   ctx.translate(cn.x, cn.y);
   const f = cn.hp / cn.maxhp;
@@ -356,6 +370,8 @@ function drawCamoNest(cn) {
 // stenciled bands. Fortified stacks add a box and a strap; hardened ones get a
 // tarp corner. Splinters spread as it takes hits.
 function drawAmmoCrate(t) {
+  const ext = SPRITES.get(defenseSpriteId('ammocrate', t.up, t.up2));
+  if (ext) { blitSprite(ctx, ext, t.x, t.y, 0, 1); return; }
   ctx.save();
   ctx.translate(t.x, t.y);
   // drop shadow
@@ -411,6 +427,8 @@ function drawAmmoCrate(t) {
 // vest over the torso. Both disguises make enemies waste more fire before they
 // wise up. It has no facing, so it's drawn axis-aligned (arms east-west).
 function drawDummy(d) {
+  const ext = SPRITES.get(defenseSpriteId('dummy', d.up, d.up2));
+  if (ext) { blitSprite(ctx, ext, d.x, d.y, 0, 1); return; }
   const c = ctx;
   c.save();
   c.translate(d.x, d.y);

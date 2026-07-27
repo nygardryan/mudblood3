@@ -189,10 +189,16 @@ function drawAlienWalkerPass() {
   for (const e of G.enemies) {
     if (!e.t.awalker || e.dead) continue;
     if (!inView(e.x, e.y, 90)) continue;
-    ctx.save();
-    ctx.translate(e.x, e.y);
-    paintAlienWalker(ctx, e);
-    ctx.restore();
+    // a pack ships one neutral-stance frame; the walk cycle is procedural
+    const ext = SPRITES.get('walker_awalker');
+    if (ext) {
+      blitSprite(ctx, ext, e.x, e.y, 0, 1);
+    } else {
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      paintAlienWalker(ctx, e);
+      ctx.restore();
+    }
     drawAlienWalkerOverlays(e);
   }
 }

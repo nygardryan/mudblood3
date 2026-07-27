@@ -135,19 +135,10 @@ function paintTrainEngine(c, a) {
 }
 
 // ---- the turret wagon ---------------------------------------------------------
-function drawTrainTurretWagon(p) {
-  const c = ctx;
-  const HL = 20;
-  c.save();
-  c.translate(p.x, p.y);
-  if (p.dead) { paintWreckedWagon(c, HL); c.restore(); return; }
-  paintTrainBogies(c, HL);
-  paintTrainBody(c, HL, true);
-  c.restore();
-  // the turret, at its own laid bearing
-  c.save();
-  c.translate(p.x, p.y);
-  c.rotate(p.tur || Math.PI / 2);
+// The turret in its own frame, gun out along +x of the laid bearing — a rigid
+// rotation, so a sprite pack replaces it with one image. The muzzle flash is
+// live (it reads p.fireT every frame) and stays outside.
+function paintTrainTurret(c, p) {
   c.fillStyle = TRN_STEEL_DK;
   c.beginPath(); c.arc(0, 0, 9.5, 0, 7); c.fill();
   c.strokeStyle = TRN_EDGE; c.lineWidth = 1.1; c.stroke();
@@ -156,20 +147,57 @@ function drawTrainTurretWagon(p) {
   c.fillRect(24, -2.8, 3.5, 5.6);    // muzzle brake
   c.fillStyle = TRN_PANEL;
   c.beginPath(); c.arc(-2, 0, 4, 0, 7); c.fill();   // cupola
+}
+
+function drawTrainTurretWagon(p) {
+  const c = ctx;
+  const HL = 20;
+  if (p.dead) {
+    const extW = SPRITES.get('train_wagon_wrecked');
+    if (extW) { blitSprite(c, extW, p.x, p.y, 0, 1); return; }
+    c.save();
+    c.translate(p.x, p.y);
+    paintWreckedWagon(c, HL);
+    c.restore();
+    return;
+  }
+  const ext = SPRITES.get('train_wagon_turret');
+  if (ext) {
+    blitSprite(c, ext, p.x, p.y, 0, 1);
+  } else {
+    c.save();
+    c.translate(p.x, p.y);
+    paintTrainBogies(c, HL);
+    paintTrainBody(c, HL, true);
+    c.restore();
+  }
+  // the turret, at its own laid bearing
+  const bearing = p.tur || Math.PI / 2;
+  const extT = SPRITES.get('train_turret');
+  if (extT) {
+    blitSprite(c, extT, p.x, p.y, bearing, 1);
+  } else {
+    c.save();
+    c.translate(p.x, p.y);
+    c.rotate(bearing);
+    paintTrainTurret(c, p);
+    c.restore();
+  }
   if (p.fireT > 0) {
+    c.save();
+    c.translate(p.x, p.y);
+    c.rotate(bearing);
     c.fillStyle = `rgba(255,214,120,${clamp(p.fireT / 0.22, 0, 1)})`;
     c.beginPath(); c.arc(29, 0, 6, 0, 7); c.fill();
+    c.restore();
   }
-  c.restore();
 }
 
 // ---- the infantry wagon --------------------------------------------------------
-function drawTrainInfantryWagon(p) {
-  const c = ctx;
+// Doors open while a squad disembarks, so the wagon ships as two states — the
+// same split the halftrack makes between loaded and unloaded.
+function paintTrainInfantryWagon(c, open) {
   const HL = 20;
-  c.save();
-  c.translate(p.x, p.y);
-  if (p.dead) { paintWreckedWagon(c, HL); c.restore(); return; }
   paintTrainBogies(c, HL);
   paintTrainBody(c, HL, true);
   // roof ridge planks
@@ -178,7 +206,7 @@ function drawTrainInfantryWagon(p) {
   c.beginPath(); c.moveTo(0, -HL + 4); c.lineTo(0, HL - 4); c.stroke();
   // side doors — swung open and spilling shadow while a squad disembarks
   for (const s of [-1, 1]) {
-    if (p.dropT > 0) {
+    if (open) {
       c.fillStyle = '#15140d';
       c.fillRect(s * TRN_HALF_W - (s > 0 ? 2.5 : 0), -7, 2.5, 14);
       c.fillStyle = TRN_STEEL_DK;
@@ -188,18 +216,34 @@ function drawTrainInfantryWagon(p) {
       c.fillRect(s * TRN_HALF_W - (s > 0 ? 3 : 0), -7, 3, 14);
     }
   }
+}
+
+function drawTrainInfantryWagon(p) {
+  const c = ctx;
+  const HL = 20;
+  if (p.dead) {
+    const extW = SPRITES.get('train_wagon_wrecked');
+    if (extW) { blitSprite(c, extW, p.x, p.y, 0, 1); return; }
+    c.save();
+    c.translate(p.x, p.y);
+    paintWreckedWagon(c, HL);
+    c.restore();
+    return;
+  }
+  const open = p.dropT > 0;
+  const ext = SPRITES.get('train_wagon_infantry' + (open ? '_open' : ''));
+  if (ext) { blitSprite(c, ext, p.x, p.y, 0, 1); return; }
+  c.save();
+  c.translate(p.x, p.y);
+  paintTrainInfantryWagon(c, open);
   c.restore();
 }
 
 // ---- the gun wagon --------------------------------------------------------------
 // The flatcar itself is scenery: the four gun POSTS are the actors, and each crew
 // is drawn at its own p.x/p.y facing whatever it last fired at.
-function drawTrainGunWagon(e) {
-  const c = ctx;
+function paintTrainGunWagon(c) {
   const HL = 20;
-  const wx = e.laneX, wy = e.y + TRAIN_GUNWAGON_S;
-  c.save();
-  c.translate(wx, wy);
   paintTrainBogies(c, HL);
   // low flatcar deck with a sandbag parapet all round
   c.fillStyle = TRN_PANEL;
@@ -212,7 +256,20 @@ function drawTrainGunWagon(e) {
       c.beginPath(); c.ellipse(s * (TRN_HALF_W - 2.5), y, 3.4, 2.4, 0, 0, 7); c.fill();
     }
   }
-  c.restore();
+}
+
+function drawTrainGunWagon(e) {
+  const c = ctx;
+  const wx = e.laneX, wy = e.y + TRAIN_GUNWAGON_S;
+  const ext = SPRITES.get('train_wagon_gun');
+  if (ext) {
+    blitSprite(c, ext, wx, wy, 0, 1);
+  } else {
+    c.save();
+    c.translate(wx, wy);
+    paintTrainGunWagon(c);
+    c.restore();
+  }
 
   for (const p of e.mounts) {
     if (p.dead) continue;
@@ -298,10 +355,15 @@ function drawWarTrain(e) {
   drawTrainGunWagon(e);
   drawTrainInfantryWagon(e.wagon);
   drawTrainTurretWagon(e.turrets[0]);
-  c.save();
-  c.translate(e.x, e.y);
-  paintTrainEngine(c, e);
-  c.restore();
+  const extE = SPRITES.get('train_engine');
+  if (extE) {
+    blitSprite(c, extE, e.x, e.y, 0, 1);
+  } else {
+    c.save();
+    c.translate(e.x, e.y);
+    paintTrainEngine(c, e);
+    c.restore();
+  }
   drawWarTrainOverlays(e);
 }
 

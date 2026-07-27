@@ -382,6 +382,16 @@ function paintProgenitorBody(c, a) {
 // one pus module: a swollen sac that lights up as it charges a bile glob
 function drawProgenitorPod(c, p) {
   const swell = p.spitT > 0 ? 1 + clamp(p.spitT / 0.3, 0, 1) * 0.28 : 1;
+  const ext = SPRITES.get('progenitor_pod');
+  if (ext) {
+    // the charge swell survives as a scale; the aperture's aim does not
+    c.save();
+    c.translate(p.x, p.y);
+    c.scale(swell, swell);
+    c.drawImage(ext.img, -ext.ax, -ext.ay, ext.w, ext.h);
+    c.restore();
+    return;
+  }
   c.save();
   c.translate(p.x, p.y);
   c.scale(swell, swell);
@@ -426,10 +436,17 @@ function drawProgenitor(a) {
     c.stroke();
   }
 
-  c.save();
-  c.translate(a.x, a.y);
-  paintProgenitorBody(c, a);
-  c.restore();
+  // it only ever crawls straight down the field, so a pack ships it upright —
+  // the same view the codex portrait shows
+  const ext = SPRITES.get('progenitor_body');
+  if (ext) {
+    blitSprite(c, ext, a.x, a.y, 0, 1);
+  } else {
+    c.save();
+    c.translate(a.x, a.y);
+    paintProgenitorBody(c, a);
+    c.restore();
+  }
 
   for (const p of (a.pods || [])) {
     if (!p.dead) drawProgenitorPod(c, p);

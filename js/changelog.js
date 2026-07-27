@@ -4,6 +4,15 @@
 const CHANGELOG = [
   {
     date: '2026-07-27',
+    title: 'New Cards: Headshot',
+    changes: [
+      'New unique sniper card — HEADSHOT. Every round he lands has a 40% chance to find the head and drop the man on the spot, whatever he had left. A sniper firing one round every five seconds now ends something better than a third of the times he pulls the trigger.',
+      'New unique rifleman card — HEADSHOT. The same round, at 5%. It sounds like nothing next to the sniper\'s, and it is not: a rifleman fires six times as often, and you field him by the dozen. Read the two cards by how often they go off, not by the number printed on them.',
+      'Enemy infantry only. There is no headshot on a Panzer, a halftrack, a Kübelwagen, a rocket battery, or any of the four wave-100 bosses and the gun tubs, batteries, pus modules and wagons that ride with them.',
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'New Cards: Heavy Shells & High Explosive',
     changes: [
       'New unique mortarman card — HEAVY SHELLS. Every round he drops bursts across twice the radius. The damage on the shell is unchanged, but a blast that wide catches four times the ground, and anything that used to be standing at the edge of the crater is now well inside it.',

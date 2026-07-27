@@ -293,6 +293,42 @@ function armorPiercingMult(shooter, target) {
   return 1;
 }
 
+// Headshot: a unique card the sniper and the rifleman each get their own copy
+// of. A round that genuinely connects has a chance to find the head and drop
+// the man outright, however much he had left. Flag-only, like Armor Piercing:
+// fireShot reads G.cardsOwned through the helper below, at the same point in
+// the damage block.
+//
+// The two rates are wildly apart ON PURPOSE, because the honest unit of a
+// per-shot proc is procs per SECOND, not the percentage on the card. The
+// sniper cycles one round every 5.2s at 0.72 accuracy (~0.055 kills/s at 40%);
+// the rifleman cycles every 0.88s at 0.55 accuracy (~0.031 kills/s at 5%). A
+// flat rate across both would have been worth roughly six times more to the
+// rifleman — the cheapest unit in the game, fielded in dozens — and would have
+// read as a sniper card that the sniper was the wrong unit for.
+const HEADSHOT_CHANCE = { sniper: 0.40, rifleman: 0.05 };
+const HEADSHOT_CARD = { sniper: 'headshotsniper', rifleman: 'headshotrifleman' };
+
+// true when this round should kill outright. Infantry only: a headshot on a
+// tank, a halftrack, a jeep, a motorcycle, a rocket battery or a dug-in gun is
+// not a thing, and small arms already ping off armor at the 0.04 floor.
+function headshotKills(shooter, target) {
+  if (shooter.side !== 'us' || !target.t || target.dead) return false;
+  const card = HEADSHOT_CARD[shooter.type];
+  if (!card) return false;
+  if (!(G.cardsOwned && G.cardsOwned.has(card))) return false;
+  const t = target.t;
+  if (t.tank || t.apc || t.vehicle || t.bike || t.v2 || t.gunEmplacement) return false;
+  // and never a boss or one of its child part actors — a 40% instant kill on a
+  // battery or a pus module would end every wave-100 fight in a magazine. Same
+  // exclusion list as maybeShellShock above, kept in the same shape so a fifth
+  // faction's boss gets added to both.
+  if (t.germanBoss || t.japBoss || t.ship || t.shipPart) return false;
+  if (t.hordeBoss || t.bossPart) return false;
+  if (t.itaBoss || t.trainPart) return false;
+  return Math.random() < HEADSHOT_CHANCE[shooter.type];
+}
+
 // an instant reload is worth whatever the cooldown it erases is worth:
 // near-nothing on fast-cycling rifles, a run-warping 6 on the bazooka, whose
 // long rocket cooldown vanishes entirely against massed waves
@@ -497,6 +533,20 @@ const CARD_UNIQUES = {
       beforeShot: u => { if (u.sureShot) { u.sureShot = false; return true; } return false; },
       afterShot: (u, hit) => { if (!hit) u.sureShot = true; },
     },
+  },
+  // the two Headshot cards: flag-only, like Armor Piercing — fireShot reads
+  // G.cardsOwned via headshotKills on any round that lands. Same name on both,
+  // since cardUnitLabel chips them SNIPER and RIFLEMAN; see the note on
+  // HEADSHOT_CHANCE for why the two rates are so far apart.
+  headshotsniper: {
+    unit: 'sniper', name: 'Headshot', cost: 12, weight: 4,
+    desc: `Every sniper round that connects has a ${Math.round(HEADSHOT_CHANCE.sniper * 100)}% chance to find the head and kill outright, no matter how much health the man had left. Enemy infantry only — armor, vehicles and bosses are unaffected.`,
+    hooks: {},
+  },
+  headshotrifleman: {
+    unit: 'rifleman', name: 'Headshot', cost: 11, weight: 4,
+    desc: `Every rifle round that connects has a ${Math.round(HEADSHOT_CHANCE.rifleman * 100)}% chance to find the head and kill outright, no matter how much health the man had left. A slim chance, but every rifleman on the field is rolling it. Enemy infantry only — armor, vehicles and bosses are unaffected.`,
+    hooks: {},
   },
   // these four don't gate on a per-shot/per-kill event, so they carry no
   // hooks — updateEngineer, the officer TP tick, and officerLimit() check

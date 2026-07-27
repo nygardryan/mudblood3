@@ -243,8 +243,22 @@ function fireShot(shooter, target, opts) {
     // Armor Piercing (gunner unique): AP belt punches through light armor,
     // so jeeps, halftracks and motorcycles take the multiplier on top
     dmg *= armorPiercingMult(shooter, target);
+    // Headshot (sniper/rifleman unique): a connecting round finds the head.
+    // Sent as overwhelming damage rather than a dead flag so damageEnemy's
+    // normal death block runs — kill count, TP bounty, creditKill/onKill cards,
+    // the recap and the corpse all fire, and this can never drift from the
+    // ordinary death path. Rolled HERE, downstream of the accuracy roll, the
+    // prone dodge and coverBlock, so only a round that genuinely landed can
+    // proc. The bodyArmor term covers escalation rung VI's doubled plate, which
+    // damageEnemy subtracts 1:1 before it touches HP.
+    let headshot = false;
+    if (target.side !== 'us' && headshotKills(shooter, target)) {
+      dmg = target.hp + (target.bodyArmor || 0) + 1;
+      headshot = true;
+    }
     if (target.side === 'us') damageUnit(target, dmg, shooter, 'bullet');
     else damageEnemy(target, dmg, shooter, 'bullet');
+    if (headshot) G.texts.push({ x: target.x, y: target.y - 24, text: 'HEADSHOT', ttl: 1.2 });
   } else {
     G.particles.push({ x: hx, y: hy, vx: rand(-15, 15), vy: rand(-50, -10), ttl: 0.25, grav: 200, size: 1.2, color: '#6e6046' });
     // a near miss is warning enough to hit the dirt

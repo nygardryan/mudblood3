@@ -39,12 +39,19 @@ function spriteDefs() {
   // whole body by BOSS_SPRITE_SCALE), which needs a wider box to hold them.
   const soldierBox = (t) => (t.boss || t.germanBoss ? 76 : SOLDIER_SPR);
 
+  // A man's two poses go in one folder under filenames that sort ADJACENT
+  // (rifleman_prone.png beside rifleman_standing.png), so a thumbnail grid pairs
+  // them on sight — an artist has to repaint both and needs to see which prone
+  // body belongs to which standing one. The ids stay pose-first, because those
+  // are the loader's keys; only the filenames are grouped, which is why `base`
+  // exists apart from `id`.
   const soldierDef = (key, side, unarmed) => {
     const t = side === 'us' ? UNIT_TYPES[key] : ENEMY_TYPES[key];
     const box = soldierBox(t);
+    const stem = key + (unarmed ? '_unarmed' : '');
     add({
-      id: 'soldier_' + key + (unarmed ? '_unarmed' : ''),
-      dir: 'soldiers',
+      id: 'soldier_' + stem,
+      dir: 'soldiers', base: stem + '_standing',
       w: box, h: box, ax: box / 2, ay: box / 2,
       orientation: 'weapon along +x; the engine blits at rot = face',
       gunTip: t.gun || 0,
@@ -59,8 +66,8 @@ function spriteDefs() {
     // sprite one-to-one — but only for the men the sim can actually put down.
     if (exportCanGoProne(t)) {
       add({
-        id: 'prone_' + key + (unarmed ? '_unarmed' : ''),
-        dir: 'prone',
+        id: 'prone_' + stem,
+        dir: 'soldiers', base: stem + '_prone',
         w: PRONE_SPR, h: PRONE_SPR, ax: PRONE_SPR_A, ay: PRONE_SPR_A,
         orientation: 'body along +x; the engine blits at rot = face',
         bake: (c) => {
@@ -514,11 +521,18 @@ function makeStoreZip(files) {
 
 /* ---- the export --------------------------------------------------------- */
 
+// Where a sprite's PNG sits inside the pack. A def may name its file separately
+// from its id (`base`) so related art can be grouped under names that read well
+// in a folder — the manifest carries the path, so the two never have to match.
+function spriteFile(d) {
+  return d.dir + '/' + (d.base || d.id) + '.png';
+}
+
 function spriteManifest(defs) {
   const sprites = {};
   for (const d of defs) {
     const m = {
-      file: d.dir + '/' + d.id + '.png',
+      file: spriteFile(d),
       w: d.w, h: d.h, ax: d.ax, ay: d.ay,
       orientation: d.orientation,
     };
@@ -554,7 +568,7 @@ async function exportSpritePack(opts = {}) {
     try {
       const cv = bakeSpriteCanvas(def);
       if (canvasIsBlank(cv)) blank.push(def.id);
-      files.push({ name: def.dir + '/' + def.id + '.png', bytes: canvasToBytes(cv) });
+      files.push({ name: spriteFile(def), bytes: canvasToBytes(cv) });
     } catch (e) {
       errors.push({ id: def.id, message: String((e && e.message) || e) });
     }

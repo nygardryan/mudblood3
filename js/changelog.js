@@ -3,6 +3,17 @@
 // Add a new object to the TOP of this array whenever you ship changes.
 const CHANGELOG = [
   {
+    date: '2026-07-27',
+    title: 'Every Faction Fights on Its Own Ground',
+    changes: [
+      'Each endless enemy now brings its own terrain, so you know which war you are in the moment the field paints.',
+      'The Wehrmacht still holds the churned mud and patchy grass of the Western Front.',
+      'The Imperial Japanese Army fights on a Pacific island: volcanic ash and coral grit underfoot, jungle scrub and fallen palm fronds scattered over it, and a bamboo-revetted trench.',
+      'The Horde shambles across blighted ground — dead grey earth cracked open, pools of standing rot, and the bones of whatever came through before you.',
+      'The Regio Esercito digs in out in the North African desert: open ochre sand, wind ripples, loose stone and dry scrub.',
+    ],
+  },
+  {
     date: '2026-07-26',
     title: 'Italian Boss: The Treno Armato',
     changes: [

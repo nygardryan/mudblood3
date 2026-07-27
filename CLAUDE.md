@@ -369,6 +369,27 @@ first tick — and `TEST.state().enemies` counts/HP are inflated by parts here
 too: 8 actors per train. `bossVictoryCopy` has an `'it'` branch; the German
 branch remains the unguarded fallthrough for any FIFTH faction.
 
+**Each faction fights on its own ground.** `GROUND_BIOMES` in `js/render-ground.js`
+keys a terrain off `G.enemyFaction` — `de` Western Front mud, `jp` Pacific volcanic
+ash, `zo` blighted dead earth, `it` North African desert. It is resolved ONCE, in
+`paintGround`, which `newGame` calls immediately after setting `G.enemyFaction`, and
+baked into `groundCanvas`; nothing on the hot path knows a biome exists. Every
+non-endless mode reports `'de'`, so tutorials and campaigns keep the field they were
+authored against. A biome is a base fill, the mottle stirred into it, a `detail()`
+pass, and the deploy trench's colours — pure decoration, and blood/craters
+(`js/damage.js`) are translucent, so they sit correctly on any base.
+
+Two things that were learned by drawing them wrong, and that a fifth faction will hit:
+- **The ground must not share the player's hue AND value.** `jp` shipped first as a
+  dark jungle green and camouflaged the player's own olive-drab troops; picking your
+  men out is the whole game. It is ashen grey now, with the green kept in the scrub
+  scattered on top. Check a new biome with troops on it, not bare.
+- **Broad soft ellipses read as CAMOUFLAGE, not as terrain**, because they're the
+  same shape family as the mottle, only bigger — the eye groups them. Tried at 0.3
+  and 0.1 alpha for `jp` canopy shade and removed both times; below ~0.08 they stop
+  existing at all. Large-scale variation has to come from a different *shape*
+  (the desert's ripples, the blight's fissures), never from a bigger blob.
+
 `deploy`/`spawnEnemy` accept off-field coords (they don't block) but return
 `offField: true` with a `warning` when a positional placement lands outside the
 playable field — check it so a typo'd coordinate doesn't silently sit a unit

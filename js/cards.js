@@ -115,6 +115,43 @@ function slopedArmorSoftens(u, by) {
   return !!(by.t.tank || by.t.rocket);
 }
 
+// Heavy Shells / High Explosive: two unique cards, one for the mortarman and one
+// for the Sherman, both doubling the blast radius of the round the unit lobs.
+// The shell's damage is untouched — but explode()'s falloff is linear only down
+// to 30% at the rim, so twice the radius is four times the ground covered AND
+// roughly twice the damage to everything standing at the old edge. Flag-only,
+// like Cluster Rounds: the mortar fire block and the tank cannon block in
+// update-friendlies.js read G.cardsOwned through unitBlastMult() and scale the
+// r they hand to scheduleShell. explode() itself is unchanged — every visual it
+// draws (crater, flash, shockwave ring, fire and smoke spread) already derives
+// from that r.
+const BIG_BLAST_MULT = 2;
+
+// blast-radius multiplier for the shell this unit is about to fire. US only:
+// both fire blocks are shared with every enemy mortar team and every German,
+// Japanese and Italian tank, so the side/type check is what keeps the card off
+// them. Returns 1 for everyone else, so no call site takes a branch.
+function unitBlastMult(u) {
+  if (!u || u.side !== 'us' || !G.cardsOwned) return 1;
+  if (u.type === 'mortarman' && G.cardsOwned.has('heavyshells')) return BIG_BLAST_MULT;
+  if (u.type === 'sherman' && G.cardsOwned.has('heshells')) return BIG_BLAST_MULT;
+  return 1;
+}
+
+// Morphine Syrette: a unique medic card. Every heal pulse a medic lands stamps a
+// short guard on the man he patched, so he shrugs off part of whatever hits him
+// next. Flag-only, like Rifled Slugs: the medic's heal tick
+// (update-friendlies.js) sets the timer, updateUnit runs it down, and damageUnit
+// scales the incoming hit while it holds.
+//
+// The duration is deliberately LONGER than the medic's 0.4s heal pulse and
+// shorter than the walk out of MEDIC_RANGE: a wounded man standing in the aid
+// post keeps the guard up continuously, and one who leaves loses it inside a
+// second. The stamp re-arms rather than accumulating, so a pile of medics on one
+// casualty can't stack it into permanence.
+const MEDIC_GUARD_DURATION = 1;     // seconds the guard holds after a patch-up
+const MEDIC_GUARD_REDUCTION = 0.2;  // fraction of incoming damage it eats
+
 // Level the Barrels: the flak mount learns to depress. It keeps its full air
 // role, but anything that closes inside this range on the ground catches a
 // 40mm HE round. Deliberately short — this is a last-ditch self-defence wedge,
@@ -422,6 +459,13 @@ const CARD_UNIQUES = {
     desc: `Angled plate deflects the tank's real killers: the Sherman takes ${Math.round(SLOPED_ARMOR_REDUCTION * 100)}% less damage from enemy tank shells and rocket launchers.`,
     hooks: {},
   },
+  // flag-only, like Sloped Armor: the tank cannon block in updateTankCombat
+  // reads G.cardsOwned via unitBlastMult and doubles the r it hands the shell
+  heshells: {
+    unit: 'sherman', name: 'High Explosive', cost: 13, weight: 5,
+    desc: `The 75mm loads HE: every cannon shell bursts across ${BIG_BLAST_MULT}x the radius. The tank fires it at whatever it is aimed at, with no regard for how close your own men are standing.`,
+    hooks: {},
+  },
   // flag-only: maybeSpawnPassenger (called from input.js placement) reads
   // G.cardsOwned when a jeep deploys and rolls a free rider off rollPassengerType
   passenger: {
@@ -454,7 +498,7 @@ const CARD_UNIQUES = {
       afterShot: (u, hit) => { if (!hit) u.sureShot = true; },
     },
   },
-  // these three don't gate on a per-shot/per-kill event, so they carry no
+  // these four don't gate on a per-shot/per-kill event, so they carry no
   // hooks — updateEngineer, the officer TP tick, and officerLimit() check
   // G.cardsOwned directly instead
   greasemonkey: {
@@ -470,11 +514,24 @@ const CARD_UNIQUES = {
     desc: 'Engineers push fortifications to a second tier: hardened emplacements with even more HP, cover, and range.',
     hooks: {},
   },
+  fieldarmorer: {
+    unit: 'engineer', name: 'Field Armorer', cost: 10, weight: 3,
+    // flag-only, like Grease Monkey: updateEngineer reads G.cardsOwned directly
+    desc: 'Engineers patch battle-damaged body and flak armor on nearby infantry, slowly refilling a broken plate at the same crawling rate they wrench on a tank.',
+    hooks: {},
+  },
   cannibalize: {
     unit: 'engineer', name: 'Cannibalize', cost: 9, weight: 3,
     // flag-only: unitBuffs and unitRangeMult read G.cardsOwned directly and
     // count repairable objects (via engineerRepairCount) inside ENGINEER_RANGE.
     desc: 'Each repairable object in his repair radius gives the engineer +10% fire rate and range.',
+    hooks: {},
+  },
+  // flag-only, like Grease Monkey: the medic's heal tick reads G.cardsOwned and
+  // stamps u.medicGuard on the man he just patched; damageUnit reads the timer.
+  morphinesyrette: {
+    unit: 'medic', name: 'Morphine Syrette', cost: 11, weight: 4,
+    desc: `A man the medic patches up shrugs off the pain: he takes ${Math.round(MEDIC_GUARD_REDUCTION * 100)}% less damage from everything while the dose holds.`,
     hooks: {},
   },
   rushorder: {
@@ -526,6 +583,14 @@ const CARD_UNIQUES = {
   shellshocked: {
     unit: 'mortarman', name: 'Shell Shocked', cost: 11, weight: 4,
     desc: `Any enemy that survives a hit from the mortarman is stunned for ${SHELLSHOCK_DURATION} second${SHELLSHOCK_DURATION === 1 ? '' : 's'} — no moving, no firing.`,
+    hooks: {},
+  },
+  // flag-only, like Cluster Rounds: the mortar fire block in updateFriendly
+  // reads G.cardsOwned via unitBlastMult, doubling both the shell's r and the
+  // margin he keeps off your own men before he'll drop a round
+  heavyshells: {
+    unit: 'mortarman', name: 'Heavy Shells', cost: 13, weight: 5,
+    desc: `Heavier 60mm rounds: every shell the mortarman drops bursts across ${BIG_BLAST_MULT}x the radius. He holds fire at a proportionally wider margin from your own men — the blast is far too big to drop on a contact fight.`,
     hooks: {},
   },
   warbonds: {

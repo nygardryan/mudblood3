@@ -26,7 +26,7 @@ const ENDLESS_DIFFICULTIES = {
 // Emplacement HP constants (hoisted) — read by input.js placement, the codex,
 // and the inspector's ghost previews. usBunker is used by the tutorial setups.
 const SANDBAG_HP = 660;
-const DUMMY_HP = SANDBAG_HP;   // decoy scarecrow: as tough as a sandbag wall, +this per fortify tier
+const DUMMY_HP = 495;          // decoy scarecrow: 3/4 of a sandbag wall, +this per fortify tier
 const BUNKER_HP = 2040;
 const WATCHTOWER_HP = 500;
 const CAMONEST_HP = 280;

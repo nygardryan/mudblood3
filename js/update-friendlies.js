@@ -152,6 +152,9 @@ function updateUnit(u, dt) {
   if (u.atgunFireT > 0) u.atgunFireT -= dt;
   if (u.mortarFireT > 0) u.mortarFireT -= dt;
   if (u.camoExposed > 0) u.camoExposed -= dt;
+  // Morphine Syrette's guard. Never pre-initialized in makeUnit, like
+  // emergencyRepairCd — `> 0` reads an unset field as "no dose" on its own.
+  if (u.medicGuard > 0) u.medicGuard -= dt;
 
   // Horde infection: a bitten man keeps fighting but rots on a countdown; if it
   // runs out (or he's killed) he turns. tickInfection returns true once he's gone.
@@ -381,10 +384,14 @@ function updateUnit(u, dt) {
       const mt = u.t.mortar;
       const mr = unitRange(u, mt.range) * fogMult();
       const inRange = e => dist2(u, e) > mt.min * mt.min;
+      // Heavy Shells widens the burst, so it has to widen the margin he keeps
+      // off his own men by the same factor — otherwise the card quietly turns
+      // his hold-fire check into a rule for dropping rounds inside the blast
+      const blastMult = unitBlastMult(u);
       // counter-battery: friendly mortars drop on enemy mortar teams first
       let target = firstEnemyInRange(u, mr, e => inRange(e) && e.t.mortar);
       if (!target) target = firstEnemyInRange(u, mr, inRange);
-      if (target && !friendlyNearPoint(target.x, target.y, 55, u)) {
+      if (target && !friendlyNearPoint(target.x, target.y, 55 * blastMult, u)) {
         // veteran crews drop rounds faster, tighter and heavier
         u.mortCd = rand(mt.cdMin, mt.cdMax) * (1 - u.rank * 0.08);
         u.face = Math.atan2(target.y - u.y, target.x - u.x);
@@ -397,8 +404,12 @@ function updateUnit(u, dt) {
         const sc = mt.scatter * (1 - u.rank * 0.08) * (cluster ? CLUSTER_ROUNDS_SCATTER_MULT : 1);
         const shells = cluster ? Math.floor(rand(CLUSTER_ROUNDS_SHELLS_MIN, CLUSTER_ROUNDS_SHELLS_MAX + 1)) : 1;
         for (let i = 0; i < shells; i++) {
+          // the `big` flag rides the card: explode() scales its crater, flash
+          // and ring off r, but its particle COUNTS and shake are fixed, so a
+          // doubled blast reads thin without it. Purely cosmetic and audio.
           scheduleShell(target.x + rand(-sc, sc), target.y + rand(-sc, sc),
-            mt.flight + i * 0.15, mt.r, mt.dmg * (1 + u.rank * 0.05), false, u);
+            mt.flight + i * 0.15, mt.r * blastMult,
+            mt.dmg * (1 + u.rank * 0.05), blastMult > 1, u);
         }
       }
     }
@@ -426,6 +437,9 @@ function updateUnit(u, dt) {
         // experienced medics work far faster — a MSG patches at ~3.4x the rate
         const amt = Math.min(worst.maxhp - worst.hp, 3 + u.rank * 1.2);
         worst.hp += amt;
+        // Morphine Syrette: the dose rides along with the patch-up. Re-stamped,
+        // never added to, so it can't be stacked by piling medics on one man.
+        if (G.cardsOwned && G.cardsOwned.has('morphinesyrette')) worst.medicGuard = MEDIC_GUARD_DURATION;
         u.healed += amt;
         SFX.heal();
         // 1 XP per 150 HP patched up — a slow road to sergeant
@@ -465,8 +479,8 @@ function cureNearestInfected(u, dt) {
 }
 
 // engineer work, one job at a time: repair emplacements, then repair
-// damaged vehicles (slowly), then fortify an intact emplacement he's
-// standing next to
+// damaged vehicles (slowly), then patch a man's battle-damaged armor plate
+// (Field Armorer only), then fortify an intact emplacement he's standing next to
 function updateEngineer(u, dt) {
   u.healTick -= dt;
   if (u.healTick > 0) return;
@@ -524,6 +538,45 @@ function updateEngineer(u, dt) {
     return;
   }
 
+  // 1.75) Field Armorer: patch a nearby man's battle-damaged plate. Nothing else
+  // in the game refills a Body/Flak Armor pool — without this card the only way
+  // back is paying the 1 TP again — so an engineer parked with the squad trades
+  // his attention for the plate instead. Rebuilding from a fully broken bar is
+  // the point: the pool hits 0 but maxBodyArmor doesn't, so the plate is still
+  // there to be patched (its bar simply hides while empty).
+  if (G.cardsOwned && G.cardsOwned.has('fieldarmorer')) {
+    // the worst single POOL on the field, not the worst man — he works one plate
+    // per tick, like every other job here
+    let man = null, flak = false, armFrac = 1;
+    for (const a of G.units) {
+      // armor is infantry kit (see nearestArmorableUnit); metal is pass 1.5's job
+      if (a.dead || a === u || a.side !== 'us') continue;
+      if (a.t.tank || a.t.vehicle || a.t.gunEmplacement) continue;
+      if (dist2(u, a) > R2) continue;
+      if (a.maxBodyArmor > 0 && a.bodyArmor < a.maxBodyArmor) {
+        const f = a.bodyArmor / a.maxBodyArmor;
+        if (f < armFrac) { armFrac = f; man = a; flak = false; }
+      }
+      if (a.maxFlakArmor > 0 && a.flakArmor < a.maxFlakArmor) {
+        const f = a.flakArmor / a.maxFlakArmor;
+        if (f < armFrac) { armFrac = f; man = a; flak = true; }
+      }
+    }
+    if (man) {
+      // deliberately the same crawl as the vehicle pass above, repairMult and
+      // all: plate is metalwork. Grease Monkey doubling it is intended even
+      // though that card's own text only names emplacements and vehicles —
+      // don't "correct" one to match the other.
+      const cur = flak ? man.flakArmor : man.bodyArmor;
+      const max = flak ? man.maxFlakArmor : man.maxBodyArmor;
+      const amt = Math.min(max - cur, (0.5 + u.rank * 0.15) * 1.5 * repairMult);
+      if (flak) man.flakArmor += amt; else man.bodyArmor += amt;
+      credit(amt * 0.15);
+      sparks(man.x, man.y);
+      return;
+    }
+  }
+
   // 2) fortify the nearest emplacement that still has work left (~6 s per tier).
   // Every intact piece earns a first fortification; with Hardened Works an
   // already-fortified piece can be pushed to a second, tougher tier.
@@ -539,7 +592,7 @@ function updateEngineer(u, dt) {
     sparks(target.x, target.y);
     if (target.workProg >= 6) {
       target.workProg = 0;   // reset so a hardened second tier accrues fresh
-      // the dummy gains a flat sandbag's worth of HP per tier; camo nests get
+      // the dummy gains a flat DUMMY_HP per tier; camo nests get
       // double HP per tier; everything else gets 1.5x
       if (target.fortifyAdd) target.maxhp += target.fortifyAdd;
       else target.maxhp = Math.round(target.maxhp * (target.fortifyMult || 1.5));
@@ -944,8 +997,12 @@ function updateTankCombat(a, dt) {
     const d = dist(a, target);
     // a veteran gunner lays shells on the mark and hits harder
     const scatter = Math.max(18, 16 + d * 0.055) * (1 - (a.rank || 0) * 0.08);
+    // High Explosive widens the burst — and unlike the mortarman, a tank has no
+    // hold-fire check at all, so the wider splash lands on your own line too.
+    // 1 for every enemy tank, which shares this block.
+    const blastMult = unitBlastMult(a);
     scheduleShell(target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
-      0.7, 45, a.t.shellDmg * (1 + (a.rank || 0) * 0.06), false, a);
+      0.7, 45 * blastMult, a.t.shellDmg * (1 + (a.rank || 0) * 0.06), blastMult > 1, a);
     a.wpn = 'mg';
     a.cd = tankReload(a);
   } else {

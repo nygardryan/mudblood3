@@ -883,7 +883,7 @@ const FORT_TIERS = {
   },
   dummy: {
     rows: [
-      { label: 'HP',              v: ['660', '1,320', '1,980'] },
+      { label: 'HP',              v: ['495', '990', '1,485'] },
       { label: 'Disguise',        v: ['scarecrow', 'helmet', 'body armor'] },
       { label: 'Enemy sees ruse', v: ['40%/hit', '30%/hit', '20%/hit'] },
     ],

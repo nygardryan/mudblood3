@@ -554,6 +554,11 @@ function damageUnit(u, dmg, from, kind) {
   // bare {x,y} (as they used to) makes a German shell indistinguishable from
   // a friendly one and silently skips the modifier.
   if (G.esc && from && from.side === 'de') dmg *= G.esc.enemyDmgMult;
+  // Morphine Syrette: a freshly-patched man eats part of the hit. Sits here,
+  // ahead of the armor pools, so the plate soaks a smaller blow too and the dose
+  // is worth the same to an armored man as to a bare one. Side-blind on purpose
+  // — a stray friendly shell hurts a drugged man less as well.
+  if (u.medicGuard > 0) dmg *= 1 - MEDIC_GUARD_REDUCTION;
   const incoming = dmg;
   // Body/Flak Armor: the matching pool soaks damage before HP is touched.
   // Bullets chip Body Armor, explosions chip Flak Armor; a hit bigger than the

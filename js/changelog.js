@@ -4,6 +4,30 @@
 const CHANGELOG = [
   {
     date: '2026-07-27',
+    title: 'New Cards: Heavy Shells & High Explosive',
+    changes: [
+      'New unique mortarman card — HEAVY SHELLS. Every round he drops bursts across twice the radius. The damage on the shell is unchanged, but a blast that wide catches four times the ground, and anything that used to be standing at the edge of the crater is now well inside it.',
+      'New unique Sherman card — HIGH EXPLOSIVE. The 75mm loads HE and the cannon shell bursts across twice the radius, on the same terms.',
+      'Neither blast knows whose side you are on. The mortarman already refuses a fire order with your men near the impact point, and he now keeps that distance at the wider margin — but the tank has never checked, and it still does not. A Sherman firing at something in among your infantry will bury them with it.',
+    ],
+  },
+  {
+    date: '2026-07-27',
+    title: 'New Card: Field Armorer',
+    changes: [
+      'New unique engineer card — FIELD ARMORER. Body and flak armor used to be one-way: once a plate was chipped down, the only way back was paying for it again. An engineer standing with your men now patches their damaged plate, and will rebuild a fully broken bar from nothing.',
+      'He works it at the same crawl he uses on a tank, and only when there is no emplacement or vehicle in front of him that needs repairing. Grease Monkey doubles the rate.',
+    ],
+  },
+  {
+    date: '2026-07-27',
+    title: 'New Card: Morphine Syrette',
+    changes: [
+      'New unique medic card — MORPHINE SYRETTE. A man the medic patches up takes 20% less damage from everything for a moment afterward, so a wounded soldier held together inside a medic\'s radius is harder to finish off.',
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'Every Faction Fights on Its Own Ground',
     changes: [
       'Each endless enemy now brings its own terrain, so you know which war you are in the moment the field paints.',

@@ -299,8 +299,8 @@ function applyPlacement(p, x, y) {
     G.enemies.push(e);
     return e;
   } else if (p.key === 'dummy') {
-    // decoy: fortifyAdd makes each engineer tier add a flat sandbag's worth of
-    // HP (660 -> 1320 -> 1980) instead of the usual multiplier. isDummy routes
+    // decoy: fortifyAdd makes each engineer tier add a flat DUMMY_HP of
+    // HP (495 -> 990 -> 1485) instead of the usual multiplier. isDummy routes
     // its damage through the scarecrow path (damageDummy) and its id lets an
     // enemy that has seen through the ruse ignore this specific decoy.
     G.dummies.push({ x, y, hp: DUMMY_HP, maxhp: DUMMY_HP, up: false, up2: false,

@@ -80,11 +80,32 @@ function bossVictoryCopy() {
   };
 }
 
+// Escalation X (NO SURRENDER): the first kill buys nothing but the right to
+// keep going. Wording follows whichever boss just fell, same as the overlay.
+function bossNotDoneCopy() {
+  if (G && G.enemyFaction === 'zo') return 'THE FLESH IS STILL TWITCHING';
+  if (G && G.enemyFaction === 'it') return 'ANOTHER TRAIN IS COMING';
+  if (G && G.enemyFaction === 'jp') return 'ANOTHER HULL IS STEAMING IN';
+  return 'THEY ARE SENDING ANOTHER';
+}
+
 // the boss is down: freeze the field and offer the choice — take the win now
 // (full recap flow, marked victorious) or fight on, in which case the run
 // continues and the boss returns at the next hundredth wave
 function bossVictory() {
   if (!running || !G || G.over) return;
+  // Escalation X wants him down twice. Below the quota the run does NOT pause
+  // and no overlay opens — a banner, and the field keeps moving.
+  G.bossKills = (G.bossKills || 0) + 1;
+  if (G.esc && G.bossKills < G.esc.bossKills) {
+    showBanner(bossNotDoneCopy());
+    return;
+  }
+  // the rung is earned here, gated on the same predicate medals use: a real
+  // endless run, never sandbox or testing, so the boss can't be farmed for
+  // rungs with unlimited TP. unlockEscalation() takes a max(), which is what
+  // makes the wave-200/300 re-entry harmless.
+  if (medalsEligible() && G.esc) unlockEscalation(G.esc.level + 1);
   paused = true;
   clearPlacing();
   drag = null;
@@ -111,7 +132,7 @@ function bossEndRun() {
   el('boss-victory').classList.add('hidden');
   paused = false;
   const t = Math.floor(G.time);
-  const diffPrefix = G.difficulty ? `${G.difficulty.name} — ` : '';
+  const diffPrefix = `${runPostureLabel()} — `;
   let stats = `${diffPrefix}${bossVictoryCopy().recap} and held for ${G.wave} waves ` +
     `and ${t} seconds. ${G.kills} ${factionPlural()} will not go home.`;
   if (G.medalsEarned > 0) {
@@ -139,6 +160,7 @@ function returnToMenu() {
   el('changelog').classList.add('hidden');
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
+  el('esc-dossier').classList.add('hidden');
   el('leaderboard-select').classList.add('hidden');
   el('card-shop').classList.add('hidden');
   el('tutorial-select').classList.add('hidden');
@@ -151,6 +173,7 @@ function returnToMenu() {
 function openEndlessSelect() {
   el('intro').classList.add('hidden');
   syncCardShopButton();
+  buildEscalationUI();   // rebuild from the save: a boss kill may have unlocked a rung
   el('endless-select').classList.remove('hidden');
 }
 
@@ -299,6 +322,7 @@ function startGame(levelId, difficultyId) {
   el('changelog').classList.add('hidden');
   el('settings').classList.add('hidden');
   el('endless-select').classList.add('hidden');
+  el('esc-dossier').classList.add('hidden');
   el('leaderboard-select').classList.add('hidden');
   el('card-shop').classList.add('hidden');
   el('tutorial-select').classList.add('hidden');

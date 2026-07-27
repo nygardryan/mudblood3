@@ -21,12 +21,16 @@ function earnTP(amount, kind = 'kill') {
   let mult = kind === 'kill' ? KILL_TP_MULT : 1;
   if (G.mode === 'endless') {
     if (G.difficulty) mult *= G.difficulty.incomeMult;
+    if (G.esc) mult *= G.esc.incomeMult;                 // Escalation II
     if (kind === 'kill') {
       const warBonds = G.cardsOwned && G.cardsOwned.has('warbonds');
       const floorWave = warBonds ? KILL_DECAY_FLOOR_WAVE_WARBONDS : KILL_DECAY_FLOOR_WAVE;
       const rate = warBonds ? KILL_DECAY_RATE_WARBONDS : KILL_DECAY_RATE;
       mult *= G.wave >= floorWave ? 0.1 : Math.max(0.1, Math.pow(rate, G.wave));
       mult *= 0.25;
+      // Escalation IX zeroes bounties outright: income becomes a flat rate the
+      // player cannot raise by fighting harder, only by keeping officers alive
+      if (G.esc) mult *= G.esc.killIncome;
     }
   }
   G.tp += amount * mult;

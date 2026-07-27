@@ -96,11 +96,22 @@ groundCanvas.width = W; groundCanvas.height = H;
 const gctx = groundCanvas.getContext('2d');
 
 function newGame(level, difficulty) {
+  // ESCALATION (js/escalation.js): the endless difficulty ladder, read out of
+  // the save the same way the card loadout is rather than threaded through
+  // startGame — that keeps every startGame call site (menu, restart buttons,
+  // TEST.start) unchanged. Sandbox and testing are exempt, so the ladder can
+  // never distort the unlimited-TP tiers. Built BEFORE the object literal
+  // because the literal reads it for the opening TP and two timer seeds.
+  const escLevel = (level.id === 'endless' && difficulty && !difficulty.sandbox)
+    ? loadEndlessCards().escalation : 0;
+  const esc = buildEscMods(escLevel);
   G = {
     level,
     mode: level.mode,
     difficulty: difficulty || ENDLESS_DIFFICULTIES.easy,
-    tp: level.startTP != null ? level.startTP : 15,
+    esc,
+    bossKills: 0,   // Escalation X wants the boss down twice before the run is won
+    tp: (level.startTP != null ? level.startTP : 15) * esc.startTPMult,
     wave: 0,
     phase: 'combat',
     kills: 0,
@@ -148,9 +159,9 @@ function newGame(level, difficulty) {
     groundMarks: [], // blood stains and blast craters, fade after GROUND_MARK_TTL
 
     spawnTimer: 6,
-    tpTrickle: TP_TRICKLE_INTERVAL,
+    tpTrickle: TP_TRICKLE_INTERVAL + esc.trickleAdd,
     officerTick: (level.id === 'endless' && equippedEndlessCards().includes('rushorder')) ? 15 : 30,
-    eventTimer: rand(40, 60),
+    eventTimer: rand(40, 60) * esc.eventIntervalMult,
     fog: 0,
     wind: rollWind(),    // smoke rides this; it veers a little every wave (js/smoke.js)
     banner: null,
@@ -172,9 +183,11 @@ function newGame(level, difficulty) {
   // endless-only: each run rolls which enemy the sector faces — the Wehrmacht,
   // the Imperial Japanese Army, the Regio Esercito, or The Horde (undead). Every
   // other mode (tutorials, campaigns) stays German so their scripted enemy types
-  // keep working. A caller (test harness) may pre-set G_forceFaction to lock the roll.
+  // keep working. A caller (test harness) may pre-set G_forceFaction to lock the
+  // roll — it wins over the escalation pin so TEST.start's third argument keeps
+  // working at any rung.
   G.enemyFaction = level.id === 'endless'
-    ? (G_forceFaction || pick(['de', 'jp', 'zo', 'it']))
+    ? (G_forceFaction || esc.faction || pick(['de', 'jp', 'zo', 'it']))
     : 'de';
   // starting an endless run refreshes the shop's reroll price back to base
   if (level.id === 'endless') resetRerollCost();
@@ -215,7 +228,9 @@ function makeUnit(type, x, y, nation = 'us') {
 // field. Endless only — the tutorials script their own HP.
 function enemyHpRamp() {
   if (!G || G.mode !== 'endless' || !G.difficulty) return 1;
-  const ramp = G.difficulty.hpRamp || 0;
+  // Escalation I steepens the climb; the ceiling is deliberately left alone, so
+  // the rung bites in the mid game rather than raising the late-game plateau
+  const ramp = (G.difficulty.hpRamp || 0) * G.esc.hpRampMult;
   if (!ramp) return 1;
   return Math.min(ENEMY_HP_RAMP_CAP, 1 + ramp * (G.wave || 0));
 }

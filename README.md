@@ -86,13 +86,27 @@ workflow.
     - Every 10th wave is its own set-piece (a horde surge, a hound pack, a bile
       bombardment, or the Abomination itself), and the paradrop event becomes the
       **dead clawing up out of the ground behind your line**.
-  Pick a difficulty before you deploy:
-  **Sandbox** (unlimited TP, free purchases; **+1 / +5 / +10** HUD buttons or **] / Shift+] / Ctrl+]** to jump ahead and spawn later waves), **Easy** (full income — the default),
-  **Medium** (66% income from kills, trickle, and officers), or **Hard** (33%
-  income). Wave attrition still applies on Easy, Medium, and Hard.
+  Take the line straight away, or fight in **Sandbox** (unlimited TP, free
+  purchases; **+1 / +5 / +10** HUD buttons or **] / Shift+] / Ctrl+]** to jump
+  ahead and spawn later waves).
+  - **Escalation (the difficulty ladder):** put the wave-100 boss down and you
+    unlock **Escalation I**. Each of the ten rungs stacks a permanent modifier on
+    top of every rung below it, and each pins which army you face — so climbing
+    the ladder means beating the Wehrmacht, the Imperial Japanese Army, the Horde
+    and the Regio Esercito in turn. In order: enemies **toughen faster**; **income
+    drops a fifth** and the supply trickle slows; the **breather between waves
+    disappears**; every enemy attack lands **10% harder**; you deploy with
+    **nothing banked**; enemy **body armor doubles**; **events come 30% more
+    often**; **waves stop spacing out**; **kills stop paying**; and finally the
+    boss has to be put down **twice** before the run is won. Every rung also
+    **pays better** — the medal payout climbs 10% a rung, from ×1.0 at the
+    bottom to **×2.0 at Escalation X**. On the Endless menu, the rung strip or
+    the arrows pick your rung, the readout shows what it pays, and **ALL
+    MODIFIERS** opens the full ladder.
   - **Medals & cards (roguelite meta-progression):** every 10th wave survived
     banks **medals** — wave 10 pays 1, wave 20 pays 2, and so on (a run to
-    wave 46 earns 10 total). Sandbox and Testing pay nothing. Between runs,
+    wave 46 earns 10 total), multiplied by your escalation's payout. Sandbox and
+    Testing pay nothing. Between runs,
     spend them in the **CARDS** shop on the Endless menu: three cards are on
     offer at a time, and buying one reveals another. Cards are **permanent
     upgrades** to one unit type, active in every future Endless run. Commons
@@ -257,6 +271,7 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/input.js` — placement & pointer/keyboard input
 - `js/codex.js` — codex
 - `js/cards.js` — endless cards & battle plans
+- `js/escalation.js` — the endless difficulty ladder (modifiers, unlock, menu UI)
 - `js/campaign.js` — tutorial progress
 - `js/leaderboards.js` — endless leaderboards
 - `js/settings.js` — settings

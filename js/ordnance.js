@@ -100,7 +100,10 @@ function explode(x, y, r, dmg, big, by) {
       if (G.cardsOwned && G.cardsOwned.has('shrapnelvest_' + u.type)) hd *= 0.7;
       // Sloped Armor: angled plate deflects enemy shells and rockets for half
       if (slopedArmorSoftens(u, by)) hd *= (1 - SLOPED_ARMOR_REDUCTION);
-      damageUnit(u, hd, { x, y }, 'blast');
+      // forward the firer, exactly like the enemy loop above: damageUnit reads
+      // from.side to tell a German shell from a friendly one (the Escalation
+      // damage modifier), and recapUnitLost credits the kill from it
+      damageUnit(u, hd, by || { x, y }, 'blast');
     }
   }
   // Mines are immune to explosives — they only ever detonate when something

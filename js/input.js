@@ -765,6 +765,9 @@ canvas.addEventListener('contextmenu', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    // the escalation dossier is the only overlay here that layers over another
+    // one, so it gets first claim on Escape
+    if (escDossierOpen()) { closeEscalationDossier(); return; }
     if (paused) { resumeGame(); return; }
     if (placing) { clearPlacing(); return; }
     if (G && G.focusTarget) { G.focusTarget = null; return; }

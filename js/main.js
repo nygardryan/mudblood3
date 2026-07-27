@@ -7,6 +7,19 @@ el('endless-back-btn').addEventListener('click', closeEndlessSelect);
 for (const btn of document.querySelectorAll('[data-endless-diff]')) {
   btn.addEventListener('click', () => openEndlessLoadout(btn.dataset.endlessDiff));
 }
+el('esc-prev').addEventListener('click', () => stepEscalation(-1));
+el('esc-next').addEventListener('click', () => stepEscalation(1));
+// PLAY is the deploy control for endless — it starts a run at whatever rung is
+// currently shown, which is why there is no separate mode card for it. The rung
+// chips wire themselves in buildEscRungs, since the strip is rebuilt on every pick.
+el('esc-deploy').addEventListener('click', () => openEndlessLoadout('easy'));
+el('esc-dossier-open').addEventListener('click', openEscalationDossier);
+el('esc-dossier-close').addEventListener('click', closeEscalationDossier);
+// it layers over the menu, so it closes the way a layer does — click the
+// backdrop (never a row, hence the target check) or press Escape (js/input.js)
+el('esc-dossier').addEventListener('click', e => {
+  if (e.target === el('esc-dossier')) closeEscalationDossier();
+});
 el('endless-leaderboard-btn').addEventListener('click', () => openLeaderboardSelect('endless-select', 'easy'));
 el('card-shop-btn').addEventListener('click', () => openCardShop('endless-select'));
 el('card-shop-deploy').addEventListener('click', deployEndlessLoadout);

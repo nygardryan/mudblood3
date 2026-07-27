@@ -22,7 +22,8 @@ function update(dt) {
 
   // TP trickle
   G.tpTrickle -= dt;
-  if (G.tpTrickle <= 0) { G.tpTrickle = TP_TRICKLE_INTERVAL; earnTP(1, 'steady'); }
+  // Escalation II slows the trickle a second (the seed in newGame matches)
+  if (G.tpTrickle <= 0) { G.tpTrickle = TP_TRICKLE_INTERVAL + G.esc.trickleAdd; earnTP(1, 'steady'); }
 
   // officer TP bonus
   G.officerTick -= dt;
@@ -47,7 +48,9 @@ function update(dt) {
     G.eventTimer -= dt;
     if (G.eventTimer <= 0) {
       const late = wavesPast99(G.wave);
-      G.eventTimer = late > 0 ? rand(28, 52) : rand(40, 70);
+      // Escalation VII tightens the cadence only — which event fires is still
+      // rolled the same way, so the late-war weighting toward air raids holds
+      G.eventTimer = (late > 0 ? rand(28, 52) : rand(40, 70)) * G.esc.eventIntervalMult;
       triggerEvent();
     }
   }
@@ -219,7 +222,7 @@ function update(dt) {
       let dmg = FRAG_SHRAPNEL_DMG * falloff * rand(0.85, 1.15);
       if (u.t.tank) dmg *= 0.05;
       else if (u.t.vehicle || u.t.apc) dmg *= 0.3;
-      damageUnit(u, dmg, { x: sh.x, y: sh.y }, 'blast');   // frag shrapnel → flak armor
+      damageUnit(u, dmg, sh.by || { x: sh.x, y: sh.y }, 'blast');   // frag shrapnel → flak armor
     }
   }
 
@@ -322,7 +325,7 @@ function endRun(won, title, stats) {
 
 function gameOver() {
   const t = Math.floor(G.time);
-  const diffPrefix = G.difficulty ? `${G.difficulty.name} — ` : '';
+  const diffPrefix = `${runPostureLabel()} — `;
   let stats = `${diffPrefix}You held for ${G.wave} waves and ${t} seconds. ` +
     `${G.kills} ${factionPlural()} will not go home.`;
   if (G.medalsEarned > 0) {

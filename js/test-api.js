@@ -46,12 +46,16 @@ const TEST = {
         'deploy(type, x, y)': 'FREE god-mode spawn of ANY placeable (units, defenses, supports, German test units) — no TP, no placement limit. (0..1] coords are field fractions; larger are px.',
         'spawnEnemy(type, x, y)': 'defense modes only: push a German attacker into G.enemies. Negative y above the top edge is valid staging.',
         'event(name)': "fire a random-event on demand regardless of wave gating — name in: random, fog, smokescreen, fng, paradrop, airraid, airstrike",
+        'escalation(n?)': 'ESCALATION ladder: with no arg, reports {level, unlocked, faction, mods, ladder}. With 0..10 it UNLOCKS and selects that rung (write to the save) so a run can start there without grinding boss kills. Takes effect at the next TEST.start; TEST.start\'s faction arg still overrides the rung\'s pin.',
         'setTP(n) / addTP(n)': 'set or add tactical points, for scripting test scenarios',
         'autoplay(opts?)': 'autonomous endless player: spends TP on a scaling build every `every`s and steps for `seconds`. opts {seconds=120, every=15, plan?}. Returns {over, waves, log, final}',
         'reset()': 'stop the game and return to the main menu',
       },
       levels: Object.keys(LEVELS),
+      // 'medium'/'hard' left the menu when ESCALATION shipped but still start
+      // from here — the ladder stacks on 'easy'
       difficulties: Object.keys(ENDLESS_DIFFICULTIES),
+      escalations: ESCALATIONS.map(m => m.level + ': ' + m.name + ' — ' + m.desc),
       unitTypes: Object.keys(UNIT_TYPES),
       enemyTypes: Object.keys(ENEMY_TYPES),
       buyableNow: G ? Object.keys(this._toolbarMap()) : '(start a game first)',
@@ -92,6 +96,8 @@ const TEST = {
       mode: G.mode,
       levelId: G.level.id,
       difficulty: G.difficulty ? G.difficulty.id : null,
+      // ESCALATION: the rung this run was started at, plus the resolved mods
+      esc: G.esc ? { level: G.esc.level, faction: G.esc.faction, bossKills: G.bossKills, mods: G.esc } : null,
       phase: G.phase,
       enemyFaction: G.enemyFaction,
       wave: G.wave,
@@ -369,6 +375,30 @@ const TEST = {
     }
     if (name === 'random') triggerEvent(); else runEvent(name, G.wave);
     return { ok: true, fired: name, wave: G.wave };
+  },
+
+  // ESCALATION (js/escalation.js). Called bare it reports; called with a rung it
+  // UNLOCKS that rung as well as selecting it, because the real unlock costs a
+  // wave-100 boss kill per rung and no test is going to pay that ten times.
+  // Writes the save, so it only lands on the NEXT TEST.start.
+  escalation(n) {
+    if (n != null) {
+      const lvl = clamp(Math.floor(+n) || 0, 0, ESC_MAX);
+      const data = loadEndlessCards();
+      data.escUnlocked = Math.max(data.escUnlocked, lvl);
+      data.escalation = lvl;
+      saveEndlessCards(data);
+    }
+    const data = loadEndlessCards();
+    return {
+      ok: true,
+      level: data.escalation,
+      unlocked: data.escUnlocked,
+      faction: data.escalation > 0 ? escFactionFor(data.escalation) : '(random)',
+      mods: buildEscMods(data.escalation),
+      active: ESCALATIONS.slice(0, data.escalation).map(m => m.name),
+      note: n != null ? 'takes effect on the next TEST.start()' : undefined,
+    };
   },
 
   setTP(n) {

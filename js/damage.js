@@ -546,6 +546,14 @@ function armorPing(u) {
 
 function damageUnit(u, dmg, from, kind) {
   if (u.isDummy) return damageDummy(u, dmg, from);
+  // Escalation IV: every attack an enemy lands on your men, at the one point
+  // they all funnel through. Every actor on the far side is side 'de' whatever
+  // its nation, so this is a clean binary — and stray friendly blasts, which
+  // arrive here with an American `from`, are untouched. Note explode() and the
+  // shrapnel loop have to FORWARD their firer for this to see them; passing a
+  // bare {x,y} (as they used to) makes a German shell indistinguishable from
+  // a friendly one and silently skips the modifier.
+  if (G.esc && from && from.side === 'de') dmg *= G.esc.enemyDmgMult;
   const incoming = dmg;
   // Body/Flak Armor: the matching pool soaks damage before HP is touched.
   // Bullets chip Body Armor, explosions chip Flak Armor; a hit bigger than the

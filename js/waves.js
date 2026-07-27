@@ -8,12 +8,16 @@ function wavesPast99(w) {
 
 function spawnIntervalForWave(w) {
   // steep ramp (0.32/wave) reaches the 7 s cadence floor by ~wave 28,
-  // so the Germans hit full tempo early in a run
+  // so the Germans hit full tempo early in a run. Escalation VIII drops that
+  // floor to 5 — the past-99 branch decays from the same floor, so the two
+  // stay continuous at the seam rather than stepping.
+  const floor = G && G.esc ? G.esc.spawnFloor : 7;
   const base = w <= 99
-    ? clamp(16 - w * 0.32, 7, 16)
-    : clamp(7 - wavesPast99(w) * 0.06, 4, 16);
-  // WAVE_BREATHER guarantees a fixed pause between every wave
-  return base + WAVE_BREATHER;
+    ? clamp(16 - w * 0.32, floor, 16)
+    : clamp(floor - wavesPast99(w) * 0.06, 4, 16);
+  // WAVE_BREATHER guarantees a fixed pause between every wave — Escalation III
+  // removes it outright
+  return base + (G && G.esc ? G.esc.waveBreather : WAVE_BREATHER);
 }
 
 // enemy volume is cut 75% across the board (unit-count reduction pass), but
@@ -285,13 +289,20 @@ function armorEnemy(e, w) {
   // men still wear the plate they died in.
   const chance = enemyArmorChance(w);
   const frac = clamp((w - 1) / (ENEMY_ARMOR_FULL_WAVE - 1), 0, 1);
+  // Escalation VI thickens the plate. Armor is a pool that soaks damage 1:1
+  // until it breaks, NOT a reduction fraction — so "twice as effective" is
+  // twice the pool. Halving incoming damage instead would also halve the
+  // spillover into HP and keep helping after the plate broke, which is a
+  // different and far stronger effect. Scaling at spawn also keeps the HUD and
+  // inspector bars honest and can't re-armor men already on the field.
+  const armorMult = escArmorMult();
   // Two independent rolls: a man may get just body, just flak, both, or neither.
   if (Math.random() < chance) {
-    const body = Math.round(ENEMY_ARMOR_BODY_MIN + (ENEMY_ARMOR_BODY_MAX - ENEMY_ARMOR_BODY_MIN) * frac);
+    const body = Math.round((ENEMY_ARMOR_BODY_MIN + (ENEMY_ARMOR_BODY_MAX - ENEMY_ARMOR_BODY_MIN) * frac) * armorMult);
     e.maxBodyArmor = e.bodyArmor = body;
   }
   if (Math.random() < chance) {
-    const flak = Math.round(ENEMY_ARMOR_FLAK_MIN + (ENEMY_ARMOR_FLAK_MAX - ENEMY_ARMOR_FLAK_MIN) * frac);
+    const flak = Math.round((ENEMY_ARMOR_FLAK_MIN + (ENEMY_ARMOR_FLAK_MAX - ENEMY_ARMOR_FLAK_MIN) * frac) * armorMult);
     e.maxFlakArmor = e.flakArmor = flak;
   }
 }

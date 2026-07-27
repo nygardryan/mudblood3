@@ -102,21 +102,58 @@
         <header class="mm-head">
           <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>OPERATION · HOLD THE LINE<span class="mm-eyebrow-mark"></span></div>
           <h1 class="mm-title">ENDLESS</h1>
-          <p class="mm-brief">Choose your supply situation. Wave attrition still applies on Easy, Medium, and Hard.</p>
+          <p class="mm-brief">Hold the sector as long as you can. Put the boss down to earn the next escalation — each one stacks a permanent modifier on every one below it, and pays <b>more medals for every wave you survive</b>.</p>
         </header>
+        <!-- ESCALATION: always on screen, because PLAY inside it IS the deploy
+             control for endless. At rung 0 it reads as a clean sector with the
+             ladder locked ahead of you — the teaser is the point. Built by
+             buildEscalationUI(). -->
+        <div class="mm-block" id="esc-block">
+          <div class="mm-block-label">ESCALATION</div>
+          <!-- rung strip: every earned rung is one tap away. Built by buildEscRungs() -->
+          <div class="esc-rungs" id="esc-rungs"></div>
+          <div class="esc-scale">
+            <span>NO MODIFIERS</span>
+            <span id="esc-earned">EARNED: —</span>
+            <span id="esc-topmult">×2.0 MEDALS</span>
+          </div>
+          <div class="esc-step">
+            <button id="esc-prev" class="esc-arrow" type="button" aria-label="Lower escalation">◀</button>
+            <!-- the readout pairs the rung with what it PAYS: the pay modifier
+                 (escMedalMult) is the other half of every step up the ladder -->
+            <div class="esc-read">
+              <div class="esc-read__main">
+                <div class="esc-read__head">
+                  <span class="esc-read__lvl" id="esc-level">NO ESCALATION</span>
+                  <span class="esc-read__sub" id="esc-count">NO MODIFIERS</span>
+                </div>
+                <div class="esc-read__sub esc-read__foe" id="esc-foe">ENEMY: ROLLED AT RANDOM</div>
+              </div>
+              <div class="esc-read__pay">
+                <div class="esc-read__mult" id="esc-mult">×1.0</div>
+                <div class="esc-read__paylab">MEDAL PAYOUT</div>
+              </div>
+            </div>
+            <button id="esc-next" class="esc-arrow" type="button" aria-label="Raise escalation">▶</button>
+          </div>
+          <div class="esc-nextline" id="esc-nextline"></div>
+          <div class="esc-actions">
+            <button type="button" class="esc-play" id="esc-deploy">PLAY ▸</button>
+            <button type="button" class="esc-ladder-btn" id="esc-dossier-open">ALL MODIFIERS (<span id="esc-sel">0</span>)</button>
+          </div>
+          <div class="esc-subhead"><span>NEWEST MODIFIER IN EFFECT</span></div>
+          <div class="esc-newest" id="esc-newest"></div>
+        </div>
+        <!-- no TAKE THE LINE card here: PLAY above starts that run, and two
+             controls doing the same thing read as a bug. The briefing lines
+             these buttons used to carry survive as tooltips. -->
         <div class="mm-block">
-          <div class="mm-block-label">SUPPLY SITUATION</div>
-          <div class="intro-btns modes">
-            <button data-endless-diff="easy"><span class="mode-title">EASY</span>
-              <span class="mode-desc">Full supply.</span></button>
-            <button data-endless-diff="medium"><span class="mode-title">MEDIUM</span>
-              <span class="mode-desc">66% income.</span></button>
-            <button data-endless-diff="hard"><span class="mode-title">HARD</span>
-              <span class="mode-desc">33% income.</span></button>
-            <button data-endless-diff="sandbox"><span class="mode-title">SANDBOX</span>
-              <span class="mode-desc">Unlimited TP, skip waves.</span></button>
-            <button data-endless-diff="testing"><span class="mode-title">TESTING</span>
-              <span class="mode-desc">Unlimited TP, spawn your own enemies.</span></button>
+          <div class="mm-block-label">OTHER MODES</div>
+          <div class="esc-modes">
+            <button type="button" data-endless-diff="sandbox"
+              title="Unlimited TP, skip waves. No escalation, no medals.">SANDBOX</button>
+            <button type="button" data-endless-diff="testing"
+              title="Unlimited TP, spawn your own enemies.">TESTING</button>
           </div>
         </div>
         <div class="mm-footer">
@@ -124,6 +161,23 @@
           <button id="endless-leaderboard-btn">LEADERBOARDS</button>
           <button id="endless-back-btn">BACK</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ESCALATION dossier: all ten modifiers, reached from ALL MODIFIERS above.
+         A sibling overlay rather than a panel inside #endless-select, because
+         one-screen-at-a-time is how every other secondary menu here works
+         (card shop, leaderboards). Built by buildEscDossier(). -->
+    <div id="esc-dossier" class="overlay hidden">
+      <div class="escd">
+        <div class="escd-head">
+          <div class="escd-head__copy">
+            <h1 class="escd-title">THE LADDER</h1>
+            <div class="escd-sub" id="esc-dossier-sub"></div>
+          </div>
+          <button type="button" id="esc-dossier-close" class="escd-close">✕ CLOSE</button>
+        </div>
+        <div class="escd-rows" id="esc-dossier-rows"></div>
       </div>
     </div>
 
@@ -138,8 +192,9 @@
           <button id="card-shop-deploy-top" type="button">DEPLOY</button>
         </div>
         <div id="cs-shop-section">
-          <p class="cs-intro">Every 10th wave survived banks medals — <b>wave 10 pays 1, wave 20 pays 2</b>, and up.
-            Spend them on permanent unit upgrades. Sandbox &amp; Testing runs pay nothing.</p>
+          <p class="cs-intro">Every 10th wave survived banks medals — <b>wave 10 pays 1, wave 20 pays 2</b>, and up,
+            times your escalation's payout (<b>up to ×2.0</b>). Spend them on permanent unit upgrades.
+            Sandbox &amp; Testing runs pay nothing.</p>
 
           <div class="cs-sec-head">
             <h2 class="cs-sec-title">ON OFFER</h2>
@@ -403,6 +458,7 @@
 <script src="js/input.js"></script>
 <script src="js/codex.js"></script>
 <script src="js/cards.js"></script>
+<script src="js/escalation.js"></script>
 <script src="js/campaign.js"></script>
 <script src="js/leaderboards.js"></script>
 <script src="js/settings.js"></script>

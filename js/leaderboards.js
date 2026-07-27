@@ -43,20 +43,30 @@ function leaderboardBoard(diffId) {
   return loadLeaderboards().boards[diffId] || [];
 }
 
-function leaderboardQualifies(diffId, wave) {
+// Escalation ranks ABOVE wave: a wave-140 run at rung IX is a harder run than a
+// wave-160 one at rung 0, and sorting on wave alone would bury it. Entries
+// predating the ladder have no `esc` — they read as 0, which is what they were.
+// Both the sort and the qualifies test have to use this, or a soft run could
+// displace a hard one off the bottom of a full board.
+function leaderboardScoreCmp(a, b) {
+  return (b.esc || 0) - (a.esc || 0) || b.wave - a.wave || a.date - b.date;
+}
+
+function leaderboardQualifies(diffId, wave, esc = 0) {
   if (!LEADERBOARD_DIFFICULTIES.includes(diffId) || !(wave > 0)) return false;
   const board = leaderboardBoard(diffId);
   if (board.length < LEADERBOARD_MAX) return true;
-  return wave > board[board.length - 1].wave;
+  const last = board[board.length - 1];
+  return leaderboardScoreCmp({ esc, wave, date: Date.now() }, last) < 0;
 }
 
-function addLeaderboardEntry(diffId, name, wave) {
+function addLeaderboardEntry(diffId, name, wave, esc = 0) {
   if (!LEADERBOARD_DIFFICULTIES.includes(diffId)) return -1;
   const data = loadLeaderboards();
   const board = data.boards[diffId];
-  const entry = { name: (name || 'Anonymous').slice(0, 16), wave, date: Date.now() };
+  const entry = { name: (name || 'Anonymous').slice(0, 16), wave, esc, date: Date.now() };
   board.push(entry);
-  board.sort((a, b) => b.wave - a.wave || a.date - b.date);
+  board.sort(leaderboardScoreCmp);
   board.length = Math.min(board.length, LEADERBOARD_MAX);
   saveLeaderboards(data);
   return board.indexOf(entry);
@@ -86,7 +96,9 @@ function renderLeaderboardList(listEl, diffId, highlightIndex = -1) {
     if (entry) {
       const label = document.createElement('span');
       label.className = 'lb-wave-label';
-      label.textContent = 'WAVE ';
+      // the rung the run was set at, where it beat the base game; entries from
+      // before the ladder carry no esc and read as plain waves
+      label.textContent = (entry.esc > 0 ? 'ESC ' + ESC_ROMAN[entry.esc] + ' · ' : '') + 'WAVE ';
       wave.appendChild(label);
       wave.appendChild(document.createTextNode(String(entry.wave)));
     } else {
@@ -129,19 +141,24 @@ function updateGameOverLeaderboard(won) {
   const entryBox = el('go-leaderboard-entry');
   const boardBox = el('go-leaderboard');
   const diffId = G && G.mode === 'endless' && G.difficulty && !G.level.tutorial ? G.difficulty.id : null;
-  if (won || !diffId || !LEADERBOARD_DIFFICULTIES.includes(diffId)) {
+  // a boss victory used to record nothing at all, which was survivable when the
+  // only way to end a run was losing. With ESCALATION the boss kill IS the
+  // achievement, so a win now takes a score like any other run.
+  if (!diffId || !LEADERBOARD_DIFFICULTIES.includes(diffId)) {
     entryBox.classList.add('hidden');
     boardBox.classList.add('hidden');
     return;
   }
   const wave = G.wave;
+  const esc = G.esc ? G.esc.level : 0;
   boardBox.classList.remove('hidden');
-  el('go-leaderboard-title').textContent = G.difficulty.name + ' LEADERBOARD';
+  el('go-leaderboard-title').textContent = 'LEADERBOARD';
   renderLeaderboardList(el('go-leaderboard-list'), diffId);
-  if (leaderboardQualifies(diffId, wave)) {
+  if (leaderboardQualifies(diffId, wave, esc)) {
     entryBox.classList.remove('hidden');
     entryBox.dataset.diff = diffId;
     entryBox.dataset.wave = String(wave);
+    entryBox.dataset.esc = String(esc);
     el('go-name-input').value = '';
   } else {
     entryBox.classList.add('hidden');
@@ -152,13 +169,15 @@ function saveGoLeaderboardScore() {
   const entryBox = el('go-leaderboard-entry');
   const diffId = entryBox.dataset.diff;
   const wave = parseInt(entryBox.dataset.wave, 10);
+  const esc = parseInt(entryBox.dataset.esc, 10) || 0;
   if (!diffId || !Number.isFinite(wave)) return;
   // clear the pending score before writing so a second call (Enter key plus a
   // Save-button click, both wired to this handler) can't add a duplicate entry
   delete entryBox.dataset.diff;
   delete entryBox.dataset.wave;
+  delete entryBox.dataset.esc;
   const name = el('go-name-input').value.trim();
-  const rank = addLeaderboardEntry(diffId, name, wave);
+  const rank = addLeaderboardEntry(diffId, name, wave, esc);
   entryBox.classList.add('hidden');
   renderLeaderboardList(el('go-leaderboard-list'), diffId, rank);
 }

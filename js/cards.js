@@ -644,6 +644,9 @@ function defaultEndlessCards() {
     version: ENDLESS_CARDS_VERSION, medals: 0, owned: [], offer: [],
     capacity: BASE_COMMAND_CAP, plans: [[], [], []], activePlan: 0,
     rerollCost: REROLL_BASE_COST, shopSlots: BASE_SHOP_SLOTS,
+    // ESCALATION (js/escalation.js): the rung the player has earned, and the
+    // one they've selected for the next run
+    escUnlocked: 0, escalation: 0,
   };
 }
 
@@ -686,6 +689,14 @@ function loadEndlessCards() {
   // shop width is clamped to its buyable range; older saves default to three
   data.shopSlots = Number.isFinite(data.shopSlots)
     ? clamp(Math.floor(data.shopSlots), BASE_SHOP_SLOTS, MAX_SHOP_SLOTS) : BASE_SHOP_SLOTS;
+  // escalation rides this same normalizer rather than a version bump — an
+  // additive field is exactly what it already backfills onto older saves (as
+  // shopSlots, rerollCost and capacity all did). The selection is clamped to
+  // what's unlocked, so a tampered save can't skip the ladder.
+  data.escUnlocked = Number.isFinite(data.escUnlocked)
+    ? clamp(Math.floor(data.escUnlocked), 0, ESC_MAX) : 0;
+  data.escalation = Number.isFinite(data.escalation)
+    ? clamp(Math.floor(data.escalation), 0, data.escUnlocked) : 0;
   const rawPlans = Array.isArray(data.plans) ? data.plans : [];
   data.plans = [];
   for (let i = 0; i < PLAN_SLOTS; i++) {
@@ -870,7 +881,12 @@ function medalsEligible() {
 
 function awardWaveMedals() {
   if (!medalsEligible() || G.wave % 10 !== 0) return;
-  const n = G.wave / 10;
+  // the ESCALATION pay modifier (js/escalation.js) scales the milestone. Rounded
+  // and floored at the base rate, so a rung can only ever pay MORE than no rung —
+  // at ×1.1 the early milestones round back down to the base, which is right:
+  // ten percent of one medal is not a medal.
+  const base = G.wave / 10;
+  const n = Math.max(base, Math.round(base * (G.esc ? G.esc.medalMult : 1)));
   const data = loadEndlessCards();
   data.medals += n;
   saveEndlessCards(data);
@@ -1230,7 +1246,11 @@ function showEndlessEndgame() {
   const earned = G ? G.medalsEarned : 0;
   const banked = loadEndlessCards().medals;
   const sub = el('ee-sub');
-  if (sub) sub.textContent = `WAVE ${G ? G.wave : 0} · SECTOR COLLAPSED`;
+  // endRun routes EVERY endless finish here, win or lose (it branches on mode,
+  // not outcome), so a boss victory used to be captioned "SECTOR COLLAPSED"
+  const held = !!(G && G.over && G.bossKills > 0);
+  const posture = G && G.esc && G.esc.level > 0 ? escLabel(G.esc.level) + ' · ' : '';
+  if (sub) sub.textContent = `${posture}WAVE ${G ? G.wave : 0} · ${held ? 'SECTOR HELD' : 'SECTOR COLLAPSED'}`;
   const head = el('ee-head');
   const count = el('ee-count');
   const text = el('ee-text');

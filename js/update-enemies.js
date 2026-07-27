@@ -916,8 +916,8 @@ function initGermanBoss(e) {
   }
   e.laneX = BOSS_LANES[e.lane] * W;
   e.loiterT = 0;
-  e.bodyArmor = e.maxBodyArmor = BOSS_BODY_ARMOR;
-  e.flakArmor = e.maxFlakArmor = BOSS_FLAK_ARMOR;
+  e.bodyArmor = e.maxBodyArmor = BOSS_BODY_ARMOR * escArmorMult();
+  e.flakArmor = e.maxFlakArmor = BOSS_FLAK_ARMOR * escArmorMult();
 }
 
 // next advance corridor: any lane at least 2 indices away (every lane has >= 2
@@ -991,8 +991,8 @@ function updateGermanBoss(e, dt) {
 
 function bossRefit(e) {
   e.shots = BOSS_REVOLVER_SHOTS;
-  e.bodyArmor = e.maxBodyArmor = BOSS_BODY_ARMOR;
-  e.flakArmor = e.maxFlakArmor = BOSS_FLAK_ARMOR;
+  e.bodyArmor = e.maxBodyArmor = BOSS_BODY_ARMOR * escArmorMult();
+  e.flakArmor = e.maxFlakArmor = BOSS_FLAK_ARMOR * escArmorMult();
   G.texts.push({ x: e.x, y: e.y - 26, text: 'REFIT', ttl: 1.4 });
 }
 

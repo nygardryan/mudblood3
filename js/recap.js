@@ -240,7 +240,7 @@ function showRecap(won, nextId) {
     next()));
 
   // -- typed meta block --
-  const diffName = G.difficulty ? G.difficulty.name : '—';
+  const diffName = runPostureLabel();
   parts.push(recapSection(
     `<div class="aar-meta">
        <div><span>SECTOR</span>${recapEsc(G.level.name || 'Forward line')}</div>

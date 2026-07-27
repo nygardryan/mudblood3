@@ -33,8 +33,13 @@ TEST.start('endless', 'easy')      // validated start — THROWS on bad ids
 TEST.start('endless','easy','jp')  // 3rd arg pins the endless enemy faction roll:
                                    // 'de' (Wehrmacht), 'jp' (Imperial Japanese Army),
                                    // 'zo' (The Horde — undead), or 'it' (Regio Esercito).
-                                   // omitted = random per run (1-in-4 each).
+                                   // omitted = random per run (1-in-4 each), UNLESS an
+                                   // escalation rung is set — each rung pins a faction,
+                                   // and this arg still overrides that pin.
                                    // state().enemyFaction reports it.
+TEST.escalation()                  // report the ESCALATION ladder: {level, unlocked, faction, mods, active}
+TEST.escalation(7)                 // UNLOCK + select rung 7 (the real unlock costs a boss kill
+                                   // per rung). Writes the save — lands on the NEXT start().
 TEST.deploy('gunner', 0.5, 0.75)   // FREE god-mode spawn; (0..1] coords = fractions of field
 TEST.deploy('sandbags', 0.4, 0.7)  // deploys ANY placeable — defenses, supports, German test units
 TEST.buy('gunner', 0.5, 0.75)      // REALISTIC purchase: charges TP, checks cap/placement, runs place()
@@ -374,10 +379,90 @@ To fast-forward a whole difficulty read, `autoplay` runs a scaling default build
 (pass a `plan: (G) => [{type,x,y},...]` for a custom one) — it pumps the sim like
 `step`, so it returns immediately with a per-interval `log`, no wall-clock wait.
 
-The only modes are **endless** (with its `easy`/`medium`/`hard`/`sandbox`/`testing`
-difficulties) and the three **tutorial** lessons (`tutorial1`/`2`/`3`), which are
-just `endless`-mode levels with a scripted intro. There are no attacker/campaign
-modes — your men always live in `G.units`, the foe in `G.enemies`.
+The only modes are **endless** and the three **tutorial** lessons
+(`tutorial1`/`2`/`3`), which are just `endless`-mode levels with a scripted intro.
+There are no attacker/campaign modes — your men always live in `G.units`, the foe
+in `G.enemies`. Endless difficulty is `easy` plus the ESCALATION ladder below;
+`sandbox`/`testing` are the unlimited-TP tiers. **`medium` and `hard` still exist
+in `ENDLESS_DIFFICULTIES` but left the menu** — keep them, `TEST.start` and the
+banked leaderboard boards are keyed on those ids.
+
+**ESCALATION** (`js/escalation.js`) is the endless difficulty ladder: ten rungs,
+each ADDING one permanent modifier on top of every rung below it, unlocked one at
+a time by putting the wave-100 boss down. The whole ladder is ONE flat object of
+scalars (`defaultEscMods`), stamped on `G.esc` at the top of `newGame` *before*
+the state literal — the literal reads it for the opening TP and two timer seeds.
+**At rung 0 every field is its identity value**, which is the point: no hook site
+takes a branch, so sandbox, testing, tutorials and campaigns are provably
+untouched. That is why modifiers are scalars and not callbacks — a callback has
+to run *somewhere*, and there is no somewhere that is free when the feature is
+off. Rungs, and the one hook each owns:
+`I` HP ramp ×1.5 (`enemyHpRamp`) · `II` income ×0.8 + trickle +1s (`earnTP`,
+`update.js`) · `III` no `WAVE_BREATHER` · `IV` enemy damage ×1.1 (`damageUnit`) ·
+`V` no starting TP · `VI` enemy armor pools ×2 (`armorEnemy` + the two boss
+sites) · `VII` events ×1.3 (`update.js` event timer) · `VIII` spawn floor 7→5 ·
+`IX` no kill bounty · `X` the boss must die TWICE (`G.bossKills` vs
+`esc.bossKills`, checked at the top of `bossVictory`).
+
+Alongside the ten rungs runs the **pay modifier**, `esc.medalMult` — +10% medal
+payout per rung, ×1.0 at 0 up to ×2.0 at X, hooked in `awardWaveMedals`
+(`js/cards.js`). It is deliberately NOT an eleventh rung: it is continuous, so
+it is derived from the level in `buildEscMods` the way `faction` is, not applied
+by an entry's `apply()`. The payout is `Math.max(base, Math.round(base * mult))`
+— floored at the base rate, because ten percent of the wave-10 medal is not a
+medal and a rung must never pay LESS than no rung.
+
+Three things about it that are easy to get wrong:
+- **Each rung PINS the enemy faction**, cycling `de`/`jp`/`zo`/`it`, so a climb is
+  "prove it against every army" — without that, rung VI's doubled plate is brutal
+  against the Regio Esercito and literally nothing against the Horde, which wears
+  none. `G_forceFaction` (TEST) still wins over the pin.
+- **Armor is a soak pool, not a reduction fraction** — `damageUnit`/`damageEnemy`
+  subtract it 1:1 until it breaks, then spill the remainder into HP. So rung VI
+  doubles the POOL at spawn. Halving incoming damage instead would also halve the
+  spillover and keep helping after the plate broke; it is a different, much
+  stronger effect. Same reasoning as the Yamato's belt.
+- **`explode()` used to discard its firer**, passing a bare `{x,y}` to `damageUnit`
+  where the enemy loop beside it passes `by || {x,y}`. Rung IV keys on
+  `from.side === 'de'`, so that made every enemy shell, mortar, rocket, mine and
+  bomb silently skip the modifier. Both that and the shrapnel loop in `update.js`
+  now forward `by`. If a new damage path is added, it must forward its attacker
+  or it is invisible to rung IV.
+
+The rung and the highest unlocked rung ride the existing `endlessCards`
+localStorage blob (`escalation`/`escUnlocked`), normalized in `loadEndlessCards`
+with **no version bump** — additive fields are exactly what that normalizer
+backfills. The unlock is gated on `medalsEligible()` reused verbatim, so a boss
+can't be farmed for rungs in sandbox. Drive it with `TEST.escalation(n)`, which
+unlocks as well as selects, because the real unlock costs a wave-100 boss kill
+per rung.
+
+The menu (`#esc-block` in `index.html`) is three surfaces: a **rung strip** of
+eleven chips (every earned rung one tap away), a **readout** pairing the rung
+with what it PAYS, and `#esc-dossier`, holding all ten modifiers — the ten
+`ee-card`s that used to sit under the stepper moved in there because at rung X
+they pushed the deploy button a screen and a half down a panel whose only job is
+to start a run. `pickEscalation` is the single write path for the selection
+(strip and both arrows).
+
+**`#esc-block` is always on screen and its PLAY button IS the deploy control for
+endless** — that is why there is no TAKE THE LINE mode card any more and
+`OTHER MODES` is just sandbox/testing. At rung 0 the block reads as a clean
+sector with the ladder locked ahead of it, which is the teaser. Rung 0 has no
+numeral, so any copy naming the rung you must beat has to drop the `ON —`
+(`buildEscalationUI`'s next-line and the dossier's locked rows both branch on
+it). Unlike the card shop and the leaderboards, the dossier **layers over**
+`#endless-select` rather than swapping it out (z-index 11 over 10, own scrim, own
+fade) — it's a reference sheet you consult mid-decision. It closes on ✕, on a
+backdrop click (`e.target` check, so a row click still expands), and on Escape,
+which it claims first in `js/input.js`'s handler via `escDossierOpen()`.
+
+Two CSS notes: everything in the panel measures in `cqi` off a container
+declared on `#endless-select .mm`, because an overlay lives inside the scaled
+`#stage` and `vw`/`@media` there read the WINDOW, not the ~576px the panel gets
+(same trap the After-Action Report documents); and every selector for a
+`<button>` is prefixed `#endless-select` / `#esc-dossier` to outrank
+`.overlay button`, which repaints every overlay button gold.
 
 Useful internals when TEST isn't enough: game state is the global `G`
 (`js/state.js:105` for its shape), `update(dt)` steps the sim, `draw()`

@@ -466,3 +466,83 @@ function fireShotgun(actor, buffs) {
     else damageEnemy(e, dmg, actor, 'bullet');
   }
 }
+
+// Canister Shot: the 57mm firing buckshot. There is no round in flight and
+// nothing goes through scheduleShell — like fireShotgun this is one pass over
+// the enemy list, and the tracers are cosmetic. `range` is the canister band
+// updateATGun already resolved off the gun's live reach, passed in rather than
+// recomputed so the overlay, the target scan and the damage all read one number.
+// No side split: atgun exists only in UNIT_TYPES, so the foes are always
+// G.enemies. No camo calls either — isCamouflaged returns false outright for a
+// gunEmplacement, and e is always an enemy here.
+function fireCanister(u, range) {
+  const bearing = u.turret;
+  const mx = u.x + Math.cos(bearing) * 24, my = u.y + Math.sin(bearing) * 24;
+
+  SFX.boom(false);      // a cannon's report...
+  SFX.shotgun();        // ...with a shot pattern riding on top of it
+  // the SAME recoil timer the AP shell sets, so drawATGun kicks the barrel and
+  // rocks the trails without knowing which round went out
+  u.atgunFireT = 0.16;
+  // a bigger, directional muzzle bloom than the AP shell's round r:8 flash
+  G.flashes.push({ x: mx, y: my, r: 14, ttl: 0.09, max: 0.09, kind: 'muzzle', angle: bearing });
+
+  // the pattern itself: a wall of buckshot tracers, the visual the whole card
+  // rests on. Same kind:'buckshot' styling render.js gives the trench gun.
+  for (let i = 0; i < CANISTER_PELLETS; i++) {
+    const a = bearing + rand(-CANISTER_ARC, CANISTER_ARC);
+    const d = rand(30, range);
+    G.tracers.push({
+      x1: mx, y1: my, x2: u.x + Math.cos(a) * d, y2: u.y + Math.sin(a) * d,
+      ttl: 0.08, life: 0.08, kind: 'buckshot',
+    });
+  }
+  // wad smoke off the muzzle — fireShotgun's, scaled up to a cannon
+  for (let i = 0; i < 6; i++) {
+    const a = bearing + rand(-CANISTER_ARC * 0.6, CANISTER_ARC * 0.6);
+    const ttl = rand(0.1, 0.24);
+    G.particles.push({
+      x: mx + Math.cos(a) * rand(6, 18), y: my + Math.sin(a) * rand(6, 18),
+      vx: Math.cos(a) * rand(40, 80), vy: Math.sin(a) * rand(40, 80) - rand(5, 20),
+      ttl, maxTtl: ttl, grav: 120, size: rand(1.4, 2.6),
+      kind: 'smoke', color: pick(['#d8ccb0', '#c8b898', '#a89878', '#8a7a60']),
+    });
+  }
+  // and the trails kicking harder than they do on AP — 7 puffs, not 4
+  for (let i = 0; i < 7; i++) {
+    G.particles.push({
+      x: u.x + rand(-8, 8), y: u.y + rand(-4, 6), vx: rand(-40, 40), vy: rand(-50, -12),
+      ttl: rand(0.2, 0.45), grav: 200, size: rand(1.2, 2.4),
+      color: pick(['#6e6046', '#57492f', '#8a7a5a']),
+    });
+  }
+
+  const rank = u.rank || 0;
+  const reach2 = (range + 8) * (range + 8);
+  for (const e of G.enemies) {
+    if (e.dead || e.y < 0 || e.chute > 0) continue;
+    if (!canisterHittable(e)) continue;   // armor is the AP shell's job, not this one's
+    const d2 = dist2(u, e);
+    if (d2 > reach2) continue;
+    const off = Math.abs(angleDiff(Math.atan2(e.y - u.y, e.x - u.x), bearing));
+    if (off > CANISTER_ARC) continue;
+
+    // a man flat on his face eats mostly dirt
+    if (e.prone > 0 && Math.random() < 0.6) {
+      G.particles.push({ x: e.x + rand(-6, 6), y: e.y + 4, vx: rand(-25, 25), vy: rand(-55, -20), ttl: 0.3, grav: 200, size: 1.3, color: '#6e6046' });
+      continue;
+    }
+    // and a parapet stops the balls dead
+    if (coverBlock(e)) {
+      G.particles.push({ x: e.x, y: e.y + 6, vx: rand(-20, 20), vy: -40, ttl: 0.3, grav: 150, size: 1.5, color: '#b8a878' });
+      continue;
+    }
+
+    const d = Math.sqrt(d2);
+    const centered = 1 - off / CANISTER_ARC;
+    const falloff = 1 - (d / range) * CANISTER_FALLOFF;
+    const hits = Math.max(2, Math.round(CANISTER_PELLETS * (0.3 + 0.5 * centered) * rand(0.85, 1.15)));
+    // rank*0.06 is the AT gun's own veterancy curve, not the rifleman's 0.09
+    damageEnemy(e, CANISTER_PELLET_DMG * hits * falloff * (1 + rank * 0.06), u, 'bullet');
+  }
+}

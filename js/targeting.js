@@ -301,7 +301,8 @@ function drawFlameRangeCone(x, y, bearing, arc, range, alpha) {
   ctx.setLineDash([]);
 }
 
-// buckshot spread wedge — selection overlay and placement ghost
+// buckshot spread wedge — selection overlay and placement ghost. Shared: the
+// trench gun's own reach, and the AT gun's canister band under Canister Shot.
 function drawBuckshotCone(x, y, bearing, arc, range, alpha) {
   const a = alpha != null ? alpha : 0.35;
   const tipX = x + Math.cos(bearing) * range * 0.58;
@@ -389,11 +390,21 @@ function drawUnitWeaponRange(a, opts) {
   const empl = emplacementSpec(t);
   if (empl) {
     const arc = empl.arc + (a.rank || 0) * 0.05236;
-    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, arc, unitRange(a, t.range) * fog, alpha);
+    const full = unitRange(a, t.range) * fog;
+    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, arc, full, alpha);
     // Level the Barrels: overlay the near wedge in red — that's the slice of
     // the traverse this flak gun can also drop onto ground infantry
     if (t.aagun && aaGroundFireEnabled()) {
       drawAAGroundCone(a.x, a.y, -Math.PI / 2, arc, AA_GROUND_RANGE * fog, alpha);
+    }
+    // Canister Shot: the same idea in buckshot cream. The band is a fraction of
+    // the AP reach just computed, so rank, a tower and Rangefinders move both at
+    // once. The wedge takes the WIDER of the traverse and the pattern: a green
+    // gun's tin opens past its own trails, and a MSG gun's trails open past the
+    // tin — drawing only one of the two would lie in one direction or the other.
+    if (t.atgun && canisterShotEnabled()) {
+      drawBuckshotCone(a.x, a.y, -Math.PI / 2, Math.max(arc, CANISTER_ARC),
+        full * CANISTER_RANGE_FRAC, alpha);
     }
     return;
   }

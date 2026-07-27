@@ -112,6 +112,7 @@ function hoverStats(a, own = false) {
   if (t.mortar) parts.push('MORTAR');
   if (t.v2) parts.push('V2 ROCKET');
   if (t.atgun) parts.push('AP SHELL');
+  if (t.atgun && canisterShotEnabled()) parts.push('CANISTER');
   if (t.aagun) parts.push('FLAK');
   if (t.tank) parts.push(t.heavy ? 'HEAVY ARMOR' : 'ARMOR');
   else if (t.vehicle) parts.push('VEHICLE');
@@ -442,10 +443,17 @@ function drawPlacementGhost() {
     }
     const ut = UNIT_TYPES[p.key];
     if (ut && emplacementSpec(ut)) {
-      drawATGunRangeCone(x, y, -Math.PI / 2, emplacementSpec(ut).arc, ut.range * fogMult(), 0.45);
+      const full = ut.range * fogMult();
+      drawATGunRangeCone(x, y, -Math.PI / 2, emplacementSpec(ut).arc, full, 0.45);
       // preview the red ground-fire wedge when Level the Barrels is deployed
       if (ut.aagun && aaGroundFireEnabled()) {
         drawAAGroundCone(x, y, -Math.PI / 2, emplacementSpec(ut).arc, AA_GROUND_RANGE * fogMult(), 0.45);
+      }
+      // and the canister band when Canister Shot is. A ghost has no rank, so
+      // both numbers come off the raw type — same as the AP cone above it.
+      if (ut.atgun && canisterShotEnabled()) {
+        drawBuckshotCone(x, y, -Math.PI / 2, Math.max(emplacementSpec(ut).arc, CANISTER_ARC),
+          full * CANISTER_RANGE_FRAC, 0.45);
       }
     } else if (ut && ut.fireCone) {
       drawFireCone(x, y, -Math.PI / 2, ut.fireCone.arc, ut.range * fogMult(), 0.35);

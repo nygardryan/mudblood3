@@ -4,6 +4,27 @@
 const CHANGELOG = [
   {
     date: '2026-07-27',
+    title: 'New Card: Canister Shot',
+    changes: [
+      'New unique AT GUN card — CANISTER SHOT. The 57mm carries a tin of lead balls that comes apart the moment it clears the muzzle. Enemy infantry inside 30% of the gun\'s reach catches the whole pattern, and canister rams faster than an AP round.',
+      'It is the last thing the gun reaches for, not the first. Armor still wins the target list at full range, and a soft-skinned vehicle still wins after that — a piece that turns off a Panzer to shoot the riflemen walking beside it is not an AT gun any more. Only when nothing on wheels or tracks is in the cone does the crew load a tin.',
+      'The band is a fraction of the gun\'s own reach, not a fixed number, so rank, a watch tower and Rangefinders stretch it exactly as far as they stretch the AP shell. The pale wedge on the range overlay marks the ground the pattern covers.',
+      'The balls do nothing to armor at all — not reduced, skipped. There is a 403-point AP shell in the ready rack for that. And the crew ranks up off infantry now, which widens the traverse and shortens both reloads: a canister gun makes sergeant a great deal faster than one that only ever waits for tanks.',
+      'The AT and AA gun toolbar blurbs no longer claim the guns fire at one thing only — both now have a card that says otherwise.',
+    ],
+  },
+  {
+    date: '2026-07-27',
+    title: 'New Card: HEAT Rounds',
+    changes: [
+      'New unique bazooka card — HEAT ROUNDS. Shaped-charge warheads. The rocket no longer grinds a flak vest down before it reaches the man inside it: the jet holes the plate and the whole blast lands on him, with the vest still on and unchipped.',
+      'It is worth the most where a bazooka actually earns its keep — the ring at the edge of the crater. A rocket does 120 at the centre and about 36 at the rim, which is less than a wave-40 flak plate soaks, so the men standing at the edge of the blast used to walk out of it untouched. They do not now.',
+      'The card grows with the run. Armor is a 5% curiosity at wave 1 and near-universal by wave 120, and ESCALATION VI doubles every plate on the field — this is the one clean answer to it. Tanks are unaffected: they wear no plate to hole, and the rocket already hits them at 2.75x.',
+      'The jet does not ask whose vest it is. Your own men\'s flak armor stops none of it either, so a rocket dropped near your line now goes straight through the plate you bought them.',
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'New Card: Pre-Hardened',
     changes: [
       'New unique EMPLACEMENTS card — PRE-HARDENED. Everything you place comes out of the ground already reinforced: sandbags, bunkers, watch towers, camo nests, ammo crates, wire and decoys all arrive at the FORTIFIED tier instead of standard.',

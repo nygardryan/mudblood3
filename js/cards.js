@@ -171,6 +171,46 @@ function aaGroundFireEnabled() {
   return !!(G.cardsOwned && G.cardsOwned.has('leveltbarrels'));
 }
 
+// Canister Shot: the 57mm's tin of lead balls. The gun keeps its AP round and
+// the whole anti-armor job — this is only the answer to the infantry that walked
+// up to a piece that could not touch them. It is a CONE SWEEP, not a shell:
+// fireCanister resolves it in one pass over G.enemies exactly the way
+// fireShotgun resolves buckshot. Nothing is in flight and nothing goes through
+// scheduleShell.
+//
+// The range is a FRACTION of the gun's live resolved range, not a flat number
+// like AA_GROUND_RANGE. Deliberate: rank, a watch tower and Rangefinders already
+// stretch the AP reach, and the canister band stretches with them off the same
+// one number, so updateATGun and both range overlays stay in lockstep without
+// any of the three knowing what the others did.
+const CANISTER_RANGE_FRAC = 0.30;   // 156px off the 519 base — the gun's own front porch
+const CANISTER_ARC = 0.5;           // half-angle of the pattern (the trench gun's is 0.52)
+const CANISTER_PELLETS = 27;        // balls in the tin; how many CONNECT is rolled per man
+const CANISTER_PELLET_DMG = 13;     // per ball that connects
+const CANISTER_FALLOFF = 0.5;       // fraction of the punch shed across the band (buckshot's)
+const CANISTER_RELOAD = 0.65;       // canister is a fixed round with no fuze to set
+const CANISTER_LAY_TOL = 0.35;      // a pattern this wide doesn't need the bore on the man
+
+// flag-only card: true when this run deployed Canister Shot, so the AT gun may
+// load a tin for the infantry inside CANISTER_RANGE_FRAC of its own reach
+function canisterShotEnabled() {
+  return !!(G.cardsOwned && G.cardsOwned.has('canistershot'));
+}
+
+// what a tin of lead balls can actually hurt. Everything armored is skipped
+// OUTRIGHT rather than scaled the way fireShotgun scales buckshot on a tank
+// (x0.06) or an APC (x0.2): the gun already carries a 403-point AP shell for
+// those, so a multiplier here would only ever be a worse version of the round it
+// already has. Dropping them whole is also what keeps a pattern off the Yamato's
+// armor belt — FIVE actors on ONE HP pool, which a cone sweep would otherwise
+// resolve against five times over. Every other multi-actor part (her gun tubs,
+// the train's gun posts, the Progenitor's pods) owns its HP, so catching several
+// in one pattern is the same legitimate reward that shelling the cluster pays.
+function canisterHittable(e) {
+  const t = e.t;
+  return !(t.tank || t.apc || t.vehicle || t.bike || t.v2);
+}
+
 function frenzyReload(type) {
   const extra = FRENZY_EXTRA_CD[type];
   return u => {
@@ -296,6 +336,48 @@ function armorPiercingMult(shooter, target) {
   if (target.t.tank) return ARMOR_PIERCING_TANK_MULT;
   if (target.t.bike || target.t.vehicle) return ARMOR_PIERCING_MULT;
   return 1;
+}
+
+// HEAT Rounds: the bazooka's unique. A shaped charge does not grind a plate
+// down, it burns a hole through it — so his blast SKIPS the flak pool entirely
+// and lands on the man still wearing the vest.
+//
+// A POOL BYPASS, not a multiplier, and that distinction is the whole card.
+// Armor here is a bar that soaks damage 1:1 until it breaks (see armorEnemy),
+// and explode's falloff means a 120-damage rocket delivers only ~36 at the rim
+// of its own crater — less than a wave-40 flak plate absorbs. So a vest used to
+// eat the entire splash ring, which is exactly where a bazooka kills groups
+// rather than single tanks. It is also the one clean answer to Escalation VI,
+// whose only effect is doubling every pool at spawn.
+//
+// Tanks are deliberately untouched. Nothing with a hull is ever issued a pool
+// (armorEnemy returns early on tank/vehicle/apc/bike/v2), and the rocket
+// already multiplies against armor by its own armorMult of 2.75 — layering a
+// bonus there would just be a bigger number on the unit whose entire job is
+// already killing tanks, and would tell the player nothing new.
+//
+// SIDE-BLIND ON PURPOSE: the same jet goes through your own men's flak armor
+// too. That friendly-fire hole is what the card pays with, in the same shape as
+// High Explosive and Cluster Rounds, and it is stated on the card.
+//
+// The bazooka UNIT only. A jeep running Bazooka Rider fires under type 'jeep',
+// so this gate leaves it out — exactly as its shop chip (BAZOOKA) promises.
+// explode() may pass a bare {x,y} with no firer, which reads through as false.
+function heatPierces(from, kind) {
+  if (kind !== 'blast' || !from || from.side !== 'us' || from.type !== 'bazooka') return false;
+  return !!(G.cardsOwned && G.cardsOwned.has('heatrounds'));
+}
+
+// the copper jet punching the plate — hotter and fewer than armorPing's cold
+// metallic spatter, so a pierce reads differently from a plate that held
+function heatPierceSpark(a) {
+  for (let i = 0; i < 4; i++) {
+    G.particles.push({
+      x: a.x + rand(-5, 5), y: a.y + rand(-10, 4), vx: rand(-30, 30), vy: rand(-55, -10),
+      ttl: rand(0.16, 0.34), grav: 160, size: rand(1.2, 2.2),
+      color: pick(['#fff2c0', '#ffb347', '#ff7a2a']),
+    });
+  }
 }
 
 // Headshot: a unique card the sniper and the rifleman each get their own copy
@@ -586,6 +668,14 @@ const CARD_UNIQUES = {
     desc: `The gunner loads AP rounds: his BAR deals ${ARMOR_PIERCING_MULT}x damage to enemy jeeps, halftracks, and motorcycles, and ${ARMOR_PIERCING_TANK_MULT}x against tanks — enough to chip armor, not to crack it like a bazooka.`,
     hooks: {},
   },
+  // flag-only, like Armor Piercing: damageEnemy and damageUnit read
+  // G.cardsOwned through heatPierces at the exact point the flak pool would
+  // otherwise have soaked the blast.
+  heatrounds: {
+    unit: 'bazooka', name: 'HEAT Rounds', cost: 10, weight: 3,
+    desc: 'Shaped-charge warheads: the rocket burns straight through flak plate instead of grinding it down, so armored infantry take the whole blast with their vests still on — and the deeper the run, the more of them are wearing one. The jet does not ask whose vest it is: your own men\'s flak armor stops none of it either.',
+    hooks: {},
+  },
   crackshot: {
     unit: 'sniper', name: 'Crack Shot', cost: 8, weight: 3,
     desc: 'Every miss guarantees the sniper\'s next shot connects.',
@@ -763,6 +853,14 @@ const CARD_UNIQUES = {
   leveltbarrels: {
     unit: 'aagun', name: 'Level the Barrels', cost: 11, weight: 4,
     desc: `The flak mount can depress: enemies on the ground within short range catch a 40mm HE round. It still engages aircraft at full range — the red wedge marks its ground reach.`,
+    hooks: {},
+  },
+  // flag-only, like Level the Barrels above it: updateATGun reads G.cardsOwned
+  // through canisterShotEnabled() to add a third, last-priority target tier, and
+  // both range overlays paint the near band in buckshot cream to mark it.
+  canistershot: {
+    unit: 'atgun', name: 'Canister Shot', cost: 12, weight: 5,
+    desc: `The 57mm carries a tin of lead balls that comes apart the moment it clears the muzzle. Enemy infantry that closes inside ${Math.round(CANISTER_RANGE_FRAC * 100)}% of the gun's reach catches the whole pattern, and canister rams faster than an AP round. Armor is still the first thing the gun answers and the shot does nothing to it — the pale wedge marks the ground the pattern covers.`,
     hooks: {},
   },
   // not tied to a unit type: carries a `label` so its chip reads HQ. Flag-only —

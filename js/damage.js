@@ -576,9 +576,14 @@ function damageUnit(u, dmg, from, kind) {
     u.bodyArmor -= absorbed; dmg -= absorbed;
     armorPing(u);
   } else if (kind === 'blast' && u.flakArmor > 0) {
-    const absorbed = Math.min(u.flakArmor, dmg);
-    u.flakArmor -= absorbed; dmg -= absorbed;
-    armorPing(u);
+    // HEAT Rounds, on the same terms as the enemy path: the jet is side-blind,
+    // so a stray rocket of your own goes through your man's flak vest too.
+    if (heatPierces(from, kind)) heatPierceSpark(u);
+    else {
+      const absorbed = Math.min(u.flakArmor, dmg);
+      u.flakArmor -= absorbed; dmg -= absorbed;
+      armorPing(u);
+    }
   }
   if (dmg <= 0) {                            // fully soaked — no HP loss, no blood
     if (incoming >= 3) tryGoProne(u, 0.65);  // still flinch from being shot at
@@ -708,9 +713,15 @@ function damageEnemy(e, dmg, from, kind) {
     e.bodyArmor -= absorbed; dmg -= absorbed;
     armorPing(e);
   } else if (kind === 'blast' && e.flakArmor > 0) {
-    const absorbed = Math.min(e.flakArmor, dmg);
-    e.flakArmor -= absorbed; dmg -= absorbed;
-    armorPing(e);
+    // HEAT Rounds: a bazooka's shaped charge holes the plate rather than
+    // wearing it down — the pool is skipped whole and the vest is left on the
+    // man, unchipped, for whatever lands on him next.
+    if (heatPierces(from, kind)) heatPierceSpark(e);
+    else {
+      const absorbed = Math.min(e.flakArmor, dmg);
+      e.flakArmor -= absorbed; dmg -= absorbed;
+      armorPing(e);
+    }
   }
   if (dmg <= 0) {                          // fully soaked — no wound, no blood
     if (incoming >= 3) tryGoProne(e, 0.65); // still flinch from being shot at

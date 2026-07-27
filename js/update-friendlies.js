@@ -606,21 +606,34 @@ function updateEngineer(u, dt) {
 }
 
 // ---- 57mm anti-tank gun: a dug-in direct-fire piece. It only answers to
-// vehicles, and only inside the traverse cone its trails allow.
+// vehicles, and only inside the traverse cone its trails allow — unless it is
+// carrying canister, which buys it the infantry that closed on it.
 function updateATGun(u, dt) {
   const spec = u.t.atgun;
   const range = unitRange(u, u.t.range) * fogMult();
   const HOME = -Math.PI / 2;   // staked facing the German end of the field
   const arc = spec.arc + (u.rank || 0) * 0.05236;  // +3° per rank
   const inCone = e => inFireCone(u, e, HOME, arc);
+  // Canister Shot: the band is a FRACTION of the reach resolved just above, so
+  // rank, a watch tower and Rangefinders stretch it with everything else.
+  const canisterOn = canisterShotEnabled();
+  const cRange = range * CANISTER_RANGE_FRAC;
+  const cR2 = cRange * cRange;
 
   u.cd -= dt;
 
-  // armor is the priority; soft vehicles after. Infantry is not this gun's job.
-  const target = tieredEnemyTarget(u, range, [
+  // armor is the priority; soft vehicles after. Infantry is still not this gun's
+  // job — canister only adds a THIRD tier under both of them, because a piece
+  // that turns off a Panzer to blast the riflemen walking beside it is a piece
+  // that stopped being an AT gun, and this ordering is the only thing stopping
+  // that. The band check lives inside the predicate because tieredEnemyTarget
+  // takes one range for every tier and this tier's is shorter.
+  const tiers = [
     e => e.t.tank && inCone(e),
     e => (e.t.vehicle || e.t.bike || e.t.v2) && inCone(e),
-  ]);
+  ];
+  if (canisterOn) tiers.push(e => canisterHittable(e) && dist2(u, e) <= cR2 && inCone(e));
+  const target = tieredEnemyTarget(u, range, tiers);
 
   if (!target) {
     // crank the tube back to center
@@ -629,11 +642,23 @@ function updateATGun(u, dt) {
     return;
   }
 
+  // which round is up. The pick above can only ever reach a soft target through
+  // the canister tier, so re-testing the winner is enough to know — no second
+  // scan, and it stays correct when focus fire overrides the tier order.
+  const canister = canisterOn && canisterHittable(target) && dist2(u, target) <= cR2;
+
   const want = Math.atan2(target.y - u.y, target.x - u.x);
   const diff = angleDiff(want, u.turret);
   u.turret += clamp(diff, -0.9 * dt, 0.9 * dt);
   u.face = u.turret;
-  if (u.cd > 0 || Math.abs(diff) > 0.17) return;
+  // a pattern this wide doesn't need the bore laid on the man an AP shell does
+  if (u.cd > 0 || Math.abs(diff) > (canister ? CANISTER_LAY_TOL : 0.17)) return;
+
+  if (canister) {
+    fireCanister(u, cRange);
+    u.cd = u.t.rof * CANISTER_RELOAD * (1 - u.rank * 0.08) * rand(0.85, 1.15);
+    return;
+  }
 
   SFX.boom(false);
   u.atgunFireT = 0.16;

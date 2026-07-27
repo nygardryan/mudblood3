@@ -1008,6 +1008,10 @@ function formatUnitStats(p, ut) {
   if (ut.flame) parts.push('FLAME');
   if (ut.rocket) parts.push('ROCKET');
   if (ut.mortar) parts.push('MORTAR');
+  // these describe the UN-CARDED catalog unit, deliberately: Canister Shot and
+  // Level the Barrels both widen what their gun will shoot, but the codex opens
+  // from the main menu where G is null, so it cannot ask G.cardsOwned without
+  // throwing. The inspector carries the card-aware chips instead.
   if (ut.atgun) parts.push('AP SHELL', 'VEHICLES ONLY', 'IMMOBILE');
   if (ut.aagun) parts.push('FLAK', 'AIRCRAFT ONLY', 'IMMOBILE');
   parts.push(`${p.cost} TP`, `[${p.hotkey}]`);

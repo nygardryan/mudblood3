@@ -369,6 +369,70 @@ first tick — and `TEST.state().enemies` counts/HP are inflated by parts here
 too: 8 actors per train. `bossVictoryCopy` has an `'it'` branch; the German
 branch remains the unguarded fallthrough for any FIFTH faction.
 
+The **Alien Walker** (`awalker`) is the easter egg that ends a run that won't end
+— a striding tripod that walks out of the treeline at wave 666 and sweeps a laser
+lance across the field. It is the only enemy that is **not a faction's**: no
+`faction` field, `G.enemyFaction` is never consulted, and it turns up against all
+four armies. Wave 666 spawns exactly one; from 667 a linear per-wave roll
+(`awChance`/`spawnAlienWalkers` in `js/waves.js`, called at the **top of
+`launchWave`, above the `%10` early return** so a boss wave is not a free pass)
+can produce 0, 1 or several — measured E[n] 0.36 at 667, 0.45 at 700, 0.78 at 800,
+1.61 at 1000 with `AW_ALIVE_CAP` (3) concurrent. It is a **single actor**: the
+parent+parts pattern exists to give a 10,000 HP target several things worth
+shooting, and 3000 doesn't need it. Tuning is the `AW_` block in
+`js/constants.js`; AI is `updateAlienWalker` (`js/update-enemies.js`); art is
+`js/render-alien-walker.js`.
+
+Four things about it that are load-bearing:
+- **The beam's hit test is the angular WEDGE swept since last tick, never a
+  point-to-segment test.** `dt` is hard-clamped to 0.05 (`main.js`; the
+  `gameSpeed` loop sub-steps and `TEST.DT` is 0.05), so at 1.2 rad/s the lance
+  advances 0.06 rad — a **31.6px tangential jump at the 527px tip**, which any
+  drawable half-width steps clean over. Consecutive wedges share a boundary
+  exactly (`awPrev = awAng` before advancing), so nothing falls between them.
+  `awInWedge`'s pad is a **physical half-width converted to an angle at the
+  actor's own radius**: it matches the drawn beam everywhere, and down by the
+  feet it opens to ~0.7 rad, where the sweep's tangential speed is only ~12px/s
+  and a running man could otherwise stay ahead of it for the whole two seconds.
+- **The once-per-sweep `Set` lives on the WALKER, not as a token on the victim.**
+  Several can be on the field at once, and a per-actor stamp is per-actor rather
+  than per-(actor, walker) — B overwrites A's stamp and A charges the same man
+  twice inside one sweep. The Set also covers sandbags, wire and works, none of
+  which have a spare field. Entering `sweep` must reset `awAng = awPrev = awFrom`
+  or the opening tick's wedge spans the gap from the last sweep's stale angle and
+  scythes half the map for free; the sweep progress `p` must be **clamped** or a
+  short final frame drops the tail of the arc.
+- **It deliberately does NOT carry `tank`.** At ×0.04 vs small arms, 3000 HP is
+  ~937 seconds against a rifle line and 3.4 shells for an AT battery —
+  simultaneously impossible and trivial, one answer, no decision. It is hard to
+  REACH instead: standing at y 92–128 it sits outside rifleman (154), gunner
+  (179), grenadier (231) and bazooka (243) range, so the artillery answer falls
+  out of geometry for free while a player who walks men up to `FORWARD_Y` can
+  close and trade. If it dies too fast the lever is `AW_STAND_Y_MIN`, never an
+  armor multiplier. `noRamp` is mandatory for the same reason it is on the
+  bosses — the ramp is capped out by wave 666 and 3000 would ship as 9000.
+- **Killing it fires no `bossVictory()`.** `boss:true` is bought only for the
+  `armorEnemy` skip and the prone/suppression exemptions; `damage.js` keys the
+  victory on the four faction flags, so the walker just dies. Do not add it to
+  that chain — a wave-667 farm would hand out ESCALATION rungs.
+
+Its gait is the **first walk cycle in the engine** (everything else that
+"animates" is a countdown timer; the zombie hound's legs are a static pose). Two
+rules make it read as walking rather than wiggling, both in `awLeg`: the phase is
+advanced by **distance moved**, not `dt`, and during stance the foot slides
+backward in body coords by exactly the ground covered — stance is `AW_DUTY` of the
+cycle against `AW_DUTY × AW_STRIDE` of ground, so they cancel and the foot is
+motionless in world space by arithmetic rather than by tuning. There is no sine in
+the stance; a sine there is what makes every attempt at this look like a table
+jiggling its legs. Three legs at phases 1/3 apart with duty 2/3 puts exactly one
+foot in the air at all times. The knee is two-bone IK with the elbow solution
+**forced backward by sign** (`base + bend * fwd`) so it can never flip mid-stride.
+`paintAlienWalker` is PURE (codex portrait), so the phase reads off `a.walkT || 0`
+and never `G.time`. Proportions were wrong once in an instructive way: a squat
+hull with 33px of leg reach rendered as a **flying saucer** — a walker has to be
+mostly LEG, and the emitter had to move out onto a stalk because a bloom at the
+hull centre erased the whole sprite every time it fired.
+
 **Each faction fights on its own ground.** `GROUND_BIOMES` in `js/render-ground.js`
 keys a terrain off `G.enemyFaction` — `de` Western Front mud, `jp` Pacific volcanic
 ash, `zo` blighted dead earth, `it` North African desert. It is resolved ONCE, in

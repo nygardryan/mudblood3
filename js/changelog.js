@@ -4,6 +4,15 @@
 const CHANGELOG = [
   {
     date: '2026-07-27',
+    title: 'New Card: Pre-Hardened',
+    changes: [
+      'New unique EMPLACEMENTS card — PRE-HARDENED. Everything you place comes out of the ground already reinforced: sandbags, bunkers, watch towers, camo nests, ammo crates, wire and decoys all arrive at the FORTIFIED tier instead of standard.',
+      'That is the full first tier, not a discount on it — the extra HP, the deeper cover, the tower\'s longer reach, the crate\'s faster reload, the wire\'s harder grip, all of it standing the moment you pay for the piece. A bunker goes down at 3,060 HP and 85% dodge rather than 2,040 and 75%.',
+      'Your engineers get the six seconds back. With Hardened Works they spend it pushing pieces to the second tier instead; without it they have nothing left to build and go straight to repairing what the enemy knocks down. Minefields have no tier and are unaffected.',
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'New Card: Ricochet',
     changes: [
       'New unique DUMMY card — RICOCHET. There is something hard under the burlap. Every bullet that strikes a decoy has a 15% chance to deflect straight back down its own flight path and hit the man who fired it.',

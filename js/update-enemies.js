@@ -74,6 +74,11 @@ function updateEnemy(e, dt) {
   // which drives them off the rails.
   if (e.t.itaBoss) { updateWarTrain(e, dt); return; }
   if (e.t.trainPart) return;
+  // The Alien Walker is NOT one of the four above — it belongs to no faction
+  // and killing it ends nothing — but it dispatches up here with them for the
+  // same reason they do: sitting above the stun and prone blocks IS its
+  // immunity to both. It has no parts, so there's no bare return to pair with.
+  if (e.t.awalker) { updateAlienWalker(e, dt); return; }
 
   // Shell Shocked: dazed by a mortar hit — no shooting, no advancing, and it
   // overrides prone recovery so the daze runs its full second first
@@ -2148,4 +2153,201 @@ function stampBike(e, wrecked) {
 
   g.restore();
   g.globalAlpha = 1;
+}
+
+// ---- The Alien Walker: stride, telegraph, sweep ---------------------------
+// Tuning lives in the AW_ block in constants.js. The cycle: pace laterally in a
+// band across the top of the field, plant, telegraph an aiming line for
+// AW_CHARGE_T, then swing a laser lance through AW_SWEEP_ARC over two seconds.
+// Anything the beam crosses eats AW_SWEEP_DMG exactly once — men, emplacements,
+// mines, and the enemy's own troops, because this thing is on nobody's side.
+//
+// It is NOT one of the four faction bosses and killing it ends nothing; see the
+// header on the AW_ block. It never advances past its band, so it can never
+// breach, which is why (like Der Schlächter, the other single-actor boss) it
+// needs no entry in update.js's breach-loop skip list.
+
+function initAlienWalker(e) {
+  e.awPhase = 'idle';
+  e.awT = rand(1.4, 2.6);        // it doesn't fire the instant it clears the edge
+  e.awFrom = e.awTo = e.awAng = e.awPrev = Math.PI / 2;
+  e.awDir = 1;
+  e.awHit = new Set();
+  e.awStandY = rand(AW_STAND_Y_MIN, AW_STAND_Y_MAX);
+  e.awLane = Math.random() < 0.5 ? 1 : -1;
+  e.walkT = Math.random();       // so two of them never march in lockstep
+}
+
+// One tick of movement, returning the PIXELS COVERED — the gait phase is
+// advanced by distance, not by time, and that is the whole trick behind planted
+// feet (see awLeg in render-alien-walker.js). It never closes on the player: it
+// walks down into its standing band, then paces sideways between sweeps and
+// stands dead still to fire, so the legs are on display exactly while the
+// player is safe to watch them.
+function awStep(e, dt) {
+  if (e.awPhase !== 'idle') return 0;          // planted while charging and firing
+  const x0 = e.x, y0 = e.y;
+  if (e.y < e.awStandY) {
+    e.y = Math.min(e.awStandY, e.y + AW_APPROACH_SPEED * dt);
+  } else {
+    if (e.x < 60 || e.x > W - 60) e.awLane = -e.awLane;
+    e.x += e.awLane * AW_PATROL_SPEED * dt;
+  }
+  return Math.hypot(e.x - x0, e.y - y0);
+}
+
+// Lay the arc for the coming sweep. At 2.4 rad the centring barely changes WHAT
+// gets caught; what it changes is where the telegraph line points, so the
+// charge-up reads as "it has seen your line" instead of a fixed rake. Dummies
+// count at full weight through forEachDefense — a decoy line drags the aim,
+// which is the only counterplay to this that doesn't cost men.
+function awBeginCharge(e) {
+  e.awPhase = 'charge';
+  e.awT = AW_CHARGE_T;
+  let sx = 0, sy = 0, n = 0;
+  for (const u of G.units) if (!u.dead) { sx += u.x; sy += u.y; n++; }
+  forEachDefense(o => { if (o.hp > 0) { sx += o.x; sy += o.y; n++; } });
+  const centre = n ? Math.atan2(sy / n - e.y, sx / n - e.x) : Math.PI / 2;
+  e.awDir = Math.random() < 0.5 ? 1 : -1;
+  e.awFrom = centre - e.awDir * AW_SWEEP_ARC / 2;
+  e.awTo = centre + e.awDir * AW_SWEEP_ARC / 2;
+  e.awAng = e.awPrev = e.awFrom;
+}
+
+// Is (x, y) inside the wedge the beam swept since last tick? See the AW_ block
+// for why this is an angular wedge and not a point-to-segment test. The pad is
+// a physical half-width turned into an angle at this point's own radius, so it
+// matches the drawn beam everywhere and blows up down by the feet.
+function awInWedge(e, x, y) {
+  const dx = x - e.x, dy = y - e.y;
+  const r = Math.hypot(dx, dy);
+  if (r > AW_BEAM_RANGE) return false;
+  const pad = AW_BEAM_HALFW / Math.max(r, AW_BEAM_MIN_R);
+  const bear = Math.atan2(dy, dx);
+  return angleDiff(bear, e.awPrev) * e.awDir >= -pad
+      && angleDiff(bear, e.awAng) * e.awDir <= pad;
+}
+
+// scorch and spatter where the lance lands
+function awSlag(x, y) {
+  for (let i = 0; i < 3; i++) {
+    G.particles.push({
+      x: x + rand(-4, 4), y: y + rand(-4, 4), vx: rand(-30, 30), vy: rand(-55, -10),
+      ttl: rand(0.18, 0.4), grav: 200, size: 1.4,
+      color: pick(['#bdf6ff', '#7fe6d8', '#e8fff4']),
+    });
+  }
+}
+
+function awBeamTick(e) {
+  const hit = e.awHit;
+  // The once-per-sweep promise. The Set lives on the WALKER, not as a token
+  // stamped on each victim: the spawn roll can put several on the field at
+  // once, and a per-actor stamp is per-actor rather than per-(actor, walker) —
+  // walker B would overwrite A's stamp and A would charge the same man twice
+  // inside one sweep. It also works unchanged for sandbags, wire and works,
+  // none of which have a spare field to thread a lifecycle through.
+  const cut = (o) => {
+    if (hit.has(o) || !awInWedge(e, o.x, o.y)) return false;
+    hit.add(o);
+    return true;
+  };
+
+  // `from` is the walker itself and never a bare {x,y}: damageUnit reads
+  // from.side === 'de' for the Escalation IV modifier, which is exactly the bug
+  // explode() used to have. No `kind` on either side — the lance bypasses body
+  // and flak pools the way flame and melee do; routing it as 'blast' would let
+  // a 60-point flak vest eat a slice of an 800-damage death ray.
+  for (const u of G.units) {
+    if (!u.dead && cut(u)) { damageUnit(u, AW_SWEEP_DMG, e); awSlag(u.x, u.y); }
+  }
+  // Side-blind: it burns the Wehrmacht, the Imperial Army, the dead and the
+  // Regio Esercito with equal indifference. Other walkers are the one
+  // exemption — two spawned together would delete each other before either
+  // finished a sweep and the mechanic would never land in front of the player.
+  for (const en of G.enemies) {
+    if (en.dead || en.t.awalker) continue;
+    if (cut(en)) { damageEnemy(en, AW_SWEEP_DMG, e); awSlag(en.x, en.y); }
+  }
+
+  // Emplacements. compactDefenses (update.js) reaps these and stamps the rubble
+  // decal, so knocking the hp down is the whole job. G.itWorks is in the list
+  // for the same reason the enemy loop above is: side-blind means side-blind.
+  const raze = (o) => { if (o.hp > 0 && cut(o)) { o.hp -= AW_SWEEP_DMG; awSlag(o.x, o.y); } };
+  for (const s of G.sandbags) raze(s);
+  for (const b of G.bunkers) raze(b);
+  for (const wt of G.watchtowers) raze(wt);
+  for (const cn of G.camoNests) raze(cn);
+  for (const ac of G.ammoCrates) raze(ac);
+  for (const d of G.dummies) raze(d);
+  for (const iw of G.itWorks) raze(iw);
+
+  // Wire is a ~70px belt, not a point: a beam crossing the middle of a strand
+  // has to cut it. Same reason trainCrush handles G.wires separately and
+  // purgeRadius widens its x test.
+  for (const wr of G.wires) {
+    if (wr.hp <= 0 || hit.has(wr)) continue;
+    if (!awInWedge(e, wr.x - AW_WIRE_HALFW, wr.y)
+      && !awInWedge(e, wr.x, wr.y)
+      && !awInWedge(e, wr.x + AW_WIRE_HALFW, wr.y)) continue;
+    hit.add(wr);
+    wr.hp -= AW_SWEEP_DMG;
+    awSlag(wr.x, wr.y);
+  }
+
+  // Mines carry no hp — damage.js kills them by flag. They COOK OFF rather than
+  // detonate: a chain of real explode() calls along the beam would re-damage
+  // actors this same function has already charged and break the once-per-sweep
+  // promise from the inside. m.dead is its own guard, so no Set entry needed.
+  for (const m of G.mines) {
+    if (m.dead || !awInWedge(e, m.x, m.y)) continue;
+    m.dead = true;
+    G.flashes.push({ x: m.x, y: m.y, r: 9, ttl: 0.14, max: 0.14 });
+  }
+}
+
+function updateAlienWalker(e, dt) {
+  if (e.awPhase === undefined) initAlienWalker(e);
+
+  // phase advanced by DISTANCE MOVED, not dt — see awStep. The % 1 also keeps
+  // the accumulator from losing float precision over a thousand-wave run.
+  e.walkT = (e.walkT + awStep(e, dt) / AW_STRIDE) % 1;
+
+  if (e.awPhase === 'idle') {
+    e.awT -= dt;
+    if (e.awT <= 0) awBeginCharge(e);
+  } else if (e.awPhase === 'charge') {
+    e.awT -= dt;
+    if (e.awT <= 0) {
+      e.awPhase = 'sweep';
+      e.awT = AW_SWEEP_T;
+      // Open on a ZERO-WIDTH wedge at the bearing that was telegraphed. Without
+      // this the first tick's wedge spans the gap from the last sweep's stale
+      // angle and scythes half the map for free before the beam is even drawn.
+      e.awAng = e.awPrev = e.awFrom;
+      e.awHit.clear();
+      SFX.event();
+    }
+  } else {
+    e.awT -= dt;
+    e.awPrev = e.awAng;
+    // p is CLAMPED so the closing tick terminates exactly on awTo — unclamped,
+    // a short final frame drops the tail of the arc and the last few degrees of
+    // the sweep are cosmetic only.
+    const p = clamp(1 - e.awT / AW_SWEEP_T, 0, 1);
+    e.awAng = e.awFrom + (e.awTo - e.awFrom) * p;
+    awBeamTick(e);
+    if (e.awT <= 0) {
+      e.awPhase = 'idle';
+      e.awT = rand(AW_CD_MIN, AW_CD_MAX);
+      e.awHit.clear();   // drop the refs; compactInPlace has already spliced
+                         // the fallen out of G.units and G.enemies
+    }
+  }
+
+  // e.face is deliberately never driven from the beam: the hull holds its
+  // walking heading and the emitter tracks awAng on its own, or the whole body
+  // pirouettes mid-sweep and the gait comes apart.
+  e.y = clamp(e.y, AW_STAND_Y_MIN, AW_STAND_Y_MAX);
+  e.x = clamp(e.x, 40, W - 40);
 }

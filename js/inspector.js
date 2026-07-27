@@ -47,6 +47,8 @@ function actorHitRadius(a) {
   // gun posts tight (they ride 22px off the wagon centreline), wagons tank-sized
   if (a.t.trainMg) return 10;
   if (a.t.itaBoss || a.t.trainPart) return 26;
+  // the walker is tank-sized across the hull and stands on legs well clear of it
+  if (a.t.awalker) return 30;
   return a.t.tank ? 26 : a.t.vehicle ? 20 : a.t.gunEmplacement ? 18 : 14;
 }
 

@@ -597,19 +597,10 @@ function updateEngineer(u, dt) {
     sparks(target.x, target.y);
     if (target.workProg >= 6) {
       target.workProg = 0;   // reset so a hardened second tier accrues fresh
-      // the dummy gains a flat DUMMY_HP per tier; camo nests get
-      // double HP per tier; everything else gets 1.5x
-      if (target.fortifyAdd) target.maxhp += target.fortifyAdd;
-      else target.maxhp = Math.round(target.maxhp * (target.fortifyMult || 1.5));
-      target.hp = target.maxhp;
+      const tier = applyFortifyTier(target);   // helpers.js — shared with Pre-Hardened
       gainXP(u); gainXP(u); // a fortification is worth two points of pride
-      if (!target.up) {
-        target.up = true;
-        G.texts.push({ x: target.x, y: target.y - 16, text: 'FORTIFIED', ttl: 2.2 });
-      } else {
-        target.up2 = true;
-        G.texts.push({ x: target.x, y: target.y - 16, text: 'HARDENED', ttl: 2.2 });
-      }
+      G.texts.push({ x: target.x, y: target.y - 16,
+        text: tier === 2 ? 'HARDENED' : 'FORTIFIED', ttl: 2.2 });
     }
   }
 }

@@ -776,7 +776,54 @@ function spawnItalianBoss(w) {
   }
 }
 
+// ---- The Alien Walker's arrival -------------------------------------------
+// Wave 666 walks exactly one out of the treeline. From 667 the chance climbs
+// linearly with the wave — linear because it's the only shape you can reason
+// about three hundred waves from the origin — and the falloff loop below lets
+// a single roll produce several, so a long run is punctuated by nothing, then
+// one, then a pair. Tuning is the AW_ block in constants.js.
+function awChance(w) {
+  if (w < AW_FIRST_WAVE) return 0;
+  return Math.min(AW_P_MAX, AW_P0 + (w - AW_FIRST_WAVE) * AW_P_SLOPE);
+}
+
+function aliveAlienWalkers() {
+  let n = 0;
+  for (const e of G.enemies) if (!e.dead && e.t.awalker) n++;
+  return n;
+}
+
+function spawnAlienWalkers(w) {
+  if (w < AW_FIRST_WAVE) return;
+  const room = AW_ALIVE_CAP - aliveAlienWalkers();
+  if (room <= 0) return;
+
+  let n;
+  if (w === AW_FIRST_WAVE) {
+    n = 1;                                  // the reveal: exactly one, always
+  } else {
+    let p = awChance(w);
+    n = 0;
+    while (n < AW_MAX_PER_WAVE && Math.random() < p) { n++; p *= AW_MULTI_FALLOFF; }
+  }
+  // Roll FIRST, clamp to the room second: the cap truncates the tail without
+  // distorting the odds of the first one showing up at all, which is the
+  // number the whole curve was tuned around.
+  n = Math.min(n, room);
+  if (n <= 0) return;
+
+  for (let i = 0; i < n; i++) spawnEnemyAt('awalker', rand(90, W - 90), rand(-80, -50));
+  showBanner(w === AW_FIRST_WAVE ? 'SOMETHING IS WALKING OUT OF THE TREELINE'
+    : n > 1 ? 'MORE OF THEM' : 'ANOTHER WALKER');
+  SFX.event();
+}
+
 function launchWave(w) {
+  // The Alien Walker is on nobody's roster — enemyFaction() is never consulted
+  // for it. Rolled HERE, above the special-wave early return, so a hundredth
+  // wave's boss is not a free pass from it. Everything below this line is
+  // Wehrmacht / Imperial Army / Horde / Regio Esercito business; this is not.
+  spawnAlienWalkers(w);
   if (w % 10 === 0) {
     spawnSpecialWave(w);
     return;

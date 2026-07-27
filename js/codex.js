@@ -35,6 +35,7 @@ const CODEX_CODE = {
   imosch: 'MSC', ibreda: 'BRD', ifiat: 'FIA', icecc: 'CEC', ibrixia: 'BRX',
   imortaio: 'M81', ifolgore: 'FLG', iardito: 'ARD', iflame: 'FLM',
   il3: 'L3', im13: 'M13', isemo: 'SMV', itrain: 'TRN',
+  awalker: 'WLK',
   wire: 'WIR', sandbags: 'SBG', dummy: 'DMY', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
   ammocrate: 'AMM', mine: 'MIN', mortar: 'MST', artillery: 'ART',
   fog: 'FOG', fng: 'FNG', airraid: 'RAD', paradrop: 'PAR', airstrike: 'P47', special: 'SPC',
@@ -60,7 +61,10 @@ function codexFaction(tab, entry) {
   if (tab === 'troops') return 'U.S. ARMY';
   if (tab === 'enemies') {
     const et = entry && ENEMY_TYPES[entry.key];
-    return et && et.faction === 'jp' ? 'IMPERIAL JAPANESE ARMY'
+    // the walker belongs to no army — without this it falls through to the
+    // WEHRMACHT default like anything else carrying no `faction` field
+    return et && et.awalker ? 'UNIDENTIFIED'
+      : et && et.faction === 'jp' ? 'IMPERIAL JAPANESE ARMY'
       : et && et.faction === 'zo' ? 'THE HORDE'
       : et && et.faction === 'it' ? 'REGIO ESERCITO'
       : 'WEHRMACHT';
@@ -507,6 +511,17 @@ function renderPortrait(typeKey, side) {
       ctx.scale(1.05, 1.05);
       paintTrainEngine(ctx, actor);
       ctx.restore();
+    } else if (t.awalker) {
+      // the PURE painter, as with the three above — but for a different reason:
+      // it has no parts, it has a GAIT, and paintAlienWalker reads the phase off
+      // the actor rather than off G.time precisely so this portrait works. A
+      // bare makeEnemy() has no walkT, which lands it at the top of the cycle:
+      // one foot just planted forward, one mid-stance, one lifting at the rear.
+      ctx.save();
+      ctx.translate(CODEX_PW / 2, CODEX_PH / 2 - 4);
+      ctx.scale(1.15, 1.15);
+      paintAlienWalker(ctx, actor);
+      ctx.restore();
     } else if (t.tank) {
       ctx.save();
       ctx.translate(CODEX_PW / 2, CODEX_PH / 2 + 4);
@@ -863,8 +878,9 @@ function buildVeterancyPanel(key, ut) {
 }
 
 // ---- Fortification tiers: what an engineer's work buys each emplacement.
-// Standard (as placed) → Fortified (engineer, ~6s) → Hardened (needs the
-// Hardened Works card). Values mirror shooting.js, update-enemies.js, and the
+// Standard (as placed) → Fortified (engineer, ~6s, or free at placement with
+// the Pre-Hardened card) → Hardened (needs the Hardened Works card). Values
+// mirror shooting.js, update-enemies.js, and the
 // WATCHTOWER/CAMONEST constants; HP compounds by the piece's fortifyMult.
 const FORT_TIERS = {
   wire: {
@@ -917,7 +933,7 @@ const FORT_TIERS = {
 
 const FORT_TIER_META = [
   { name: 'STANDARD',  how: 'as placed' },
-  { name: 'FORTIFIED', how: 'engineer' },
+  { name: 'FORTIFIED', how: 'engineer / Pre-Hardened' },
   { name: 'HARDENED',  how: 'Hardened Works' },
 ];
 

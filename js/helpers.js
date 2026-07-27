@@ -43,6 +43,21 @@ function forEachDefense(fn) {
   for (const d of G.dummies) fn(d);
 }
 
+// Push one emplacement up a fortification tier and report which tier it landed
+// on (1 = fortified, 2 = hardened). The ONLY place the tier math lives: the
+// engineer's ~6s of work and the Pre-Hardened card's free tier at placement
+// both come through here, so a piece can never be worth more built by one route
+// than the other. The dummy gains a flat fortifyAdd per tier, camo nests double
+// per tier, everything else takes the 1.5x.
+function applyFortifyTier(s) {
+  if (s.fortifyAdd) s.maxhp += s.fortifyAdd;
+  else s.maxhp = Math.round(s.maxhp * (s.fortifyMult || 1.5));
+  s.hp = s.maxhp;
+  if (!s.up) { s.up = true; return 1; }
+  s.up2 = true;
+  return 2;
+}
+
 function compactDefenses(arr, onDestroy) {
   let w = 0;
   for (let i = 0; i < arr.length; i++) {

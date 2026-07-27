@@ -158,11 +158,17 @@ function draw() {
   drawProgenitorPass();
   // and the Treno Armato, so the fanteria it unloads paint over the wagons
   drawWarTrainPass();
+  // and the Alien Walker, which straddles the field on legs that troops walk
+  // between — its beam paints separately, up in the effects layer
+  drawAlienWalkerPass();
 
   for (const e of G.enemies) {
     if (e.t.ship || e.t.shipPart) continue;   // drawn whole, by drawYamatoPass above
     if (e.t.hordeBoss || e.t.bossPart) continue;   // ditto, by drawProgenitorPass
     if (e.t.itaBoss || e.t.trainPart) continue;    // ditto, by drawWarTrainPass
+    // ditto, by drawAlienWalkerPass — it carries no tank/vehicle/apc flag, so
+    // without this it would fall through to drawSoldier and paint as a man
+    if (e.t.awalker) continue;
     if (!inView(e.x, e.y, 64)) continue;   // canopy/hull margin
     if (e.chute > 0) drawParatrooper(e);
     else if (e.t.tank) drawTank(e);
@@ -226,6 +232,10 @@ function draw() {
       drawFlameStream(u, { flame: FLAME_TANK_FLAME, bearing: u.turret, originDist: 24 });
     }
   }
+  // the walker's lance and its aiming line, over the troops it is cutting
+  // through rather than under them
+  drawAlienBeams();
+
   for (const u of G.units) {
     if (!u.dead && u.t.shotgun && u.shotgunBlastT > 0) drawShotgunBlast(u);
   }

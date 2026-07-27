@@ -107,9 +107,9 @@ function placementValid(p, x, y) {
     // testing mode: enemy units go anywhere on the field
     if (x < 16 || x > W - 16 || y < 14 || y > H - 14) return false;
     const t = attackerTypeStats(p);
-    const bulk = t.heavy ? 40 : t.tank ? 34 : t.apc ? 30 : t.vehicle || t.bike ? 26 : 16;
+    const bulk = t.awalker ? 40 : t.heavy ? 40 : t.tank ? 34 : t.apc ? 30 : t.vehicle || t.bike ? 26 : 16;
     for (const e of G.enemies) {
-      const gap = Math.max(bulk, e.t.heavy ? 40 : e.t.tank ? 34 : e.t.vehicle ? 26 : 16);
+      const gap = Math.max(bulk, e.t.awalker ? 40 : e.t.heavy ? 40 : e.t.tank ? 34 : e.t.vehicle ? 26 : 16);
       if (dist(e, { x, y }) < gap) return false;
     }
     return true;
@@ -303,27 +303,29 @@ function applyPlacement(p, x, y) {
     // HP (495 -> 990 -> 1485) instead of the usual multiplier. isDummy routes
     // its damage through the scarecrow path (damageDummy) and its id lets an
     // enemy that has seen through the ruse ignore this specific decoy.
-    G.dummies.push({ x, y, hp: DUMMY_HP, maxhp: DUMMY_HP, up: false, up2: false,
+    G.dummies.push(prehardenDefense({ x, y, hp: DUMMY_HP, maxhp: DUMMY_HP, up: false, up2: false,
       workProg: 0, fortifyAdd: DUMMY_HP, isDummy: true, side: 'us', type: 'dummy',
-      t: DUMMY_T, id: ++dummySeq });
+      t: DUMMY_T, id: ++dummySeq }));
   } else if (p.kind === 'itwork') {
     // testing-mode only: stake out an enemy field work directly, so a board
     // state can be forced without waiting for a guastatore to build one
     const w = makeItalianWork(p.workKind, x, y);
     G.itWorks.push(w);
     return w;
+  // every emplacement goes in through prehardenDefense (js/cards.js): with the
+  // Pre-Hardened card it is placed already fortified, otherwise it passes straight
   } else if (p.key === 'sandbags') {
-    G.sandbags.push({ x, y, hp: SANDBAG_HP, maxhp: SANDBAG_HP, up: false, workProg: 0 });
+    G.sandbags.push(prehardenDefense({ x, y, hp: SANDBAG_HP, maxhp: SANDBAG_HP, up: false, workProg: 0 }));
   } else if (p.key === 'bunker') {
-    G.bunkers.push({ x, y, hp: BUNKER_HP, maxhp: BUNKER_HP, up: false, workProg: 0 });
+    G.bunkers.push(prehardenDefense({ x, y, hp: BUNKER_HP, maxhp: BUNKER_HP, up: false, workProg: 0 }));
   } else if (p.key === 'watchtower') {
-    G.watchtowers.push({ x, y, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP, up: false, workProg: 0 });
+    G.watchtowers.push(prehardenDefense({ x, y, hp: WATCHTOWER_HP, maxhp: WATCHTOWER_HP, up: false, workProg: 0 }));
   } else if (p.key === 'camonest') {
-    G.camoNests.push({ x, y, hp: CAMONEST_HP, maxhp: CAMONEST_HP, up: false, workProg: 0, fortifyMult: 2 });
+    G.camoNests.push(prehardenDefense({ x, y, hp: CAMONEST_HP, maxhp: CAMONEST_HP, up: false, workProg: 0, fortifyMult: 2 }));
   } else if (p.key === 'ammocrate') {
-    G.ammoCrates.push({ x, y, hp: AMMOCRATE_HP, maxhp: AMMOCRATE_HP, up: false, workProg: 0 });
+    G.ammoCrates.push(prehardenDefense({ x, y, hp: AMMOCRATE_HP, maxhp: AMMOCRATE_HP, up: false, workProg: 0 }));
   } else if (p.key === 'wire') {
-    G.wires.push({ x, y, hp: 3750, maxhp: 3750, up: false, workProg: 0 });
+    G.wires.push(prehardenDefense({ x, y, hp: 3750, maxhp: 3750, up: false, workProg: 0 }));
   } else if (p.key === 'mine') {
     for (const pos of minefieldPositions(x, y)) {
       G.mines.push({ x: pos.x, y: pos.y, dead: false });

@@ -743,6 +743,13 @@ const CARD_UNIQUES = {
     desc: 'Overhead cover makes every emplacement immune to explosions — sandbags, bunkers, watch towers, camo nests, ammo crates, wire and mines take no blast damage.',
     hooks: {},
   },
+  // a third emplacement card, flag-only like the two around it: applyPlacement
+  // (js/input.js) runs every structure it creates through prehardenDefense.
+  prehardened: {
+    unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Pre-Hardened', cost: 13, weight: 5,
+    desc: 'Emplacements are dug in reinforced from the start — everything you place arrives at the FORTIFIED tier, with the extra HP, cover, range and holding power an engineer would have spent six seconds on. Engineers skip straight to repairs, or push a piece to HARDENED if you also carry Hardened Works. Minefields have no tier and are unaffected.',
+    hooks: {},
+  },
   // like Blast Shelter, an emplacement card with no per-unit hook: the enemy
   // movers in update-enemies read G.cardsOwned directly to bite men in the wire.
   razorwire: {
@@ -860,6 +867,17 @@ function maybeHarden(u) {
   if (!G.cardsOwned || !G.cardsOwned.has('hardened_' + u.type)) return;
   u.maxhp = hardenedHp(u.type);
   u.hp = u.maxhp;
+}
+
+// Pre-Hardened: an emplacement comes out of the ground already carrying the
+// engineer's first tier. applyPlacement pipes every structure it creates
+// through here on its way into the array, so the harness's deploy/buy get the
+// card too. The tier itself is applyFortifyTier (helpers.js) — shared with the
+// engineer, so a pre-hardened piece and a hand-built one are the same piece.
+// Minefields never reach this: a mine has no HP, no `up`, and no tier.
+function prehardenDefense(s) {
+  if (G.cardsOwned && G.cardsOwned.has('prehardened')) applyFortifyTier(s);
+  return s;
 }
 
 function defaultEndlessCards() {

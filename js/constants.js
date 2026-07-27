@@ -1300,6 +1300,105 @@ Object.assign(ENEMY_TYPES, {
   },
 });
 
+// ---- The Alien Walker (awalker) — the easter egg that ends the run ---------
+// A striding tripod that walks out of the treeline at wave 666 and starts
+// sweeping a laser lance across the field. It exists because endless has no
+// ceiling: a mature line (or a cheated one) can sit at wave 800 forever, and
+// nothing in the game says stop. This says stop.
+//
+// It is deliberately NOT one of the four faction bosses. No `faction` field —
+// it appears whoever you're fighting, G.enemyFaction is never consulted. It is
+// a SINGLE actor: no parts, no shared pool, none of the parent+child plumbing
+// the Yamato/Progenitor/Treno need, because that pattern exists to give a
+// 10,000 HP target several things worth shooting and 3000 doesn't need it. And
+// killing it fires no bossVictory() — damage.js keys that on the four faction
+// flags, so boss:true here is free.
+//
+// The one tuning decision worth writing down: it deliberately does NOT carry
+// `tank`. At x0.04 vs small arms, 3000 HP would take a rifle line ~937 seconds
+// and a prepared AT battery 3.4 shells — simultaneously impossible and trivial,
+// one answer, no decision. Instead it is hard to REACH: standing at y 92..128
+// it sits 252-288px off DEPLOY_Y (380), outside rifleman (154), gunner (179),
+// grenadier (231) and bazooka (243) range, so the artillery answer falls out of
+// geometry for free with the 3000 intact — while a player who walks his men up
+// to FORWARD_Y can close inside rifle range and trade, standing in the open
+// inside a beam that reaches past the bottom edge. If it dies too fast, push
+// AW_STAND_Y_MIN back (out of mortar range too), never add an armor multiplier.
+const AW_FIRST_WAVE = 666;
+const AW_HP = 3000;                  // 3x a Sherman (UNIT_TYPES.sherman.hp = 1000)
+const AW_SWEEP_DMG = 800;            // 80% of a Sherman, ONCE per actor per sweep
+const AW_BEAM_RANGE = Math.round(H * 0.85);   // 527 — "85% of the battlefield"
+const AW_SWEEP_T = 2.0;              // the two-second sweep
+const AW_SWEEP_ARC = 2.4;            // ~137deg, centred on the defenders' mass
+const AW_CHARGE_T = 1.4;             // telegraph: a thin aiming line, time to walk men clear
+const AW_CD_MIN = 4.5, AW_CD_MAX = 7.0;
+// The beam's hit test is the angular WEDGE swept since last tick, not a line
+// segment — dt is hard-clamped to 0.05 (main.js; the gameSpeed loop sub-steps,
+// TEST.DT is 0.05), so at 1.2 rad/s the beam advances at most 0.06 rad, which
+// is a 31.6px tangential jump out at the 527px tip. A segment test with any
+// half-width you'd actually draw steps clean over a man standing out there.
+// The pad below is a PHYSICAL half-width converted to an angle at the actor's
+// own radius, so the hitbox matches the drawn beam at every distance, and down
+// by the feet (where the sweep's tangential speed is only ~12px/s and a running
+// man could otherwise stay ahead of it for the whole two seconds) it opens up.
+const AW_BEAM_HALFW = 7;
+const AW_BEAM_MIN_R = 10;            // radius floor for that conversion
+const AW_WIRE_HALFW = 35;            // wire is a belt, not a point (mirrors purgeRadius)
+const AW_STAND_Y_MIN = 92, AW_STAND_Y_MAX = 128;  // its standing band; it never closes
+const AW_APPROACH_SPEED = 22, AW_PATROL_SPEED = 13;
+// The spawn roll: wave 666 is one, guaranteed. From 667 the chance climbs
+// linearly — linear because it's the only shape you can reason about three
+// hundred waves from the origin — and the falloff loop lets one roll produce
+// several. E[walkers/wave] = 0.36 at 667, 0.45 at 700, 0.78 at 800, 1.61 at
+// 1000 (where P(two or more) is ~50%).
+const AW_P0 = 0.30, AW_P_SLOPE = 0.0020, AW_P_MAX = 0.95;
+const AW_MULTI_FALLOFF = 0.55, AW_MAX_PER_WAVE = 4;
+// A walker outlives the wave that spawned it; uncapped, wave 1000 settles at
+// six or seven alive and the field is a light show rather than a fight.
+const AW_ALIVE_CAP = 3;
+// Gait. NOT the YAM_LEG_* idiom — those are nautical course legs, these are
+// limbs. Three of them: at this sprite scale a quadruped's off-side pair
+// overlaps the near pair and the silhouette turns to mush, and at duty 2/3 with
+// phases 1/3 apart exactly one foot is airborne at every instant, which is what
+// makes the gait read as deliberate rather than as wiggling.
+// The proportions are the whole silhouette, and the first draft got them wrong
+// in an instructive way: a 15x10 hull sitting 16px off the ground with 33px of
+// leg reach rendered as a FLYING SAUCER — the wide ellipse dominated and the
+// legs barely cleared it. A walker has to be mostly LEG. The hull now rides
+// AW_HULL_Y above a foot plane AW_GROUND_Y below it, a 50px drop against 52px
+// of reach, so the limbs are long, visibly bent, and carry the shape.
+const AW_STRIDE = 30;                // ground covered per full cycle
+const AW_DUTY = 2 / 3;               // fraction of the cycle a foot is planted
+const AW_LIFT = 11;                  // peak foot lift during the swing
+const AW_BOB = 1.8;                  // hull rise/fall; more reads as bouncing
+const AW_THIGH = 26, AW_SHIN = 26;   // two-bone IK segment lengths
+const AW_HIP_R = 10;                 // lateral offset of the two near hips
+const AW_HULL_Y = -20;               // hull centre, above the actor's own point
+const AW_GROUND_Y = 30;              // where the feet meet the ground, in local space
+
+Object.assign(ENEMY_TYPES, {
+  awalker: {
+    // `awalker` is the dispatch/render/spawn key, owned by this feature.
+    //
+    // boss:true is bought for the exemptions only — the armorEnemy skip (it is
+    // not issuing an alien a Wehrmacht flak vest), prone immunity and
+    // suppression immunity. It does NOT end the run: damage.js keys
+    // bossVictory() on germanBoss||japBoss||hordeBoss||itaBoss, and this is
+    // none of them, by design.
+    //
+    // noRamp is MANDATORY, not decoration: makeEnemy multiplies t.hp by
+    // enemyHpRamp() without it, and ENEMY_HP_RAMP_CAP (3) is long since maxed
+    // out by wave 666 — the 3000 below would silently ship as 9000.
+    //
+    // range/dmg are here for the inspector and the codex; the beam is driven
+    // entirely from updateAlienWalker and reads the AW_ constants directly.
+    name: 'Alien Walker', hp: AW_HP, speed: AW_APPROACH_SPEED, range: AW_BEAM_RANGE,
+    dmg: AW_SWEEP_DMG, acc: 0, rof: AW_SWEEP_T, burst: 1, burstGap: 0, reward: 250,
+    color: '#2b3138', gun: 0, sfx: 'boom', priority: 5,
+    awalker: true, boss: true, noRamp: true,
+  },
+});
+
 const ENEMY_INFO = {
   erifle: 'Standard Wehrmacht infantry. Slow, steady, and expendable — but there are always more of them.',
   esmg: 'Assault troops with MP40s. Fast movers who shred your line in close bursts.',
@@ -1371,6 +1470,7 @@ const ENEMY_INFO = {
   im13: 'M13/40 medium tank. Riveted, slow, and armed with a 47mm — the heaviest thing Italy fielded in numbers. Small arms bounce off it.',
   isemo: 'Semovente 75/18 assault gun. A low casemate mount with no turret and the best anti-tank punch the Italians bring; it stands off and shells your bunkers and armour.',
   ibersa: 'Bersagliere close-assault trooper in a plumed helmet. Elite and quick — he runs the open ground to get inside buckshot range, then stops and shreds your line at point-blank. He never digs in; he is what comes out of the works at you.',
+  awalker: 'No army fields this. It walks out of the treeline on three legs some time after the six hundred and sixty-sixth wave, plants itself beyond every rifle you own, and sweeps a lance of light across the whole sector — enough in one pass to gut a Sherman, and it does not care whose men are underneath. It comes whoever you are fighting, and the longer you last the more of them come. Artillery and anti-tank guns are the only things that reach it.',
   itrain: 'The Italian final boss: an armored war train that rolls straight down its rails and PARKS at the bottom of your sector. Two turret wagons shell your line, four gun posts rake it, and an infantry wagon unloads fanteria beside the track. Small arms only reach the gun crews — bring explosives. Every third of the engine\'s health you strip away, the whole army answers with an AVANTI charge.',
 };
 
@@ -1535,6 +1635,14 @@ const TESTING_GERMAN_PLACEABLES = [
     desc: 'A20 rocket battery. Normally locked behind wave 140 in endless — testing mode lets you place one immediately.' },
   { key: 'eboss', label: 'SCHLÄCHTER', cost: 200, kind: 'egerman', hotkey: '',
     desc: 'The German final boss. Normally arrives at wave 100 — testing mode drops him in on demand.' },
+  // The Alien Walker isn't German — it belongs to no faction at all. It lives
+  // on this list anyway because a fifth TESTING_*_PLACEABLES array would cost
+  // edits in test-api.js's _deployMap, flow.js's testing-toolbar merge AND a
+  // hud.js toolbar category, all to move one entry between tabs on a test-only
+  // surface. With no `faction` field enemyPlaceableFaction falls back to 'de',
+  // so it shows under GERMANS. TEST.deploy('awalker', ...) is what this is for.
+  { key: 'awalker', label: 'ALIEN WALKER', cost: 250, kind: 'egerman', hotkey: '',
+    desc: 'The wave-666 easter egg: a striding tripod with a sweeping laser lance. Belongs to no faction and appears against all of them — testing mode walks one on early.' },
 ];
 
 // endless testing/deploy roster for the Imperial Japanese Army. Reuses the

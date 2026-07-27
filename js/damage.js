@@ -815,6 +815,12 @@ function damageEnemy(e, dmg, from, kind) {
       }
       stampWreck(e);
       explode(e.x, e.y, 60, 80, true);
+    } else if (e.t.awalker) {
+      // whatever is inside it goes up hard. Note it is deliberately absent from
+      // the bossVictory() chain at the bottom of this block: the walker is an
+      // easter egg, not a rung on the ESCALATION ladder — it just dies.
+      stampWreck(e);
+      explode(e.x, e.y, 75, 110, true);
     } else if (e.t.tank) {
       stampWreck(e);
       explode(e.x, e.y, 50, 60, true);

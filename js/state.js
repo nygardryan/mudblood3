@@ -192,6 +192,9 @@ function newGame(level, difficulty) {
   // starting an endless run refreshes the shop's reroll price back to base
   if (level.id === 'endless') resetRerollCost();
   paintGround(level);
+  // sized off the ground bitmap paintGround just laid down, and emptied of the
+  // last run's blood — before setup(), so anything it marks is stamped normally
+  resetDecals();
   level.setup(G);
 }
 

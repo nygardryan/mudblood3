@@ -20,13 +20,63 @@ function bloodSplat(x, y, amount) {
 
 const CORPSE_TTL = 120; // bodies are carried off after two minutes
 const GROUND_MARK_TTL = 120; // blood stains and blast craters fade after two minutes
+// How long a mark's alpha ramp runs at the end of its life. Named because the
+// decal layer's whole rebuild schedule is derived from it (js/render-decals.js):
+// a mark is unchanging, and so needs no work at all, until it enters this window.
+const GROUND_MARK_FADE = 8;
+
+// Nominal world footprints the sprite art for each mark type is authored at, and
+// what an instance scales off them. A mark rolls its own size, so a pack that
+// stamped one fixed bitmap would read as wallpaper — the art is authored at the
+// largest roll and blitted down to the instance's own radii.
+const MARK_SPR_BLOOD_W = 18, MARK_SPR_BLOOD_H = 12;   // bloodSplat's largest rx/ry
+const MARK_SPR_POOL_W = 48, MARK_SPR_POOL_H = 32;     // spawnCorpse's pool at r = 1
+// A shell-sized blast. Chosen so the dish below comes out whole (55 × 42), and
+// the exported PNG fills its box edge to edge rather than sitting in a margin.
+const MARK_SPR_CRATER_R = 50;
+// the dish drawGroundMark paints for a crater, as a fraction of the blast radius
+const MARK_CRATER_KW = 1.1, MARK_CRATER_KH = 0.84;
 
 function addGroundMark(mark) {
-  G.groundMarks.push({ ttl: GROUND_MARK_TTL, ...mark });
+  const m = { ttl: GROUND_MARK_TTL, ...mark };
+  G.groundMarks.push(m);
+  // stamped into the decal layer the frame it is made, so a hit shows blood now
+  // rather than on the layer's next rebuild pass
+  stampDecal(m);
+  return m;
+}
+
+function groundMarkSize(m) {
+  if (m.type === 'blood') return { w: m.rx * 2, h: m.ry * 2 };
+  if (m.type === 'bloodpool') {
+    const s = m.r || 1;
+    return { w: MARK_SPR_POOL_W * s, h: MARK_SPR_POOL_H * s };
+  }
+  return { w: m.r * MARK_CRATER_KW, h: m.r * MARK_CRATER_KH };   // crater
+}
+
+// A mark's art scales to the instance rather than blitting at the record's own
+// footprint, so blitSprite (which is fixed-size by design) doesn't fit; the
+// anchor is honoured proportionally so an off-centre authored splat still lands
+// where the procedural one did.
+function blitGroundMarkSprite(m, c, rec, alpha) {
+  const { w, h } = groundMarkSize(m);
+  const rot = m.type === 'crater' ? (m.rot1 || 0) : (m.rot || 0);
+  c.save();
+  c.globalAlpha *= alpha;
+  c.translate(m.x, m.y);
+  if (rot) c.rotate(rot);
+  c.drawImage(rec.img, -rec.ax / rec.w * w, -rec.ay / rec.h * h, w, h);
+  c.restore();
 }
 
 function drawGroundMark(m, c) {
-  const alpha = clamp(m.ttl / 8, 0, 1);
+  const alpha = clamp(m.ttl / GROUND_MARK_FADE, 0, 1);
+  // A pack's mark is stamped into the decal layer once, exactly like the
+  // procedural splat it replaces, so unlike every other sprite in the game this
+  // one costs nothing per frame.
+  const ext = SPRITES.get(groundMarkSpriteId(m));
+  if (ext) { blitGroundMarkSprite(m, c, ext, alpha); return; }
   c.save();
   c.globalAlpha = alpha;
   if (m.type === 'blood') {

@@ -43,6 +43,13 @@ const SPRITES = (() => {
   let listed = 0;            // sprites the manifest named, incl. ones that failed to load
   let ppu = 0;               // px per world unit the pack was authored at (advisory)
 
+  // Every other consumer asks get() afresh each frame and picks up a change for
+  // free. The decal layer (js/render-decals.js) holds BAKED pixels — marks are
+  // stamped once, not redrawn — so it is the one that has to be told.
+  function decalsDirty() {
+    if (typeof invalidateDecals === 'function') invalidateDecals();
+  }
+
   function recordFrom(id, m) {
     const w = +m.w, h = +m.h;
     if (!(w > 0) || !(h > 0)) return null;
@@ -84,6 +91,7 @@ const SPRITES = (() => {
       ppu = +man.px_per_unit || 0;
       await Promise.all(Object.entries(table).map(([id, m]) => loadOne(id, m)));
       state = 'ready';
+      decalsDirty();          // the pack landed after the field was stamped
     })();
     return loading;
   }
@@ -100,6 +108,7 @@ const SPRITES = (() => {
     enabled = !!on;
     localStorage.setItem(CUSTOM_SPRITES_KEY, enabled ? '1' : '0');
     if (typeof viewDirty !== 'undefined') viewDirty = true;
+    decalsDirty();
     return enabled;
   }
 
@@ -110,10 +119,15 @@ const SPRITES = (() => {
   function register(id, rec) {
     if (!rec || !rec.img) return false;
     recs.set(id, { img: rec.img, w: rec.w, h: rec.h, ax: rec.ax, ay: rec.ay, id });
+    decalsDirty();
     return true;
   }
 
-  function unregister(id) { return recs.delete(id); }
+  function unregister(id) {
+    const had = recs.delete(id);
+    decalsDirty();
+    return had;
+  }
 
   // Run fn with the pack switched off. The exporter bakes the PROCEDURAL art,
   // and several of its recipes call the game's own draw functions — without
@@ -160,6 +174,10 @@ function v2HullSpriteId(a) { return 'v2_' + a.type + '_hull'; }
 function v2RailSpriteId(a) { return 'v2_' + a.type + '_rail'; }
 function halftrackSpriteId(e) { return 'halftrack_' + e.type + (e.unloaded ? '_unloaded' : '_loaded'); }
 function corpseSpriteId(cp) { return 'corpse_' + (cp.nation || (cp.side === 'us' ? 'us' : 'de')); }
+
+// Blood splats, pools and craters. Three ids for the whole ground layer, because
+// a mark's variation is its size and angle rather than its art (js/damage.js).
+function groundMarkSpriteId(m) { return 'mark_' + m.type; }
 
 // A defense's look changes as an engineer fortifies it, so the tier is part of
 // the id: base / _fortified / _hardened, matching the `up`/`up2` flags the draw

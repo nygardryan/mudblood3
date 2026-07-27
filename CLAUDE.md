@@ -551,6 +551,55 @@ declared on `#endless-select .mm`, because an overlay lives inside the scaled
 `<button>` is prefixed `#endless-select` / `#esc-dossier` to outrank
 `.overlay button`, which repaints every overlay button gold.
 
+**The GROUND DECAL LAYER** (`js/render-decals.js`) is why the frame no longer grows
+with the run. `G.groundMarks` is uncapped, accrues ~30 marks/s in a sustained fight
+and holds each for `GROUND_MARK_TTL` (120 s), so a 12-minute endless run reaches
+~1,500 decals — and drawing them per frame took `draw()` from 0.5 ms at wave 2 to
+26 ms at wave 62, tracking the count almost exactly. Each mark is only one or two
+ellipse fills: the cost was the ~2,500 separate draw CALLS (70% of everything the
+frame issued), which is also why the sprite migration could not fix it — a per-mark
+blit trades one ellipse for one `drawImage` and measured SLOWER. Marks are now
+stamped ONCE into an offscreen bitmap sized to `groundCanvas` and blitted whole
+right after it, so the per-mark cull is gone too (the camera clips the blit the same
+way). Measured 36 → 2.7 ms on a 1,767-mark board, and the layer's contents are
+pixel-identical to the old loop (`meanChannelDiff` 0).
+
+Three things hold it together:
+- **A new mark stamps the frame it is made** (`stampDecal`, off `addGroundMark`), or
+  a hit stops drawing blood until the next rebuild.
+- **Fading and expiry can only be applied by REDRAWING**, since a canvas cannot
+  un-draw one stamp. So the rebuild is **double-buffered and PROGRESSIVE** —
+  `DECAL_PASS_BUDGET` (150) marks per frame into a back canvas, swapped in when it
+  completes. A whole rebuild is ~6 ms at 1,500 marks, and dropping that into one
+  frame twice a second is a worse artefact than the cost being removed: a dropped
+  frame, on a cadence. Measured overhead of a pass frame: +0.5 ms.
+- **The pass then SLEEPS until the oldest mark starts to fade**, because
+  `alpha = clamp(ttl / GROUND_MARK_FADE, 0, 1)` holds at 1.0 for 112 of a mark's
+  120 s and nothing on the layer can change before then. That assumes a mark's ttl
+  only ever decays, which `addGroundMark` guarantees by defaulting every mark to
+  `GROUND_MARK_TTL` — but that field is spread from the caller's object and so is
+  overridable, and `stampDecal` pulls the horizon in for anything asking for a
+  shorter life. Without that guard a short-lived mark sits on the layer for the
+  ~112 s until the horizon lapses.
+
+The pass walks a **snapshot** of `G.groundMarks`, not the live array: `updateDecals()`
+runs at the end of `update()` *after* compaction, which splices expired marks out
+mid-pass, and walking a shifting array by index would skip marks. The layer carries
+the same `ss` density stamp `clearSpriteCache()` and `drawCorpse` use, and rebuilds
+SYNCHRONOUSLY on a density change (mobile zoom) rather than progressively, so a pinch
+never shows a half-built field. It is also the one thing in the renderer holding BAKED
+pixels rather than redrawing, so it cannot notice art changing under it — `SPRITES`
+calls `invalidateDecals()` when a pack finishes its async load, is toggled, or is
+registered/unregistered.
+
+Marks are the one place sprite art is **free**: a pack's PNG is stamped once per mark,
+exactly like the splat it replaces, so it costs nothing per frame. Three ids cover the
+whole ground layer (`mark_blood`/`mark_bloodpool`/`mark_crater` via
+`groundMarkSpriteId`), because a mark's variation is its SIZE and ANGLE rather than its
+art — `blitGroundMarkSprite` scales the record to the instance's own radii
+(`groundMarkSize`), so a pack keeps the variety instead of tiling one stamp. Authored
+at the `MARK_SPR_*` nominal footprints (18×12, 48×32, 55×42 world units).
+
 **SPRITE PACKS** (`js/sprites.js` + `js/export-sprites.js`) are the seam for replacing
 the procedural art with an artist's PNGs. `js/sprite-cache.js` was always written for
 this — a sprite record is `{img, w, h, ax, ay}` and `img` is anything `drawImage`
@@ -576,7 +625,7 @@ so the rotation each site already passes is the rotation the sprite wants; the m
 records that per sprite, plus `gunTip` (the type's `gun`, where rounds actually spawn —
 sprites don't change it, so a barrel must end there).
 
-The exporter renders all **172** drawables to transparent PNGs at `EXPORT_SS` 4 px/world
+The exporter renders all **175** drawables to transparent PNGs at `EXPORT_SS` 4 px/world
 unit and ships them as one ZIP with the manifest the loader reads (`TEST.exportSprites()`,
 or the Artwork section in settings). Three things about it:
 - **`SPRITES.suspend()` wraps every bake.** Some recipes call the game's own `draw*`

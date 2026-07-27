@@ -33,9 +33,10 @@ function draw() {
   }
   // the bitmap is backed at groundRenderScale× density; map it into W×H world space
   ctx.drawImage(groundCanvas, 0, 0, W, H);
-  for (const m of G.groundMarks) {
-    if (inView(m.x, m.y, 100)) drawGroundMark(m, ctx);
-  }
+  // blood and craters ride a second bitmap at the same density, stamped once per
+  // mark rather than retraced every frame (js/render-decals.js) — so this is one
+  // blit whatever the field holds, and needs no per-mark cull
+  drawDecalLayer();
 
   drawForwardLine();
 

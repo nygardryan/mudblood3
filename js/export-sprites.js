@@ -343,6 +343,52 @@ function spriteDefs() {
       }),
     });
   }
+  /* ground marks --------------------------------------------------------- */
+  // Blood and craters are the one place in the renderer where art is FREE: they
+  // are stamped into the decal layer once each (js/render-decals.js), not drawn
+  // per frame, so a PNG costs exactly what the ellipse it replaces cost. Each is
+  // authored at its type's nominal footprint and blitted down to the instance's
+  // own randomised size, so the field doesn't read as one splat repeated.
+  add({
+    id: 'mark_blood', dir: 'misc',
+    w: MARK_SPR_BLOOD_W, h: MARK_SPR_BLOOD_H,
+    ax: MARK_SPR_BLOOD_W / 2, ay: MARK_SPR_BLOOD_H / 2,
+    orientation: 'splat centred, long axis along +x; the engine blits at rot = the splat\'s angle, scaled to its own radii',
+    note: 'the procedural splat rolls a red and a size per hit; a pack ships one splat and only the size still varies',
+    bake: (c) => drawGroundMark({
+      type: 'blood', x: 0, y: 0, ttl: GROUND_MARK_TTL,
+      rx: MARK_SPR_BLOOD_W / 2, ry: MARK_SPR_BLOOD_H / 2, rot: 0,
+      color: 'rgba(110,16,12,0.42)',
+    }, c),
+  });
+  add({
+    id: 'mark_bloodpool', dir: 'misc',
+    w: MARK_SPR_POOL_W, h: MARK_SPR_POOL_H,
+    ax: MARK_SPR_POOL_W / 2, ay: MARK_SPR_POOL_H / 2,
+    orientation: 'pool centred, spatter along ±x; the engine blits at rot = the pool\'s angle, scaled by its own r',
+    note: 'the procedural pool scatters two satellite blobs per body; a pack ships one pool and the blobs stop moving',
+    bake: (c) => drawGroundMark({
+      type: 'bloodpool', x: 0, y: 0, ttl: GROUND_MARK_TTL, rot: 0, r: 1,
+      color: 'rgba(105,15,10,0.45)',
+      blobs: [{ dx: -11, dy: 0, rx: 5.5, ry: 4 }, { dx: 11, dy: 0, rx: 4.5, ry: 3 }],
+    }, c),
+  });
+  add({
+    id: 'mark_crater', dir: 'misc',
+    // rounded: 50 × 1.1 lands on 55.00000000000001, and a manifest is a file an
+    // artist reads. The blit anchors by ratio, so the rounding costs nothing.
+    w: Math.round(MARK_SPR_CRATER_R * MARK_CRATER_KW),
+    h: Math.round(MARK_SPR_CRATER_R * MARK_CRATER_KH),
+    ax: Math.round(MARK_SPR_CRATER_R * MARK_CRATER_KW) / 2,
+    ay: Math.round(MARK_SPR_CRATER_R * MARK_CRATER_KH) / 2,
+    orientation: 'dish centred; the engine blits at rot = the crater\'s angle, scaled to the blast radius',
+    note: 'exported at a ' + MARK_SPR_CRATER_R + '-unit blast — a mine scorches smaller, a V2 far wider, off the same image',
+    bake: (c) => drawGroundMark({
+      type: 'crater', x: 0, y: 0, ttl: GROUND_MARK_TTL,
+      r: MARK_SPR_CRATER_R, rot1: 0, rot2: 0,
+    }, c),
+  });
+
   add({
     id: 'fx_canopy', dir: 'misc',
     w: CANOPY_SPR, h: CANOPY_SPR, ax: CANOPY_SPR_A, ay: CANOPY_SPR_A,

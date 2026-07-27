@@ -293,6 +293,10 @@ function update(dt) {
   compactInPlace(G.corpses, c => c.ttl > 0);
   compactInPlace(G.gibs, g => g.ttl > 0);
   compactInPlace(G.groundMarks, m => m.ttl > 0);
+
+  // the decal layer's rebuild pass runs AFTER compaction, so it never stamps a
+  // mark this frame's cleanup has just spliced out
+  updateDecals();
 }
 
 function endRun(won, title, stats) {

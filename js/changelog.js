@@ -4,6 +4,34 @@
 const CHANGELOG = [
   {
     date: '2026-07-27',
+    title: 'Boss Health Bars, Sniper & Jeep',
+    changes: [
+      'Every boss now wears the same health bar. The Yamato\'s look — one wide bar in a black surround, the name in small type above it, tick marks where the phase breaks fall — is now what Der Schlächter, the Progenitor, the Treno Armato and the Alien Walker all use. Turrets, gun tubs, pus modules and wagons get the same treatment one size down, so you can read at a glance which part of the thing is nearly off.',
+      'The tick marks are not decoration. On the bosses that fight in phases they mark exactly where the next break lands — where the Progenitor raises the dead and where the train sounds the AVANTI.',
+      'SNIPER: reach out from 249 to 274. He now clearly outranges the German, Japanese and Italian marksmen who used to trade with him on almost even terms, which is what you are paying for.',
+      'JEEP: the pintle .50 now fires twice as fast and holds twice the belt. It was a fast, fragile thing that did very little once it arrived; it now does real work in the seconds before something kills it.',
+    ],
+  },
+  {
+    date: '2026-07-27',
+    title: 'Performance: Long Runs Stay Smooth',
+    changes: [
+      'Blood, craters and the bodies of the dead no longer cost anything to draw. They used to be redrawn one by one every single frame, and a long run accumulates thousands of them — which is why a wave-60 field crawled while a wave-2 field flew. They are now painted once into the ground itself.',
+      'Nothing about the field looks different: the same stains, the same craters, the same bodies, fading and clearing on the same two-minute timer. Measured on a heavily fought board, the frame cost of the whole ground layer dropped from 36 ms to under 3.',
+      'The practical effect is that a deep endless run now ends because the line broke, not because the game got slow.',
+    ],
+  },
+  {
+    date: '2026-07-27',
+    title: 'Sprite Packs & the Art Exporter',
+    changes: [
+      'The game\'s art can now be replaced. Settings has an ARTWORK section that exports every drawable in the game — 175 of them, every man, vehicle, emplacement, boss part and ground stain — as transparent PNGs in a single ZIP, with a manifest describing where each one anchors and where its barrel ends.',
+      'Repaint any of them, load the pack back in, and the game draws yours instead. Anything you leave out simply falls back to the art that shipped, so a half-finished pack is perfectly playable.',
+      'The trade is animation for art: a hand-painted man ships as one image, so his walk cycle, gun swivel and throw poses freeze into a single pose. Muzzle flashes, tracers, flame and smoke are separate layers and keep moving regardless.',
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'New Card: Reinforced Plate',
     changes: [
       'New unique ARMOR card — REINFORCED PLATE. Heavier steel in the carrier: BODY ARMOR and FLAK ARMOR both fit 200 points of plate instead of 100, for the same 1 TP apiece.',
@@ -63,6 +91,15 @@ const CHANGELOG = [
   },
   {
     date: '2026-07-27',
+    title: 'Wave 666: Something Else Entirely',
+    changes: [
+      'A run that will not end now ends itself. At wave 666 something walks out of the treeline that belongs to no army — a striding tripod that stops short of your line and sweeps a laser lance across the field. It turns up against all four factions.',
+      'The lance is the whole fight. It burns through anything the arc crosses: men, sandbags, wire, and the Regio Esercito\'s own works alike. Running is a real answer if you start early — down by its feet the beam crawls, and out at the tip it moves faster than anyone can.',
+      'It is not armored, it is simply out of reach. Standing where it does, it sits outside every rifle, BAR, grenade and bazooka on your roster; artillery, mortars and men you deliberately walk forward are what get to it. Killing it does not end the run and pays no ESCALATION progress — it just dies, and from wave 667 there is a growing chance of more than one.',
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'New Card: Ricochet',
     changes: [
       'New unique DUMMY card — RICOCHET. There is something hard under the burlap. Every bullet that strikes a decoy has a 15% chance to deflect straight back down its own flight path and hit the man who fired it.',
@@ -112,6 +149,17 @@ const CHANGELOG = [
       'The Imperial Japanese Army fights on a Pacific island: volcanic ash and coral grit underfoot, jungle scrub and fallen palm fronds scattered over it, and a bamboo-revetted trench.',
       'The Horde shambles across blighted ground — dead grey earth cracked open, pools of standing rot, and the bones of whatever came through before you.',
       'The Regio Esercito digs in out in the North African desert: open ochre sand, wind ripples, loose stone and dry scrub.',
+    ],
+  },
+  {
+    date: '2026-07-27',
+    title: 'ESCALATION',
+    changes: [
+      'Endless difficulty is now a ladder. Ten rungs, each one ADDING a permanent modifier on top of every rung below it, and each one unlocked by putting a wave-100 boss in the ground. At rung 0 the game is exactly what it was.',
+      'I: enemy HP ramps half again as fast. II: income cut a fifth and the trickle slowed. III: no breather between waves. IV: enemy damage up a tenth. V: you start with nothing. VI: every enemy plate doubled. VII: events a third more often. VIII: bigger spawn floors. IX: no bounty for kills. X: the boss has to die twice.',
+      'Each rung PINS the enemy faction, cycling Wehrmacht, Japanese, Horde, Regio Esercito — so a climb is not one army beaten ten times, it is proving the same line against all four. Rung VI\'s doubled steel is brutal against Italian armor and worth nothing at all against the dead.',
+      'It pays. Medal payout rises 10% per rung, up to double at ESCALATION X, and never drops below the base rate.',
+      'The endless panel is built around it: a strip of rung chips with every rung you have earned one tap away, a readout pairing the rung with what it pays, and a dossier holding all ten modifiers in full. The PLAY button on that block is now how you take the line.',
     ],
   },
   {

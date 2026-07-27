@@ -1195,12 +1195,6 @@ body {
   flex-shrink: 0;
 }
 .mm-amp { color: #ffd94a; text-shadow: 3px 3px 0 #000; }
-.mm-tagline {
-  font-size: clamp(11px, 3vw, 14px);
-  color: #8a8668;
-  letter-spacing: 1px;
-  margin: 0 0 12px;
-}
 .mm-brief {
   font-size: clamp(11px, 2.9vw, 13px);
   line-height: 1.5;

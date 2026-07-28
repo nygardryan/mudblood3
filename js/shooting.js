@@ -33,9 +33,14 @@ function tryGoProne(u, chance) {
   if (u.t.boss) return;
   if (u.prone > 0 || u.proneCd > 0 || u.moveTo) return;          // running men keep running
   if (braveStandsFast(u)) return;                                // brave-card men hold their ground
-  if (Math.random() >= chance) return;
+  // The dead flinch, but barely: a corpse has no self-preservation to appeal
+  // to. Scaled rather than exempted outright — see the ZOM_PRONE_ constants.
+  // The Horde takes no beaten-zone pin at all (suppress(), below), so this is
+  // the only suppression-family effect that still touches it.
+  const undead = u.t.faction === 'zo';
+  if (Math.random() >= chance * (undead ? ZOM_PRONE_CHANCE_MULT : 1)) return;
   const rank = u.rank || 0;   // Germans carry no rank and eat dirt the longest
-  u.prone = rand(2.5, 4.5) * (1 - rank * 0.15);
+  u.prone = rand(2.5, 4.5) * (1 - rank * 0.15) * (undead ? ZOM_PRONE_TIME_MULT : 1);
 }
 
 // suppression proper: an MG's beaten zone, not a flinch. Unlike tryGoProne it

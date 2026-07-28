@@ -167,7 +167,16 @@ also triggered from the death path in `js/damage.js` (`damageUnit`, when
 `cureNearestInfected` (in `js/update-friendlies.js`) burns the infection timer
 down faster than it climbs and saves the man. Tuning: `INFECT_TURN_MIN/MAX`,
 `INFECT_DOT`, `INFECT_DOT_INTERVAL`, `INFECT_CURE_PER_SEC` in `js/constants.js`.
-There's no armor and almost no ranged fire; signature units:
+There's no armor and almost no ranged fire. **Nothing suppresses the dead.** The
+beaten-zone pin skips them outright (the `faction === 'zo'` return in `suppress`,
+`js/shooting.js` — a single BAR used to freeze the whole pack solid), and the
+near-miss flinch in `tryGoProne` is scaled down to a stagger by
+`ZOM_PRONE_CHANCE_MULT`/`ZOM_PRONE_TIME_MULT`. That half is deliberately a
+SCALAR and not a `jp`-style exemption: prone is worth 60% dodge, so exempting
+them outright would make the Horde relentless *and* easier to shoot, and only
+the relentlessness is wanted. Measured with 8 gunners on a 14-shambler board,
+interleaved A/B: ~23% → ~7% of the pack down at any moment; per flinch roll,
+0.65 → 0.097 chance and 3.5s → 1.2s. Signature units:
 - `zspitter` — the one ranged threat: a `spit` spec lobs a corrosive **bile** glob
   (`fireBile` → `G.biles`, updated in `js/update.js`, burst by `bileBurst`) that
   damages AND infects in a splash. Blind up close (shambles if you get inside `min`).

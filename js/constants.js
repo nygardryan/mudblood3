@@ -58,6 +58,19 @@ const SUP_FIRE_TRACERS = 3;     // rounds drawn per suppressive burst
 // fire a shot, so anything gentler than this doesn't read as an answer at all.
 const OFFICER_RALLY_MULT = 3;
 
+// The dead barely flinch. The Horde is ALREADY exempt from the beaten zone
+// outright (the faction check in suppress(), js/shooting.js) — this is the
+// other half of the suppression family, the near-miss flinch in tryGoProne,
+// which a corpse has even less reason to take than a Japanese fanatic does.
+// Scalars rather than a jp-style exemption because prone is worth 60% dodge:
+// a total exemption would make the Horde relentless AND easier to shoot, and
+// the point here is only the relentlessness. At these values a volley still
+// staggers the odd shambler, and it is back up in well under a second, so the
+// pack never stalls the way a suppressed rifle line does. Applied in
+// tryGoProne (js/shooting.js) — the pin path never reaches them.
+const ZOM_PRONE_CHANCE_MULT = 0.15;   // vs everyone else's flinch roll
+const ZOM_PRONE_TIME_MULT = 0.35;     // and it barely stays down
+
 // --- difficulty: enemy toughness ramp ---------------------------------------
 // Difficulty used to be income-only (ENDLESS_DIFFICULTIES in js/levels.js), so
 // "hard" meant a slower start rather than a harder war — measurably, it did not

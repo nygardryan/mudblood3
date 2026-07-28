@@ -490,7 +490,7 @@ canvas.addEventListener('pointerdown', e => {
   }
 
   if (mobileViewActive() && isPlaying()) {
-    beginViewPan(e.clientX, e.clientY, mouse.x, mouse.y);
+    // view panning moved to two-finger gestures; single-finger drag starts marquee
   }
 
   if (!isPlaying()) return;
@@ -509,17 +509,17 @@ canvas.addEventListener('pointerdown', e => {
     longPressFoe = nearestHostile(mouse.x, mouse.y, LONGPRESS_SNAP_R);
     longPressTimer = setTimeout(() => {
       if (placing) return;
+      // don't interfere with an active drag marquee
+      if (drag?.active) return;
       if (longPressFoe && !longPressFoe.dead) {
         touchInspect = longPressFoe;   // pin its info panel (touch has no hover)
         longPressing = true;           // release is a hold, not a tap
         drag = null;                   // suppress the marquee box
-        clearViewPan();
         mobileVibrate(10);
         return;
       }
       G.selected = [];
       longPressing = true;
-      clearViewPan();
       syncSelectionMobile();
       mobileVibrate(10);
     }, 3000);
@@ -555,7 +555,8 @@ canvas.addEventListener('pointermove', e => {
   }
 
   if (viewPan && mobileViewActive() && activePointers.size === 1) {
-    // long-pressing → skip view pan, let drag marquee work instead
+    // view panning is now two-finger only; this block only runs if beginViewPan
+    // was called from a different path (e.g. placing while dragging)
     if (!longPressing) {
       if (!viewPan.active) {
         const moved = Math.hypot(e.clientX - viewPan.clientX0, e.clientY - viewPan.clientY0);

@@ -817,7 +817,7 @@ Object.assign(ENEMY_TYPES, {
   zshambler: {
     // the backbone: a slow, relentless walking corpse. Cheap, numerous, and the
     // default thing a bitten defender reanimates into. No gun — it claws and bites.
-    name: 'Shambler', hp: 74, speed: 15, range: 0, dmg: 16, acc: 0,
+    name: 'Shambler', hp: 74, speed: 22.5, range: 0, dmg: 16, acc: 0,
     rof: 1.1, burst: 1, burstGap: 0, reward: 2,
     color: '#5f6b4a', gun: 4, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.28,
@@ -850,7 +850,7 @@ Object.assign(ENEMY_TYPES, {
   zbrute: {
     // a swollen, muscle-bound corpse: high HP, slow, and it hits like a truck.
     // A heavy bite with a high chance to infect — and it soaks a lot of lead.
-    name: 'Brute', hp: 300, speed: 12, range: 0, dmg: 40, acc: 0,
+    name: 'Brute', hp: 300, speed: 24, range: 0, dmg: 40, acc: 0,
     rof: 1.5, burst: 1, burstGap: 0, reward: 8,
     color: '#556040', gun: 6, sfx: 'scream', priority: 3, faction: 'zo',
     zombie: true, infect: 0.35, big: true,
@@ -869,7 +869,7 @@ Object.assign(ENEMY_TYPES, {
     // a gas-swollen corpse that bursts when it dies (or reaches you), venting a
     // cloud of infectious rot: area damage plus a high infect chance to everyone
     // caught in it. A walking mine — kill it at a distance or share the cloud.
-    name: 'Bloater', hp: 130, speed: 13, range: 0, dmg: 10, acc: 0,
+    name: 'Bloater', hp: 260, speed: 26, range: 0, dmg: 10, acc: 0,
     rof: 1.4, burst: 1, burstGap: 0, reward: 5,
     color: '#6a7a4e', gun: 4, sfx: 'scream', priority: 3, faction: 'zo',
     zombie: true, infect: 0.2, bloat: { r: 56, dmg: 34, infect: 0.55 },
@@ -898,7 +898,7 @@ Object.assign(ENEMY_TYPES, {
     // sweeping blow that flattens men and smashes emplacements — and near-certain
     // infection on anyone it doesn't kill outright. Shows up only when it's already
     // desperate. Small arms just annoy it; burn it, shell it, or mine it.
-    name: 'Abomination', hp: 920, speed: 9, range: 0, dmg: 70, acc: 0,
+    name: 'Abomination', hp: 920, speed: 18, range: 0, dmg: 70, acc: 0,
     rof: 1.7, burst: 1, burstGap: 0, reward: 16,
     color: '#4f5a3a', gun: 8, sfx: 'scream', priority: 4, faction: 'zo',
     zombie: true, infect: 0.5, boss: true,

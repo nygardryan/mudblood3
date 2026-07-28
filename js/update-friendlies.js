@@ -637,8 +637,10 @@ function updateATGun(u, dt) {
     // the walker carries no `tank` flag (that would hand it the ×0.04 armor
     // multiplier this gun exists to bypass), so it is named here explicitly —
     // its codex entry already promises AT guns are one of the two things that
-    // reach it
-    e => (e.t.tank || e.t.awalker) && inCone(e),
+    // reach it. The Abomination is here for the same reason and one more: the
+    // Horde fields no armour at all, so without it an AT gun has literally
+    // nothing to shoot for a whole faction.
+    e => (e.t.tank || e.t.awalker || e.type === 'zabom') && inCone(e),
     e => (e.t.vehicle || e.t.bike || e.t.v2) && inCone(e),
   ];
   if (canisterOn) tiers.push(e => canisterHittable(e) && dist2(u, e) <= cR2 && inCone(e));

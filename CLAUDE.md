@@ -308,10 +308,32 @@ The `G.itWorks` loop in `explode` sits deliberately **outside** the Blast Shelte
 guard — that card is the player's overhead cover and must not protect enemy works.
 
 Four independent limits stop the front running away, and each guards a different
-failure: `IT_WORK_MAX_Y` (the depth wall — the creep stops short of `FORWARD_Y`
-and can never enter the player's build pocket), `IT_WORK_CAP`, `IT_BUILDS_PER_MAN`,
-and per-wave decay in `decayItalianWorks`. Measured: 60 waves of pure digging
-pressure with no player interference plateaus at 12 works from wave 10 onward.
+failure: `IT_WORK_MAX_Y`, `IT_WORK_CAP`, `IT_BUILDS_PER_MAN`, and per-wave decay
+in `decayItalianWorks`.
+
+`IT_WORK_MAX_Y` is the **depth wall**, and it is `DEPLOY_Y - IT_WORK_DEPLOY_MARGIN`
+(350) — the creep runs *through* `FORWARD_Y` and stops just short of the player's
+trench, so a long run ends with the Regio Esercito dug in on his doorstep. What the
+wall guards is only the player's **build pocket**: `forEachEmplacement` walks
+`G.itWorks`, so a work inside the pocket is ground he can no longer put a bunker on.
+At 350 the tallest work bottoms out at 365 and his shallowest defense (`placementMinY`'s
+`DEPLOY_Y + 12`) tops out at 380 — measured 15px clear at wave 198 with no box overlap
+anywhere, and every sampled spot behind his line still buildable. Below ~27 of margin
+the two start denying each other ground. The rate limit is not the wall but the walk:
+~8 creep steps from `IT_FRONT_Y_START`, each dug by a sapper who had to survive
+crossing that much field. Measured with no player interference, the front reaches the
+wall by wave 11 and plateaus at 7–14 works; carpet the forward zone in mines and it
+takes until wave 35 while the belt is consumed getting there.
+
+That mine interaction is why `buildSiteClear` tests **box vs box** (plus
+`IT_SITE_CLEAR` as a gap) rather than the flat centre-radius it used while the wall sat
+above `FORWARD_Y`, where the player has nothing to keep off of. A radius is wrong in
+both directions once the creep enters his ground: it let a work be staked half-inside a
+bunker, and it let one 6px mine deny an 80px band — a minefield would have been an
+invisible permanent construction wall, on top of mines already killing the sappers who
+walk into them, which is the counterplay that was meant to be there. `pickBuildSite`
+therefore picks the work's KIND at site time and carries it on `e.buildSite`, so the
+site is cleared against the box it will actually occupy.
 
 Signature units and behaviours:
 - `iguast` (Guastatore) — `builder`. `updateGuastatore` runs seek → build → fight;

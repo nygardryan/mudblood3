@@ -1036,15 +1036,46 @@ const GARRISON_BACKSTEP = 40;  // he'll step this far back into cover, no furthe
 // forever, and a rear line of abandoned works never going away.
 const IT_WORK_CAP = 24;              // hard ceiling on works alive at once
 const IT_WORK_MIN_Y = 50;            // no closer to the top edge than this
-const IT_WORK_MAX_Y = FORWARD_Y - 24;  // ~182: the DEPTH WALL. The creep stops here,
-                                     // short of FORWARD_Y, so the enemy line can never
-                                     // enter the ground the player's own units contest.
+const IT_WORK_DEPLOY_MARGIN = 30;    // ...and how far short of the deploy line it stops.
+                                     // THE tuning lever for how far the creep gets: it is
+                                     // the only thing standing between an Italian parapet
+                                     // and the player's trench.
+const IT_WORK_MAX_Y = DEPLOY_Y - IT_WORK_DEPLOY_MARGIN;  // 350: the DEPTH WALL. The creep
+                                     // runs THROUGH the forward line and stops just short
+                                     // of DEPLOY_Y, so the Regio Esercito ends a long run
+                                     // dug in on the player's doorstep — which is the whole
+                                     // point of the only faction that takes GROUND.
+                                     //
+                                     // What the wall still guards is the player's BUILD
+                                     // POCKET, and only that: forEachEmplacement walks
+                                     // G.itWorks, so a work inside the pocket is ground the
+                                     // player can no longer put a bunker on. At 350 the
+                                     // tallest work (the tower, hh 15) bottoms out at 365
+                                     // and the shallowest player defense — placementMinY's
+                                     // DEPLOY_Y + 12, hh 12 — tops out at 380, so the two
+                                     // can never overlap. Move the margin below ~27 and they
+                                     // start denying each other ground at the trench lip.
+                                     //
+                                     // The creep is ~8 steps from IT_FRONT_Y_START now
+                                     // rather than 3-4, and every one of them has to be dug
+                                     // by a sapper who walked that far down the field under
+                                     // fire. That is deliberately the rate limit: the front
+                                     // advances only as fast as guastatori survive to stake
+                                     // it, so a player who kills sappers keeps his ground
+                                     // without ever shooting a work. Deep works are also
+                                     // EASIER to answer — a parapet at 350 is inside
+                                     // grenadier and bazooka reach from the deploy line,
+                                     // where one at 182 was not.
 const IT_FRONT_Y_START = 64;         // where the first line goes up, and where the
                                      // front resets to if the player levels every work
 const IT_CREEP_MIN = 26;             // how much further down each new work is sited
 const IT_CREEP_MAX = 46;             // than the current deepest one — 3-4 steps to the wall
 const IT_WORK_SPACING = 46;          // minimum gap between two works
-const IT_SITE_CLEAR = 40;            // and how far a site keeps off the player's emplacements
+const IT_SITE_CLEAR = 8;             // and the GAP a site keeps between its own box and the
+                                     // player's emplacements. A margin on a box-vs-box test
+                                     // in buildSiteClear, not a radius off a centre — see the
+                                     // comment there for why the radius had to go once the
+                                     // creep started running through the player's mine belt.
 const IT_BUILDS_PER_MAN = 2;         // works one guastatore will raise before he picks up his rifle
 const IT_WORK_START_FRAC = 0.25;     // a freshly staked work stands at this much of its HP —
                                      // the window in which the player can cheaply shell it flat
@@ -1234,7 +1265,7 @@ Object.assign(ENEMY_TYPES, {
 // clause and adding one would be a bug. AI in js/update-enemies.js
 // (updateWarTrain); art in js/render-train.js.
 const TRAIN_WAVE_INTERVAL = 100;     // arrives at wave 100, 200... (mirrors the others)
-const TRAIN_HP = 10000;              // the ENGINE pool — killing it ends the fight
+const TRAIN_HP = 40000;              // the ENGINE pool — killing it ends the fight
 const TRAIN_SEGMENTS = 3;            // ONE pool, ticked into three; each break sounds the AVANTI
 const TRAIN_SPEED = 9;               // px/s down the lane: ~70s from the top to the stop
 const TRAIN_STOP_Y = H - 70;         // "the bottom of the screen": it parks here, short of a breach

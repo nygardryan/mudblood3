@@ -534,26 +534,43 @@ function decayItalianWorks() {
 // Deliberately NOT placementValid/emplacementBox — those are written for the
 // player's mouse and carry TP checks, the deploy line and an engineer-reach
 // rule, none of which mean anything to an AI walking around in no-man's-land.
+// The KIND is chosen here rather than at stake time so the clearance test below
+// can use the box the work will actually occupy. They used to disagree: a site
+// was cleared as a 40px disc and then staked as a 44x24 parapet.
 function pickBuildSite(e) {
   for (let i = 0; i < 5; i++) {
     const y = clamp(G.itFrontY + rand(IT_CREEP_MIN, IT_CREEP_MAX), IT_WORK_MIN_Y, IT_WORK_MAX_Y);
     const x = clamp(e.x + rand(-40, 40), 40, W - 40);
-    if (buildSiteClear(x, y)) return { x, y };
+    const kind = pick(e.t.builder.kinds);
+    if (buildSiteClear(x, y, kind)) return { x, y, kind };
   }
   return null;
 }
 
-function buildSiteClear(x, y) {
+function buildSiteClear(x, y, kind) {
   const pt = { x, y };
   const s2 = IT_WORK_SPACING * IT_WORK_SPACING;
   for (const w of G.itWorks) if (dist2(w, pt) < s2) return false;
   // and keep off the player's own emplacements. forEachEmplacement walks the
   // Italian works too, but those were just checked at the tighter spacing.
-  const c2 = IT_SITE_CLEAR * IT_SITE_CLEAR;
+  //
+  // BOX vs BOX, not a flat radius, and that only started to matter once the depth
+  // wall moved to DEPLOY_Y - IT_WORK_DEPLOY_MARGIN. The old rule rejected any site
+  // within IT_SITE_CLEAR of an emplacement's CENTRE, which was fine while the
+  // creep stopped at 182 — above FORWARD_Y the player has nothing to keep off of.
+  // The creep now runs down through the mine and wire belt, where a flat radius is
+  // wrong in both directions: it lets a work be staked half-inside a bunker
+  // (hw 28 > 40 - 22), and it lets a single 6px MINE deny an 80px-wide band of
+  // ground. A minefield would have walled the front off permanently — an invisible
+  // construction barrier nobody designed, on top of mines already killing the
+  // sappers who walk into them, which is the counterplay that was meant to be there.
+  const nb = IT_WORK_KINDS[kind].box;
   let clear = true;
-  forEachEmplacement((obj) => {
+  forEachEmplacement((obj, key) => {
     if (!clear || obj.side === 'it') return;
-    if (dist2(obj, pt) < c2) clear = false;
+    const ob = emplacementBox(key);
+    if (Math.abs(obj.x - x) < nb.hw + ob.hw + IT_SITE_CLEAR &&
+        Math.abs(obj.y - y) < nb.hh + ob.hh + IT_SITE_CLEAR) clear = false;
   });
   return clear;
 }
@@ -625,12 +642,13 @@ function updateGuastatore(e, dt, buffed) {
     // re-check clearance at the moment of staking, not just when the site was
     // chosen: two sappers can pick overlapping ground while both are still
     // walking to it, and only the first one there gets to keep it
-    if (G.itWorks.length >= IT_WORK_CAP || !buildSiteClear(e.buildSite.x, e.buildSite.y)) {
+    if (G.itWorks.length >= IT_WORK_CAP ||
+        !buildSiteClear(e.buildSite.x, e.buildSite.y, e.buildSite.kind)) {
       e.buildSite = null;
       e.buildState = 'seek';
       return;
     }
-    const w = makeItalianWork(pick(e.t.builder.kinds), e.buildSite.x, e.buildSite.y, IT_WORK_START_FRAC);
+    const w = makeItalianWork(e.buildSite.kind, e.buildSite.x, e.buildSite.y, IT_WORK_START_FRAC);
     G.itWorks.push(w);
     e.work = w;
     e.freshWork = true;

@@ -72,14 +72,15 @@ function ammoCrateRofMult(u) {
 
 // a watch tower's raised vantage extends the sightline of nearby riflemen —
 // but a mortar crew fires indirect and blind, so the tower does nothing for them.
-// crews buttoned up in a vehicle or tank don't get the spotter's call either —
-// only the ammo crate (a resupply) helps armor. an engineer-fortified tower
-// (t.up) sees further and boosts the effect further.
+// crews buttoned up in a vehicle or tank don't get the spotter's call either,
+// nor does a gun crew staked to its trails (the AT and AA guns aim down their
+// own sights, not the tower's) — only the ammo crate (a resupply) helps armor.
+// an engineer-fortified tower (t.up) sees further and boosts the effect further.
 // The Italian half of the same idea: a man up one of THEIR watch towers sees
 // just as far. Read straight off his garrison link, so it costs nothing — the
 // player-side version below has to scan every tower on the field.
 function italianTowerRangeMult(u) {
-  if (!u.garrisoned || u.t.mortar || u.t.tank || u.t.vehicle) return 1;
+  if (!u.garrisoned || u.t.mortar || isVehicleOrGun(u)) return 1;
   const w = u.garrison;
   if (!w || w.kind !== 'watchtower' || w.hp <= 0) return 1;
   return IT_WORK_KINDS.watchtower.rangeMult[w.up2 ? 2 : w.up ? 1 : 0];
@@ -87,7 +88,7 @@ function italianTowerRangeMult(u) {
 
 function watchtowerRangeMult(u) {
   if (u.side !== 'us') return italianTowerRangeMult(u);
-  if (u.t.mortar || u.t.tank || u.t.vehicle || !G.watchtowers.length) return 1;
+  if (u.t.mortar || isVehicleOrGun(u) || !G.watchtowers.length) return 1;
   let mult = 1;
   for (const wt of G.watchtowers) {
     if (dist2(wt, u) < WATCHTOWER_AURA * WATCHTOWER_AURA) {

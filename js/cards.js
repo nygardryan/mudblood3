@@ -661,6 +661,10 @@ function spotterSeesThrough(u) {
   u._spotFrame = bf;
   u._spotted = false;
   if (u.side !== 'us' || !G.watchtowers.length) return false;
+  // the tower's other benefits stop at the infantry (coverBlock,
+  // watchtowerRangeMult); its sector does too, or armour and the staked guns
+  // would still be shooting through smoke off a platform they never climbed
+  if (isVehicleOrGun(u)) return false;
   if (!(G.cardsOwned && G.cardsOwned.has('forwardobserver'))) return false;
   for (const wt of G.watchtowers) {
     if (wt.hp <= 0) continue;

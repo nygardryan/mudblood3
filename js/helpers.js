@@ -32,6 +32,20 @@ function compactInPlace(arr, keep) {
   arr.length = w;
 }
 
+// "not a man on his feet": armour, soft-skinned vehicles and trail-staked guns.
+// The three cover emplacements — bunker, sandbags, watch tower — are for
+// INFANTRY only, so every benefit they hand out tests this: coverBlock's dodge,
+// watchtowerRangeMult's reach, and the Forward Observer card's sector. A crew
+// buttoned into a hull doesn't duck behind a parapet, and nobody serving a gun
+// whose trails are staked into the ground climbs a ladder to see further. It
+// spells out the same flag list the camo nest already rejects (isCamouflaged),
+// for the same reason and with the same answer, rather than each site keeping
+// its own — coverBlock's was short two flags and the tower's two more.
+function isVehicleOrGun(a) {
+  const t = a && a.t;
+  return !!(t && (t.tank || t.vehicle || t.apc || t.bike || t.gunEmplacement));
+}
+
 // visit every defense emplacement without building a throwaway merged array
 function forEachDefense(fn) {
   for (const s of G.sandbags) fn(s);

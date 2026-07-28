@@ -1711,7 +1711,7 @@ const PLACEABLES = [
   { key: 'bunker', label: 'BUNKER', cost: 15, kind: 'defense', hotkey: 'K',
     desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },
   { key: 'watchtower', label: 'WATCH TOWER', cost: 10, kind: 'defense', hotkey: 'W',
-    desc: 'Wooden lookout. +25% range for nearby soldiers (+35% fortified). Mortars ignore it. Frail.' },
+    desc: 'Wooden lookout. +25% range for nearby soldiers (+35% fortified). Mortars, guns and vehicles ignore it. Frail.' },
   { key: 'camonest', label: 'CAMO NEST', cost: 4, kind: 'defense', hotkey: 'C',
     desc: 'Concealed position. Hidden until firing; exposed 3 s after last shot (1.5 s fortified). No dodge bonus. Weak to explosives.' },
   { key: 'ammocrate', label: 'AMMO CRATE', cost: 8, kind: 'defense', hotkey: 'X',

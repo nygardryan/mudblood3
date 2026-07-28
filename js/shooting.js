@@ -130,8 +130,9 @@ function italianCoverBlock(target) {
 }
 
 function coverBlock(target) {
-  // crews buttoned into armour don't duck, on either side
-  if (target.t.tank || target.t.vehicle) return false;
+  // crews buttoned into armour — and gunners stood at a staked trail — don't
+  // duck, on either side
+  if (isVehicleOrGun(target)) return false;
   // a scarecrow doesn't take cover — it just soaks the round (see damageDummy)
   if (target.isDummy) return false;
   // the enemy has its own works to hide behind, and its own way of resolving them

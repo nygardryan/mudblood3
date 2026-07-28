@@ -255,6 +255,12 @@ function hoverStats(a, own = false) {
   if (t.aagun) parts.push('FLAK');
   if (t.tank) parts.push(t.heavy ? 'HEAVY ARMOR' : 'ARMOR');
   else if (t.vehicle) parts.push('VEHICLE');
+  // a wagon's plate is the engine's health, so it has to be readable on the
+  // wagon — otherwise the segment that strips it is invisible to the player
+  if (t.trainPart && a.trainOf) {
+    const res = Math.round((1 - trainPartDamageMult(a.trainOf)) * 100);
+    if (res > 0) parts.push(`${res}% RESIST`);
+  }
   if (t.aura) parts.push('AURA');
   if (t.fixed) parts.push('IMMOBILE');
   // reward is the bounty an attacker collects for killing this unit — only

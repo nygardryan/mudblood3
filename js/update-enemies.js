@@ -1397,6 +1397,10 @@ function initWarTrain(e) {
   for (const s of [TRAIN_GUNWAGON_S + TRAIN_MG_S, TRAIN_GUNWAGON_S - TRAIN_MG_S]) {
     for (const b of [-TRAIN_MG_B, TRAIN_MG_B]) e.mounts.push(addPart('itmg', s, b));
   }
+  // the howitzer on the tail. makeEnemy seeds cd: rand(0.5, 1.5), which would have
+  // it fire the instant it clears the top edge — roll it a real reload instead.
+  e.arty = addPart('itarty', TRAIN_ARTY_S, 0);
+  e.arty.cd = rand(TRAIN_ARTY_CD_MIN, TRAIN_ARTY_CD_MAX);
   syncTrainParts(e);
 }
 
@@ -1409,6 +1413,19 @@ function syncTrainParts(e) {
     p.x = e.laneX + p.bOff;
     p.y = e.y + p.sOff;
   }
+}
+
+// The wagons' damage resistance, read off the ENGINE's remaining health segments
+// (TRAIN_PART_RESIST). Derived from e.phase rather than stamped on the parts when
+// a segment breaks, for the same reason the phase itself is polled instead of
+// hooked into damageEnemy: nothing has to remember to update it, and a part that
+// is knocked out and a part that spawned late both read the same number.
+// Fraction of incoming damage a wagon actually takes; 1 when the boss is on its
+// last segment, or when a part has no parent (a stray TEST.deploy('ittur')).
+function trainPartDamageMult(engine) {
+  if (!engine) return 1;
+  const intact = TRAIN_SEGMENTS - 1 - (engine.phase || 0);
+  return Math.max(0, 1 - TRAIN_PART_RESIST * Math.max(0, intact));
 }
 
 // A turret wagon. Modelled on the Yamato battery: picks its own target, lays its
@@ -1440,6 +1457,50 @@ function updateTrainTurret(train, p, dt) {
   } else {
     // nothing it can bear on: creep back to straight ahead, laid ready
     p.tur += clamp(angleDiff(down, p.tur), -TRAIN_TURRET_TRACK * dt, TRAIN_TURRET_TRACK * dt);
+  }
+  p.tur = down + clamp(angleDiff(p.tur, down), -TRAIN_TURRET_ARC, TRAIN_TURRET_ARC);
+}
+
+// The howitzer on the tail — the train's REACH, and the reason the player can't
+// simply back off once it parks. Laid and clamped exactly like a turret wagon
+// (same wedge, so it can't shell its own consist), but its shell is the opposite
+// character: slow, wide and loose. Two things follow from that and are the whole
+// design of the piece:
+//   - it has a DEAD ZONE. Every tier below carries the min-range predicate, not
+//     just the first, or a rifleman standing on the coupling would still be shot
+//     at by tier 3. That zone is what the 389 reach is sold against.
+//   - it hunts what a 2.2s arcing shell can actually HIT. Staked guns first (they
+//     cannot walk out of the impact, and they're the counter-battery threat),
+//     then the crews that outrange it, then anything.
+function updateTrainArty(train, p, dt) {
+  p.fireT = Math.max(0, p.fireT - dt);
+  p.cd -= dt;
+  const down = Math.PI / 2;
+  const range = unitRange(p, p.t.range) * fogMult();
+  const min2 = TRAIN_ARTY_MIN * TRAIN_ARTY_MIN;
+  const far = u => dist2(p, u) > min2;
+  const target = tieredUnitTarget(p, range, [
+    u => far(u) && !!u.t.gunEmplacement,
+    u => far(u) && (u.type === 'mortarman' || u.type === 'bazooka' || !!u.t.sup),
+    far,
+  ]);
+  if (target && Math.abs(angleDiff(Math.atan2(target.y - p.y, target.x - p.x), down)) <= TRAIN_TURRET_ARC) {
+    const want = Math.atan2(target.y - p.y, target.x - p.x);
+    p.tur += clamp(angleDiff(want, p.tur), -TRAIN_ARTY_TRACK * dt, TRAIN_ARTY_TRACK * dt);
+    if (p.cd <= 0 && Math.abs(angleDiff(want, p.tur)) <= TRAIN_TURRET_FIRE_TOL) {
+      SFX.boom(true);
+      addShake(2);
+      p.fireT = TRAIN_ARTY_FIRE_T;
+      const d = dist(p, target);
+      const scatter = Math.max(24, TRAIN_ARTY_SCATTER + d * 0.06);
+      // `by = p`, never a bare {x,y}: ESCALATION rung IV keys the enemy damage
+      // modifier on the firer's side, and explode forwards whatever it is given.
+      scheduleShell(target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
+        TRAIN_ARTY_FLIGHT, TRAIN_ARTY_R, TRAIN_ARTY_DMG, true, p);
+      p.cd = rand(TRAIN_ARTY_CD_MIN, TRAIN_ARTY_CD_MAX);
+    }
+  } else {
+    p.tur += clamp(angleDiff(down, p.tur), -TRAIN_ARTY_TRACK * dt, TRAIN_ARTY_TRACK * dt);
   }
   p.tur = down + clamp(angleDiff(p.tur, down), -TRAIN_TURRET_ARC, TRAIN_TURRET_ARC);
 }
@@ -1533,10 +1594,12 @@ function trainCrush(e, dt) {
   for (const cn of G.camoNests) chew(cn);
   for (const ac of G.ammoCrates) chew(ac);
   for (const d of G.dummies) chew(d);
-  // wire is a wide belt, not a point: crush the strand wherever the track crosses it
+  // wire is a wide belt, not a point: crush the strand wherever the track crosses
+  // it. Centred on the MIDPOINT of the consist and measured off TRAIN_TAIL_S, so
+  // lengthening the train can't leave the tail rolling over uncut wire.
   for (const wr of G.wires) {
     if (Math.abs(wr.x - e.laneX) < 35 + TRAIN_CRUSH_R
-        && Math.abs(wr.y - e.y - TRAIN_WAGON_S) < TRAIN_SPACING * 2.5) {
+        && Math.abs(wr.y - e.y - TRAIN_TAIL_S / 2) < -TRAIN_TAIL_S / 2 + 22) {
       wr.hp -= TRAIN_CRUSH_DPS * dt;
     }
   }
@@ -1594,6 +1657,9 @@ function updateWarTrain(e, dt) {
   // y < 0, so firing from staging would be shooting from behind glass)
   for (const p of e.turrets) if (!p.dead && p.y > 10) updateTrainTurret(e, p, dt);
   for (const p of e.mounts) if (!p.dead && p.y > 10) updateTrainMount(e, p, dt);
+  // the howitzer is on the tail, so it is the LAST gun to come into action —
+  // roughly half way down the roll-in. The long gun arriving last is the tell.
+  if (e.arty && !e.arty.dead && e.arty.y > 10) updateTrainArty(e, e.arty, dt);
 }
 
 // ---- The Horde: bite & infection, spitters, bloaters, the screamer's frenzy ----

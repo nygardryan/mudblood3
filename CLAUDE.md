@@ -393,6 +393,28 @@ was smaller (~0.2 medics/wave, matching the officer's rate). Art is
 silhouettes via the `IT_ART` map, so a new type that looks like an existing one
 costs one line. `TEST.works()` and `TEST.state().it` are the inspection surface.
 
+The **Semovente 75/18** (`isemo`) is the one vehicle with its own hull painter,
+`paintSemoventeHull` (`js/render-vehicles.js`), dispatched off `a.type` at the top
+of `paintTankHull`. It has one because the shared `casemate` branch it used to run
+through **lays its superstructure and gun along +x while the hull under it is drawn
+facing +y** — so a casemate drove downfield with its gun aimed permanently at 3
+o'clock. `estug` is still on that branch and still has it. Nothing else changed:
+`casemate: true` still means "no turret sprite, gun baked into the hull", so the
+export surface is one PNG (`tank_isemo_hull`, no `_turret`) and a pack ships one
+image. The consequence is that the drawn gun follows the HULL while the sim aims
+with `a.turret` — the two agree in the ordinary case (both point downfield) and
+the shell's muzzle flash is placed at 26 units along `a.turret`, which is where
+this barrel ends. Three things carry the read at ~48×34px, and the first pass got
+each of them wrong: it is a **VALUE ladder** (tracks and outline near-black,
+engine deck dark olive, casemate roof lightest, nose slope lighter still) rather
+than a pile of features — bogies, a loader's hatch, a periscope, a roof Breda and
+a three-tone camo all read as a crate with corner brackets and came out. The gun
+is **dark**; drawn in light grey it reads as a turret at any distance, which is
+the one thing a casemate must not do. And the mantlet ball is the **only circle**
+on the vehicle — the commander's hatch is square for that reason alone, since two
+discs of a size read as two small turrets. Verify with `TEST.spriteRoundtrip(
+'tank_isemo_hull')`.
+
 The **Treno Armato** (`itrain`) is the Italian wave-100 boss — an armored war
 train (`spawnItalianBoss`, hooked in `spawnSpecialWave` beside the other three,
 `w/100 ×` HP on each return). It rolls straight down a rail lane (`e.laneX`,
@@ -400,13 +422,14 @@ drawn ahead of it all the way to the stop — the telegraph) and **parks at
 `TRAIN_STOP_Y`**; it never breaches (skip in update.js's breach loop, like the
 ship and the mass). The **third multi-actor boss**, on the Progenitor's HP rule,
 which is the thing to get right: an engine parent (`itaBoss` — the whole boss
-pool, killing it fires `bossVictory()`) plus seven `trainPart` children that
+pool, killing it fires `bossVictory()`) plus eight `trainPart` children that
 **each own their HP** — two `ittur` turret wagons (Yamato-battery clones firing
 `scheduleShell`, traverse wedge off straight-down so they can't fire back up
 their own train), one `itwag` infantry boxcar (unloads `TRAIN_DROP_POOL` squads
-on a cadence — the fight's economy, killing it stops the tap), and four `itmg`
+on a cadence — the fight's economy, killing it stops the tap), four `itmg`
 gun posts on the gun wagon, two per side at `±TRAIN_MG_B` (NOT `tank`, so small
-arms have a job; the flatcar itself is scenery, not an actor). No shared pool
+arms have a job; the flatcar itself is scenery, not an actor), and one `itarty`
+howitzer wagon on the tail. No shared pool
 anywhere → no de-dupe clause in `explode`/`flameSpray`, and adding one would be
 a bug. No damage control: dead wagons stay COUPLED as hulks (`syncTrainParts`
 repositions dead parts on purpose, unlike hers). One pool ticked into
@@ -414,15 +437,54 @@ repositions dead parts on purpose, unlike hers). One pool ticked into
 break runs `trainSoundsCharge`, which arms the SAME `G.itCharge` signed clock
 the ambient AVANTI runs (telegraph included) rather than firing a charge of its
 own, and pushes `G.itAvantiCd` back so the field doesn't owe a second charge
-right after. It crushes the player's emplacements on its lane while rolling
+right after. The phase is also the wagons' **plate**: `trainPartDamageMult` scales
+everything a `trainPart` takes by `TRAIN_PART_RESIST` per segment still intact
+*behind* the one being fought — 66% resistance at full health, 33% after the first
+break, none on the last segment — hooked once at the top of `damageEnemy` beside the
+Yamato's belt redirect, so bullets, blast, flame and the crush all route through it.
+It makes the ENGINE the way in: guns first is the slow route, since a wagon's armor
+is the boss's own health. It is a MULTIPLIER, not an armor pool and not a shared one
+— so it still owes `explode`/`flameSpray` no de-dupe clause — and it is derived from
+`e.phase` rather than stamped on the parts at each break, so nothing has to remember
+to update it. The inspector prints it on the wagon (`hoverStats`), because the player
+otherwise cannot see the segment that strips it. It crushes the player's emplacements on its lane while rolling
 (`trainCrush` — `G.itWorks` deliberately spared). The wagons carry `tank:true`,
 so the `trainPart` bare return in `updateEnemy` is load-bearing (updateTank
-would drive them off the rails). Tuning is the `TRAIN_` block in
-`js/constants.js`; art is `js/render-train.js` (`paintTrainEngine` is PURE, for
-the codex portrait; `drawWarTrainPass` runs before the enemy loop).
+would drive them off the rails).
+
+`itarty` is the consist's **REACH**, and the reason it exists is a hole the other
+guns left: everything else on the train tops out at 290 (`ittur`) or 240 (`itmg`),
+all of which the player outranges from his own trench, so a parked train could be
+ground down with nothing coming back. It reaches `TRAIN_ARTY_RANGE` 389 — a quarter
+short of the player's AT gun (519) — on the bazooka's own `rand(7.4, 10.1)` clock.
+Two things about `updateTrainArty` are the design and not decoration. It is
+deliberately **not** a third flat-shooting turret: long flight, wide blast, loose
+scatter, so the shell is something the player watches land and can walk out from
+under. And it has a **dead zone** (`TRAIN_ARTY_MIN`) that every targeting tier
+carries, not just the first — put it on tier 1 only and a rifleman standing on the
+coupling is still shelled by tier 3, which is exactly the counterplay the 389 reach
+is sold against. It shares the turret's wedge and fire tolerance on purpose (it must
+not be able to shell its own consist either), and passes `by = p` into
+`scheduleShell` because ESCALATION rung IV keys on the firer. Being on the tail it
+is the LAST gun to clear the top edge, so it opens up about half way down the
+roll-in.
+
+Adding it is also the worked example of what lengthening the train costs. Almost
+everything is generic over `e.parts` (`syncTrainParts`, `trainCrush`'s `chew`, the
+death cascade in `damage.js`, the part-bar loop, the codex roster filter), but four
+sites in `js/render-train.js` and one in `trainCrush` measured the consist as a
+hardcoded `TRAIN_SPACING * 4` — the ground shadow, the coupling count, the selection
+box, the cull margin, and the wire-crush belt. They all read **`TRAIN_TAIL_S`** now
+(the rearmost offset), so a seventh car is one constant, not a scavenger hunt.
+
+Tuning is the `TRAIN_` block in
+`js/constants.js`; art is `js/render-train.js` (`paintTrainEngine` and
+`paintTrainArtyWagon`/`paintTrainArtyGun` are PURE, for the codex portrait and the
+exporter; `drawWarTrainPass` runs before the enemy loop). The howitzer's tell is
+LENGTH, never bulk — a 34px barrel against the turret's 24 over the same car body.
 `deploy('itrain', …)` works — parts are built lazily by `initWarTrain` on the
 first tick — and `TEST.state().enemies` counts/HP are inflated by parts here
-too: 8 actors per train. `BOSS_COPY` (`js/flow.js`) has an `'it'` row — one
+too: 9 actors per train. `BOSS_COPY` (`js/flow.js`) has an `'it'` row — one
 table keyed on faction holding the victory title, the stats sentence's two
 variable halves (what fell, and its pronoun) and the Escalation-X "not done
 yet" banner; `de` remains the unguarded fallback for any FIFTH faction.

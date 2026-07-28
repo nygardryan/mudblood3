@@ -291,6 +291,108 @@ function drawTrainGunWagon(e) {
   }
 }
 
+// ---- the artillery wagon --------------------------------------------------------
+// The tail car. It has to read as the LONG gun at a glance — the player's answer
+// to it is different from the turrets' — so the tell is length, never bulk: a
+// barrel half again as long as a turret's over a car body that is otherwise the
+// same slab. The wagon gets a turntable ring and recoil spades at both ends so
+// it doesn't just look like a boxcar with a stick on it.
+function paintTrainArtyWagon(c) {
+  const HL = 20;
+  paintTrainBogies(c, HL);
+  paintTrainBody(c, HL, false);
+  // recoil spades braced against the deck at each end, taking the shock
+  c.fillStyle = TRN_STEEL_DK;
+  for (const end of [-1, 1]) {
+    c.fillRect(-TRN_HALF_W + 2, end * (HL - 6) - 2.5, TRN_HALF_W * 2 - 4, 5);
+  }
+  c.strokeStyle = TRN_EDGE;
+  c.lineWidth = 0.9;
+  for (const end of [-1, 1]) {
+    c.strokeRect(-TRN_HALF_W + 2, end * (HL - 6) - 2.5, TRN_HALF_W * 2 - 4, 5);
+  }
+  // the turntable the piece traverses on
+  c.fillStyle = TRN_PANEL;
+  c.beginPath(); c.arc(0, 0, 11.5, 0, 7); c.fill();
+  c.strokeStyle = TRN_EDGE; c.lineWidth = 1.1; c.stroke();
+  c.strokeStyle = 'rgba(0,0,0,0.28)';
+  c.lineWidth = 0.8;
+  c.beginPath(); c.arc(0, 0, 8, 0, 7); c.stroke();
+}
+
+// The piece in its own frame, gun out along +x of the laid bearing — the same
+// rigid rotation the turret uses, so a sprite pack replaces it with one image.
+// `recoil` (0..1) slides the whole barrel back along -x; it is passed rather than
+// read off the actor so this stays PURE for the codex and the exporter.
+function paintTrainArtyGun(c, recoil) {
+  const back = (recoil || 0) * 5;
+  // counterweighted breech behind the trunnion
+  c.fillStyle = TRN_STEEL_DK;
+  c.beginPath(); c.ellipse(-5 - back * 0.4, 0, 7.5, 6, 0, 0, 7); c.fill();
+  c.strokeStyle = TRN_EDGE; c.lineWidth = 1.1; c.stroke();
+  // the barrel: out to 39, against the turret's 27. LENGTH is the tell that this
+  // is the long gun — keep the flash small enough that the silhouette says it.
+  c.fillStyle = TRN_GEAR;
+  c.fillRect(4 - back, -2.4, 32, 4.8);
+  c.fillRect(35 - back, -3.4, 4, 6.8);     // muzzle brake
+  // recuperator sleeve over the chase
+  c.fillStyle = TRN_STEEL_DK;
+  c.fillRect(5 - back, -3.6, 11, 7.2);
+  c.strokeStyle = 'rgba(0,0,0,0.3)'; c.lineWidth = 0.8;
+  c.strokeRect(5 - back, -3.6, 11, 7.2);
+  // the shield, bolted to the cradle and NOT sliding with the barrel
+  c.fillStyle = TRN_PANEL;
+  c.beginPath();
+  c.moveTo(2, -8.5); c.lineTo(6, -7); c.lineTo(6, 7); c.lineTo(2, 8.5);
+  c.closePath(); c.fill();
+  c.strokeStyle = TRN_EDGE; c.lineWidth = 1; c.stroke();
+}
+
+function drawTrainArtyWagon(p) {
+  const c = ctx;
+  const HL = 20;
+  if (p.dead) {
+    const extW = SPRITES.get('train_wagon_wrecked');
+    if (extW) { blitSprite(c, extW, p.x, p.y, 0, 1); return; }
+    c.save();
+    c.translate(p.x, p.y);
+    paintWreckedWagon(c, HL);
+    c.restore();
+    return;
+  }
+  const ext = SPRITES.get('train_wagon_arty');
+  if (ext) {
+    blitSprite(c, ext, p.x, p.y, 0, 1);
+  } else {
+    c.save();
+    c.translate(p.x, p.y);
+    paintTrainArtyWagon(c);
+    c.restore();
+  }
+  const bearing = p.tur || Math.PI / 2;
+  const recoil = clamp((p.fireT || 0) / TRAIN_ARTY_FIRE_T, 0, 1);
+  const extG = SPRITES.get('train_arty_gun');
+  if (extG) {
+    // a pack ships one image, so the recoil slide goes with the procedural art —
+    // the same trade every other sprite makes (animation for authored pixels)
+    blitSprite(c, extG, p.x, p.y, bearing, 1);
+  } else {
+    c.save();
+    c.translate(p.x, p.y);
+    c.rotate(bearing);
+    paintTrainArtyGun(c, recoil);
+    c.restore();
+  }
+  if (p.fireT > 0) {
+    c.save();
+    c.translate(p.x, p.y);
+    c.rotate(bearing);
+    c.fillStyle = `rgba(255,224,150,${recoil})`;
+    c.beginPath(); c.arc(43, 0, 6.5, 0, 7); c.fill();
+    c.restore();
+  }
+}
+
 // ---- overlays ---------------------------------------------------------------
 // ONE HP pool, the Progenitor's overlay verbatim — which is to say the Yamato's
 // drawBossHpBar with its ticks moved onto the TRAIN_SEGMENTS phase boundaries,
@@ -311,8 +413,8 @@ function drawWarTrainOverlays(a) {
     c.strokeStyle = 'rgba(255,255,255,0.85)';
     c.lineWidth = 1;
     c.setLineDash([5, 4]);
-    c.strokeRect(a.laneX - TRN_HALF_W - 8, a.y - TRAIN_SPACING * 4 - 28,
-      (TRN_HALF_W + 8) * 2, TRAIN_SPACING * 4 + 62);
+    c.strokeRect(a.laneX - TRN_HALF_W - 8, a.y + TRAIN_TAIL_S - 28,
+      (TRN_HALF_W + 8) * 2, -TRAIN_TAIL_S + 62);
     c.setLineDash([]);
   }
 }
@@ -320,15 +422,19 @@ function drawWarTrainOverlays(a) {
 function drawWarTrain(e) {
   const c = ctx;
   drawTrainRails(e.laneX);
-  // one long ground shadow under the whole consist
+  // one long ground shadow under the whole consist, measured off the tail so a
+  // longer train can't outrun its own shadow
   c.fillStyle = 'rgba(0,0,0,0.25)';
-  c.fillRect(e.laneX - TRN_HALF_W - 2, e.y - TRAIN_SPACING * 4 - 22, (TRN_HALF_W + 2) * 2, TRAIN_SPACING * 4 + 52);
-  // couplings between wagons, drawn under the bodies
+  c.fillRect(e.laneX - TRN_HALF_W - 2, e.y + TRAIN_TAIL_S - 22, (TRN_HALF_W + 2) * 2, -TRAIN_TAIL_S + 52);
+  // couplings between wagons, drawn under the bodies: one per gap, so the count
+  // is however many cars trail the engine
   c.fillStyle = TRN_GEAR;
-  for (let i = 0; i < 4; i++) {
+  const cars = Math.round(-TRAIN_TAIL_S / TRAIN_SPACING);
+  for (let i = 0; i < cars; i++) {
     c.fillRect(e.laneX - 2.2, e.y - TRAIN_SPACING * (i + 1) + 18, 4.4, 12);
   }
   // rear to front, so each wagon's cowl paints over the coupling behind it
+  if (e.arty) drawTrainArtyWagon(e.arty);
   drawTrainTurretWagon(e.turrets[1]);
   drawTrainGunWagon(e);
   drawTrainInfantryWagon(e.wagon);
@@ -351,7 +457,7 @@ function drawWarTrain(e) {
 function drawWarTrainPass() {
   for (const e of G.enemies) {
     if (!e.t.itaBoss || e.dead || !e.trainInit) continue;
-    if (!inView(e.laneX, e.y - TRAIN_SPACING * 2, TRAIN_SPACING * 2 + 90)) continue;
+    if (!inView(e.laneX, e.y + TRAIN_TAIL_S / 2, -TRAIN_TAIL_S / 2 + 90)) continue;
     drawWarTrain(e);
   }
 }

@@ -1292,25 +1292,45 @@ Object.assign(ENEMY_TYPES, {
 // clause and adding one would be a bug. AI in js/update-enemies.js
 // (updateWarTrain); art in js/render-train.js.
 const TRAIN_WAVE_INTERVAL = 100;     // arrives at wave 100, 200... (mirrors the others)
-const TRAIN_HP = 40000;              // the ENGINE pool — killing it ends the fight
+const TRAIN_HP = 26000;              // the ENGINE pool — killing it ends the fight
 const TRAIN_SEGMENTS = 3;            // ONE pool, ticked into three; each break sounds the AVANTI
+// Damage resistance the WAGONS take from the engine's condition: one step per
+// intact segment BEHIND the one being fought, so at full health the consist sits
+// at 2 x 33% = 66%, a broken segment drops it to 33%, and on the last segment the
+// wagons are bare. It makes the engine the way in: shooting a turret wagon first
+// is the slow route, because its plate is the engine's health. A multiplier and
+// not an armor pool on purpose — a pool soaks a fixed amount once and is gone,
+// while this is a standing property only the engine's own HP can strip.
+const TRAIN_PART_RESIST = 0.33;
 const TRAIN_SPEED = 9;               // px/s down the lane: ~70s from the top to the stop
 const TRAIN_STOP_Y = H - 70;         // "the bottom of the screen": it parks here, short of a breach
 const TRAIN_SPACING = 46;            // wagon-to-wagon centre distance along the rails
 const TRAIN_LANE_MARGIN = 110;       // lane-centre clamp keeps every wagon + MG post on screen
-// consist, engine first: engine / turret wagon / infantry wagon / gun wagon / turret wagon
+// consist, engine first: engine / turret wagon / infantry wagon / gun wagon /
+// turret wagon / artillery wagon. sOff is NEGATIVE = further behind the engine
+// (north, away from the player), so the REAR of the train is the most negative.
 const TRAIN_TURRET_S = [-TRAIN_SPACING, -TRAIN_SPACING * 4];
 const TRAIN_WAGON_S = -TRAIN_SPACING * 2;
 const TRAIN_GUNWAGON_S = -TRAIN_SPACING * 3;
+const TRAIN_ARTY_S = -TRAIN_SPACING * 5;
+// the rearmost offset in the consist. The renderer measures the whole train off
+// this — shadow, couplings, selection box and cull margin — so lengthening the
+// train is one constant rather than five hardcoded multiples of TRAIN_SPACING.
+const TRAIN_TAIL_S = TRAIN_ARTY_S;
 // the gun wagon's four posts: two per side, paired fore and aft. The abeam
 // offset is a MECHANIC for exactly the reason YAM_MG_B is: every US scan picks
 // by raw distance, so this offset is the only reason riflemen shoot the crews
 // instead of pinging an armored wagon at x0.04.
 const TRAIN_MG_B = 22;
 const TRAIN_MG_S = 9;
-const TRAIN_TURRET_HP = 1200;        // per wagon — killing one silences its gun for good
-const TRAIN_WAGON_HP = 1400;         // the infantry wagon: kill it and the squads stop coming
-const TRAIN_MG_HP = 300;             // per post; itmg is NOT `tank`, so rifles work on it
+// The wagons are 3x what they first shipped at (was 1200/1400/300). The engine
+// pool is deliberately NOT part of that: stripping the consist is meant to be the
+// long half of the fight, and at the old numbers a single bazooka team took a
+// turret wagon off in well under a minute, so the guns stopped mattering before
+// the boss did. Tripled, killing a wagon is a decision about where to spend.
+const TRAIN_TURRET_HP = 3600;        // per wagon — killing one silences its gun for good
+const TRAIN_WAGON_HP = 4200;         // the infantry wagon: kill it and the squads stop coming
+const TRAIN_MG_HP = 900;             // per post; itmg is NOT `tank`, so rifles work on it
 const TRAIN_TURRET_ROF = 9;
 const TRAIN_TURRET_TRACK = 0.35;     // rad/s traverse
 const TRAIN_TURRET_ARC = 2.0;        // wedge off straight down-field: can't fire back up its own train
@@ -1318,6 +1338,25 @@ const TRAIN_TURRET_FIRE_TOL = 0.14;
 const TRAIN_SHELL_DMG = 70;
 const TRAIN_SHELL_R = 40;
 const TRAIN_SHELL_FLIGHT = 1.4, TRAIN_SHELL_SCATTER = 30;
+// the rearmost car's howitzer: the train's REACH. Every other gun on the consist
+// tops out at 290 (turret) or 240 (post), all of which the player outranges from
+// his own trench — so once it parked he could stand off and grind it down with
+// nothing coming back. This one reaches 389: a quarter short of his AT gun (519),
+// on the cadence of his bazooka (rocket.cdMin/cdMax). It is deliberately NOT a
+// third flat-shooting turret — long flight, wide blast, loose scatter, so the
+// player sees it coming and can walk out from under it. TRAIN_ARTY_MIN is the
+// counterplay the reach is sold against: men who close on the rear wagon are
+// inside its arc and safe from it (the convention every mortar here already uses).
+const TRAIN_ARTY_HP = 3600;          // same pool as a turret wagon
+const TRAIN_ARTY_RANGE = 389;
+const TRAIN_ARTY_MIN = 90;
+const TRAIN_ARTY_CD_MIN = 7.4, TRAIN_ARTY_CD_MAX = 10.1;
+const TRAIN_ARTY_DMG = 95;
+const TRAIN_ARTY_R = 55;
+const TRAIN_ARTY_FLIGHT = 2.2;
+const TRAIN_ARTY_SCATTER = 44;
+const TRAIN_ARTY_TRACK = 0.25;       // rad/s — a heavier piece is slower to lay than a turret
+const TRAIN_ARTY_FIRE_T = 0.3;       // muzzle-flash/recoil timer; drives the barrel slide
 // the infantry wagon's squads are the fight's economy, same as the Yamato's
 // landing parties: killing them pays for the artillery that kills the train
 const TRAIN_DROP_CD_MIN = 16, TRAIN_DROP_CD_MAX = 24;
@@ -1370,6 +1409,19 @@ Object.assign(ENEMY_TYPES, {
     dmg: 8, acc: 0.4, rof: 1.0, burst: 7, burstGap: 0.09, reward: 12,
     color: '#6b6a44', gun: 9, sfx: 'mg', priority: 4, sup: true,
     trainPart: true, trainMg: true, fixed: true, noRamp: true, faction: 'it',
+  },
+  itarty: {
+    // the rearmost car: a howitzer on a rotating mount, and the longest reach on
+    // the field for either side bar the player's own AT gun. Its own HP pool like
+    // every other wagon (the Progenitor rule) — kill it and the shelling stops for
+    // good. `rof`/`shellDmg` are here for the inspector and the codex; the gun
+    // itself reads the TRAIN_ARTY_ constants directly, exactly as ittur does.
+    name: 'Treno Armato — Artillery Wagon', hp: TRAIN_ARTY_HP, speed: 0,
+    range: TRAIN_ARTY_RANGE, dmg: 0, acc: 0,
+    rof: TRAIN_ARTY_CD_MIN, burst: 1, burstGap: 0, reward: 70,
+    shellDmg: TRAIN_ARTY_DMG,
+    color: '#7c7856', gun: 0, sfx: 'boom', priority: 5,
+    tank: true, trainPart: true, trainArty: true, fixed: true, noRamp: true, faction: 'it',
   },
 });
 
@@ -1545,7 +1597,7 @@ const ENEMY_INFO = {
   isemo: 'Semovente 75/18 assault gun. A low casemate mount with no turret and the best anti-tank punch the Italians bring; it stands off and shells your bunkers and armour.',
   ibersa: 'Bersagliere close-assault trooper in a plumed helmet. Elite and quick — he runs the open ground to get inside buckshot range, then stops and shreds your line at point-blank. He never digs in; he is what comes out of the works at you.',
   awalker: 'No army fields this. It walks out of the treeline on three legs some time after the six hundred and sixty-sixth wave, plants itself beyond every rifle you own, and sweeps a lance of light across the whole sector — enough in one pass to gut a Sherman, and it does not care whose men are underneath. It comes whoever you are fighting, and the longer you last the more of them come. Artillery and anti-tank guns are the only things that reach it.',
-  itrain: 'The Italian final boss: an armored war train that rolls straight down its rails and PARKS at the bottom of your sector. Two turret wagons shell your line, four gun posts rake it, and an infantry wagon unloads fanteria beside the track. Small arms only reach the gun crews — bring explosives. Every third of the engine\'s health you strip away, the whole army answers with an AVANTI charge.',
+  itrain: 'The Italian final boss: an armored war train that rolls straight down its rails and PARKS at the bottom of your sector. Two turret wagons shell your line, four gun posts rake it, and an infantry wagon unloads fanteria beside the track. On the tail is a howitzer wagon that outranges every mortar you own and drops heavy shells across your whole trench — but it cannot depress onto anything close, so men who get in among the wheels are safe from it. Small arms only reach the gun crews — bring explosives. Every third of the engine\'s health you strip away, the whole army answers with an AVANTI charge.',
 };
 
 const EVENT_INFO = [

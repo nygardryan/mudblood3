@@ -758,6 +758,12 @@ function damageEnemy(e, dmg, from, kind) {
   // blast, flame and melee all route correctly for free. Keyed on the type flag
   // so a stray TEST.deploy('jyhull') with no parent can't throw.
   if (e.t.hullSection && e.shipOf && !e.dead) return damageEnemy(e.shipOf, dmg, from, kind);
+  // The Treno Armato's wagons are plated by the ENGINE's condition — see
+  // trainPartDamageMult. Scaled here, above the armor pools, so every source
+  // (bullets, blast, flame, the crush) routes through it for free, exactly as
+  // the belt redirect above does. It is a scale on the damage and NOT a shared
+  // pool, so explode/flameSpray still need no de-dupe clause for this boss.
+  if (e.t.trainPart && e.trainOf) dmg *= trainPartDamageMult(e.trainOf);
   const incoming = dmg;
   // Body/Flak Armor (endless: some enemies spawn plated — see armorEnemy).
   // Bullets chip body armor, explosions chip flak; a hit bigger than the bar

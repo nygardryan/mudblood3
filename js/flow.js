@@ -106,7 +106,7 @@ const BOSS_COPY = {
   it: {
     title: 'THE TRENO ARMATO IS DERAILED',
     lead: 'The armored train burns on its rails.',
-    fallen: 'the armored train burns from engine to rear turret',
+    fallen: 'the armored train burns from engine to tail gun',
     them: 'it',
     recap: 'You derailed the Treno Armato',
     notDone: 'ANOTHER TRAIN IS COMING',

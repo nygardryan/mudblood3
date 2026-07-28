@@ -288,6 +288,19 @@ function spriteDefs() {
     bake: (c) => paintTrainGunWagon(c),
   });
   add({
+    id: 'train_wagon_arty', dir: 'bosses',
+    w: 40, h: 48, ax: 20, ay: 24,
+    orientation: 'upright, along the rails; blitted unrotated',
+    bake: (c) => paintTrainArtyWagon(c),
+  });
+  add({
+    id: 'train_arty_gun', dir: 'bosses',
+    w: 88, h: 88, ax: 44, ay: 44,
+    orientation: 'gun along +x; the wagon blits at rot = the laid bearing',
+    note: 'wider box than train_turret: the barrel reaches 34 against the turret\'s 24. The muzzle flash and the recoil slide stay procedural',
+    bake: (c) => paintTrainArtyGun(c, 0),
+  });
+  add({
     id: 'train_wagon_wrecked', dir: 'bosses',
     w: 40, h: 48, ax: 20, ay: 24,
     orientation: 'upright, along the rails; blitted unrotated',

@@ -1152,6 +1152,7 @@ function bossReinforce(call) {
 // TEST.deploy('jyamato', ...) produce a whole working ship
 function initYamato(e) {
   e.yamInit = true;
+  e.phase = 0;                  // health segments broken so far (0..YAM_SEGMENTS-1)
   e.heading = pick([0, Math.PI]);        // broadside-on from the off
   e.legT = rand(YAM_LEG_MIN, YAM_LEG_MAX);
   e.wantHeading = e.heading;
@@ -1325,6 +1326,16 @@ function yamatoDamageControl(e) {
 function updateYamato(e, dt) {
   if (!e.yamInit) initYamato(e);
 
+  // ONE HP pool ticked into YAM_SEGMENTS phases — the mass's and the train's poll,
+  // verbatim, and here for one reason only: the phase is the plate her batteries
+  // and tubs wear (bossPartDamageMult). No ability hangs off a break, so this is
+  // the whole of it. Polled rather than hooked into damageEnemy so it is robust to
+  // every damage source, and a WHILE because one big hit can empty two segments.
+  // Note her belt feeds this pool, so the sections the player is most likely to be
+  // shooting are what strips their own escorts' armor.
+  while (e.phase < YAM_SEGMENTS - 1
+      && e.hp <= e.maxhp * (1 - (e.phase + 1) / YAM_SEGMENTS)) e.phase++;
+
   e.landCd -= dt;
   if (e.landCd <= 0) {
     e.landCd = rand(YAM_LAND_CD_MIN, YAM_LAND_CD_MAX);
@@ -1413,19 +1424,6 @@ function syncTrainParts(e) {
     p.x = e.laneX + p.bOff;
     p.y = e.y + p.sOff;
   }
-}
-
-// The wagons' damage resistance, read off the ENGINE's remaining health segments
-// (TRAIN_PART_RESIST). Derived from e.phase rather than stamped on the parts when
-// a segment breaks, for the same reason the phase itself is polled instead of
-// hooked into damageEnemy: nothing has to remember to update it, and a part that
-// is knocked out and a part that spawned late both read the same number.
-// Fraction of incoming damage a wagon actually takes; 1 when the boss is on its
-// last segment, or when a part has no parent (a stray TEST.deploy('ittur')).
-function trainPartDamageMult(engine) {
-  if (!engine) return 1;
-  const intact = TRAIN_SEGMENTS - 1 - (engine.phase || 0);
-  return Math.max(0, 1 - TRAIN_PART_RESIST * Math.max(0, intact));
 }
 
 // A turret wagon. Modelled on the Yamato battery: picks its own target, lays its

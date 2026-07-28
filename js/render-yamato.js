@@ -320,7 +320,12 @@ function drawYamato(a) {
 // shares — this one was the pattern for it.
 function drawYamatoOverlays(a) {
   const c = ctx;
-  drawBossHpBar(a, a.y - YAM_HALF_BEAM - 34, 200, 'YAMATO');
+  // ticks on the YAM_SEGMENTS boundaries, as on the mass and the train: each one
+  // the fill retreats past sheds a third of the plate off her guns, and a player
+  // who can't see the next one coming can't tell why they suddenly bite.
+  const ticks = [];
+  for (let i = 1; i < YAM_SEGMENTS; i++) ticks.push(i / YAM_SEGMENTS);
+  drawBossHpBar(a, a.y - YAM_HALF_BEAM - 34, 200, 'YAMATO', ticks);
 
   // per-mount condition
   for (const p of (a.turrets || []).concat(a.mounts || [])) {

@@ -288,6 +288,15 @@ const YAM_SPR_W = 320, YAM_SPR_H = 104;   // hull bitmap footprint; makeSprite c
 const YAM_HULL_HP = 14000;
 const YAM_TURRET_HP = 1400;          // per battery — killing one silences three guns
 const YAM_MG_HP = 320;               // per mount; jymg is NOT `tank`, so rifles work on it
+// Her pool ticked into phases, purely to drive the plate her batteries and tubs
+// wear (see bossPartDamageMult) — unlike the train's and the mass's, a break here
+// fires no ability, so the poll in updateYamato has nothing but the phase in it.
+// Note the BELT is exempt for free: damageEnemy redirects a hullSection into her
+// own pool before it ever reaches the plate, so a hit on her armor is a hit on
+// her, undiminished. That is the fight's shape — shooting the SHIP is the way in,
+// and the guns are cheap to silence only once she is dying.
+const YAM_SEGMENTS = 3;
+const YAM_PART_RESIST = 0.33;        // per intact segment: 66% at full health, none on the last
 // Part offsets in the ship's own frame: sOff along the keel (bow positive),
 // bOff abeam. Stored on the part instances so one loop places all eleven.
 // No section at 0: the hull core actor already sits amidships and is a hitbox in
@@ -442,6 +451,12 @@ const PROG_POD_HP = 260;
 // this offset exists for.
 const PROG_POD_R = 34;
 const PROG_POD_ANGLES = [0.14, 0.32, 0.5, 0.68, 0.86].map(a => a * Math.PI);
+// The sacs' plate per intact segment of the CORE (see bossPartDamageMult): 66%
+// while the mass is whole, none once it is on its last third. Note what this does
+// to the "TRUE pool" arithmetic in the PROG_HP comment above — five 260-HP sacs
+// stripped early now cost nearer 3x that, which is the point: the bile is meant to
+// be answered by killing the thing spitting it, not by mowing its glands.
+const PROG_POD_RESIST = 0.33;
 // Same shape as the Spitter's `spit` spec, field for field and on purpose:
 // fireBile/bileBurst read it unchanged, so a pod is a Spitter that can't walk.
 const PROG_POD_SPIT = { range: 260, min: 0, cdMin: 4.0, cdMax: 6.5, r: 34,
@@ -1294,14 +1309,7 @@ Object.assign(ENEMY_TYPES, {
 const TRAIN_WAVE_INTERVAL = 100;     // arrives at wave 100, 200... (mirrors the others)
 const TRAIN_HP = 26000;              // the ENGINE pool — killing it ends the fight
 const TRAIN_SEGMENTS = 3;            // ONE pool, ticked into three; each break sounds the AVANTI
-// Damage resistance the WAGONS take from the engine's condition: one step per
-// intact segment BEHIND the one being fought, so at full health the consist sits
-// at 2 x 33% = 66%, a broken segment drops it to 33%, and on the last segment the
-// wagons are bare. It makes the engine the way in: shooting a turret wagon first
-// is the slow route, because its plate is the engine's health. A multiplier and
-// not an armor pool on purpose — a pool soaks a fixed amount once and is gone,
-// while this is a standing property only the engine's own HP can strip.
-const TRAIN_PART_RESIST = 0.33;
+const TRAIN_PART_RESIST = 0.33;      // the wagons' plate per intact segment — see bossPartDamageMult
 const TRAIN_SPEED = 9;               // px/s down the lane: ~70s from the top to the stop
 const TRAIN_STOP_Y = H - 70;         // "the bottom of the screen": it parks here, short of a breach
 const TRAIN_SPACING = 46;            // wagon-to-wagon centre distance along the rails

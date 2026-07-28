@@ -751,6 +751,40 @@ function creditKill(u) {
   if (hooks) for (const fn of hooks.onKill) fn(u);
 }
 
+// The plate a multi-actor boss's CHILDREN wear, read off the parent's remaining
+// health segments: one step of resistance per segment still intact behind the one
+// being fought, so a whole boss's parts sit at 2 x 33% = 66%, one broken segment
+// drops them to 33%, and on the last segment they are bare. It makes the PARENT
+// the way in on all three — going for the guns first is the slow route, because a
+// part's armor is the boss's own health.
+//
+// Derived from the parent's `phase` rather than stamped on the parts when a
+// segment breaks, for the same reason the phase itself is polled instead of
+// hooked in here: nothing has to remember to update it, and a part that was
+// revived by damage control and one that has stood since the boss arrived read the
+// same number. It is a MULTIPLIER and not an armor pool — a pool soaks a fixed
+// amount once and is gone, while this is a standing property only the parent's own
+// HP can strip (the same distinction ESCALATION rung VI turns on).
+//
+// Returns the fraction of incoming damage the part actually takes: 1 for anything
+// that isn't a child, for a part with no parent (a stray TEST.deploy('ittur')),
+// and for the Yamato's belt, which is FIVE ACTORS ON HER OWN POOL — plating that
+// would just be plating her, and damageEnemy redirects it away below in any case.
+function bossPartDamageMult(p) {
+  const t = p.t;
+  if (t.hullSection) return 1;
+  if (t.shipPart) return partPlate(p.shipOf, YAM_SEGMENTS, YAM_PART_RESIST);
+  if (t.bossPart) return partPlate(p.bossOf, PROG_SEGMENTS, PROG_POD_RESIST);
+  if (t.trainPart) return partPlate(p.trainOf, TRAIN_SEGMENTS, TRAIN_PART_RESIST);
+  return 1;
+}
+
+function partPlate(parent, segments, resist) {
+  if (!parent) return 1;
+  const intact = Math.max(0, segments - 1 - (parent.phase || 0));
+  return Math.max(0, 1 - resist * intact);
+}
+
 function damageEnemy(e, dmg, from, kind) {
   if (e.chute > 0) return; // untouchable while the canopy is up
   // The Yamato's armor belt is five actors on ONE pool: a hit anywhere along it
@@ -758,12 +792,14 @@ function damageEnemy(e, dmg, from, kind) {
   // blast, flame and melee all route correctly for free. Keyed on the type flag
   // so a stray TEST.deploy('jyhull') with no parent can't throw.
   if (e.t.hullSection && e.shipOf && !e.dead) return damageEnemy(e.shipOf, dmg, from, kind);
-  // The Treno Armato's wagons are plated by the ENGINE's condition — see
-  // trainPartDamageMult. Scaled here, above the armor pools, so every source
-  // (bullets, blast, flame, the crush) routes through it for free, exactly as
-  // the belt redirect above does. It is a scale on the damage and NOT a shared
-  // pool, so explode/flameSpray still need no de-dupe clause for this boss.
-  if (e.t.trainPart && e.trainOf) dmg *= trainPartDamageMult(e.trainOf);
+  // Every multi-actor boss's children are plated by their PARENT's condition —
+  // see bossPartDamageMult. Scaled here, above the armor pools, so every source
+  // (bullets, blast, flame, melee, the train's own crush) routes through it for
+  // free, exactly as the belt redirect above does. It is a scale on the damage
+  // and NOT a shared pool, so explode/flameSpray still need no de-dupe clause
+  // for any of the three. Below the belt redirect on purpose: a hit on her armor
+  // is a hit on HER, and must not be plated by her own health.
+  dmg *= bossPartDamageMult(e);
   const incoming = dmg;
   // Body/Flak Armor (endless: some enemies spawn plated — see armorEnemy).
   // Bullets chip body armor, explosions chip flak; a hit bigger than the bar

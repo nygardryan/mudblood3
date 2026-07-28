@@ -146,7 +146,9 @@ strip her tubs instead). She's driven entirely from `updateYamato`; parts get a 
 `return` in `updateEnemy`, because `tank:true` would otherwise route them to
 `updateTank` and throw. Abilities: an SNLF landing party (the fight's economy — her
 escorts pay for the artillery that kills her) and damage control, which revives one
-knocked-out part and **must re-`push` it into `G.enemies`**. Tuning is the `YAM_`
+knocked-out part and **must re-`push` it into `G.enemies`**. Her batteries and tubs
+are also PLATED by her own health (`YAM_SEGMENTS`/`YAM_PART_RESIST`) — see the
+shared `bossPartDamageMult` rule below the train. Tuning is the `YAM_`
 block in `js/constants.js`; art is `js/render-yamato.js` (`drawYamatoPass` runs
 before the enemy loop so escorts paint over her deck). Note `TEST.state().enemies`
 total and HP are **inflated by her parts** — 11 actors, and the belt mirrors her pool.
@@ -209,7 +211,9 @@ HP pool*, which is why `explode` de-dupes it and `flameSpray` floors it at ×0.0
 both fixes are about a SHARED POOL, not about parts. **Every `zpod` owns its HP**
 (like her turrets and tubs, which are deliberately *not* de-duped), so neither file
 needed a clause for this boss, and adding one would be a bug. If the core melts too
-fast, move `PROG_HP` — never the flame multiplier.
+fast, move `PROG_HP` — never the flame multiplier. The sacs are PLATED by the core's
+health (`PROG_POD_RESIST`), which is a scale and not a pool and so changes none of
+that — see the shared `bossPartDamageMult` rule below the train.
 
 Flags are split rather than reusing hers: **`hordeBoss`** = "killing this ends the
 fight" (mirror of `germanBoss`/`japBoss`; read in `damageEnemy`'s `bossVictory()`
@@ -437,17 +441,8 @@ repositions dead parts on purpose, unlike hers). One pool ticked into
 break runs `trainSoundsCharge`, which arms the SAME `G.itCharge` signed clock
 the ambient AVANTI runs (telegraph included) rather than firing a charge of its
 own, and pushes `G.itAvantiCd` back so the field doesn't owe a second charge
-right after. The phase is also the wagons' **plate**: `trainPartDamageMult` scales
-everything a `trainPart` takes by `TRAIN_PART_RESIST` per segment still intact
-*behind* the one being fought — 66% resistance at full health, 33% after the first
-break, none on the last segment — hooked once at the top of `damageEnemy` beside the
-Yamato's belt redirect, so bullets, blast, flame and the crush all route through it.
-It makes the ENGINE the way in: guns first is the slow route, since a wagon's armor
-is the boss's own health. It is a MULTIPLIER, not an armor pool and not a shared one
-— so it still owes `explode`/`flameSpray` no de-dupe clause — and it is derived from
-`e.phase` rather than stamped on the parts at each break, so nothing has to remember
-to update it. The inspector prints it on the wagon (`hoverStats`), because the player
-otherwise cannot see the segment that strips it. It crushes the player's emplacements on its lane while rolling
+right after. The phase is also the wagons' **plate** — see the shared
+`bossPartDamageMult` rule below. It crushes the player's emplacements on its lane while rolling
 (`trainCrush` — `G.itWorks` deliberately spared). The wagons carry `tank:true`,
 so the `trainPart` bare return in `updateEnemy` is load-bearing (updateTank
 would drive them off the rails).
@@ -488,6 +483,39 @@ too: 9 actors per train. `BOSS_COPY` (`js/flow.js`) has an `'it'` row — one
 table keyed on faction holding the victory title, the stats sentence's two
 variable halves (what fell, and its pronoun) and the Escalation-X "not done
 yet" banner; `de` remains the unguarded fallback for any FIFTH faction.
+
+**All three multi-actor bosses PLATE their children off the parent's health**, via
+`bossPartDamageMult` (`js/damage.js`, called once at the top of `damageEnemy`). A
+part takes one step of damage resistance per health segment still intact *behind*
+the one being fought: **66% at full health, 33% after the first break, none on the
+last segment**. `TRAIN_PART_RESIST` / `YAM_PART_RESIST` / `PROG_POD_RESIST` are all
+0.33 against 3 segments; a fifth boss is one row in that function plus its two
+constants, and the inspector line (`hoverStats`) and the bar's tick marks come for
+free. Five things about it, four of which are the reason it is written this way:
+- **It makes the PARENT the way in.** Going for the guns first is now the slow
+  route, since a part's armor is the boss's own health. That is the whole point of
+  the mechanic, and it is why the numbers are identical on all three: a player who
+  learns it on one boss has learned it on the others.
+- **It is a MULTIPLIER, not an armor pool** — the same distinction ESCALATION rung
+  VI turns on. A pool soaks a fixed amount once and is gone; this is a standing
+  property only the parent's own HP can strip. Being a scale rather than a shared
+  pool is also why none of the three owes `explode`/`flameSpray` a de-dupe clause.
+- **It is derived from the parent's `phase`, never stamped on the parts.** Same
+  reasoning as the phase polls themselves: nothing has to remember to update it,
+  and a part the Yamato's damage control just revived reads the same number as one
+  that has stood since she arrived.
+- **The Yamato's belt is exempt, for free.** `damageEnemy` redirects a `hullSection`
+  into her own pool *above* this hook, so a hit on her armor is a hit on HER,
+  undiminished — plating it would just be plating her, and would make the pool that
+  drives every part's plate the one thing that couldn't be reached. `hullSection`
+  takes an early return in `bossPartDamageMult` anyway, because the inspector calls
+  it on whatever the mouse is over.
+- **She needed the phase inventing.** The mass and the train were already ticked
+  into segments because a break fires an ability (resurrection, AVANTI); her
+  `YAM_SEGMENTS` poll in `updateYamato` has nothing in it but `e.phase++`, and her
+  HP bar grew the tick marks the other two already had. A break that changes how
+  hard her guns are to kill and shows the player nothing is just a difficulty spike
+  with no tell.
 
 The **Alien Walker** (`awalker`) is the easter egg that ends a run that won't end
 — a striding tripod that walks out of the treeline at wave 666 and sweeps a laser

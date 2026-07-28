@@ -595,6 +595,37 @@ function dummyRicochet(d, dmg, from, kind) {
   damageEnemy(from, dmg, null, 'bullet');
 }
 
+// Ambush: the camo nest's own card, and the only one in the game that pays a
+// man for NOT having fired. A round loosed while the enemy still cannot see him
+// lands for double; markCamoFired then reveals him and the bonus is gone until
+// the nest hides him again. Flag-only, like Ricochet above — fireShot and
+// fireShotgun read G.cardsOwned through takeAmbushShot.
+//
+// DIRECT FIRE ONLY, and that is a balance rule rather than a plumbing one.
+// isCamouflaged is the entire precondition, so the nest's own reveal timer is
+// also the card's rate limit: 3s standard, 1.5s fortified, 0.5s hardened. A man
+// in a firefight is exposed the whole time and only ever ambushes out of a lull,
+// which is the loop the card is for. Every heavy tube cycles SLOWER than any of
+// those windows (7-14s), so a grenade, rocket or mortar shell would qualify on
+// every single shot and the card would read as a flat +100% damage for three
+// unit types. Flame is worse still: flameSpray calls markCamoFired every tick,
+// so its "first shot" is one 1/60s slice of burn.
+const AMBUSH_DMG_MULT = 2;
+
+// Fires the ambush if this man is shooting from concealment: reports whether the
+// round is doubled and throws the floating text, since the proc condition is
+// otherwise invisible to the player. NOT a pure predicate, and the name says so.
+// It must be called BEFORE markCamoFired — that is the call that breaks the
+// concealment this tests. isCamouflaged covers side, unit type, the exposure
+// timer and a live nest in one, so a Sherman parked on a nest is never hidden
+// and never ambushes.
+function takeAmbushShot(u) {
+  if (!(G.cardsOwned && G.cardsOwned.has('ambush'))) return false;
+  if (!isCamouflaged(u)) return false;
+  G.texts.push({ x: u.x, y: u.y - 20, text: 'AMBUSH', ttl: 1.2 });
+  return true;
+}
+
 // an instant reload is worth whatever the cooldown it erases is worth:
 // near-nothing on fast-cycling rifles, a run-warping 6 on the bazooka, whose
 // long rocket cooldown vanishes entirely against massed waves
@@ -991,6 +1022,14 @@ const CARD_UNIQUES = {
   razorwire: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Razor Wire', cost: 10, weight: 3,
     desc: 'Barbed wire is strung with razor tape — enemy infantry dragging through it have a chance to take light cuts every moment they struggle.',
+    hooks: {},
+  },
+  // the fourth emplacement card, and the camo nest's own. Flag-only like the
+  // three above it: fireShot and fireShotgun read G.cardsOwned through
+  // takeAmbushShot, which is also where the scope of the bonus is argued.
+  ambush: {
+    unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Ambush', cost: 9, weight: 3,
+    desc: `A man who opens fire from a camo nest while the enemy still cannot see him hits for ${AMBUSH_DMG_MULT}x damage. The shot gives his position away, so the bonus only comes back once the nest hides him again — ${CAMONEST_REVEAL}s after his last shot, ${CAMONEST_REVEAL_FORTIFIED}s fortified, ${CAMONEST_REVEAL_HARDENED}s hardened. Aimed fire and buckshot only: grenades, rockets, mortar shells and flame break cover without the ambush.`,
     hooks: {},
   },
   // flag-only, like Rifled Slugs: updateAAGun reads G.cardsOwned directly to

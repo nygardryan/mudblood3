@@ -195,6 +195,10 @@ function markCamoFired(u) {
 function fireShot(shooter, target, opts) {
   // opts.weapon substitutes different gun stats (e.g. a tank's coaxial MG)
   const t = (opts && opts.weapon) || shooter.t;
+  // Ambush (emplacement unique) — read BEFORE markCamoFired, which is the call
+  // that breaks the concealment it tests. Spent by the SHOT, not the hit, like
+  // Follow Through: the man has given his position away either way.
+  const ambush = takeAmbushShot(shooter);
   shooter.face = Math.atan2(target.y - shooter.y, target.x - shooter.x);
   markCamoFired(shooter);
   const mx = shooter.x + Math.cos(shooter.face) * (t.gun + 3);
@@ -258,6 +262,8 @@ function fireShot(shooter, target, opts) {
     // Armor Piercing (gunner unique): AP belt punches through light armor,
     // so jeeps, halftracks and motorcycles take the multiplier on top
     dmg *= armorPiercingMult(shooter, target);
+    // stacked on top of the armor scaling, so it doubles what actually lands
+    if (ambush) dmg *= AMBUSH_DMG_MULT;
     // Headshot (sniper/rifleman unique): a connecting round finds the head.
     // Sent as overwhelming damage rather than a dead flag so damageEnemy's
     // normal death block runs — kill count, TP bounty, creditKill/onKill cards,
@@ -409,6 +415,9 @@ function fireShotgun(actor, buffs) {
   const my = actor.y + Math.sin(actor.face) * (actor.t.gun + 2);
 
   SFX.shotgun();
+  // as in fireShot: armed before the blast reveals him, one roll for the whole
+  // pattern rather than per pellet
+  const ambush = takeAmbushShot(actor);
   markCamoFired(actor);
   actor.shotgunBlastT = 0.12;
   G.flashes.push({ x: mx, y: my, r: 11, ttl: 0.09, max: 0.09, kind: 'muzzle', angle: actor.face });
@@ -477,6 +486,7 @@ function fireShotgun(actor, buffs) {
     let dmg = sg.dmg * pelletsHit * falloff * (1 + rank * 0.09) * rand(0.9, 1.1);
     if (e.t.tank) dmg *= 0.06;
     else if (e.t.apc) dmg *= 0.2;
+    if (ambush) dmg *= AMBUSH_DMG_MULT;
     if (e.side === 'us') damageUnit(e, dmg, actor, 'bullet');
     else damageEnemy(e, dmg, actor, 'bullet');
   }

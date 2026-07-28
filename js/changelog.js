@@ -4,6 +4,16 @@
 const CHANGELOG = [
   {
     date: '2026-07-28',
+    title: 'New Card: Ambush',
+    changes: [
+      'New unique EMPLACEMENTS card — AMBUSH. A man who opens fire out of a CAMO NEST while the enemy still cannot see him hits for double damage.',
+      'It is the first card that pays you for holding fire. The nest has always hidden your men until they shot; now the shot they were hiding to take is worth twice as much, and the moment it goes out they are visible again like they always were.',
+      'That makes the reveal timer the card\'s rhythm. Three seconds after his last shot the nest takes him back, and the next round out of it is another ambush — so a man in a running firefight never gets it, and a man picking his moment gets it every time. An engineer shortens the wait to a second and a half, and a hardened nest to half a second.',
+      'Aimed fire and buckshot only. Grenades, rockets, mortar shells and flame give the position away without the bonus — a tube crew reloads slower than the nest can hide them, so every shell they fired would have been an ambush and the card would just have been more damage.',
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'See Through The Info Panel',
     changes: [
       'The info panel is see-through again. It opens on top of the fight it is describing, and a solid box meant that pointing at a man to read him hid whatever was about to happen to him.',

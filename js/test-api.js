@@ -45,7 +45,7 @@ const TEST = {
         'buy(type, x, y)': 'realistic purchase: charges TP, checks cap/placement, runs the in-game place() path. Returns {ok, placed, cost, tpBefore, tpAfter, reason?}',
         'deploy(type, x, y)': 'FREE god-mode spawn of ANY placeable (units, defenses, supports, German test units) — no TP, no placement limit. (0..1] coords are field fractions; larger are px.',
         'spawnEnemy(type, x, y)': 'defense modes only: push a German attacker into G.enemies. Negative y above the top edge is valid staging.',
-        'event(name)': "fire a random-event on demand regardless of wave gating — name in: random, fog, smokescreen, fng, paradrop, airraid, airstrike",
+        'event(name)': "fire a random-event on demand regardless of wave gating — name in: random, fog, smokescreen, fng, paradrop, airraid, kamikaze, airstrike. 'airraid' follows the faction (kamikaze vs the IJA, bombers otherwise); 'kamikaze' forces the Japanese half against anyone and is never rolled.",
         'escalation(n?)': 'ESCALATION ladder: with no arg, reports {level, unlocked, mods, active}. With 0..10 it UNLOCKS and selects that rung (write to the save) so a run can start there without grinding boss kills. Takes effect at the next TEST.start. The rung does NOT pick the enemy — every rung rolls it, so pin it with TEST.start\'s faction arg.',
         'setTP(n) / addTP(n)': 'set or add tactical points, for scripting test scenarios',
         'autoplay(opts?)': 'autonomous endless player: spends TP on a scaling build every `every`s and steps for `seconds`. opts {seconds=120, every=15, plan?}. Returns {over, waves, log, final}',
@@ -385,7 +385,7 @@ const TEST = {
   // normally holds each one back (events.js). Defense modes only.
   event(name) {
     if (!G) return { ok: false, error: 'no game in progress — call TEST.start()' };
-    const valid = ['random', 'fog', 'smokescreen', 'fng', 'paradrop', 'airraid', 'airstrike'];
+    const valid = ['random', 'fog', 'smokescreen', 'fng', 'paradrop', 'airraid', 'kamikaze', 'airstrike'];
     if (!valid.includes(name)) {
       return { ok: false, error: 'unknown event "' + name + '" — valid: ' + valid.join(', ') };
     }

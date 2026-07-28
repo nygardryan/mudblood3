@@ -18,6 +18,31 @@ function raidForWave(w) {
   };
 }
 
+// kamikaze scaling: the Japanese answer to the bombing raid. Every plane is
+// exactly one explosion instead of a stick, so the formation is DOUBLE the
+// bomber count, and the airframes grow with the wave — a light fighter early, a
+// heavy aircraft late, with the blast scaling to match. Same wave 4 -> ~60
+// envelope as raidForWave so the two events ramp together.
+function kamiForWave(w) {
+  const t = clamp((w - 4) / 56, 0, 1);
+  return {
+    planes: Math.round(2 + t * 4),          // 2 -> 6, twice a bombing raid's formation
+    r: Math.round(38 + t * 30),             // blast radius: bigger plane, bigger fireball
+    dmg: Math.round(42 + t * 36),           // a centered late hit maims a rifleman, rarely one-shots him
+    // markedly softer than a bomber (65->130), and that is the AA gun's whole
+    // deal here: a flak burst does 51-77, so this is one burst early and two
+    // late. Twice the aircraft at half the airframe leaves the same SHARE of an
+    // attack broken, so doubling the formation isn't a silent nerf to the one
+    // unit that exists to answer it — and a kamikaze that has turned hard onto
+    // a flank target spends less time inside the mount's ±19° wedge than a
+    // bomber flying straight down through it does.
+    hp: Math.round(44 + t * 44),
+    size: 0.72 + t * 0.55,                  // airframe draw scale
+    aim: Math.round(34 - t * 10),           // ± px the aim point sits off the man. Precise, never perfect.
+    big: w >= 30,
+  };
+}
+
 // paratroopers drop into the top 2/3 of the field: 4 men minimum,
 // growing steadily with the wave count (cut 75% as part of the unit-count reduction pass)
 function paradropCount(w) {
@@ -100,6 +125,12 @@ function triggerHordeRising() {
 // radius, and the sticks it drops are anything but precise. Once a bomber
 // clears the bottom of the screen it's gone — the raid ends when they all are.
 function triggerAirRaid(w) {
+  // The Imperial Japanese Army doesn't bomb — it flies the aircraft into you.
+  // Whole-function replacement rather than a table like PARADROPS, because
+  // nothing about a kamikaze shares the bomber's shape: no bomb bay, no attack
+  // radius, no overflight. Same door, entirely different mechanic.
+  if (enemyFaction() === 'jp') { triggerKamikaze(w); return; }
+
   const cfg = raidForWave(w);
   showBanner(w >= 40 ? 'HEAVY BOMBER RAID!' : w >= 20 ? 'BOMBERS INBOUND!' : 'AIR RAID! TAKE COVER!');
   SFX.planeFlyby();
@@ -130,6 +161,55 @@ function triggerAirRaid(w) {
   }
 }
 
+// ---- kamikaze attack: the Japanese variant of the air raid. Each pilot picks a
+// man at random — not the nearest, so nowhere on the field is safe — and flies
+// his aircraft into him. He tracks his man until he commits, and after that he
+// flies the line he has, so a defender who moves late is missed by roughly the
+// width of the pilot's aiming error. Twice the formation of a bombing raid,
+// one explosion each, and flak is the only thing that can stop any of it.
+function triggerKamikaze(w) {
+  const cfg = kamiForWave(w);
+  showBanner(w >= 40 ? 'TOKKŌTAI! THEY\'RE DIVING ON US!' : w >= 20 ? 'KAMIKAZE ATTACK!' : 'SUICIDE PLANES INBOUND!');
+  SFX.planeFlyby();
+
+  // same lane spread and staggered entry heights as the bomber formation, so a
+  // raid arrives as a wave rather than all at once
+  const lane = W / (cfg.planes + 1);
+  for (let i = 0; i < cfg.planes; i++) {
+    const speed = rand(150, 185);   // a dive: ~1.7× a bomber's cruise
+    const y0 = -50 - i * rand(40, 90);
+    G.planes.push({
+      role: 'kamikaze',
+      x: clamp(lane * (i + 1) + rand(-34, 34), 40, W - 40),
+      y: y0,
+      vx: rand(-18, 18),
+      vy: speed,
+      speed,
+      hp: cfg.hp,
+      maxhp: cfg.hp,
+      blastR: cfg.r,
+      blastDmg: cfg.dmg,
+      big: cfg.big,
+      // shot down, the wreck still goes off — but a warhead cooking off in a
+      // tumbling airframe is not one driven into the dirt on purpose, and it
+      // goes off short of where it was aimed. That shortfall is the whole
+      // payoff for owning an AA gun.
+      wreckR: Math.round(cfg.r * 0.7),
+      wreckDmg: Math.round(cfg.dmg * 0.6),
+      size: cfg.size,
+      aim: cfg.aim,
+      entryY: y0,        // where the dive started, so the renderer can read its altitude
+      target: null,
+      aimX: 0, aimY: 0,
+      locked: false,
+      dive: 0,
+      sfxT: 0,
+      flybyPlayed: true,
+      done: false,
+    });
+  }
+}
+
 function triggerEvent() {
   const w = G.wave;
   const events = ['fog', 'fng', 'smokescreen'];
@@ -148,6 +228,12 @@ function runEvent(ev, w) {
   recapEvent(ev);
   if (ev === 'airraid') {
     triggerAirRaid(w);
+  } else if (ev === 'kamikaze') {
+    // testing only, and never rolled: 'airraid' already becomes this against the
+    // Imperial Japanese Army. This key forces the Japanese half regardless of
+    // who is actually across the field, which is the whole point of the testing
+    // toolbar — see any event at any wave, against anyone.
+    triggerKamikaze(w);
   } else if (ev === 'paradrop') {
     triggerParadrop();
   } else if (ev === 'fog') {

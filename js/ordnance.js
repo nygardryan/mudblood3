@@ -297,6 +297,11 @@ function updatePlane(p, dt) {
     return;
   }
 
+  if (p.role === 'kamikaze') {
+    updateKamikaze(p, dt);
+    return;
+  }
+
   p.y -= p.speed * dt;
   p.x += p.drift * dt;
 
@@ -391,6 +396,122 @@ function dropBombStick(p, victim) {
   }
 }
 
+// ---- kamikaze: the Japanese faction's air raid. A pilot picks a man at random
+// and flies his aircraft into him. Unlike a bomber he is a single-use weapon
+// with no bay and no attack radius — everything he can do to you happens at the
+// end of one dive, and flak is the only thing between him and it.
+
+// he stops correcting inside this and flies the line he already has. Outside it
+// he tracks his man; inside it a defender who moves is left behind, and the
+// pilot's own aiming error is all that's still deciding where the blast lands.
+// Measured at wave 60: the median blast falls 20px off the nearest man and only
+// 31% land inside 15px of him — precise, and never perfectly so.
+const KAMI_COMMIT = 140;
+const KAMI_TURN = 1.6;       // rad/s the dive can be steered — he can never snap onto a man
+const KAMI_HIT = 10;         // px from the aim point that counts as impact
+
+// a man at random, not the nearest — nowhere on the field is safe. The filter
+// is the bombers' own: a smokescreen hides the ground from the ground, never
+// from the air, so no LOS test belongs here.
+function kamikazeAcquire(p) {
+  const pool = [];
+  for (const u of G.units) {
+    if (u.dead || isCamouflaged(u)) continue;
+    pool.push(u);
+  }
+  p.target = pool.length ? pick(pool) : null;
+  // the aiming error he carries all the way down, rolled ONCE so the dive reads
+  // as a steady pull off-centre rather than a frame-by-frame wobble
+  p.offX = rand(-p.aim, p.aim);
+  p.offY = rand(-p.aim, p.aim);
+  if (!p.target) {
+    // nobody left to hit, and he still has to come down somewhere
+    p.aimX = clamp(rand(80, W - 80), 14, W - 14);
+    p.aimY = clamp(rand(DEPLOY_Y - 40, H - 40), 14, H - 14);
+    p.locked = true;
+  }
+}
+
+function updateKamikaze(p, dt) {
+  // flak resolves EARLIER in the same frame than this loop does (burstFlak in
+  // js/update.js, above the plane walk) and compaction only runs at the end of
+  // it — so a plane the AA gun just broke is still in G.planes and would fly on
+  // for one more tick. Without this it steers, drones and reaches its aim point
+  // after it has already come down in pieces.
+  if (p.done) return;
+
+  // re-roll if his man dies or goes under a camo net before he commits. After
+  // the lock the target ref is never read again, which is what keeps it safe
+  // from compaction splicing the dead out from under us mid-frame.
+  if (!p.locked && (!p.target || p.target.dead || isCamouflaged(p.target))) kamikazeAcquire(p);
+  if (!p.locked && p.target) {
+    p.aimX = clamp(p.target.x + p.offX, 14, W - 14);
+    p.aimY = clamp(p.target.y + p.offY, 14, H - 14);
+    if (dist(p, { x: p.aimX, y: p.aimY }) <= KAMI_COMMIT) p.locked = true;
+  }
+
+  // steer toward the aim point at a limited rate. vx/vy are written rather than
+  // derived on demand: fireFlakBurst leads its shell on them and killPlane
+  // throws the wreck along them.
+  const want = Math.atan2(p.aimY - p.y, p.aimX - p.x);
+  let head = Math.atan2(p.vy, p.vx);
+  head += clamp(angleDiff(want, head), -KAMI_TURN * dt, KAMI_TURN * dt);
+  p.vx = Math.cos(head) * p.speed;
+  p.vy = Math.sin(head) * p.speed;
+
+  p.x += p.vx * dt;
+  p.y += p.vy * dt;
+
+  // engine note, winding tighter as the dive steepens
+  if (p.y > -40) {
+    p.sfxT -= dt;
+    if (p.sfxT <= 0) { p.sfxT = 0.11 - p.dive * 0.05; SFX.plane(); }
+  }
+
+  // 0..1 down the run from the entry height to the aim point. The renderer maps
+  // it to the airframe's apparent size — see drawPlane.
+  const span = p.aimY - p.entryY;
+  p.dive = span > 1 ? clamp((p.y - p.entryY) / span, 0, 1) : 1;
+
+  // a holed airframe streams the rest of the way down, so a plane the flak hit
+  // but didn't break still reads as hit
+  if (p.hp < p.maxhp * 0.5 && Math.random() < 0.5) {
+    G.particles.push({
+      x: p.x + rand(-3, 3), y: p.y + rand(-3, 3),
+      vx: rand(-10, 10), vy: rand(-20, 5),
+      ttl: rand(0.4, 0.9), grav: -8, size: rand(2, 4),
+      color: pick(['#2b261e', '#3d362a', '#4e4536']),
+    });
+  }
+
+  // impact: inside the hit radius, or the instant he flies past the point he
+  // was aiming at — a dive that gets ahead of a running man buries itself in
+  // the dirt beside him rather than turning around
+  const dx = p.aimX - p.x, dy = p.aimY - p.y;
+  if (dx * dx + dy * dy < KAMI_HIT * KAMI_HIT || dx * p.vx + dy * p.vy < 0) {
+    detonateKamikaze(p);
+    return;
+  }
+
+  if (p.y > H + 90) p.done = true;   // clean off the bottom of the field: gone, no blast
+}
+
+// the aircraft IS the warhead. The synthetic firer carries side 'de' so the
+// blast is visible to the ESCALATION damage modifier, which keys on from.side —
+// same reason detonateLunge builds one.
+function detonateKamikaze(p) {
+  if (p.done) return;
+  p.done = true;
+  explode(p.x, p.y, p.blastR, p.blastDmg, p.big, { x: p.x, y: p.y, side: 'de' });
+}
+
+// what a flak burst can reach: anything of the enemy's that is up in the air.
+// One predicate rather than a role test at each site, so a new kind of aircraft
+// can never be silently invisible to the AA gun.
+function isFlakTarget(p) {
+  return !p.done && (p.role === 'bomber' || p.role === 'kamikaze');
+}
+
 // a falling bomb's screen state: it tips out behind the bomber and tumbles
 // down onto the target marker, its apparent altitude bleeding off toward zero
 // at impact. Returns ground track, screen position, and normalized altitude.
@@ -403,8 +524,15 @@ function bombFlightState(s) {
 }
 
 // flak finds the airframe: it comes apart in the air and what's left of it
-// hits the ground still carrying whatever was in the bomb bay
-function killBomber(p, by) {
+// hits the ground still carrying whatever it had aboard. A bomber's bomb bay is
+// the default 46/70; a kamikaze brings its own reduced pair, because a warhead
+// cooking off in a tumbling wreck is not the same as one driven into the dirt
+// on purpose — and that shortfall, landing short of where it was aimed, is the
+// AA gun's whole reward for getting there first.
+// Note the explode() here deliberately forwards no firer: `by` is the friendly
+// gun crew, and crediting them would run their on-kill card hooks against your
+// own men. The plane itself is already credited by creditKill above.
+function killPlane(p, by) {
   if (p.done) return;
   p.done = true;
   creditKill(by);
@@ -422,7 +550,7 @@ function killBomber(p, by) {
   // the wreck comes down south of where it was hit, still travelling
   const cx = clamp(p.x + p.vx * 0.5, 20, W - 20);
   const cy = clamp(p.y + p.vy * 0.55, 20, H - 20);
-  explode(cx, cy, 46, 70, true);
+  explode(cx, cy, p.wreckR || 46, p.wreckDmg || 70, true);
 }
 
 // bombers are never seen, only their shadows: a twin-engine silhouette
@@ -462,34 +590,63 @@ function drawBomberShadow(p) {
   c.restore();
 }
 
+// A kamikaze is the one aircraft in the game that is SEEN. A bomber is only
+// ever a shadow because it never comes below its cruise; a kamikaze arrives by
+// flying all the way down to the dirt, and a dive you can't see coming isn't a
+// dive you can step out from under. It is drawn through this same procedural
+// airframe as the strafer and the transport rather than a copy of it — the only
+// real deltas are a SIZE, a heading and the marking on the wings, so all three
+// are parameters. Every field they key on is absent on the other two roles, so
+// the art that shipped is untouched.
 function drawPlane(p) {
   const c = ctx;
   if (p.role === 'bomber') { drawBomberShadow(p); return; }
   const flyby = p.role === 'flyby';
+  const kami = p.role === 'kamikaze';
   const facing = flyby ? (p.vx > 0 ? 1 : -1) : 0;
+  if (kami && p.y < -40) return;
 
-  // shadow racing along the ground
-  c.fillStyle = 'rgba(0,0,0,0.22)';
-  c.save();
-  if (flyby) {
-    c.translate(p.x, p.y + 28);
-    c.beginPath(); c.ellipse(0, 0, 26, 8, 0, 0, 7); c.fill();
-  } else {
-    c.translate(p.x + 26, p.y + 34);
-    c.beginPath(); c.ellipse(0, 0, 9, 20, 0, 0, 7); c.fill();
-    c.beginPath(); c.ellipse(0, -2, 22, 5, 0, 0, 7); c.fill();
+  // apparent size. This camera looks straight down, so ALTITUDE IS DISTANCE
+  // FROM THE LENS: a plane up at its entry height is nearer the viewer and
+  // reads large, and it shrinks back toward its true ground-level size as it
+  // drops onto the field. That recession is the altitude cue, and it's why a
+  // kamikaze needs no ground shadow to be legible.
+  const scale = kami ? p.size * (1.6 - 0.6 * (p.dive || 0)) : 1;
+
+  // shadow racing along the ground — a kamikaze has none: it is its own
+  // silhouette, and a shadow under a shrinking sprite reads as a second plane
+  if (!kami) {
+    c.fillStyle = 'rgba(0,0,0,0.22)';
+    c.save();
+    if (flyby) {
+      c.translate(p.x, p.y + 28);
+      c.beginPath(); c.ellipse(0, 0, 26, 8, 0, 0, 7); c.fill();
+    } else {
+      c.translate(p.x + 26, p.y + 34);
+      c.beginPath(); c.ellipse(0, 0, 9, 20, 0, 0, 7); c.fill();
+      c.beginPath(); c.ellipse(0, -2, 22, 5, 0, 0, 7); c.fill();
+    }
+    c.restore();
   }
-  c.restore();
 
   c.save();
   c.translate(p.x, p.y);
   if (flyby) c.rotate(facing > 0 ? Math.PI / 2 : -Math.PI / 2);
+  // the body below is drawn nose-toward -y; `atan2 + PI/2` turns that into the
+  // heading it is actually flying, which for a dive is down-field
+  else if (kami) c.rotate(Math.atan2(p.vy, p.vx) + Math.PI / 2);
+  if (scale !== 1) c.scale(scale, scale);
 
-  const body = p.transport ? '#4a4840' : '#3f4a3a';
-  const bodyLit = p.transport ? '#5c594e' : '#57654e';
-  const bodyDark = p.transport ? '#33322c' : '#2a3227';
-  const wing = p.transport ? '#535048' : '#46523f';
-  const wingDark = p.transport ? '#403e37' : '#333c2e';
+  // Imperial Army green over a lighter grey-green than the P-47 wears. The one
+  // confusion that would be unforgivable is reading a diving kamikaze as your
+  // own strafing run — the ROTATION is the primary tell (a strafer's nose is
+  // pinned up-field, a kamikaze points wherever it is going), the palette and
+  // the hinomaru back it up.
+  const body = kami ? '#5a5f4e' : p.transport ? '#4a4840' : '#3f4a3a';
+  const bodyLit = kami ? '#727661' : p.transport ? '#5c594e' : '#57654e';
+  const bodyDark = kami ? '#3b4034' : p.transport ? '#33322c' : '#2a3227';
+  const wing = kami ? '#646953' : p.transport ? '#535048' : '#46523f';
+  const wingDark = kami ? '#474c3c' : p.transport ? '#403e37' : '#333c2e';
 
   // wings first, tapered and swept slightly toward the tail so they read as
   // aerofoils rather than blobs; drawn underneath the fuselage
@@ -568,8 +725,17 @@ function drawPlane(p) {
   c.lineWidth = 0.6;
   c.beginPath(); c.ellipse(0, -21.5, 11, 2.5, 0, 0, 7); c.stroke();
 
-  // US roundels on fighter strafers only — white ring, blue disc, red center
-  if (!p.transport) {
+  // national markings: the hinomaru on a kamikaze, US roundels on a fighter
+  // strafer, nothing at all on a transport
+  if (kami) {
+    for (const rx of [-20, 20]) {
+      c.fillStyle = '#b42a2a';
+      c.beginPath(); c.arc(rx, -2, 3, 0, 7); c.fill();
+      c.strokeStyle = 'rgba(235,235,225,0.55)';
+      c.lineWidth = 0.8;
+      c.beginPath(); c.arc(rx, -2, 3, 0, 7); c.stroke();
+    }
+  } else if (!p.transport) {
     for (const rx of [-20, 20]) {
       c.fillStyle = 'rgba(230,230,220,0.95)';
       c.beginPath(); c.arc(rx, -2, 3.2, 0, 7); c.fill();
@@ -580,8 +746,9 @@ function drawPlane(p) {
     }
   }
 
-  // wing gun muzzle flashes while firing
-  if (!flyby && p.y < DEPLOY_Y + 40 && p.y > 40) {
+  // wing gun muzzle flashes while firing — a kamikaze isn't strafing, it's the
+  // ordnance itself, so its guns stay quiet the whole way down
+  if (!flyby && !kami && p.y < DEPLOY_Y + 40 && p.y > 40) {
     c.fillStyle = 'rgba(255,220,120,0.9)';
     for (const gx of [-14, -8, 8, 14]) {
       if (Math.random() < 0.6) {

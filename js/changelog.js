@@ -4,6 +4,16 @@
 const CHANGELOG = [
   {
     date: '2026-07-28',
+    title: 'Kamikaze',
+    changes: [
+      'The air raid is a different event when the Imperial Japanese Army is across from you. No bombers and no bomb sticks — kamikaze. Twice as many aircraft come over, and every one of them picks a man on your line and flies into him.',
+      'A bomb released from altitude is a suggestion; a kamikaze is not. It goes off exactly where it lands, and the aircraft get bigger as the waves grind on, so a late attack is a handful of enormous holes punched precisely into your line instead of a dozen scattered ones punched roughly near it. A knot of men bunched together loses far more than a spread one.',
+      'You can see this one coming, which you never could with a bomber — a bomber is only ever a shadow, but a kamikaze is drawn, and it shrinks as it drops toward the field. It also commits: past a certain point the pilot stops correcting and flies the line he has, so a man walked clear late can be missed by a body length and catch nothing but the edge of it. Going flat still halves the blast, exactly as it does under a bomb.',
+      'Your AA gun is the answer, and it needs to be a better one now. A kamikaze is a much lighter airframe than a bomber, so the same gun breaks about the same share of an attack even though twice as much of it is coming — and one broken up in the air scatters its warhead short of your trench instead of driving it into the middle of your men.',
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'New Card: Fire Mission',
     changes: [
       'New unique OFFICER card — FIRE MISSION. Every wave there is a 5% chance one of your officers gets a battery on the radio and brings six rounds of 60mm down on a random enemy out on the field, free.',

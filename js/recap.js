@@ -149,12 +149,14 @@ function recapOppositionName() {
 
 const RECAP_EVENT_LABELS = {
   fog: 'Fog bank', fng: 'FNG reinforcement', airraid: 'Air raid',
+  kamikaze: 'Kamikaze attack',
   smokescreen: 'Smokescreen',
   airstrike: 'P-47 strafing run', paradrop: 'Paradrop behind the line',
 };
 
 function recapEventLabel(ev) {
   if (ev === 'paradrop' && enemyFaction() === 'zo') return 'The dead rose behind the line';
+  if (ev === 'airraid' && enemyFaction() === 'jp') return 'Kamikaze attack';
   return RECAP_EVENT_LABELS[ev] || ev;
 }
 

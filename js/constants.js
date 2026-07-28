@@ -1635,9 +1635,9 @@ const EVENT_INFO = [
   },
   {
     key: 'airraid',
-    name: 'Air Bombing Raid',
+    name: 'Air Attack',
     wave: 4,
-    desc: 'Luftwaffe bombers cross the field from north to south. Bombers near your men drop 1-4 inaccurate bombs. Numbers, bombs, and damage escalate per wave tier. Only AA guns can reach them.',
+    desc: 'Aircraft cross the field from north to south. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Against the Imperial Japanese Army it is a kamikaze attack instead: twice as many aircraft, no bombs, each one picking a defender and flying into him for a single blast exactly where it lands. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
   },
   {
     key: 'paradrop',
@@ -1983,7 +1983,9 @@ const TESTING_EVENTS = [
   { key: 'paradrop', label: 'PARADROP', cost: 0, kind: 'event', hotkey: '',
     desc: 'Fallschirmjäger drop into the field. Stick size scales with the current wave.' },
   { key: 'airraid', label: 'AIR RAID', cost: 0, kind: 'event', hotkey: '',
-    desc: 'German bombers cross the field north to south. Formation and payload scale with the current wave.' },
+    desc: 'Whatever the current enemy sends: bombers crossing north to south, or kamikaze against the Imperial Japanese Army. Formation and payload scale with the current wave.' },
+  { key: 'kamikaze', label: 'KAMIKAZE', cost: 0, kind: 'event', hotkey: '',
+    desc: 'Forces the Japanese half of the air raid against any enemy. Twice the aircraft of a bombing run, each picking a defender at random and diving into him for one blast.' },
   { key: 'airstrike', label: 'STRAFING RUN', cost: 0, kind: 'event', hotkey: '',
     desc: 'A P-47 strafes a lane of the field.' },
 ];

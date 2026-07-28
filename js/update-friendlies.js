@@ -698,8 +698,10 @@ function updateATGun(u, dt) {
 }
 
 // ---- 40mm anti-aircraft gun: the same staked mount as the 57mm, but the
-// barrels only elevate. It answers to bombers first and to paratroopers still
-// hanging under canopy second, and it cannot touch anything on the ground.
+// barrels only elevate. It answers to enemy aircraft first — level bombers, or
+// the kamikaze that replace them against the Imperial Japanese Army — and to
+// paratroopers still hanging under canopy second, and it cannot touch anything
+// on the ground.
 // Nothing it fires is guaranteed to connect: it throws a fused shell at where
 // it thinks the target will be, and the burst hits whatever is actually there.
 function updateAAGun(u, dt) {
@@ -711,11 +713,11 @@ function updateAAGun(u, dt) {
 
   u.cd -= dt;
 
-  // bombers are the reason this gun exists; a descending stick is a target of
-  // opportunity while the raid isn't up
+  // the raid is the reason this gun exists; a descending stick is a target of
+  // opportunity while nothing is up
   let target = null, best = Infinity;
   for (const p of G.planes) {
-    if (p.done || p.role !== 'bomber') continue;
+    if (!isFlakTarget(p)) continue;
     const d = dist(u, p);
     if (d < best && inRange(p)) { best = d; target = p; }
   }
@@ -820,7 +822,7 @@ function burstFlak(f) {
   }
 
   for (const p of G.planes) {
-    if (p.done || p.role !== 'bomber') continue;
+    if (!isFlakTarget(p)) continue;
     if (dist(p, f) > f.hitR) continue;
     p.hp -= f.dmg * rand(0.8, 1.2);
     for (let i = 0; i < 6; i++) {
@@ -831,7 +833,7 @@ function burstFlak(f) {
         color: pick(['#2a2318', '#4a3d28', '#6e6046']),
       });
     }
-    if (p.hp <= 0) killBomber(p, f.by);
+    if (p.hp <= 0) killPlane(p, f.by);
   }
 
   for (const e of G.enemies) {

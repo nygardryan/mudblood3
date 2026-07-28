@@ -260,6 +260,7 @@ function hoverStats(a, own = false) {
   // Keyed on the mult rather than the part flags, so a fifth boss needs nothing here.
   const plate = Math.round((1 - bossPartDamageMult(a)) * 100);
   if (plate > 0) parts.push(`${plate}% RESIST`);
+  if (t.pounce) parts.push('POUNCE');
   if (t.aura) parts.push('AURA');
   if (t.fixed) parts.push('IMMOBILE');
   // reward is the bounty an attacker collects for killing this unit — only

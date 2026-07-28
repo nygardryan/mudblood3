@@ -193,6 +193,36 @@ interleaved A/B: ~23% → ~7% of the pack down at any moment; per flinch roll,
 - `zabom` (Abomination) — `boss:true`: enormous HP standing in for armor; its bite
   sweeps every defender at reach and near-certainly infects. Rare, late.
 - `zhound` — `hound:true`: a quadruped, drawn by its own `paintZombieHound` branch.
+  It also carries the game's only `pounce` spec, a leap that closes the last
+  stretch in one bound (`houndPounce`, a pre-step inside `updateZombie` in the
+  `updateGarrison` shape). Three things about it are the design, not detail.
+  **It stays a GROUND actor for the whole flight** — `x`/`y` interpolate along
+  the ground and the height is `pounceArc`, a render-only scalar the painter
+  subtracts from y, exactly how the Spitter's bile glob fakes one. There is no z
+  on any actor here, and the one airborne state that does exist, `chute > 0`, is
+  ~15 guards scattered through targeting, shooting, damage and update; staying
+  grounded keeps the hound shootable, minable and inspectable mid-leap for
+  nothing. A pounce is a burst of speed, not an invulnerability window.
+  **Wire GROUNDS it** (`wireOnLeap`, beside `pursuePoint`): the drag clause in
+  `pursuePoint` is the only thing barbed wire does to a melee zombie, so a leap
+  that hurdled a band would quietly retire wire and the Razor Wire card against
+  the fastest thing the Horde fields. The test samples the leap line with the
+  *same* band predicate the drag uses — the two agreeing about where a band is
+  matters more than a tidier slab test. Measured: on open ground it launches at
+  60px and lands at 13, inside the 15 bite reach; with a band on the line it
+  never leaves the dirt and takes the ×0.126 drag as before.
+  It is a **pure gap-closer** — nothing lands on touchdown, so the ordinary
+  reach/cooldown bite takes over on the next frame with no impact code anywhere
+  (measured balance-neutral, n=8/side interleaved: every delta inside 1 sd).
+  Two holes it fell into first, both about state that outlives a frame: the
+  committed flight is stepped ABOVE `updateZombie`'s target check, or a hound
+  whose man dies mid-leap falls to `advance()` and walks on frozen at full arc
+  forever; and `abortPounce` collapses it in `updateEnemy`'s stun and prone
+  blocks, which return above every dispatch and would otherwise leave it hanging
+  in the air. `soldierCacheable` gets `pounceT` (the sprite cache keys on facing
+  with no slot for a pose), and `paintZombieHound` stays PURE — every airborne
+  term is scaled by `arc / lift`, so an actor that has never leapt bakes
+  pixel-identically for the codex portrait and the exporter (verified 0 diff).
 `deploy` spawns any of them (they're in `TESTING_ZOMBIE_PLACEABLES`); wave spawning
 routes through `zomWaveComposition` and `ZOM_SPECIAL_WAVES` when
 `G.enemyFaction === 'zo'`, and the paradrop event becomes "the dead rise behind you"

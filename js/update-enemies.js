@@ -84,6 +84,7 @@ function updateEnemy(e, dt) {
   // overrides prone recovery so the daze runs its full second first
   if (e.stun > 0) {
     e.stun -= dt;
+    abortPounce(e);   // swatted out of the air: drop where you are
     return;
   }
 
@@ -95,6 +96,7 @@ function updateEnemy(e, dt) {
       e.prone = 0;
       e.proneCd = rand(4, 6);
     } else {
+      abortPounce(e);
       return; // pinned: no shooting, no advancing
     }
   }
@@ -411,6 +413,27 @@ function pursuePoint(e, tx, ty, speed, dt) {
   }
   e.x = clamp(e.x + Math.cos(e.face) * speed * dt, 14, W - 14);
   e.y += Math.sin(e.face) * speed * dt;   // no top clamp — a charger can breach
+}
+
+// Would a leap from (x0,y0) to (x1,y1) cross a live wire band? The hound's pounce
+// is the only movement in the game that could skip the drag clause above, and the
+// drag is the ONLY thing barbed wire does to a melee zombie — so wire has to stop
+// the leap outright or the Razor Wire card quietly stops mattering against the
+// fastest thing the Horde fields. Sampled along the segment with the SAME band
+// predicate the drag uses, rather than a proper slab test: a leap is ~110px at
+// most, so this is a dozen cheap tests against a handful of wires, and the two
+// checks agreeing exactly about where a band is matters more here than elegance.
+function wireOnLeap(x0, y0, x1, y1) {
+  const steps = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 8));
+  for (const wr of G.wires) {
+    if (wr.hp <= 0) continue;
+    for (let i = 0; i <= steps; i++) {
+      const f = i / steps;
+      const sx = x0 + (x1 - x0) * f, sy = y0 + (y1 - y0) * f;
+      if (Math.abs(sx - wr.x) < 40 && Math.abs(sy - wr.y) < 14) return true;
+    }
+  }
+  return false;
 }
 
 // occasional battle-cry, throttled per man so a whole wave doesn't shriek at once
@@ -1738,11 +1761,19 @@ const ZOMBIE_REACH = 15;
 function updateZombie(e, dt, buffed, command) {
   zombieGroan(e, dt);
   if (e.t.frenzyCmd) zombieFrenzyCommand(e, dt);   // the screamer drives the pack
+  // A leap already in the air is COMMITTED and needs no target to finish, so it
+  // has to be stepped above the checks below — a hound whose man died mid-flight
+  // would otherwise fall to advance() and walk on frozen at full arc, never
+  // landing and never re-entering the sprite cache.
+  if (e.pounceT > 0) { houndPounce(e, dt, null, 0); return; }
   if (command) { if (e.moveTo) advance(e, dt, buffed); return; }
   const target = primaryUnitTarget(e, 4000);
   if (!target) { advance(e, dt, buffed); return; }
   const reach = ZOMBIE_REACH + (e.t.boss ? 16 : e.t.big ? 8 : 0)
     + (target.t.tank || target.t.vehicle ? 9 : 0);
+  // the hound leaps the last stretch instead of running it — a pre-step, so a
+  // grounded one falls straight through to the pursuit below
+  if (e.t.pounce && houndPounce(e, dt, target, reach)) return;
   if (dist(e, target) > reach) {
     const speed = e.t.speed * (buffed ? 1.2 : 1) * (e.chargeT > 0 ? 1.35 : 1);
     pursuePoint(e, target.x, target.y, speed, dt);
@@ -1765,6 +1796,79 @@ function updateZombie(e, dt, buffed, command) {
       zombieBite(e, target);
     }
   }
+}
+
+// Stun and prone return from the TOP of updateEnemy, above every dispatch, so a
+// hound caught mid-leap would otherwise hang in the air until the daze wore off.
+// Collapsing the arc there is all it takes — x/y are valid ground coords at every
+// point of the lerp, so it just drops where it is. Called from those two blocks
+// rather than edited into the shared tryGoProne/maybeShellShock setters, which
+// have no business knowing what a pounce is.
+function abortPounce(e) {
+  if (e.pounceT > 0) { e.pounceT = 0; e.pounceArc = 0; }
+}
+
+// The Infected Hound's leap: it closes the last stretch of ground in one bound
+// instead of running it. Shaped as a PRE-STEP like updateGarrison/updateArdito —
+// it returns true only while the leap owns the frame, so a hound on cooldown or
+// out of the distance window falls straight through to the ordinary pursuit.
+// `target` is only read to DECIDE a leap, so the mid-flight call site above
+// passes null: once launched, the arc is committed to a fixed landing point.
+//
+// It is purely a gap-closer. The landing point is chosen just inside bite reach,
+// so touchdown needs no impact code of its own: the next frame the ordinary
+// reach/cooldown bite above takes over with no special case anywhere.
+//
+// x/y stay on the GROUND for the whole flight — the height is `pounceArc`, a
+// render-only scalar the painter subtracts from y, exactly the way the Spitter's
+// bile glob (the only other arc in the game) fakes one. There is no z anywhere in
+// this engine, and the single airborne state that does exist, `chute > 0`, is
+// ~15 guards scattered through targeting, shooting, damage and update. Staying a
+// ground actor keeps the hound shootable, minable, wire-able and inspectable
+// mid-leap for nothing. A pounce is a burst of speed, not an invulnerability
+// window — which is also why nothing here touches its HP or armor.
+function houndPounce(e, dt, target, reach) {
+  const p = e.t.pounce;
+  // `!(x > 0)` rather than `x <= 0`: pounceT is undefined until the first leap
+  // (the fields are seeded lazily), and `undefined <= 0` is false — which would
+  // send a fresh hound straight into the flight maths and NaN its position.
+  if (!(e.pounceT > 0)) {
+    // grounded: recharge. Seeded lazily on first read, the way the spitter's
+    // spitCd is, so makeEnemy doesn't grow a field every enemy in the game
+    // would then carry.
+    e.pounceCd = (e.pounceCd == null ? rand(p.cdMin, p.cdMax) : e.pounceCd) - dt;
+    if (e.pounceCd > 0) return false;
+    const d = dist(e, target);
+    if (d < p.min || d > p.range) return false;
+    const a = Math.atan2(target.y - e.y, target.x - e.x);
+    const hop = Math.max(0, d - Math.max(0, reach - 2));   // stop just inside reach
+    const tx = clamp(e.x + Math.cos(a) * hop, 14, W - 14);
+    const ty = e.y + Math.sin(a) * hop;
+    // wire on the line — or a hound already snagged in a band — grounds the leap
+    if (wireOnLeap(e.x, e.y, tx, ty)) return false;
+    e.psx = e.x; e.psy = e.y;
+    e.ptx = tx; e.pty = ty;
+    // the duration is COPIED rather than read off the spec each frame, so retuning
+    // p.dur from the console mid-flight can't renormalize a leap already underway
+    e.pounceDur = p.dur;
+    e.pounceT = p.dur;
+    e.face = a;
+    // and then FALL THROUGH: the leap moves on the frame it launches, not the one
+    // after. Returning here instead costs a stationary frame at full arc 0, which
+    // reads as the dog hitching before it jumps.
+  }
+  // in the air: ride the stored launch → landing line
+  e.pounceT -= dt;
+  const f = clamp(1 - e.pounceT / e.pounceDur, 0, 1);
+  e.x = e.psx + (e.ptx - e.psx) * f;
+  e.y = e.psy + (e.pty - e.psy) * f;
+  e.pounceArc = Math.sin(f * Math.PI) * p.lift;
+  if (e.pounceT <= 0) {
+    e.pounceT = 0;
+    e.pounceArc = 0;
+    e.pounceCd = rand(p.cdMin, p.cdMax);
+  }
+  return true;
 }
 
 // one maul: instant, no projectile. Bypasses body/flak armor like any melee, does

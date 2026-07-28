@@ -130,6 +130,13 @@ const TEST = {
         avantiCd: +G.itAvantiCd.toFixed(1),
         charging: G.enemies.filter(e => !e.dead && e.t.faction === 'it' && e.chargeT > 0).length,
       },
+      // The Horde: hounds currently in the air, and how many of your own men are
+      // carrying the infection — the two things about this faction that a count
+      // of enemies can't tell you.
+      zo: {
+        pouncing: G.enemies.filter(e => !e.dead && e.pounceT > 0).length,
+        infected: G.units.filter(u => !u.dead && u.infected > 0).length,
+      },
     };
   },
 

@@ -880,6 +880,14 @@ Object.assign(ENEMY_TYPES, {
     rof: 0.85, burst: 1, burstGap: 0, reward: 2,
     color: '#5a5238', gun: 0, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.30, hound: true,
+    // The leap (houndPounce, js/update-enemies.js): it closes the last stretch in
+    // one bound instead of running it. Purely a gap-closer — it lands in bite
+    // range and the ordinary reach/cooldown bite takes it from there. Keyed on
+    // `pounce` rather than `hound` on purpose: `hound` is the renderer's
+    // quadruped switch, and the two shouldn't be welded together.
+    // range/min: the distance window it will launch from. dur: flight seconds.
+    // lift: peak of the render-only arc, px. cdMin/cdMax: recharge.
+    pounce: { range: 66, min: 30, dur: 0.34, lift: 13, cdMin: 2.5, cdMax: 4.0 },
   },
   zbrute: {
     // a swollen, muscle-bound corpse: high HP, slow, and it hits like a truck.
@@ -1582,7 +1590,7 @@ const ENEMY_INFO = {
   zshambler: 'A slow, relentless walking corpse. No weapon — it claws its way to your line and bites. Its bite can infect; an infected man who dies rises against you. Cheap and endless.',
   zrunner: 'A fresh corpse still fast on its feet. Sprints the field and lunges — low HP, but it closes before you can thin the pack. Its bite spreads the infection.',
   zcrawler: 'Half a body dragging itself along the dirt. Small, quick, and it swarms. A weak bite, but there are always more of them, and every bite can infect.',
-  zhound: 'An infected war dog. Blazing fast and almost no mass, with a savage bite that takes hold easily. Shoot the pack before it reaches the wire.',
+  zhound: 'An infected war dog. Blazing fast and almost no mass, with a savage bite that takes hold easily. It POUNCES the last few yards, clearing open ground in one bound — but wire it cannot leap, so it drags through like the rest of the dead. Shoot the pack before it reaches the wire.',
   zbrute: 'A swollen, muscle-bound corpse. High HP, slow, and it hits like a truck — a heavy bite with a strong chance to infect. Soaks a lot of lead.',
   zspitter: 'The horde\'s one ranged threat. Hangs back and lobs a glob of corrosive bile that bursts on impact — area damage plus a high chance to infect everyone in the splash. Blind up close.',
   zbloater: 'A gas-swollen corpse that bursts when it dies or reaches you, venting a cloud of infectious rot: area damage and a high infect chance to all caught in it. A walking mine — kill it at range.',
@@ -1835,7 +1843,7 @@ const TESTING_ZOMBIE_PLACEABLES = [
   { key: 'zcrawler', label: 'CRAWLER', cost: 3, kind: 'egerman', hotkey: '',
     desc: 'Half a body dragging along the dirt. Small, quick, swarms.' },
   { key: 'zhound', label: 'HOUND', cost: 4, kind: 'egerman', hotkey: '',
-    desc: 'Infected war dog. Blazing fast, tiny HP, a bite that takes hold easily.' },
+    desc: 'Infected war dog. Blazing fast, tiny HP, pounces the last few yards.' },
   { key: 'zbrute', label: 'BRUTE', cost: 12, kind: 'egerman', hotkey: '',
     desc: 'Swollen bruiser. High HP, slow, heavy bite with a strong infect chance.' },
   { key: 'zspitter', label: 'SPITTER', cost: 10, kind: 'egerman', hotkey: '',

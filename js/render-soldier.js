@@ -16,7 +16,8 @@ const SOLDIER_FACINGS = 48;
 // straight (uncached) so the animation still plays. Everything else is a steady
 // pose that hits the cache.
 function soldierCacheable(a) {
-  return !(a.grenThrowT > 0 || a.mortarFireT > 0 || a.shotgunBlastT > 0 || a.flameT > 0 || a.slashT > 0 || a.spitT > 0);
+  return !(a.grenThrowT > 0 || a.mortarFireT > 0 || a.shotgunBlastT > 0 || a.flameT > 0 || a.slashT > 0 || a.spitT > 0
+    || a.pounceT > 0);
 }
 
 // The cached directional frame for this soldier's type/nation/facing. Baked from

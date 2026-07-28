@@ -38,6 +38,7 @@ const CODEX_CODE = {
   awalker: 'WLK',
   wire: 'WIR', sandbags: 'SBG', dummy: 'DMY', bunker: 'BNK', watchtower: 'TWR', camonest: 'CMO',
   ammocrate: 'AMM', mine: 'MIN', mortar: 'MST', artillery: 'ART',
+  bodyarmor: 'BDY', flakarmor: 'FLK',
   fog: 'FOG', fng: 'FNG', airraid: 'RAD', paradrop: 'PAR', airstrike: 'P47', special: 'SPC',
   smokescreen: 'SMK',
 };
@@ -359,6 +360,61 @@ function drawCodexIcon(key) {
       c.fillStyle = '#ffd94a';
       c.beginPath(); c.arc(ox, oy, 4, 0, 7); c.fill();
     }
+  } else if (key === 'bodyarmor' || key === 'flakarmor') {
+    // The two armor purchases: a plate on a man's chest, carrying the same
+    // accent its bar carries in the field (drawSoldierOverlays) — steel-blue for
+    // body, olive for flak. The silhouette is deliberately the FNG icon's torso,
+    // since what is being bought is a thing fitted to one infantryman rather
+    // than a thing built on the ground like every other entry in this tab.
+    // The icons then differ only in what is coming at the plate, because that is
+    // the only thing that separates the two purchases: one round for the vest
+    // that soaks bullets, a fragment burst for the vest that soaks blast.
+    const flak = key === 'flakarmor';
+    const accent = flak ? '#b7a94e' : '#8fb3d9';
+    c.fillStyle = '#4a5d3a';                        // helmet dome
+    c.beginPath(); c.arc(cx, cy - 16, 8, Math.PI, 0); c.closePath(); c.fill();
+    c.fillRect(cx - 9.5, cy - 16, 19, 2.5);         // brim
+    c.fillStyle = '#c19a6b';                        // face
+    c.beginPath(); c.arc(cx, cy - 13, 5.5, 0, 7); c.fill();
+    c.fillStyle = '#5b6b4a';                        // shoulders / torso
+    c.beginPath();
+    c.moveTo(cx - 18, cy + 24);
+    c.quadraticCurveTo(cx - 17, cy - 5, cx, cy - 5);
+    c.quadraticCurveTo(cx + 17, cy - 5, cx + 18, cy + 24);
+    c.closePath(); c.fill();
+    c.fillStyle = accent;                           // the plate carrier itself
+    c.fillRect(cx - 12, cy - 3, 24, 20);
+    c.fillStyle = 'rgba(0,0,0,0.30)';               // webbing: two bands and a centre seam
+    c.fillRect(cx - 12, cy + 2, 24, 2);
+    c.fillRect(cx - 12, cy + 9, 24, 2);
+    c.fillRect(cx - 1.5, cy - 3, 3, 20);
+    c.fillStyle = 'rgba(255,255,255,0.16)';         // top edge catches the light
+    c.fillRect(cx - 12, cy - 3, 24, 2);
+    if (flak) {
+      // fragments coming in off a blast, skating off the vest
+      c.strokeStyle = '#ffd94a';
+      c.lineWidth = 1.6;
+      // aimed at the PLATE, like the bullet on the other icon — a burst drawn up
+      // by the helmet reads as a man being hit in the head rather than a vest
+      // stopping shrapnel, which is the opposite of what the card does
+      for (const [ax, ay, bx2, by2] of [[-32, -14, -18, -3], [-28, -22, -16, -8],
+        [-19, -27, -11, -12], [-34, -4, -19, 2]]) {
+        c.beginPath(); c.moveTo(cx + ax, cy + ay); c.lineTo(cx + bx2, cy + by2); c.stroke();
+      }
+      c.fillStyle = 'rgba(255,120,40,0.45)';
+      c.beginPath(); c.arc(cx - 13, cy + 4, 9, 0, 7); c.fill();
+      c.fillStyle = '#ffd94a';
+      c.beginPath(); c.arc(cx - 13, cy + 4, 3.5, 0, 7); c.fill();
+    } else {
+      // a single round stopped dead on the plate
+      c.strokeStyle = '#e8e2c0';
+      c.lineWidth = 2;
+      c.beginPath(); c.moveTo(cx - 34, cy + 1); c.lineTo(cx - 15, cy + 5); c.stroke();
+      c.fillStyle = 'rgba(255,220,120,0.5)';
+      c.beginPath(); c.arc(cx - 11, cy + 6, 7, 0, 7); c.fill();
+      c.fillStyle = '#fff2c0';
+      c.beginPath(); c.arc(cx - 11, cy + 6, 2.8, 0, 7); c.fill();
+    }
   } else if (key === 'fog') {
     c.fillStyle = 'rgba(140,140,130,0.35)';
     for (let i = 0; i < 5; i++) {
@@ -468,7 +524,16 @@ function renderPortrait(typeKey, side) {
   ctx = pc.getContext('2d');
   G = { selected: [] };
 
-  const defenseKeys = ['wire', 'sandbags', 'dummy', 'bunker', 'watchtower', 'camonest', 'ammocrate', 'mine', 'mortar', 'artillery'];
+  // Derived from PLACEABLES rather than spelled out, because this is the same
+  // filter codexEntries('defenses') builds the tab from — the two must name the
+  // same set or an entry reaches the makeUnit/makeEnemy branch below and throws
+  // on a key that is in neither catalog. A hand-written list drifted exactly
+  // that way once: BODY ARMOR and FLAK ARMOR were added to PLACEABLES as
+  // supports, never added here, and carry side:null — so they fell to
+  // makeEnemy(), where ENEMY_TYPES['bodyarmor'] is undefined. buildCodex has no
+  // try/catch around its append loop, so the throw took the rest of the tab with
+  // it and left openCodexOverlay short of the line that un-hides the overlay.
+  const defenseKeys = PLACEABLES.filter(p => p.kind !== 'unit').map(p => p.key);
   const eventKeys = EVENT_INFO.map(e => e.key);
   const soundKeys = SOUND_ENTRIES.map(s => s.key);
   if (defenseKeys.includes(typeKey) || eventKeys.includes(typeKey) || soundKeys.includes(typeKey)) {
@@ -1039,7 +1104,10 @@ function codexEntries(tab) {
       code: CODEX_CODE[p.key],
       kind: p.kind.toUpperCase(),
       name: p.label,
-      stats: `${p.cost} TP · [${p.hotkey}] · ${p.kind.toUpperCase()}`,
+      // the two armor supports carry no hotkey (they're bought onto a man, not
+      // dropped on the field), so the bracket is dropped rather than printed empty
+      stats: [`${p.cost} TP`, p.hotkey ? `[${p.hotkey}]` : null, p.kind.toUpperCase()]
+        .filter(Boolean).join(' · '),
       desc: p.desc,
     }));
   }
@@ -1236,11 +1304,19 @@ function codexRecordCount() {
   return CODEX_TABS.reduce((n, t) => n + codexEntries(t.id).length, 0);
 }
 
+// The overlay is un-hidden BEFORE the list is built, and the order is
+// load-bearing rather than incidental. The caller has already hidden whatever
+// screen it came from (#intro or #pause), so if anything downstream throws
+// while the codex is still hidden the player is left looking at nothing, with
+// no ✕ to click and no overlay for Escape to claim — a blank screen only a
+// reload clears. Showing first means the worst a bad entry can do is truncate
+// the list the player is looking at. `codexTab` persists across opens, so the
+// bad tab is also the one the NEXT open lands on.
 function openCodexOverlay() {
   codexOpenKey = null;
+  el('codex').classList.remove('hidden');
   buildCodex(codexTab);
   el('codex-records').textContent = `${codexRecordCount()} RECORDS · LIVE`;
-  el('codex').classList.remove('hidden');
 }
 
 function openCodex() {

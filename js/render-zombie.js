@@ -101,24 +101,35 @@ function paintZombieHound(c, a) {
   const fx = Math.cos(a.face), fy = Math.sin(a.face);
   const px = -fy, py = fx;
   const t = a.t;
+  // Mid-pounce lift. `|| 0` is what keeps this painter PURE and byte-identical
+  // for the codex portrait and the sprite exporter, which hand it actors that
+  // have never leapt — at air 0 every expression below collapses to the values
+  // it had before the ability existed.
+  const arc = a.pounceArc || 0;
+  const air = arc > 0 ? clamp(arc / ((t.pounce && t.pounce.lift) || 1), 0, 1) : 0;
   c.save();
-  // shadow
-  c.fillStyle = 'rgba(0,0,0,0.25)';
-  c.beginPath(); c.ellipse(0, 3, 9, 3.5, 0, 0, 7); c.fill();
-  // elongated body along the run axis
+  // shadow — stays on the GROUND while the body rises off it, shrinking and
+  // fading with the height. That gap is the whole read of the leap.
+  c.fillStyle = `rgba(0,0,0,${0.25 * (1 - 0.5 * air)})`;
+  c.beginPath(); c.ellipse(0, 3, 9 * (1 - 0.3 * air), 3.5 * (1 - 0.3 * air), 0, 0, 7); c.fill();
+  c.translate(0, -arc);
+  // elongated body along the run axis, stretched further in the air
   c.fillStyle = t.color;
-  c.beginPath(); c.ellipse(0, 0, 7.5, 3.4, a.face, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(0, 0, 7.5 + 1.2 * air, 3.4 - 0.4 * air, a.face, 0, 7); c.fill();
   c.strokeStyle = ZOM_SKIN_DK; c.lineWidth = 0.9; c.stroke();
   // patchy exposed flank
   c.fillStyle = ZOM_BLOOD;
   c.beginPath(); c.arc(-fx * 1.5 + px * 1.2, -fy * 1.5 + py * 1.2, 1.5, 0, 7); c.fill();
-  // four legs, mid-stride
+  // four legs, mid-stride on the ground — but thrown out fore and aft in the air,
+  // which is the pose that reads as a leap rather than a fast run
   c.strokeStyle = ZOM_SKIN_DK; c.lineWidth = 1.4;
   for (const [along, side, kick] of [[3.5, 1, 0.5], [3.5, -1, -0.3], [-3.5, 1, -0.4], [-3.5, -1, 0.5]]) {
     const bx = fx * along + px * 2 * side, by = fy * along + py * 2 * side;
+    const reach = kick * (1 - air) + Math.sign(along) * 4.2 * air;
+    const splay = 2.4 * (1 - 0.35 * air);
     c.beginPath();
     c.moveTo(bx, by);
-    c.lineTo(bx + px * 2.4 * side + fx * kick, by + py * 2.4 * side + fy * kick);
+    c.lineTo(bx + px * splay * side + fx * reach, by + py * splay * side + fy * reach);
     c.stroke();
   }
   // neck + snouted head lunging forward
@@ -134,8 +145,9 @@ function paintZombieHound(c, a) {
   c.beginPath(); c.arc(fx * 8.4 + px * 1.4, fy * 8.4 + py * 1.4, 0.8, 0, 7); c.fill();
   c.strokeStyle = ZOM_SKIN_DK; c.lineWidth = 1;
   c.beginPath(); c.moveTo(fx * 7 + px * 1.5, fy * 7 + py * 1.5); c.lineTo(fx * 6 + px * 3, fy * 6 + py * 3); c.stroke();
-  // lashing tail
-  c.beginPath(); c.moveTo(-fx * 6, -fy * 6); c.lineTo(-fx * 9 + px * 2, -fy * 9 + py * 2); c.stroke();
+  // lashing tail — it streams out straight behind once the dog is off the ground
+  const tl = 9 + 2 * air, tw = 2 * (1 - air);
+  c.beginPath(); c.moveTo(-fx * 6, -fy * 6); c.lineTo(-fx * tl + px * tw, -fy * tl + py * tw); c.stroke();
   c.restore();
 }
 

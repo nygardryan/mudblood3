@@ -230,7 +230,7 @@ function drawAlienBeams() {
     const ty = ey + Math.sin(e.awAng) * AW_BEAM_RANGE;
     ctx.save();
     // the burn trailing the beam
-    const trail = e.awAng - e.awDir * 0.35;
+    const trail = e.awAng - e.awDir * AW_SWEEP_ARC * 0.15;
     ctx.globalAlpha = 0.10;
     ctx.fillStyle = AWK_GLOW_DIM;
     ctx.beginPath();

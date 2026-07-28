@@ -157,7 +157,7 @@ const UNIT_TYPES = {
     desc: 'Willys jeep, pintle-mounted .50 cal. Fast and hard-hitting, but unarmored.',
   },
   sherman: {
-    name: 'Sherman', hp: 1000, range: 262, dmg: 0, acc: 0,
+    name: 'Sherman', hp: 1000, range: 288, dmg: 0, acc: 0,
     rof: 4.0, burst: 1, burstGap: 0, speed: 14, shellDmg: 80,
     color: '#566f44', gun: 0, sfx: 'boom', tank: true,
     fireCone: { arc: 0.275 },
@@ -549,7 +549,7 @@ const ENEMY_TYPES = {
     color: '#565d67', gun: 16, sfx: 'mg', priority: 3, vehicle: true, apc: true,
   },
   panzer: {
-    // counterpart: sherman (range 262, speed 14)
+    // counterpart: sherman (range 288, speed 14)
     name: 'Panzer IV', hp: 1400, speed: 8, range: 228, dmg: 0, acc: 0,
     rof: 4.2, burst: 1, burstGap: 0, reward: 15, shellDmg: 95,
     color: '#586069', gun: 0, sfx: 'boom', priority: 0, tank: true,
@@ -557,7 +557,7 @@ const ENEMY_TYPES = {
     mg: { range: 154, dmg: 8, acc: 0.4, burst: 6, burstGap: 0.08, gun: 24, sfx: 'mg' },
   },
   estug: {
-    // counterpart: sherman (range 262, speed 14)
+    // counterpart: sherman (range 288, speed 14)
     name: 'StuG III', hp: 950, speed: 12, range: 201, dmg: 0, acc: 0,
     rof: 3.6, burst: 1, burstGap: 0, reward: 12, shellDmg: 105,
     color: '#4e555f', gun: 0, sfx: 'boom', priority: 0, tank: true, casemate: true,
@@ -565,7 +565,7 @@ const ENEMY_TYPES = {
     mg: { range: 134, dmg: 6, acc: 0.38, burst: 4, burstGap: 0.08, gun: 20, sfx: 'mg' },
   },
   etiger: {
-    // counterpart: sherman (range 262, speed 14)
+    // counterpart: sherman (range 288, speed 14)
     name: 'Tiger I', hp: 2050, speed: 5, range: 241, dmg: 0, acc: 0,
     rof: 4.9, burst: 1, burstGap: 0, reward: 22, shellDmg: 120,
     color: '#44454f', gun: 0, sfx: 'boom', priority: 0, tank: true, heavy: true,
@@ -709,7 +709,7 @@ Object.assign(ENEMY_TYPES, {
     flame: { range: 76, arc: 0.45, dps: 40 }, blastResist: 0.5,
   },
   jhago: {
-    // counterpart: sherman (range 262, speed 14) — Type 95 Ha-Go light tank.
+    // counterpart: sherman (range 288, speed 14) — Type 95 Ha-Go light tank.
     // Thin armor and a small 37mm gun, but fast and it turns up early.
     name: 'Ha-Go', hp: 520, speed: 18, range: 175, dmg: 0, acc: 0,
     rof: 3.8, burst: 1, burstGap: 0, reward: 10, shellDmg: 58,
@@ -718,7 +718,7 @@ Object.assign(ENEMY_TYPES, {
     mg: { range: 138, dmg: 6, acc: 0.4, burst: 5, burstGap: 0.08, gun: 20, sfx: 'mg' },
   },
   jtank: {
-    // counterpart: sherman (range 262, speed 14) — Type 97 Chi-Ha. Lighter and
+    // counterpart: sherman (range 288, speed 14) — Type 97 Chi-Ha. Lighter and
     // quicker than a Panzer IV, with a stubbier 57mm gun.
     name: 'Chi-Ha', hp: 900, speed: 12, range: 205, dmg: 0, acc: 0,
     rof: 4.4, burst: 1, burstGap: 0, reward: 14, shellDmg: 82,
@@ -727,7 +727,7 @@ Object.assign(ENEMY_TYPES, {
     mg: { range: 150, dmg: 7, acc: 0.4, burst: 5, burstGap: 0.08, gun: 22, sfx: 'mg' },
   },
   jchinu: {
-    // counterpart: sherman (range 262, speed 14) — Type 3 Chi-Nu. The heaviest
+    // counterpart: sherman (range 288, speed 14) — Type 3 Chi-Nu. The heaviest
     // thing Japan fielded: a 75mm gun and real armor, but slow and it only
     // shows up late.
     name: 'Chi-Nu', hp: 1250, speed: 10, range: 220, dmg: 0, acc: 0,
@@ -1168,7 +1168,7 @@ Object.assign(ENEMY_TYPES, {
     flame: { range: 76, arc: 0.45, dps: 40 }, blastResist: 0.5,
   },
   il3: {
-    // counterpart: sherman (range 262, speed 14) — L3/35 Lf flame tankette. The
+    // counterpart: sherman (range 288, speed 14) — L3/35 Lf flame tankette. The
     // ONLY flame-throwing armour any faction fields, and it costs no new code:
     // `tankFlame` plumbing has been live and callerless in update-friendlies.js
     // and update-enemies.js since the faction was first cut. Tiny, thin-skinned
@@ -1181,7 +1181,7 @@ Object.assign(ENEMY_TYPES, {
     mg: { range: 128, dmg: 6, acc: 0.4, burst: 6, burstGap: 0.07, gun: 20, sfx: 'mg' },
   },
   im13: {
-    // counterpart: sherman (range 262, speed 14) — M13/40 medium. Riveted, slow,
+    // counterpart: sherman (range 288, speed 14) — M13/40 medium. Riveted, slow,
     // and the heaviest thing Italy fielded in numbers.
     name: 'M13/40', hp: 850, speed: 12, range: 200, dmg: 0, acc: 0,
     rof: 4.4, burst: 1, burstGap: 0, reward: 14, shellDmg: 80,
@@ -1190,7 +1190,7 @@ Object.assign(ENEMY_TYPES, {
     mg: { range: 150, dmg: 7, acc: 0.4, burst: 5, burstGap: 0.08, gun: 22, sfx: 'mg' },
   },
   isemo: {
-    // counterpart: sherman (range 262, speed 14) — Semovente 75/18. A casemate
+    // counterpart: sherman (range 288, speed 14) — Semovente 75/18. A casemate
     // assault gun: the answer to a PLAYER bunker, standing off and shelling it.
     name: 'Semovente', hp: 780, speed: 12, range: 210, dmg: 0, acc: 0,
     rof: 4.0, burst: 1, burstGap: 0, reward: 13, shellDmg: 108,
@@ -1331,7 +1331,7 @@ const AW_HP = 3000;                  // 3x a Sherman (UNIT_TYPES.sherman.hp = 10
 const AW_SWEEP_DMG = 800;            // 80% of a Sherman, ONCE per actor per sweep
 const AW_BEAM_RANGE = Math.round(H * 0.85);   // 527 — "85% of the battlefield"
 const AW_SWEEP_T = 2.0;              // the two-second sweep
-const AW_SWEEP_ARC = 2.4;            // ~137deg, centred on the defenders' mass
+const AW_SWEEP_ARC = 0.6;            // ~34deg, centred on the defenders' mass
 const AW_CHARGE_T = 1.4;             // telegraph: a thin aiming line, time to walk men clear
 const AW_CD_MIN = 4.5, AW_CD_MAX = 7.0;
 // The beam's hit test is the angular WEDGE swept since last tick, not a line
@@ -1584,9 +1584,9 @@ const PLACEABLES = [
     desc: '6 mortar shells on target. DANGER CLOSE — friendly fire is real.' },
   { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 12, kind: 'support', hotkey: 'A',
     desc: '105mm barrage: 16 heavy shells, wide spread. Devastating. Indiscriminate.' },
-  { key: 'bodyarmor', label: 'BODY ARMOR', cost: 1, kind: 'support', hotkey: '',
+  { key: 'bodyarmor', label: 'BODY ARMOR', cost: 2, kind: 'support', hotkey: '',
     desc: 'Straps a plate carrier on one infantryman. Its own bar soaks up bullet damage until it breaks — HP is untouched while it holds. Re-buy to refill.' },
-  { key: 'flakarmor', label: 'FLAK ARMOR', cost: 1, kind: 'support', hotkey: '',
+  { key: 'flakarmor', label: 'FLAK ARMOR', cost: 2, kind: 'support', hotkey: '',
     desc: 'Fits a flak vest on one infantryman. Its own bar soaks up explosion damage until it breaks — HP is untouched while it holds. Re-buy to refill.' },
 ];
 

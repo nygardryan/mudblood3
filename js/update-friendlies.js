@@ -634,7 +634,11 @@ function updateATGun(u, dt) {
   // that. The band check lives inside the predicate because tieredEnemyTarget
   // takes one range for every tier and this tier's is shorter.
   const tiers = [
-    e => e.t.tank && inCone(e),
+    // the walker carries no `tank` flag (that would hand it the ×0.04 armor
+    // multiplier this gun exists to bypass), so it is named here explicitly —
+    // its codex entry already promises AT guns are one of the two things that
+    // reach it
+    e => (e.t.tank || e.t.awalker) && inCone(e),
     e => (e.t.vehicle || e.t.bike || e.t.v2) && inCone(e),
   ];
   if (canisterOn) tiers.push(e => canisterHittable(e) && dist2(u, e) <= cR2 && inCone(e));

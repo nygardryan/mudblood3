@@ -2588,6 +2588,11 @@ function awBeamTick(e) {
   // finished a sweep and the mechanic would never land in front of the player.
   for (const en of G.enemies) {
     if (en.dead || en.t.awalker) continue;
+    // damageEnemy early-returns on `entering` and `chute`, so without this the
+    // lance SPENDS the once-per-sweep slot on an actor it cannot hurt: sweep a
+    // rolling-in Yamato or a stick still under silk and they are keyed into
+    // `hit` for nothing, then arrive/land immune to the rest of that sweep.
+    if (en.y < 0 || en.entering || en.chute > 0) continue;
     if (cut(en)) { damageEnemy(en, AW_SWEEP_DMG, e); awSlag(en.x, en.y); }
   }
 

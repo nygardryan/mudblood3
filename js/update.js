@@ -71,7 +71,16 @@ function update(dt) {
   for (const m of G.mines) {
     if (m.dead) continue;
     for (const e of G.enemies) {
-      if (e.dead || e.chute > 0) continue;
+      // The same gate every other scan carries. `chute` was here already; the
+      // other two were not, and the Yamato's roll-in is what makes that a real
+      // loss rather than a tidiness point. Mines lay as far up as FORWARD_Y
+      // (207, placementMinY) and she rolls in across y 160-240, so a flank
+      // minefield sits directly on her entry lane — but damageEnemy early-returns
+      // on `entering`, so every mine she and her ten parts touched detonated for
+      // ZERO damage before she was even shootable. Measured: 14 of 20 legally
+      // bought mines gone, 0 damage to the ship, in the 5s of her roll-in.
+      // Tripping on a mine has to mean something died.
+      if (e.dead || e.y < 0 || e.entering || e.chute > 0) continue;
       const trig = e.t.tank ? 22 : e.t.apc ? 19 : e.t.vehicle ? 16 : 11;
       if (dist2(m, e) < trig * trig) {
         m.dead = true;

@@ -24,6 +24,14 @@
 // over, and still an exact power-of-two downscale to the 1:1 desktop blit.
 const EXPORT_SS = 4;
 
+// …except for the ground plates, which are a whole 540×620 field rather than a
+// 48-unit man. At EXPORT_SS one biome is a 2160×2480 sheet of noise, four times
+// over, and the export encodes and blank-checks every pixel of it. Two is still
+// more resolution than either blit will ever show — the desktop ground is 1:1
+// and the mobile one caps at 4 device px per unit against a bitmap already
+// upscaled from W×H.
+const EXPORT_TERRAIN_SS = 2;
+
 /* ---- the definition table ---------------------------------------------- */
 
 // Rebuilt on every export rather than cached: the roster it walks is fixed, and
@@ -389,6 +397,36 @@ function spriteDefs() {
     }, c),
   });
 
+  /* the ground ------------------------------------------------------------ */
+  // The only export that is a BACKGROUND rather than a cutout, and the only one
+  // an artist can replace without touching a single figure: each faction's biome
+  // baked flat at the size the engine will stretch theirs back to. Walked off
+  // GROUND_BIOMES rather than a list of faction ids, so a fifth theatre exports
+  // for free the way a new unit type does.
+  for (const f of Object.keys(GROUND_BIOMES)) {
+    const biome = GROUND_BIOMES[f];
+    add({
+      id: terrainSpriteId(f), dir: 'terrain', base: f + '_field',
+      w: W, h: H, ax: 0, ay: 0, ss: EXPORT_TERRAIN_SS, random: true,
+      orientation: 'the whole playable field, top-left at the origin; blitted unrotated, stretched to '
+        + W + '×' + H + ' — only the aspect ratio matters',
+      note: 'OPAQUE, not a cutout: this is the bottom of the frame. Blood, craters, wrecks and the '
+        + 'bodies of the dead are stamped on top of it while the run goes on, and they are translucent, '
+        + 'so they sit correctly on anything painted here. Keep it clear of the olive drab the player\'s '
+        + 'own men wear — picking your troops out of the ground is the whole game.',
+      bake: (c) => paintBiomeField(biome, c),
+    });
+    add({
+      id: terrainTrenchSpriteId(f), dir: 'terrain', base: f + '_trench',
+      w: W, h: TRENCH_SPR_H, ax: 0, ay: 0, ss: EXPORT_TERRAIN_SS,
+      orientation: 'the deploy trench, full field width; the engine lays it over the field at y = '
+        + TRENCH_SPR_Y,
+      note: 'the one line on the field that means something — your men deploy behind it, and it is '
+        + 'the same line in every theatre. Transparency shows the field through, so a narrower cut works.',
+      bake: (c) => paintBiomeTrench(biome, c, -TRENCH_SPR_Y),
+    });
+  }
+
   add({
     id: 'fx_canopy', dir: 'misc',
     w: CANOPY_SPR, h: CANOPY_SPR, ax: CANOPY_SPR_A, ay: CANOPY_SPR_A,
@@ -435,11 +473,12 @@ function exportActor(key, side) {
 // makeSprite's, so the art lands exactly where the live bake puts it — only the
 // density differs (EXPORT_SS rather than the display's).
 function bakeSpriteCanvas(def) {
+  const ss = def.ss || EXPORT_SS;
   const cv = document.createElement('canvas');
-  cv.width = Math.max(1, Math.ceil(def.w * EXPORT_SS));
-  cv.height = Math.max(1, Math.ceil(def.h * EXPORT_SS));
+  cv.width = Math.max(1, Math.ceil(def.w * ss));
+  cv.height = Math.max(1, Math.ceil(def.h * ss));
   const c = cv.getContext('2d');
-  c.setTransform(EXPORT_SS, 0, 0, EXPORT_SS, def.ax * EXPORT_SS, def.ay * EXPORT_SS);
+  c.setTransform(ss, 0, 0, ss, def.ax * ss, def.ay * ss);
 
   // renderPortrait's swap, for the recipes that call the game's own draw
   // functions: those write to the module-global ctx and read G.
@@ -583,6 +622,9 @@ function spriteManifest(defs) {
       orientation: d.orientation,
     };
     if (d.gunTip) m.gunTip = d.gunTip;
+    // only where it differs from the pack's own figure, so an entry stays quiet
+    // unless it has something to say
+    if (d.ss && d.ss !== EXPORT_SS) m.px_per_unit = d.ss;
     if (d.note) m.note = d.note;
     sprites[d.id] = m;
   }
@@ -596,7 +638,10 @@ function spriteManifest(defs) {
       + 'WORLD units and the engine scales your image to them, so only the aspect ratio '
       + 'and the anchor matter. Delete a PNG (or its entry here) and that piece falls '
       + 'back to the procedural art. `ax`/`ay` locate the actor\'s own point inside the '
-      + 'image; `gunTip` is how far along +x its rounds spawn, so a barrel should end there.',
+      + 'image; `gunTip` is how far along +x its rounds spawn, so a barrel should end there. '
+      + 'terrain/ is the ground each army is fought on — one full-field plate per theatre, '
+      + 'plus the deploy trench laid over it — and it is the one folder you can repaint on '
+      + 'its own without touching a single figure.',
     sprites,
   };
 }
@@ -695,6 +740,11 @@ async function spriteRoundtrip(id) {
     id, w: def.w, h: def.h, ax: def.ax, ay: def.ay,
     pngBytes: bytes.length,
     litPixels: lit,
+    // The terrain field scatters its mottle and detail from Math.random on every
+    // call, so its two renders are two different fields and the diff below says
+    // nothing about the geometry. Flagged rather than suppressed: the number is
+    // still the right one to watch on the 175 drawables that ARE deterministic.
+    randomised: !!def.random,
     // mean absolute channel difference over the box, 0..255. The export is baked
     // at EXPORT_SS and compared at 1x, so a few units of resampling drift is
     // expected; tens of units means the anchor or the box is wrong.

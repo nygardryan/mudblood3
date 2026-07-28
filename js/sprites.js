@@ -44,10 +44,14 @@ const SPRITES = (() => {
   let ppu = 0;               // px per world unit the pack was authored at (advisory)
 
   // Every other consumer asks get() afresh each frame and picks up a change for
-  // free. The decal layer (js/render-decals.js) holds BAKED pixels — marks are
-  // stamped once, not redrawn — so it is the one that has to be told.
-  function decalsDirty() {
+  // free. The two layers that hold BAKED pixels — the decals (js/render-decals.js)
+  // and the ground itself (js/render-ground.js) — are the ones that have to be
+  // told, since neither redraws on its own. `deliberate` separates a player
+  // flipping the pack on from one merely finishing its load: only the ground
+  // cares, and refreshGroundArt is where the reason is written down.
+  function bakedLayersDirty(deliberate) {
     if (typeof invalidateDecals === 'function') invalidateDecals();
+    if (typeof refreshGroundArt === 'function') refreshGroundArt(deliberate);
   }
 
   function recordFrom(id, m) {
@@ -91,7 +95,7 @@ const SPRITES = (() => {
       ppu = +man.px_per_unit || 0;
       await Promise.all(Object.entries(table).map(([id, m]) => loadOne(id, m)));
       state = 'ready';
-      decalsDirty();          // the pack landed after the field was stamped
+      bakedLayersDirty();          // the pack landed after the field was stamped
     })();
     return loading;
   }
@@ -108,7 +112,7 @@ const SPRITES = (() => {
     enabled = !!on;
     localStorage.setItem(CUSTOM_SPRITES_KEY, enabled ? '1' : '0');
     if (typeof viewDirty !== 'undefined') viewDirty = true;
-    decalsDirty();
+    bakedLayersDirty(true);
     return enabled;
   }
 
@@ -119,13 +123,13 @@ const SPRITES = (() => {
   function register(id, rec) {
     if (!rec || !rec.img) return false;
     recs.set(id, { img: rec.img, w: rec.w, h: rec.h, ax: rec.ax, ay: rec.ay, id });
-    decalsDirty();
+    bakedLayersDirty(true);
     return true;
   }
 
   function unregister(id) {
     const had = recs.delete(id);
-    decalsDirty();
+    bakedLayersDirty(true);
     return had;
   }
 
@@ -178,6 +182,13 @@ function corpseSpriteId(cp) { return 'corpse_' + (cp.nation || (cp.side === 'us'
 // Blood splats, pools and craters. Three ids for the whole ground layer, because
 // a mark's variation is its size and angle rather than its art (js/damage.js).
 function groundMarkSpriteId(m) { return 'mark_' + m.type; }
+
+// The terrain under all of it: one plate per biome, keyed on the faction the
+// biome is keyed on (js/render-ground.js), plus the deploy trench cut through
+// it. These are the only ids in the pack that are baked once per run instead of
+// blitted per frame — see refreshGroundArt for what that costs.
+function terrainSpriteId(f) { return 'terrain_' + f; }
+function terrainTrenchSpriteId(f) { return 'terrain_' + f + '_trench'; }
 
 // A defense's look changes as an engineer fortifies it, so the tier is part of
 // the id: base / _fortified / _hardened, matching the `up`/`up2` flags the draw

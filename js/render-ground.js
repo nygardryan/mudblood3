@@ -84,6 +84,38 @@ function groundBiome() {
   return GROUND_BIOMES[enemyFaction()] || GROUND_BIOMES.de;
 }
 
+// ── ground art: the sprite-pack seam for a biome ────────────────────────────
+// A biome's four procedural passes collapse into TWO flat plates a pack can
+// replace (js/sprites.js), and they are two rather than one because they are
+// separately useful: an artist may repaint the field and keep the engine's
+// trench, or cut a hand-drawn trench through ground that is still procedural.
+// Each falls through on its own, the way every other sprite in the pack does.
+//
+//   terrain_<f>         the whole playable field, blitted at the origin and
+//                       stretched to W×H. Opaque — it is the bottom of the frame.
+//   terrain_<f>_trench  the deploy strip, laid over the field at TRENCH_SPR_Y.
+//
+// Unlike everything else in the pack these are baked ONCE per run into
+// groundCanvas rather than blitted per frame, and that costs two things a
+// per-frame sprite gets for free: a pack that finishes loading after the field
+// was painted has to ask for a repaint (refreshGroundArt), and a repaint is only
+// safe while the bitmap is still clean — see there.
+const TRENCH_SPR_Y = DEPLOY_Y - 5;   // topmost pixel the procedural trench touches (a plank)
+const TRENCH_SPR_H = 16;             // down to DEPLOY_Y + 11, the bottom of the lip
+
+// what the ground bitmap currently on screen was painted from. Compared rather
+// than assumed, so toggling a pack that has no ground art in it never reshuffles
+// a procedural field for nothing.
+let groundArt = null;
+
+function groundArtState(f) {
+  return {
+    faction: f,
+    field: SPRITES.has(terrainSpriteId(f)),
+    trench: SPRITES.has(terrainTrenchSpriteId(f)),
+  };
+}
+
 function paintGround(level) {
   // (re)size the ground bitmap for the current display density, then pre-scale
   // the context so all world-coordinate drawing — here and the runtime wrecks,
@@ -94,26 +126,77 @@ function paintGround(level) {
   gctx.setTransform(scale, 0, 0, scale, 0, 0);
 
   const biome = groundBiome();
-  // base field, painted once per game
-  gctx.fillStyle = biome.base;
-  gctx.fillRect(0, 0, W, H);
+  const art = groundArtState(enemyFaction());
+  groundArt = art;
+
+  if (art.field) gctx.drawImage(SPRITES.get(terrainSpriteId(art.faction)).img, 0, 0, W, H);
+  else paintBiomeField(biome);
+
+  if (art.trench) {
+    gctx.drawImage(SPRITES.get(terrainTrenchSpriteId(art.faction)).img,
+      0, TRENCH_SPR_Y, W, TRENCH_SPR_H);
+  } else {
+    paintBiomeTrench(biome);
+  }
+}
+
+// The base fill and everything stirred into it. Split out of paintGround so the
+// exporter can bake the same pass onto its own canvas — an artist paints over
+// the exact field they are replacing.
+function paintBiomeField(biome, g = gctx) {
+  g.fillStyle = biome.base;
+  g.fillRect(0, 0, W, H);
   for (let i = 0; i < 700; i++) {
-    gctx.fillStyle = pick(biome.mottle);
-    gctx.beginPath();
-    gctx.ellipse(rand(0, W), rand(0, H), rand(4, 18), rand(3, 10), rand(0, 3), 0, 7);
-    gctx.fill();
+    g.fillStyle = pick(biome.mottle);
+    g.beginPath();
+    g.ellipse(rand(0, W), rand(0, H), rand(4, 18), rand(3, 10), rand(0, 3), 0, 7);
+    g.fill();
   }
-  biome.detail(gctx);
-  // the trench line marking your deploy zone
+  biome.detail(g);
+}
+
+// The trench line marking your deploy zone. `oy` shifts it off DEPLOY_Y, which
+// is how the exporter bakes a 16px strip rather than a full-height plate.
+function paintBiomeTrench(biome, g = gctx, oy = 0) {
+  const y = DEPLOY_Y + oy;
   const t = biome.trench;
-  gctx.fillStyle = t.lip;
-  gctx.fillRect(0, DEPLOY_Y - 3, W, 14);
-  gctx.fillStyle = t.cut;
-  gctx.fillRect(0, DEPLOY_Y, W, 7);
+  g.fillStyle = t.lip;
+  g.fillRect(0, y - 3, W, 14);
+  g.fillStyle = t.cut;
+  g.fillRect(0, y, W, 7);
   for (let x = 8; x < W; x += 26) {
-    gctx.fillStyle = t.plank;
-    gctx.fillRect(x, DEPLOY_Y - 5, 12, 4);
+    g.fillStyle = t.plank;
+    g.fillRect(x, y - 5, 12, 4);
   }
+}
+
+// A pack landed, or was toggled, after the field was baked. This is the ground's
+// half of what invalidateDecals (js/render-decals.js) does for the decal layer —
+// but a ground bitmap cannot simply be rebuilt on demand the way that one can.
+// Wrecks, blast scorch and blown emplacements are stamped into it permanently as
+// the fight goes on and are recorded NOWHERE ELSE, so a repaint costs the run its
+// own history. Hence the two callers being told apart:
+//
+// - the pack finishing its load is not something the player did, and silently
+//   wiping a wave-40 field's wrecks for it would be indefensible. It repaints
+//   only while the bitmap is still clean, which G.time answers exactly rather
+//   than conservatively: every one of those stamps needs combat to have
+//   happened. So a pack that arrives before the first tick lands on the run in
+//   progress, and one that arrives later waits for the next newGame.
+// - flipping ART OFF/ON is a deliberate act whose whole point is to re-render,
+//   and a ground that stubbornly kept the artist's field while every man on it
+//   went procedural would read as the toggle being broken. That one forces it.
+//
+// Either way the state comparison runs FIRST, so a pack carrying no ground art —
+// the common case, since terrain is the one thing an artist can skip entirely —
+// never reshuffles a procedural field or costs a single wreck.
+function refreshGroundArt(force) {
+  if (!G || !groundArt) return;
+  const next = groundArtState(enemyFaction());
+  if (next.faction === groundArt.faction && next.field === groundArt.field
+    && next.trench === groundArt.trench) return;
+  if (!force && G.time > 0) return;
+  paintGround(G.level);
 }
 
 // ── biome detail passes ─────────────────────────────────────────────────────

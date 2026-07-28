@@ -436,6 +436,21 @@ function handleCanvasTap(shiftKey = false) {
     mobileVibrate(5);
     return;
   }
+  // tap an emplacement → pin its info panel. Touch has no hover, and this is the
+  // whole mobile route to the emplacement inspector. It sits LAST on purpose:
+  // with troops selected, a tap on your own bunker is a move order INTO its
+  // cover, which is the more useful reading of that tap and must keep winning.
+  // The piece is never put in G.selected — it is not an actor, and the marquee
+  // that fills that array only ever walks commandRoster().
+  if (touchUI()) {
+    const emp = emplacementAt(x, y, EMP_TAP_SLOP);
+    if (emp) {
+      touchInspect = emp;
+      SFX.click();
+      mobileVibrate(5);
+      return;
+    }
+  }
   G.selected = [];
   lastUnitClick = { t: 0, type: null };
   syncSelectionMobile();
@@ -457,7 +472,7 @@ canvas.addEventListener('pointerdown', e => {
   canvas.setPointerCapture(e.pointerId);
   updatePointer(e);
   suppressClick = false;
-  touchInspect = null;   // any new touch dismisses a pinned enemy info panel
+  touchInspect = null;   // any new touch dismisses a pinned info panel
 
   if (placing) {
     if (!isPlaying()) return;
@@ -482,7 +497,11 @@ canvas.addEventListener('pointerdown', e => {
   drag = { x0: mouse.x, y0: mouse.y, x1: mouse.x, y1: mouse.y, active: false };
 
   // long-press on mobile → inspect a nearby enemy, or (on empty ground) enter
-  // multi-select marquee mode
+  // multi-select marquee mode. Deliberately reaches for ENEMIES ONLY: they are
+  // the one thing a tap can't already describe (a tap selects your own man and
+  // the selection panel says the same things; a tap on an emplacement pins its
+  // panel below). Letting it grab either of those would eat the marquee gesture
+  // on exactly the crowded ground where a player wants to box-select.
   if (touchUI() && !placing) {
     clearLongPress();
     // lock the target now, at press time: the enemy may drift during the hold,

@@ -39,7 +39,7 @@ const TEST = {
         'works()': 'Regio Esercito field works: kind, pos, hp, fortify tier, occupancy',
         'catalog()': 'what the current mode can buy: {key, label, kind, cost, affordable, atCap}',
         'costs()': 'map of buyable key -> resolved TP cost (honours difficulty/cards/overrides)',
-        'inspect(x, y)': 'hover-style blurb for the actor at a point: name, hp, rank, stats, desc',
+        'inspect(x, y)': 'hover-style blurb for whatever is at a point: name, hp, rank, stats, desc. Actors first; falls through to the emplacement under them (kind:"emplacement" + key/tier)',
         'step(seconds=1)': 'advance the sim (rAF is frozen in hidden tabs); redraws; returns {ok, simSeconds, error?, state}',
         'stepUntil(predFn, maxSeconds=60)': 'step until predFn(G) is truthy or timeout; returns {ok, met, simSeconds, state}',
         'buy(type, x, y)': 'realistic purchase: charges TP, checks cap/placement, runs the in-game place() path. Returns {ok, placed, cost, tpBefore, tpAfter, reason?}',
@@ -53,6 +53,7 @@ const TEST = {
         'sprites()': 'sprite-pack loader state: {enabled, state, listed, count, loaded[]}. `state` is none when no pack is installed in assets/sprites/',
         'exportSprites(opts?)': 'render every drawable to a transparent PNG. opts {download=true} — pass {download:false} to render and report without a file. Returns {ok, count, bytes, ids, blank, errors}',
         'spriteRoundtrip(id)': 'bake one sprite, encode it as PNG, load it back and diff against the procedural draw. Returns {litPixels, meanChannelDiff, ...} — a large diff means a wrong anchor or a clipped box',
+        'terrain()': 'ground art for the running biome: {faction, available:{field,trench}, live:{...}, ids, repaintable}. `live` is what the baked field was painted from; `available` is what the pack holds now',
       },
       levels: Object.keys(LEVELS),
       // 'medium'/'hard' left the menu when ESCALATION shipped but still start
@@ -330,9 +331,10 @@ const TEST = {
     });
   },
 
-  // Hover-panel data for whatever actor sits under a point — the same name, HP,
-  // rank, weapon stats and codex blurb the mouse-over tooltip shows in-game,
-  // without a real cursor (the accessibility tree can't see canvas actors).
+  // Hover-panel data for whatever sits under a point — the same name, HP, rank,
+  // weapon stats and codex blurb the mouse-over tooltip shows in-game, without a
+  // real cursor (the accessibility tree can't see canvas actors). Men take the
+  // pick over the emplacement they're manning, exactly as the live hover does.
   inspect(x, y) {
     if (!G) return { hit: false, note: 'no game in progress — call TEST.start()' };
     const px = this._coord(x, W), py = this._coord(y, H);
@@ -347,7 +349,18 @@ const TEST = {
     };
     scan(G.units, true);
     scan(G.enemies, false);
-    if (!best) return { hit: false, x: Math.round(px), y: Math.round(py) };
+    if (!best) {
+      // nothing alive here — fall through to the ground itself
+      const w = emplacementAt(px, py);
+      if (w) {
+        return { hit: true, kind: 'emplacement', key: w.key,
+          side: w.o.side || 'us', x: Math.round(w.x), y: Math.round(w.y),
+          hp: Math.max(0, Math.ceil(w.o.hp || 0)), maxhp: w.o.maxhp || 0,
+          tier: emplacementTier(w.o), name: emplacementName(w),
+          stats: emplacementStats(w), desc: emplacementDesc(w) };
+      }
+      return { hit: false, x: Math.round(px), y: Math.round(py) };
+    }
     const own = best.side === 'us' || best.nation === 'us';
     const stats = (typeof hoverStats === 'function') ? hoverStats(best, own) : [];
     return { hit: true, side: best.side, type: best.type,
@@ -510,6 +523,26 @@ const TEST = {
 
   spriteRoundtrip(id) {
     return spriteRoundtrip(id);
+  },
+
+  // The ground is baked into a bitmap rather than drawn per frame, so it is the
+  // one piece of art nothing else in this harness can report on. `live` is what
+  // the field on screen was actually painted from — which is not always what
+  // `available` says, since a pack that lands mid-run waits for the next start.
+  terrain() {
+    const f = enemyFaction();
+    const avail = groundArtState(f);
+    return {
+      faction: f,
+      biome: GROUND_BIOMES[f] ? f : 'de (fallback)',
+      available: { field: avail.field, trench: avail.trench },
+      live: groundArt
+        ? { faction: groundArt.faction, field: groundArt.field, trench: groundArt.trench }
+        : null,
+      ids: { field: terrainSpriteId(f), trench: terrainTrenchSpriteId(f) },
+      // a repaint is only safe while the bitmap is clean of wrecks and scorch
+      repaintable: !!(G && G.time === 0),
+    };
   },
 };
 window.TEST = TEST;

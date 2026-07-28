@@ -4,6 +4,25 @@
 const CHANGELOG = [
   {
     date: '2026-07-27',
+    title: 'Point At Anything',
+    changes: [
+      'The info panel is no longer just for the enemy. Point at one of your own men, or at any emplacement on the field, and you get the same box: what it is, what it has left, what it is doing for you, and its codex blurb.',
+      'Emplacements finally answer the questions you could only guess at before — how much of a bunker is still standing, whether a piece is STANDARD, FORTIFIED or HARDENED, exactly what dodge and cover radius that tier is buying, and how far along an engineer is on the next one. Italian field works read out too, garrison and all.',
+      'A man always wins the pick over the emplacement he is standing on, since cover is only ever used by crowding troops onto it. Point at the edge of the piece — the dashed outline shows exactly what you have hold of — and you get the emplacement instead.',
+      'On mobile, TAP an emplacement with nothing selected and its panel opens; the next touch anywhere puts it away. Tapping one while you have troops selected is still an order to move them into its cover — that reading of the tap is too useful to lose, so deselect first if you want to read the piece instead. The long-press is unchanged and still yours for the enemy and for box-select.',
+    ],
+  },
+  {
+    date: '2026-07-27',
+    title: 'The Ground Can Be Repainted Too',
+    changes: [
+      'The four battlefields — the Western Front mud, the Pacific ash, the blight and the North African desert — can now be replaced with hand-painted art the same way every man and vehicle already could. The sprite export has a new terrain folder holding each theatre as a single full-field image, plus the deploy trench laid over it.',
+      'They are two images per theatre rather than one on purpose: repaint the field and keep the trench the game draws, or cut your own trench through ground that is still procedural. Leave a theatre out entirely and it fights on the ground it always did.',
+      'One catch worth knowing. The ground is painted once when a run starts, and everything that happens to it afterwards — burnt-out wrecks, shell scorch, blown bunkers — is painted straight onto it and recorded nowhere else. So a pack that finishes loading after a run is already underway waits for the next one rather than wiping the field you have been fighting over. Turning ART OFF mid-run does repaint immediately, and does cost you those scars: it is the one case where you asked for it.',
+    ],
+  },
+  {
+    date: '2026-07-27',
     title: 'Boss Health Bars, Sniper & Jeep',
     changes: [
       'Every boss now wears the same health bar. The Yamato\'s look — one wide bar in a black surround, the name in small type above it, tick marks where the phase breaks fall — is now what Der Schlächter, the Progenitor, the Treno Armato and the Alien Walker all use. Turrets, gun tubs, pus modules and wagons get the same treatment one size down, so you can read at a glance which part of the thing is nearly off.',

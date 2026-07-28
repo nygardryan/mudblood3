@@ -49,7 +49,11 @@ TEST.roster()                      // per-actor detail {units,enemies}: type, po
 TEST.catalog()                     // what's buyable now: {key,label,kind,cost,affordable,atCap}
 TEST.costs()                       // {key: resolved TP cost} (honours difficulty/cards/overrides)
 TEST.works()                       // Regio Esercito field works: kind, pos, hp, fortify tier, occ/cap
-TEST.inspect(x, y)                 // hover blurb for the actor at a point: name, hp, rank, stats, desc
+TEST.inspect(x, y)                 // hover blurb for whatever is at a point: name, hp, rank, stats,
+                                   // desc. Actors first (units beat enemies only by distance), then
+                                   // the emplacement under them — {kind:'emplacement', key, tier}
+TEST.terrain()                     // ground art for the running biome: which of the two plates the
+                                   // pack HAS vs which the baked field was actually painted from
 TEST.event('smokescreen')          // fire a random event on demand, ignoring its wave gate
 TEST.setTP(100) / TEST.addTP(20)   // script TP for a scenario
 TEST.autoplay({ seconds: 240 })    // autonomous endless player: spends+steps, returns {over,waves,log}
@@ -449,6 +453,30 @@ authored against. A biome is a base fill, the mottle stirred into it, a `detail(
 pass, and the deploy trench's colours — pure decoration, and blood/craters
 (`js/damage.js`) are translucent, so they sit correctly on any base.
 
+A biome is also the one thing an artist can replace **on its own**, via two ids per
+faction in the sprite pack: `terrain_<f>` (the whole field, stretched to W×H) and
+`terrain_<f>_trench` (the deploy strip, laid over it at `TRENCH_SPR_Y`). Two plates
+rather than one because they're separately useful — repaint the field and keep the
+engine's trench, or cut a hand-drawn trench through procedural ground. `paintGround`
+asks `SPRITES.get` per layer and falls through to `paintBiomeField`/`paintBiomeTrench`,
+which exist as separate functions only so the exporter can bake the same pass onto its
+own canvas. Both plates and the fallthrough are proved by `TEST.terrain()`.
+
+The ground is the ONE piece of pack art baked once per run rather than blitted per
+frame, and that is the whole difficulty: wrecks, blast scorch and blown emplacements
+are stamped into `groundCanvas` as the fight goes on and are recorded **nowhere else**,
+so a repaint costs the run its own history. Hence `refreshGroundArt(force)` telling its
+two callers apart — a pack finishing its *load* is not something the player did and
+repaints only while `G.time === 0` (exact, not conservative: every one of those stamps
+needs combat to have happened), while flipping ART OFF/ON is a deliberate act whose
+point is to re-render and forces through. Either way the state compare runs FIRST, so a
+pack with no ground art in it — the common case — never reshuffles a procedural field
+or costs a wreck. The terrain plates are also the only defs the exporter renders at
+`EXPORT_TERRAIN_SS` (2) rather than `EXPORT_SS`: a 540×620 field at 4 px/unit is a
+2160×2480 sheet of noise, four times over. They're the only `random: true` defs too —
+`spriteRoundtrip` flags rather than suppresses that, since its diff is meaningless
+against a pass that re-scatters its own mottle on every call.
+
 Two things that were learned by drawing them wrong, and that a fifth faction will hit:
 - **The ground must not share the player's hue AND value.** `jp` shipped first as a
   dark jungle green and camouflaged the player's own olive-drab troops; picking your
@@ -629,7 +657,7 @@ so the rotation each site already passes is the rotation the sprite wants; the m
 records that per sprite, plus `gunTip` (the type's `gun`, where rounds actually spawn —
 sprites don't change it, so a barrel must end there).
 
-The exporter renders all **175** drawables to transparent PNGs at `EXPORT_SS` 4 px/world
+The exporter renders all **183** drawables to transparent PNGs at `EXPORT_SS` 4 px/world
 unit and ships them as one ZIP with the manifest the loader reads (`TEST.exportSprites()`,
 or the Artwork section in settings). Three things about it:
 - **`SPRITES.suspend()` wraps every bake.** Some recipes call the game's own `draw*`

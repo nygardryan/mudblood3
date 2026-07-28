@@ -109,7 +109,7 @@ function triggerHordeRising() {
     const e = makeEnemy(pick(pool), x, y);
     G.enemies.push(e);
     // a spray of turned earth and gore as it breaks the surface
-    addGroundMark({ type: 'blood', x, y, r: 10, rot1: rand(0, 3), rot2: rand(0, 3) });
+    addGroundMark({ type: 'crater', x, y, r: 10, rot1: rand(0, 3), rot2: rand(0, 3) });
     for (let k = 0; k < 8; k++) {
       G.particles.push({
         x: x + rand(-6, 6), y: y + rand(-4, 4), vx: rand(-24, 24), vy: rand(-50, -12),

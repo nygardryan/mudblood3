@@ -1706,7 +1706,7 @@ const PLACEABLES = [
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
   { key: 'sandbags', label: 'SANDBAGS', cost: 4, kind: 'defense', hotkey: '8',
     desc: 'Cover. Soldiers behind it dodge half of incoming fire.' },
-  { key: 'dummy', label: 'DUMMY', cost: 5, kind: 'defense', hotkey: 'D',
+  { key: 'dummy', label: 'DUMMY', cost: 8, kind: 'defense', hotkey: 'D',
     desc: 'Straw decoy. Enemies waste fire on it, but each hit they may see the ruse and move on (40%). Fortify for a helmet, harden for body armor — a better disguise holds their attention longer (30%/20%) and each tier adds another decoy\'s worth of HP.' },
   { key: 'bunker', label: 'BUNKER', cost: 15, kind: 'defense', hotkey: 'K',
     desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },

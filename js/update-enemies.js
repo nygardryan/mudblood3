@@ -146,7 +146,7 @@ function updateEnemy(e, dt) {
         // barbed wire drags commandos just like everyone else
         for (const wr of G.wires) {
           if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-            speed *= wr.up ? 0.05 : 0.12;
+            speed *= wr.up ? 0.0525 : 0.126;
             wr.hp -= (wr.up ? 3 : 5) * dt;
             wireBite(e, dt);
             break;
@@ -212,7 +212,7 @@ function updateEnemy(e, dt) {
       G.grenades.push({
         x: e.x, y: e.y,
         tx: gt.x + rand(-14, 14), ty: gt.y + rand(-14, 14),
-        t: 0, dur: 1.0, sx: e.x, sy: e.y,
+        t: 0, dur: 1.0, sx: e.x, sy: e.y, by: e,
         kind: 'stick',
       });
     }
@@ -382,7 +382,7 @@ function advance(e, dt, buffed) {
   // barbed wire drag; fortified wire grips harder and wears slower, hardened more still
   for (const wr of G.wires) {
     if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-      speed *= wr.up2 ? 0.02 : wr.up ? 0.05 : 0.12;
+      speed *= wr.up2 ? 0.021 : wr.up ? 0.0525 : 0.126;
       wr.hp -= (wr.up2 ? 2 : wr.up ? 3 : 5) * dt;
       wireBite(e, dt);
       break;
@@ -403,7 +403,7 @@ function pursuePoint(e, tx, ty, speed, dt) {
   e.face = Math.atan2(ty - e.y, tx - e.x);
   for (const wr of G.wires) {
     if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-      speed *= wr.up2 ? 0.02 : wr.up ? 0.05 : 0.12;
+      speed *= wr.up2 ? 0.021 : wr.up ? 0.0525 : 0.126;
       wr.hp -= (wr.up2 ? 2 : wr.up ? 3 : 5) * dt;
       wireBite(e, dt);
       break;
@@ -1820,7 +1820,7 @@ function fireBile(e, target, sp) {
 // bile lands: a corrosive splash that burns everyone nearby (bypassing armor, like
 // acid) and carries the infection through the spray to survivors.
 function bileBurst(x, y, r, dmg, infect, by) {
-  addGroundMark({ type: 'blood', x, y, r: r * 0.7, rot1: rand(0, 3), rot2: rand(0, 3) });
+  addGroundMark({ type: 'crater', x, y, r: r * 0.7, rot1: rand(0, 3), rot2: rand(0, 3) });
   for (let i = 0; i < 16; i++) {
     const ang = rand(0, Math.PI * 2), sp = rand(20, 90);
     G.particles.push({
@@ -2041,7 +2041,7 @@ function progenitorResurrection(e) {
     z.reanimated = true;
     G.enemies.push(z);
     risen++;
-    addGroundMark({ type: 'blood', x: cp.x, y: cp.y, r: 9, rot1: rand(0, 3), rot2: rand(0, 3) });
+    addGroundMark({ type: 'crater', x: cp.x, y: cp.y, r: 9, rot1: rand(0, 3), rot2: rand(0, 3) });
     for (let i = 0; i < 6; i++) {
       G.particles.push({
         x: cp.x + rand(-5, 5), y: cp.y + rand(-5, 5), vx: rand(-24, 24), vy: rand(-50, -12),

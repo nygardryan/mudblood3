@@ -905,7 +905,7 @@ function damageEnemy(e, dmg, from, kind) {
         if (sp) bileBurst(p.x, p.y, sp.r * 0.8, sp.dmg * 0.8, sp.infect, e);
       }
       bloodSplat(e.x, e.y, 30);
-      addGroundMark({ type: 'blood', x: e.x, y: e.y, r: 46, rot1: rand(0, 3), rot2: rand(0, 3) });
+      addGroundMark({ type: 'crater', x: e.x, y: e.y, r: 46, rot1: rand(0, 3), rot2: rand(0, 3) });
       explode(e.x, e.y, 50, 40, true);
     } else if (e.t.itaBoss) {
       // the engine dies and the whole consist goes up along the rails. Parts are

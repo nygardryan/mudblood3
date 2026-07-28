@@ -309,8 +309,14 @@ function updateUnit(u, dt) {
     // quick reflexes: a live German stick grenade landed close enough to
     // scoop up and heave back before the fuse runs out. Grenades already
     // caught, or thrown by a friendly (kind 'frag'), are never eligible.
+    //
+    // Keyed on the KIND, never on `by` being empty. Every grenade on the field
+    // now carries its thrower — it has to, or explode() can't tell a German
+    // stick from a friendly frag and the Escalation damage modifier silently
+    // skips it — so "no firer" stopped meaning "enemy" the moment that was
+    // fixed, and this loop would have started catching its own grenadier's frags.
     for (const g of G.grenades) {
-      if (g.by || g.caught || !g.landed || g.fuse < 0.6) continue;
+      if (g.kind !== 'stick' || g.caught || !g.landed || g.fuse < 0.6) continue;
       const gdx = g.tx - u.x, gdy = g.ty - u.y;
       if (gdx * gdx + gdy * gdy > GRENADE_CATCH_RANGE * GRENADE_CATCH_RANGE) continue;
       g.caught = true;

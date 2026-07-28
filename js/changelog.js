@@ -4,6 +4,14 @@
 const CHANGELOG = [
   {
     date: '2026-07-28',
+    title: 'See Through The Info Panel',
+    changes: [
+      'The info panel is see-through again. It opens on top of the fight it is describing, and a solid box meant that pointing at a man to read him hid whatever was about to happen to him.',
+      'The writing in it is not transparent — the panel got lighter, the text did not. It sits on its own shadow now, so a stat line stays just as sharp over a crater or a knot of troops as it did over the old solid backing.',
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'Kamikaze',
     changes: [
       'The air raid is a different event when the Imperial Japanese Army is across from you. No bombers and no bomb sticks — kamikaze. Twice as many aircraft come over, and every one of them picks a man on your line and flies into him.',

@@ -351,13 +351,23 @@ function drawInfoPanel(a, own = false) {
   x = clamp(x, 4, Math.max(4, canvas.width - m.panelW - 4));
   const y = clamp(py - h / 2, 4, Math.max(4, canvas.height - h - 4));
 
-  // near-opaque: at 0.30 the battlefield read straight through the panel and the
-  // text looked as washed out as the ground behind it
-  ctx.fillStyle = 'rgba(16,16,10,0.94)';
+  // the PANEL is see-through, the TEXT is not — the panel covers the fight it's
+  // describing, so the ground has to read through it, but at 0.30 (tried once)
+  // the letters looked as washed out as the ground behind them. They weren't:
+  // every fill below is opaque and globalAlpha is 1. What washes out is
+  // CONTRAST, so the fix is the drop shadow on the glyphs rather than a darker
+  // box — it darkens only the pixels immediately around each stroke, which is
+  // the only place the show-through actually costs legibility.
+  ctx.fillStyle = 'rgba(16,16,10,0.30)';
   ctx.fillRect(x, y, m.panelW, h);
   ctx.strokeStyle = '#4a4836';
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, m.panelW - 1, h - 1);
+
+  // shadow applies to fillText only from here down; the border above is drawn
+  // clean, and ctx.restore() clears it
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur = 3;
 
   let ty = y + m.pad;
   ctx.font = m.titleFont;

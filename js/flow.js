@@ -180,6 +180,7 @@ function bossEndRun() {
 
 function returnToMenu() {
   clearRunState();
+  clearField();   // the menu layers over the stage — don't leave a board behind it
   hideOverlays();
   el('intro').classList.remove('hidden');
   hideTutorialMsg();
@@ -292,6 +293,7 @@ function finishTutorial() {
 // the completion screen's button: drop straight back into the lesson picker
 function backToTutorialSelect() {
   clearRunState();
+  clearField();
   el('tutorial-complete').classList.add('hidden');
   hideTutorialMsg();
   syncToolbarVisibility();

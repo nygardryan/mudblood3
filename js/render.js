@@ -10,7 +10,32 @@ function inView(x, y, m) {
   return !cullOn || (x >= cullX0 - m && x <= cullX1 + m && y >= cullY0 - m && y <= cullY1 + m);
 }
 
+// Wipe the board to black. The last frame of a finished run sits on the canvas
+// until something else draws over it — and a menu screen is layered ON the
+// stage, so a run's corpses and craters used to read faintly through the panel.
+// Called when we leave a run for a menu (returnToMenu / backToTutorialSelect);
+// the in-run overlays (pause, recap, gameover) deliberately do NOT call it,
+// since seeing the field behind them is the point.
+//
+// It latches, because a wipe alone doesn't hold: G survives the run, so any
+// later `viewDirty` (a window resize, a sprite pack finishing its load) would
+// repaint the board under the menu — and on mobile `fitLayout` resizes the
+// backing store, which blanks it to TRANSPARENT rather than black. The frame
+// loop re-runs this instead of `draw()` while the flag is up; `draw()` drops it,
+// so the next run's first frame clears it with nothing to remember.
+let fieldBlank = false;
+
+function clearField() {
+  fieldBlank = true;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+}
+
 function draw() {
+  fieldBlank = false;
   hoverActor = findHoverActor();
   ctx.save();
   if (G.shake > 0.05) ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));

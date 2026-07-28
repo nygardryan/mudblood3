@@ -107,7 +107,11 @@ function frame(now) {
     }
   }
   if (G && (playing || viewDirty)) {
-    draw();
+    // G outlives the run, so a redraw request that arrives while we're back on
+    // the menu would put the old board back under the panel — re-wipe instead
+    // (see clearField). A live run always draws; nothing else does.
+    if (fieldBlank && !playing) clearField();
+    else draw();
     viewDirty = false;
   }
   hudAccum += dt;

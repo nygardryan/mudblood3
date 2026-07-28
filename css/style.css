@@ -484,6 +484,19 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 .overlay.hidden { display: none; }
+
+/* MENU screens are OPAQUE. Every overlay is layered on the stage, over whatever
+   the canvas last drew, and at the .9 scrim above a finished run's field bled
+   through the panel — a menu read as a HUD sitting on a live game. The board is
+   also wiped on the way here (clearField, js/render.js); this is the half that
+   covers the screens you can reach WITHOUT going back to the main menu first —
+   the shop and the leaderboards open straight off the end-of-run overlay.
+   In-run overlays (#pause, #recap, #gameover, #endless-endgame, #boss-victory,
+   #tutorial-complete) keep the translucent scrim on purpose: seeing the field
+   behind them is the point. `background-color` alone, so the id beats the class
+   without disturbing the texture layers .mm-screen paints over it. */
+#intro, #endless-select, #tutorial-select, #card-shop,
+#leaderboard-select, #changelog, #settings { background-color: #080804; }
 /* many campaign buttons — anchor to the top so they all scroll into reach */
 #axis-select, #commando-select, #card-shop { justify-content: flex-start; }
 .overlay h1 {

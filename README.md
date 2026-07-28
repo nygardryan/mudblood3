@@ -71,6 +71,10 @@ workflow.
       on your emplacements and walking away to do it again. Their armour is
       tankette-heavy and led by the **L3 Lf** — the only flame-throwing tank on any
       front — with M13/40 mediums and casemate Semoventi arriving late.
+    - The **Portaferiti** is their stretcher-bearer, and the only Italian who will
+      not fight from a work: he walks out to the worst-hit man near him and patches
+      him back up, one at a time, until somebody shoots him. He carries a pistol
+      and nothing else — shoot him first.
     - **Shamblers** are the slow, endless backbone; **runners**, **crawlers** and
       blazing-fast infected **hounds** swarm and close before you can thin them.
     - **Brutes** are swollen bruisers that soak lead and hit like a truck; the

@@ -276,7 +276,7 @@ shoot clean through the gaps (measured 15% of the plume body before this). Air p
 targets with their own scans, since smoke screens the ground, not the sky.
 
 The **Regio Esercito** is the fourth endless foe (`faction:'it'` in `ENEMY_TYPES`,
-16 keys) and the only one that **builds**. It shipped once before and was cut for
+17 keys) and the only one that **builds**. It shipped once before and was cut for
 being dull — its mechanic was *morale*, men who broke and ran, the only
 SUBTRACTIVE faction gimmick in the game. Don't reintroduce it. The replacement is
 additive: engineers erect the same fortifications the player can, out in
@@ -363,6 +363,20 @@ Signature units and behaviours:
   and plants a charge. It's a `scheduleShell` on a fuse, not an immediate
   `explode`, because explode is side-blind and would kill him too; the fuse is also
   the player's warning to walk men clear.
+- `imed` (Portaferiti) — the only healer any enemy army fields, and a THIRD
+  pre-step of the same shape (`updateItalianMedic`). Unlike the other two it holds
+  the frame whenever there is a casualty at all, walking OR knelt: a medic who
+  merely stands in heal range and falls through to the ordinary path spends the
+  frame advancing on the player, walks out of his own reach, and treats at half
+  rate (measured 2.5 HP/s of a nominal 6, against a patient doing nothing but
+  advancing) — hence `IT_MEDIC_STATION`, well inside `IT_MEDIC_RANGE`, so he tucks
+  in beside his man and drifts with him. He deliberately carries NO `garrison`
+  flag: the wounded are wherever they fell, so treating one takes him back out of
+  cover, and that exposure is the counter-play. The patient scan is
+  `isItalianFoot`, which is load-bearing — it already rejects armour and
+  everything `fixed`, so no medic can ever top up the Treno Armato's engine or a
+  wagon, and no clause here has to remember they exist. One man per pulse, like
+  the player's, so the sustain never scales with the size of the knot around him.
 - `il3` (L3 Lf) — the only flame-throwing armour anywhere, via the `tankFlame`
   spec. Note its acquisition in `tankTargets` is deliberately **not** cone-gated:
   a tankette closes to ~90px, where its own lateral drift swings the target outside
@@ -371,7 +385,10 @@ Signature units and behaviours:
 
 Wave spawning routes through `itaWaveComposition` and `ITA_SPECIAL_WAVES`; the
 roster splits into DIGGERS (garrison the works) and CHARGERS (exist for the surge),
-and the charger share climbs from 0% at wave 5 to ~47% by wave 45. Art is
+and the charger share climbs from 0% at wave 5 to ~47% by wave 45. Sappers, the
+officer and the medic ride OUTSIDE that pool as trickles, for the same reason: a
+wave carrying two of them should be a wave that felt different, not a wave that
+was smaller (~0.2 medics/wave, matching the officer's rate). Art is
 `js/render-italian.js` (`paintItalianSoldier`), whose variant dispatch is keyed on
 silhouettes via the `IT_ART` map, so a new type that looks like an existing one
 costs one line. `TEST.works()` and `TEST.state().it` are the inspection surface.

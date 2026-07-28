@@ -1086,6 +1086,20 @@ const IT_TICK = 0.5;                 // seconds between works-cache rebuilds
 const IT_WAVE_DECAY = 0.04;          // fraction of max HP every work loses each wave
 const IT_ABANDON_HP = 0.35;          // an unmanned work below this at a wave boundary is abandoned
 
+// The Portaferiti. Every number here sits UNDER the allied medic's (range 95,
+// 7.5 HP/s at rank 0, speed 46), the same discipline the roster's weapons keep.
+// He is the only man in the faction whose job takes him back OUT of cover — he
+// walks to the casualty — which is what makes him killable, and killing him is
+// the counter-play. Only ever ONE man treated per pulse, like the player's, so
+// the sustain doesn't scale with the size of the pack around him.
+const IT_MEDIC_RANGE = 78;           // how close he has to be to work on a man
+const IT_MEDIC_SEEK = 230;           // ...and how far he'll walk to reach one
+const IT_MEDIC_STATION = 30;         // how close he tucks in beside the man he's treating.
+                                     // Well inside the range because both of them are still
+                                     // walking down the field — see updateItalianMedic.
+const IT_MEDIC_TICK = 0.5;           // seconds between patch-ups
+const IT_MEDIC_HEAL = 3;             // HP restored per pulse — 6 HP/s on one man
+
 // ---- Regio Esercito roster: the fourth endless-mode foe. Every type carries
 // faction:'it', routing it through makeEnemy's nation pick and the Italian
 // soldier renderer (js/render-italian.js). Their signature is that they BUILD:
@@ -1127,6 +1141,19 @@ Object.assign(ENEMY_TYPES, {
     color: '#6d7052', gun: 8, sfx: 'rifle', priority: 2, faction: 'it',
     builder: { kinds: ['sandbags', 'sandbags', 'sandbags', 'bunker', 'watchtower'],
                per: IT_BUILDS_PER_MAN },
+  },
+  imed: {
+    // counterpart: medic (heal range 95, 7.5 HP/s, speed 46) — the Regio
+    // Esercito's stretcher-bearer, and the second reason their line is hard to
+    // shift: the works keep the men behind cover, he keeps the men. Unlike every
+    // other supporting type he does NOT garrison — the casualty is wherever it
+    // fell, so treating one takes him back out into the open. A poor shot with a
+    // Beretta, worth killing before anything he can patch up.
+    name: 'Portaferiti', hp: 72, speed: 32, range: 84, dmg: 8, acc: 0.38,
+    rof: 1.6, burst: 1, burstGap: 0, reward: 5,
+    color: '#7a7d5e', gun: 6, sfx: 'pistol', priority: 4, faction: 'it',
+    medic: { range: IT_MEDIC_RANGE, seek: IT_MEDIC_SEEK,
+             tick: IT_MEDIC_TICK, heal: IT_MEDIC_HEAL },
   },
   imosch: {
     // counterpart: gunner (range 179, speed 36) — Beretta MAB 38. Fast enough to
@@ -1258,7 +1285,7 @@ Object.assign(ENEMY_TYPES, {
 // An armored war train that rolls straight down a rail lane from the north and
 // PARKS at the bottom of the field — it never breaches, it just sits there as a
 // fortress inside your lines until it's killed. The third multi-actor boss: an
-// engine (the parent, and the boss's whole HP pool) plus seven wagon/crew part
+// engine (the parent, and the boss's whole HP pool) plus eight wagon/crew part
 // actors, all real entries in G.enemies, repositioned each tick by
 // syncTrainParts. Unlike the Yamato's belt there is NO shared pool — every part
 // owns its HP (the Progenitor rule), so explode/flameSpray need no de-dupe
@@ -1503,6 +1530,7 @@ const ENEMY_INFO = {
   iguast: 'Guastatore — the assault sapper, and the reason the Italian line moves. He walks into the open and digs: a parapet, a bunker, a watch tower, each one a little further down the field than the last, and they are all still standing next wave. He raises two, then shoulders his rifle and fights like anyone else. Shoot him while he is digging or you will be fighting his work for the rest of the run.',
   ifante: 'Carcano rifleman — the backbone of the line. Ordinary in the open; a different problem entirely once he has a parapet in front of him.',
   iuff: 'Ufficiale. His presence stiffens the troops like any officer\'s — but he is also the clock: every one of him alive on the field brings the AVANTI charge sooner. Kill the officers and you buy yourself digging time.',
+  imed: 'Portaferiti — the stretcher-bearer, and the second reason an Italian line is hard to shift. He walks to the worst-hit man near him and patches him back up, one man at a time, for as long as he is alive. He is the only Italian who will not fight from a work: the wounded are out in the open, so he goes out there too. He carries a pistol and eighty rounds of nothing much. Shoot him first.',
   imosch: 'Moschettiere with a Beretta MAB 38. Quick enough to reach a forward work ahead of the line and hold it, and deadly in short bursts once he is in one.',
   ibreda: 'Breda 30 light machine gun. Slow on his feet and unremarkable in the open — the whole point of him is that he reaches a parapet and rakes your line from behind it.',
   ifiat: 'Fiat-Revelli M35 heavy machine gun. He makes for a bunker by preference and pins a whole line from inside it, where rifle fire barely touches him. Shell the bunker, or bring a flamethrower.',
@@ -1771,6 +1799,8 @@ const TESTING_ITALIAN_PLACEABLES = [
     desc: 'Line infantryman with a Carcano and folding bayonet. Unremarkable in the open, stubborn once he has a parapet in front of him.' },
   { key: 'ibersa', label: 'BERSAGLIERE', cost: 5, kind: 'egerman', hotkey: '',
     desc: 'Plumed close-assault shotgunner. Runs the open ground to get inside buckshot range, then holds and fights. Never digs in.' },
+  { key: 'imed', label: 'PORTAFERITI', cost: 12, kind: 'egerman', hotkey: '',
+    desc: 'Stretcher-bearer. Walks to the worst-hit man near him and patches him up, one at a time. Never digs in.' },
   { key: 'imosch', label: 'MOSCHETTIERE', cost: 5, kind: 'egerman', hotkey: '',
     desc: 'MAB 38 SMG. Fast enough to reach a forward work before the line does, deadly in short bursts.' },
   { key: 'ibreda', label: 'BREDA GUNNER', cost: 6, kind: 'egerman', hotkey: '',

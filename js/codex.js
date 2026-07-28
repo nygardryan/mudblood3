@@ -31,7 +31,7 @@ const CODEX_CODE = {
   zshambler: 'SHM', zrunner: 'RUN', zcrawler: 'CRW', zhound: 'HND', zbrute: 'BRT',
   zspitter: 'SPT', zbloater: 'BLT', zscreamer: 'SCR', zrevenant: 'REV', zabom: 'ABM',
   zprogen: 'PRG', zpod: 'POD',
-  ifante: 'FNT', iuff: 'OFF', ibersa: 'BRS', iguast: 'GUA',
+  ifante: 'FNT', iuff: 'OFF', ibersa: 'BRS', iguast: 'GUA', imed: 'PTF',
   imosch: 'MSC', ibreda: 'BRD', ifiat: 'FIA', icecc: 'CEC', ibrixia: 'BRX',
   imortaio: 'M81', ifolgore: 'FLG', iardito: 'ARD', iflame: 'FLM',
   il3: 'L3', im13: 'M13', isemo: 'SMV', itrain: 'TRN',

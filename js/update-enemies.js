@@ -124,6 +124,11 @@ function updateEnemy(e, dt) {
   // same pre-step shape: he goes after the player's emplacements when there is
   // one worth a charge, and otherwise fights like any assault trooper
   if (e.t.demo && !command && updateArdito(e, dt, buffed)) return;
+  // ...and the Portaferiti, who holds the frame whenever there's a casualty at
+  // all — walking to it, or knelt over it. He is deliberately BELOW the garrison
+  // pre-step, not above it: he carries no `garrison` flag at all, so the wounded
+  // — who are wherever they fell — always win over cover.
+  if (e.t.medic && !command && updateItalianMedic(e, dt, buffed)) return;
   // The Horde: the Spitter is a ranged biler; every other melee zombie claws and
   // bites (the Revenant has no `zombie` flag and falls through to the gun path).
   if (e.t.spit) { updateSpitter(e, dt, buffed, command); return; }
@@ -746,6 +751,72 @@ function updateArdito(e, dt, buffed) {
   e.demoAwayY = target.y;
   e.demoBackT = d.fuse;
   return true;
+}
+
+// ---- Regio Esercito: the Portaferiti ----------------------------------------
+
+// Returns TRUE while he is working — walking to a casualty, or knelt over one.
+// FALSE with nothing to treat, and then he falls through and fights with his
+// pistol like anyone else.
+//
+// The kneeling half has to be in here rather than falling through: a man who is
+// merely in heal range and then handed to the ordinary path spends the frame
+// ADVANCING on the player, walks out of his own heal range, comes back, and
+// treats a patient at about half rate (measured 3 HP/s of a nominal 6, on a
+// casualty that was itself walking). Holding station is also the readable thing
+// — he stops in the open beside the man, which is the player's shot.
+//
+// isItalianFoot is doing real work in the scan: it already rejects armour and
+// everything `fixed`, so a medic can never top up the Treno Armato's engine or
+// one of its wagons, and no clause here has to remember they exist.
+function updateItalianMedic(e, dt, buffed) {
+  const m = e.t.medic;
+  // one pass answers both questions: the worst-hit man he can already reach, and
+  // the nearest one he can't. A man inside heal range is being treated, so he is
+  // deliberately not a candidate to walk toward.
+  let worst = null, worstFrac = 1;
+  let near = null, nearD2 = m.seek * m.seek;
+  const healR2 = m.range * m.range;
+  for (const o of G.enemies) {
+    if (o === e || !isItalianFoot(o) || o.hp >= o.maxhp) continue;
+    const d2 = dist2(e, o);
+    if (d2 < healR2) {
+      const f = o.hp / o.maxhp;
+      if (f < worstFrac) { worstFrac = f; worst = o; }
+    } else if (d2 < nearD2) {
+      nearD2 = d2; near = o;
+    }
+  }
+
+  // ONE man per pulse, like the player's medic — the sustain is per-medic, so it
+  // never scales with the size of the knot of men he's standing in.
+  if (e.healTick > 0) e.healTick -= dt;
+  else if (worst) {
+    e.healTick = m.tick;
+    worst.hp = Math.min(worst.maxhp, worst.hp + m.heal);
+    G.particles.push({ x: worst.x + rand(-6, 6), y: worst.y - 10, vx: 0, vy: -18,
+                       ttl: 0.5, grav: 0, size: 1.6, color: '#8fe08f' });
+    // only when a man goes back to full — the shout is the player's cue that
+    // something out there is undoing his fire, and which man to shoot for it
+    if (worst.hp >= worst.maxhp) {
+      G.texts.push({ x: e.x, y: e.y - 20, text: 'MEDICATO!', ttl: 1.3 });
+    }
+  }
+
+  const patient = worst || near;
+  if (!patient) return false;         // nothing to treat: he fights like anyone
+  // He STAYS ON his man rather than stopping the moment the man is technically
+  // in range. Everyone in this army is walking down the field at 24-34 px/s, so
+  // a medic who halts at the edge of his own reach spends the fight being walked
+  // out of it — measured 2.5 HP/s of a nominal 6 against a patient who was doing
+  // nothing but advancing. Station is well inside the range so the treatment
+  // survives both men drifting.
+  if (dist2(e, patient) > IT_MEDIC_STATION * IT_MEDIC_STATION) {
+    pursuePoint(e, patient.x, patient.y, e.t.speed * (buffed ? 1.15 : 1), dt);
+  } else {
+    e.face = Math.atan2(patient.y - e.y, patient.x - e.x);   // knelt over him
+  }
+  return true;                        // either way: no advance, no shooting
 }
 
 // ---- Regio Esercito: AVANTI SAVOIA -----------------------------------------

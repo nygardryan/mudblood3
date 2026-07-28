@@ -429,6 +429,21 @@ function drawFolgoreHelmet(c, fx, fy) {
 
 // ---- kit -----------------------------------------------------------------
 
+// Geneva mark — a white ground with a red cross on it, used at two sizes for the
+// Portaferiti's helmet disc and his brassard. The cross is two rects rather than
+// two strokes because at r ~1.3 a stroked cross rounds itself into a blob.
+function drawRedCross(c, x, y, r) {
+  c.fillStyle = '#e6e3d6';
+  c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.3)';
+  c.lineWidth = 0.5;
+  c.beginPath(); c.arc(x, y, r, 0, 7); c.stroke();
+  c.fillStyle = '#a8241c';
+  const a = r * 0.74, b = r * 0.24;
+  c.fillRect(x - a, y - b, a * 2, b * 2);
+  c.fillRect(x - b, y - a, b * 2, a * 2);
+}
+
 // standard grigio-verde webbing: cross belt and front pouches
 function drawItWebbing(c, fx, fy, face) {
   c.strokeStyle = '#4a3e28';
@@ -477,6 +492,7 @@ function paintItalianSoldier(c, a) {
   const isOfficer = type === 'iuff';
   const isBersa = type === 'ibersa';
   const isFolgore = type === 'ifolgore';
+  const isMedic = type === 'imed';
   const isFlamer = type === 'iflame';
   const isTube = type === 'ibrixia' || type === 'imortaio';
   c.save();
@@ -500,8 +516,9 @@ function paintItalianSoldier(c, a) {
     drawMab(c, fx, fy, gunLen, a.face);
   } else if (isFlamer) {
     drawItFlamer(c, fx, fy, gunLen, a.face, a.flameT > 0);
-  } else if (isOfficer) {
-    // Beretta pistol held forward
+  } else if (isOfficer || isMedic) {
+    // Beretta pistol held forward — the medic carries the same sidearm and
+    // nothing else, so he shares the officer's stub barrel
     c.strokeStyle = IT_STEEL;
     c.lineWidth = 2.2;
     c.beginPath(); c.moveTo(fx * 2, fy * 2); c.lineTo(fx * gunLen, fy * gunLen); c.stroke();
@@ -563,6 +580,20 @@ function paintItalianSoldier(c, a) {
   } else if (type === 'imortaio') {
     drawItWebbing(c, fx, fy, a.face);
     drawMortaioTube(c, a.mortarFireT || 0);
+  } else if (isMedic) {
+    drawItWebbing(c, fx, fy, a.face);
+    // canvas dressing satchel slung on the hip, alongside the belt pouches the
+    // webbing already draws — screen-fixed like the rest of the belt kit
+    c.fillStyle = '#b9b499';
+    c.fillRect(-6.8, 2.8, 3, 3);
+    c.strokeStyle = '#2a2418';
+    c.lineWidth = 0.6;
+    c.strokeRect(-6.8, 2.8, 3, 3);
+    drawRedCross(c, -5.3, 4.3, 1.1);
+    // ...and that is deliberately the only cross below the neck. A brassard on
+    // the arm was tried and cut: the arm swings around the body with facing, so
+    // a quarter of the time it sat right on top of the satchel and the two marks
+    // read as one smear. The helmet cross is the one that never moves.
   } else if (isGren || isFolgore) {
     drawItWebbing(c, fx, fy, a.face);
     // SRCM "red devil" frags clipped to the chest harness
@@ -577,6 +608,11 @@ function paintItalianSoldier(c, a) {
   if (isOfficer) drawBustina(c, fx, fy);
   else if (isBersa) drawBersagliereHelmet(c, fx, fy);
   else if (isFolgore) drawFolgoreHelmet(c, fx, fy);
+  else if (isMedic) {
+    // no regimental patch — the cross takes the front of the helmet instead
+    drawM33Helmet(c, fx, fy, false);
+    drawRedCross(c, fx * 2.1, -1 + fy * 2.1, 1.5);
+  }
   else if (type === 'icecc') {
     drawM33Helmet(c, fx, fy, false);
     // foliage loops tucked into the helmet

@@ -259,6 +259,11 @@ function itaWaveComposition(w) {
   // the officer runs the AVANTI clock, so he turns up a touch more often than
   // the other factions' leaders
   if (w >= 10 && Math.random() < (0.40 + late * 0.004) * mult) out.push('iuff');
+  // Stretcher-bearers ride outside the pool for the same reason the sappers do:
+  // they're a support trickle, not a share of the fighting strength, and a wave
+  // with two of them in it should be a wave that felt different rather than a
+  // wave that was smaller. Rare enough that killing one still decides a fight.
+  if (w >= 9 && Math.random() < (0.45 + late * 0.006) * mult) out.push('imed');
 
   // Armour is tankette-heavy: the L3 flame tankette is the signature threat and
   // it swarms early, with the mediums arriving late as a second echelon.
@@ -455,6 +460,10 @@ const ITA_SPECIAL_WAVES = [
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (3 + t)); i++) {
         spawnEnemyAt(pick(['ifante', 'ifante', 'ibreda', 'ifiat']), rand(50, W - 50), rand(-110, -30));
       }
+      // a stretcher-bearer belongs on exactly this wave: it has no killing power
+      // of its own, and what he does is keep the diggers on their feet long
+      // enough to finish the works that ARE the threat, four waves from now
+      if (t >= 2) spawnEnemyAt('imed', rand(80, W - 80), rand(-100, -40));
       if (t >= 3) spawnEnemyAt('isemo', rand(120, W - 120), rand(-120, -80));
     },
   },

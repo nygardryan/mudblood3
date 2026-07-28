@@ -255,5 +255,5 @@ function runEvent(ev, w) {
 }
 
 function showBanner(text) {
-  G.banner = { text, ttl: 3.2 };
+  G.banner = { text, ttl: 2.08 };
 }

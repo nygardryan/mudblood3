@@ -2402,9 +2402,24 @@ function awBeamTick(e) {
   // walker B would overwrite A's stamp and A would charge the same man twice
   // inside one sweep. It also works unchanged for sandbags, wire and works,
   // none of which have a spare field to thread a lifecycle through.
+  //
+  // Everything is its own key EXCEPT the Yamato's armor belt, which is five
+  // actors — four sections plus the hull core, which is the amidships hitbox —
+  // sharing ONE HP pool. damageEnemy redirects a section into the ship, so
+  // keying them one apiece charges that pool once per section the lance crosses:
+  // measured 1600 off a single sweep where 800 was correct, with only the core
+  // and one section aligned, and up to 5x broadside-on. Keying the whole belt on
+  // the ship is what makes it one THING for the sweep, which is the promise the
+  // Set exists to keep. Same shared-pool reasoning as explode()'s belt hold-back
+  // and flameSpray's floor — and, like both of those, it is the pool and not the
+  // parts that earns the clause: her turrets and gun tubs, the Progenitor's sacs
+  // and the train's wagons all own their HP and stay keyed one apiece, so a lance
+  // that crosses two batteries is meant to hurt twice.
+  const key = (o) => (o.t && o.t.hullSection && o.shipOf) || o;
   const cut = (o) => {
-    if (hit.has(o) || !awInWedge(e, o.x, o.y)) return false;
-    hit.add(o);
+    const k = key(o);
+    if (hit.has(k) || !awInWedge(e, o.x, o.y)) return false;
+    hit.add(k);
     return true;
   };
 

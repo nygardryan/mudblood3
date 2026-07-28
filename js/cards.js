@@ -88,6 +88,13 @@ function maybeShellShock(e, from) {
   if (e.t.germanBoss || e.t.japBoss || e.t.shipPart) return;
   if (e.t.hordeBoss || e.t.bossPart) return;   // ditto the Progenitor and its sacs
   if (e.t.itaBoss || e.t.trainPart) return;    // and the train — nothing ticks a wagon's stun down
+  // ...and the Alien Walker. It is none of the four above and killing it ends
+  // nothing, but it dispatches up there WITH them (updateEnemy) — which is
+  // exactly what makes it belong here: sitting above the stun block is its
+  // immunity, so a daze set on it would latch on forever, unread, while the
+  // lance kept sweeping. Its `boss` flag can't carry this test, since the four
+  // faction bosses' own parts don't have one.
+  if (e.t.awalker) return;
   if (!(G.cardsOwned && G.cardsOwned.has('shellshocked'))) return;
   e.stun = Math.max(e.stun || 0, SHELLSHOCK_DURATION);
   G.texts.push({ x: e.x, y: e.y - 24, text: 'SHELL SHOCKED', ttl: 1.2 });
@@ -553,6 +560,12 @@ function headshotKills(shooter, target) {
   if (t.germanBoss || t.japBoss || t.ship || t.shipPart) return false;
   if (t.hordeBoss || t.bossPart) return false;
   if (t.itaBoss || t.trainPart) return false;
+  // and the Alien Walker, for the reason the whole AW_ block is tuned around:
+  // it is meant to be hard to REACH rather than hard to hurt, so its 3000 HP is
+  // the entire fight. A 40% instant kill on the round that finally reaches it
+  // deletes the encounter, and the tell would be a rifleman one-shotting a
+  // tripod. It carries no faction-boss flag, so it needs its own line here.
+  if (t.awalker) return false;
   return Math.random() < HEADSHOT_CHANCE[shooter.type];
 }
 
@@ -1085,7 +1098,7 @@ const CARD_UNIQUES = {
   // spotterSeesThrough, so every target pick in the game honours it at once.
   forwardobserver: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Forward Observer', cost: 11, weight: 4,
-    desc: `A spotter works the top of every WATCH TOWER and calls targets for the sector below him: your men within ${WATCHTOWER_SPOT_R[0]} of a tower pick targets straight through smoke instead of standing blind in it — riflemen, machine guns, mortars, the AT gun and armour alike. Fortifying the tower widens the sector it watches to ${WATCHTOWER_SPOT_R[1]}, hardening it to ${WATCHTOWER_SPOT_R[2]}. It sees for your side only: the smoke still hides your men from them, and a tower that falls takes its sector's eyes with it.`,
+    desc: `A spotter works the top of every WATCH TOWER and calls targets for the sector below him: your infantry within ${WATCHTOWER_SPOT_R[0]} of a tower pick targets straight through smoke instead of standing blind in it — riflemen, machine guns and the mortar crew alike. Fortifying the tower widens the sector it watches to ${WATCHTOWER_SPOT_R[1]}, hardening it to ${WATCHTOWER_SPOT_R[2]}. Not armour and not the staked guns: a buttoned-up crew and a gunner at his own sights never climbed the ladder. It sees for your side only — the smoke still hides your men from them, and a tower that falls takes its sector's eyes with it.`,
     hooks: {},
   },
   // flag-only, like Rifled Slugs: updateAAGun reads G.cardsOwned directly to

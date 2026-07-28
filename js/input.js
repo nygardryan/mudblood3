@@ -727,6 +727,54 @@ canvas.addEventListener('pointerleave', e => {
   }
 });
 
+// how much elbow room a man needs where he ends up. Only ever used to keep
+// march destinations apart — the sim itself has no collision, so two orders that
+// resolve to the same point put two sprites on one spot for good.
+function moveSpaceRadius(u) {
+  return u.t.tank ? 22 : u.t.vehicle ? 16 : u.t.gunEmplacement ? 12 : 11;
+}
+
+// Nearest spot to (px,py) that is on the field AND clear of everything already
+// standing there. Both stacking bugs are the same bug: an ideal slot that isn't
+// a legal resting place used to be CLAMPED, and a clamp collapses — order a
+// squad onto the edge of the forward line and every slot past the boundary
+// lands on the identical boundary point, while a slot that happens to sit on a
+// man who isn't marching with the group has never been checked at all. So the
+// slot is redirected instead: spiral out until something fits.
+function clearMoveSlot(px, py, selfR, taken, blockers, minY, toward) {
+  const p = { x: 0, y: 0 };
+  const fits = (cx, cy) => {
+    if (cx < 16 || cx > W - 16 || cy < minY || cy > H - 14) return false;
+    p.x = cx; p.y = cy;
+    const own = selfR * 2;
+    for (const s of taken) if (dist2(p, s) < own * own) return false;
+    for (const b of blockers) {
+      const rr = selfR + b.r;
+      if (dist2(p, b) < rr * rr) return false;
+    }
+    return true;
+  };
+  if (fits(px, py)) return { x: px, y: py };
+  const step = Math.max(8, selfR * 1.1);
+  for (let ring = 1; ring <= 12; ring++) {
+    const rad = ring * step;
+    const n = 8 + ring * 4;
+    let best = null, bd = Infinity;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const cx = px + Math.cos(a) * rad, cy = py + Math.sin(a) * rad;
+      if (!fits(cx, cy)) continue;
+      // every candidate on a ring is the same distance from the ideal slot, so
+      // break the tie toward the order's own centre and keep the group tight
+      p.x = cx; p.y = cy;
+      const d = dist2(p, toward);
+      if (d < bd) { bd = d; best = { x: cx, y: cy }; }
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
 // spread a group order into a tight grid around the target so men don't stack
 function issueMoveOrder(units, x, y) {
   units = units.filter(u => !u.t.fixed);   // staked guns don't take march orders
@@ -749,10 +797,32 @@ function issueMoveOrder(units, x, y) {
     const row = Math.floor(i / cols);
     const inRow = (row === rows - 1) ? units.length - row * cols : cols;
     const col = i % cols;
-    slots.push(clampDest(
-      x + (col - (inRow - 1) / 2) * spacing,
-      y + (row - (rows - 1) / 2) * spacing,
-    ));
+    slots.push({
+      x: x + (col - (inRow - 1) / 2) * spacing,
+      y: y + (row - (rows - 1) / 2) * spacing,
+    });
+  }
+  // Everyone NOT marching with this group is ground the group can't have. A man
+  // already under orders is read at his destination, not where he happens to be
+  // standing — that's where he'll be when this group arrives.
+  const marching = new Set(units);
+  const blockers = [];
+  for (const u of commandRoster()) {
+    if (u.dead || marching.has(u)) continue;
+    const at = u.moveTo || u;
+    blockers.push({ x: at.x, y: at.y, r: moveSpaceRadius(u) });
+  }
+  // resolve the slots nearest the click first, so the ones that have to give
+  // ground are the ones already out on the edge of the formation
+  const centre = { x, y };
+  const order = slots.map((s, i) => i).sort((a, b) => dist2(slots[a], centre) - dist2(slots[b], centre));
+  const taken = [];
+  for (const i of order) {
+    const fixed = clearMoveSlot(slots[i].x, slots[i].y, spacing / 2, taken, blockers, minY, centre);
+    // nowhere within reach fits (a genuinely packed field): fall back to the old
+    // clamp rather than leaving a man with no order at all
+    slots[i] = fixed || clampDest(slots[i].x, slots[i].y);
+    taken.push(slots[i]);
   }
   // hand each slot to the nearest remaining man so paths don't cross
   const pool = units.slice();

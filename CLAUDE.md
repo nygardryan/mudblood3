@@ -120,8 +120,17 @@ Their art lives in `js/render-japanese.js` (`paintJapaneseSoldier`).
 
 The **Yamato** (`jyamato`) is the Japanese wave-100 boss — a land battleship on
 treads, arriving every 100th JP wave (`spawnJapaneseBoss`, hooked in
-`spawnSpecialWave` beside the German one). She is the **first of two multi-hitbox
-actors** (the Progenitor below is the other), and that is the thing to understand
+`spawnSpecialWave` beside the German one). Alone among the bosses she is staged off
+the **SIDE** rather than above the top edge, and **rolls in** from a random flank to
+`YAM_X_MARGIN` (`yamatoRollIn`), inert and untouchable until she gets there — no
+guns, no landing party, no clamps, via one early-out in `updateYamato`. She has to
+be, because the staging strip is held off the field by a `y < 0` test in every scan
+and a 300px hull lying broadside-on does not fit in it. `entering` (stamped on the
+hull AND all ten parts, cleared together on arrival) is what stands in for that
+gate, joined onto the `y < 0` checks in targeting/shooting/update/input plus a
+guard at the top of `damageEnemy` — **nothing anywhere in this game gates on `x`**,
+so without it her stern would be shootable while off-screen. She is the **first of
+two multi-hitbox actors** (the Progenitor below is the other), and that is the thing to understand
 before touching her: every other
 actor here is a bare `(x,y)` point — there is no `r`/`w`/`h` field anywhere in
 `UNIT_TYPES`/`ENEMY_TYPES`, and the size ternaries in input/inspector/mines are

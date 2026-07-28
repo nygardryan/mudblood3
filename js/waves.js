@@ -732,17 +732,26 @@ function spawnGermanBoss(w) {
   }
 }
 
-// She drives on already ON the field, unlike every other spawn: her parts have to
-// be on-field to be targetable at all (every US scan skips y < 0), and a hull that
-// long would have half its length in the staging strip anyway. Same idea as the
-// ev2 spawn-Y override in launchWave. Escorts come on from staging as normal.
+// She is staged off the SIDE rather than above, unlike every other boss: the
+// staging strip is held off the field by a y < 0 test in every scan, and a hull
+// 300px long lying broadside-on can't fit in it — half her length would be over
+// the top edge while the other half sat in the fight. So she rolls in from a
+// random flank instead, and her `entering` flag (initYamato, cleared by
+// yamatoRollIn) is what stands in for that y gate: the codebase has no x gate
+// anywhere, so without it her stern would be shootable while off-screen. She
+// arrives at YAM_X_MARGIN, which her patrol already respects. spawnEnemyAt clamps
+// x into the field, so the off-field position is written after it and before
+// initYamato, which derives the entry from it. Escorts still come on from centre
+// staging as normal — they mask the arrival.
 // Each hundredth-wave return is tougher — wave 200 fields her at 2x HP — and the
 // belt sections have to be re-mirrored after the scaling or they'd advertise the
 // base pool on a ship carrying double.
 function spawnJapaneseBoss(w) {
   showBanner('YAMATO — THE LAND BATTLESHIP ROLLS IN!');
   SFX.event();
+  const dir = pick([1, -1]);                  // +1 = comes on from the left
   const b = spawnEnemyAt('jyamato', W / 2, (YAM_Y_MIN + YAM_Y_MAX) / 2);
+  b.x = dir > 0 ? -YAM_ENTRY_X : W + YAM_ENTRY_X;
   const mult = w / YAM_WAVE_INTERVAL;
   if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.jyamato.hp * mult);
   // build her parts now rather than waiting for the first tick, so the HP mirror

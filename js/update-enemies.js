@@ -1176,7 +1176,16 @@ function bossReinforce(call) {
 function initYamato(e) {
   e.yamInit = true;
   e.phase = 0;                  // health segments broken so far (0..YAM_SEGMENTS-1)
-  e.heading = pick([0, Math.PI]);        // broadside-on from the off
+  // A hull spawned outside the patrol margin is ROLLING IN, and which side it was
+  // spawned on is the whole of the entry state — so the wave hook and a bare
+  // TEST.deploy('jyamato', 0.05, 0.32) run one identical code path, the way the
+  // Progenitor's and the train's lazy init already do. Heading is the entry
+  // direction while she comes on, so she arrives flat and broadside-on with
+  // nothing to turn; spawned inside the margin she just picks a side as before.
+  const off = e.x < YAM_X_MARGIN ? 1 : e.x > W - YAM_X_MARGIN ? -1 : 0;
+  e.entering = off !== 0;
+  e.entryDir = off;
+  e.heading = off ? (off > 0 ? 0 : Math.PI) : pick([0, Math.PI]);  // broadside-on from the off
   e.legT = rand(YAM_LEG_MIN, YAM_LEG_MAX);
   e.wantHeading = e.heading;
   e.landCd = rand(YAM_LAND_CD_MIN, YAM_LAND_CD_MAX);
@@ -1189,6 +1198,9 @@ function initYamato(e) {
     p.shipOf = e;
     p.fireT = 0;
     p.tur = e.heading;
+    // the gate is stamped on the parts too: every scan reads the actor it is
+    // looking at, and ten of the eleven hitboxes are parts
+    p.entering = e.entering;
     e.parts.push(p);
     G.enemies.push(p);
     return p;
@@ -1198,7 +1210,14 @@ function initYamato(e) {
   e.turrets = YAM_TURRET_S.map(s => addPart('jyturret', s, 0));
   e.mounts = [];
   for (const s of YAM_MG_S) {
-    for (const b of [-YAM_MG_B, YAM_MG_B]) e.mounts.push(addPart('jymg', s, b));
+    for (const b of [-YAM_MG_B, YAM_MG_B]) {
+      const p = addPart('jymg', s, b);
+      // lay the tub on its own beam up front. updateYamatoMount normally does this
+      // on the first tick, but it doesn't run during the roll-in, and the renderer
+      // blits at `p.face || 0` — so she'd come on with every tub stowed fore-and-aft.
+      p.face = e.heading + Math.sign(b) * Math.PI / 2;
+      e.mounts.push(p);
+    }
   }
   syncYamatoParts(e);
 }
@@ -1307,6 +1326,28 @@ function nextYamatoLeg(e) {
   e.wantHeading = base + tilt;
 }
 
+// The arrival. She drives straight along her beam from off the edge to the patrol
+// margin, at a fixed heading and y — there is no turn, so neither clamp in
+// updateYamato has anything to do and both are skipped along with everything else
+// (see the early-out there). She is inert and untouchable the whole way: the
+// `entering` flag on her and every part is what keeps her out of the targeting
+// scans, which gate on y < 0 and have no notion of x at all.
+function yamatoRollIn(e, dt) {
+  const goal = e.entryDir > 0 ? YAM_X_MARGIN : W - YAM_X_MARGIN;
+  const left = Math.abs(goal - e.x);
+  const speed = YAM_SPEED + (YAM_ENTRY_SPEED - YAM_SPEED) * clamp(left / YAM_ENTRY_EASE, 0, 1);
+  e.x += e.entryDir * speed * dt;
+  if (e.entryDir > 0 ? e.x >= goal : e.x <= goal) {
+    e.x = goal;
+    e.entering = false;
+    for (const p of e.parts) p.entering = false;
+    // she lands ON the margin, so nextYamatoLeg reads nearEdge and turns her
+    // inward — she can never be handed a leg that walks straight back off
+    nextYamatoLeg(e);
+  }
+  syncYamatoParts(e);
+}
+
 // Her signature play, and the fight's whole economy: the ramps come down and
 // naval infantry pour out along both flanks. Killing escorts is what pays for the
 // artillery that actually kills her — small arms can't touch the belt, so without
@@ -1348,6 +1389,10 @@ function yamatoDamageControl(e) {
 
 function updateYamato(e, dt) {
   if (!e.yamInit) initYamato(e);
+  // Still rolling in. This one return is what keeps the whole fight out of the
+  // arrival — the phase poll, both ability clocks, the leg logic, both clamps and
+  // both gun loops. Symmetric with her being untargetable: she can't shoot either.
+  if (e.entering) { yamatoRollIn(e, dt); return; }
 
   // ONE HP pool ticked into YAM_SEGMENTS phases — the mass's and the train's poll,
   // verbatim, and here for one reason only: the phase is the plate her batteries
@@ -1384,7 +1429,9 @@ function updateYamato(e, dt) {
   // to y=364. The effect is that she can only push to YAM_Y_MAX while lying flat
   // and has to pull back as she angles. The x clamp keeps every part on screen:
   // targeting scans reject y < 0 but never x, so a bow off the edge would be
-  // shootable and invisible.
+  // shootable and invisible. The roll-in is exempt from that clamp — it drives her
+  // from off the edge to this very margin — and the reason it can be is that the
+  // `entering` flag closes exactly the hole this clamp otherwise guards.
   const yReach = Math.abs(Math.sin(e.heading)) * Math.max(...YAM_BELT_S.map(Math.abs))
     + Math.abs(Math.cos(e.heading)) * YAM_MG_B;
   e.x = clamp(e.x, YAM_X_MARGIN, W - YAM_X_MARGIN);

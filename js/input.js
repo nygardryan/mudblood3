@@ -71,7 +71,7 @@ function enemyAtWorld(x, y) {
   if (!G) return null;
   let best = null, bd = Infinity;
   for (const e of G.enemies) {
-    if (e.dead || e.y < 0 || e.chute > 0) continue;
+    if (e.dead || e.y < 0 || e.entering || e.chute > 0) continue;
     // the Yamato's hitboxes sit 62px apart, so a 26px tank radius would leave an
     // 8px dead band at every midpoint and clicks would fall THROUGH her hull
     const base = e.t.shipPart || e.t.ship ? 34

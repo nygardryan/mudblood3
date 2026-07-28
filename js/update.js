@@ -60,7 +60,7 @@ function update(dt) {
   updateSmoke(dt);
 
   // drop a focus-fire mark once its target is dead or off the field
-  if (G.focusTarget && (G.focusTarget.dead || G.focusTarget.y < 0)) G.focusTarget = null;
+  if (G.focusTarget && (G.focusTarget.dead || G.focusTarget.y < 0 || G.focusTarget.entering)) G.focusTarget = null;
 
   // per-unit cosmetic/exposure timers tick inside updateUnit/updateEnemy —
   // one pass over each roster instead of a dozen
@@ -201,7 +201,7 @@ function update(dt) {
     const falloff = 1 - (sh.dist / sh.maxDist) * 0.7;
     const r2 = FRAG_SHRAPNEL_HITR * FRAG_SHRAPNEL_HITR;
     for (const e of G.enemies) {
-      if (e.dead || e.chute > 0 || e.y < 0) continue;
+      if (e.dead || e.chute > 0 || e.y < 0 || e.entering) continue;
       const dx = e.x - sh.x, dy = e.y - sh.y;
       if (dx * dx + dy * dy > r2) continue;
       if (!sh.hit) sh.hit = new Set();

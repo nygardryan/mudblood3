@@ -462,7 +462,7 @@ function fireShotgun(actor, buffs) {
   const foes = actor.side === 'de' ? G.units : G.enemies;
   const reach2 = (range + 8) * (range + 8);
   for (const e of foes) {
-    if (e.dead || e.y < 0 || e.chute > 0 || isCamouflaged(e)) continue;
+    if (e.dead || e.y < 0 || e.entering || e.chute > 0 || isCamouflaged(e)) continue;
     const d2 = dist2(actor, e);
     if (d2 > reach2) continue;
     const d = Math.sqrt(d2);
@@ -546,7 +546,7 @@ function fireCanister(u, range) {
   const rank = u.rank || 0;
   const reach2 = (range + 8) * (range + 8);
   for (const e of G.enemies) {
-    if (e.dead || e.y < 0 || e.chute > 0) continue;
+    if (e.dead || e.y < 0 || e.entering || e.chute > 0) continue;
     if (!canisterHittable(e)) continue;   // armor is the AP shell's job, not this one's
     const d2 = dist2(u, e);
     if (d2 > reach2) continue;

@@ -292,8 +292,8 @@ const YAM_SPR_W = 320, YAM_SPR_H = 104;   // hull bitmap footprint; makeSprite c
 // boss because her turrets and tubs soak damage he doesn't have. (11000 with a
 // 44-damage shell overshot the other way — she died in 70-110s losing every gun.)
 const YAM_HULL_HP = 14000;
-const YAM_TURRET_HP = 1400;          // per battery — killing one silences three guns
-const YAM_MG_HP = 320;               // per mount; jymg is NOT `tank`, so rifles work on it
+const YAM_TURRET_HP = 2800;          // per battery — killing one silences three guns
+const YAM_MG_HP = 640;               // per mount; jymg is NOT `tank`, so rifles work on it
 // Her pool ticked into phases, purely to drive the plate her batteries and tubs
 // wear (see bossPartDamageMult) — unlike the train's and the mass's, a break here
 // fires no ability, so the poll in updateYamato has nothing but the phase in it.
@@ -333,6 +333,18 @@ const YAM_Y_MIN = 160, YAM_Y_MAX = 240;
 // has to pull back as she angles — DEPLOY_Y is 380, so the line is never in reach.
 const YAM_SAFE_Y = 300;
 const YAM_X_MARGIN = 140;            // hull-centre clamp; keeps every section on screen
+// The ROLL-IN. She used to be dropped fully formed at mid-field, which reads as a
+// 300px battleship materialising out of nothing. She now drives on from a random
+// flank, staged off the edge by YAM_ENTRY_X and running to YAM_X_MARGIN — the
+// margin her patrol already respects, so the arrival hands straight over to
+// nextYamatoLeg with nothing new to clamp. She is INERT for the whole run (see the
+// `entering` early-out in updateYamato): no guns, no landing party, untargetable
+// and undamageable. So this is a telegraph rather than a movement mode, and its
+// length is purely a pacing choice — ~8s, long enough to reposition against.
+const YAM_ENTRY_X = YAM_LEN / 2 + 30;   // 180 — her centre starts this far off the edge
+const YAM_ENTRY_SPEED = 42;             // roll-in speed; 3x the patrol, still a ship
+const YAM_ENTRY_EASE = 110;             // decel to YAM_SPEED over the last of the run,
+                                        // so the hand-off to 14 isn't a visible jolt
 // Steepest diagonal leg. Note this caps the leg's TARGET heading, not the heading
 // she passes through: reversing 0 -> pi eases through pi/2, where she is bow-on,
 // cos(heading) is ~0 and NEITHER broadside bears. That is correct and it is the

@@ -787,6 +787,11 @@ function partPlate(parent, segments, resist) {
 
 function damageEnemy(e, dmg, from, kind) {
   if (e.chute > 0) return; // untouchable while the canopy is up
+  // and likewise the Yamato's roll-in, hull and parts alike. The targeting gate
+  // already stops anyone aiming at her; this catches the side-blind paths that
+  // never aim at all — explode's splash reaching a belt section just off the edge.
+  // Above the belt redirect below, or a hit on a jyhull would route straight past it.
+  if (e.entering) return;
   // The Yamato's armor belt is five actors on ONE pool: a hit anywhere along it
   // is a hit on the ship. Doing this here rather than per-weapon means bullets,
   // blast, flame and melee all route correctly for free. Keyed on the type flag

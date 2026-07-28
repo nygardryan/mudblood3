@@ -33,11 +33,11 @@ TEST.start('endless', 'easy')      // validated start — THROWS on bad ids
 TEST.start('endless','easy','jp')  // 3rd arg pins the endless enemy faction roll:
                                    // 'de' (Wehrmacht), 'jp' (Imperial Japanese Army),
                                    // 'zo' (The Horde — undead), or 'it' (Regio Esercito).
-                                   // omitted = random per run (1-in-4 each), UNLESS an
-                                   // escalation rung is set — each rung pins a faction,
-                                   // and this arg still overrides that pin.
+                                   // omitted = rolled per run at EVERY escalation rung
+                                   // (rollEnemyFaction, js/state.js — uniform except that
+                                   // it never repeats the previous run's army).
                                    // state().enemyFaction reports it.
-TEST.escalation()                  // report the ESCALATION ladder: {level, unlocked, faction, mods, active}
+TEST.escalation()                  // report the ESCALATION ladder: {level, unlocked, mods, active}
 TEST.escalation(7)                 // UNLOCK + select rung 7 (the real unlock costs a boss kill
                                    // per rung). Writes the save — lands on the NEXT start().
 TEST.deploy('gunner', 0.5, 0.75)   // FREE god-mode spawn; (0..1] coords = fractions of field
@@ -670,10 +670,17 @@ by an entry's `apply()`. The payout is `Math.max(base, Math.round(base * mult))`
 medal and a rung must never pay LESS than no rung.
 
 Three things about it that are easy to get wrong:
-- **Each rung PINS the enemy faction**, cycling `de`/`jp`/`zo`/`it`, so a climb is
-  "prove it against every army" — without that, rung VI's doubled plate is brutal
-  against the Regio Esercito and literally nothing against the Horde, which wears
-  none. `G_forceFaction` (TEST) still wins over the pin.
+- **The rung does NOT pick the enemy** — every run at every rung rolls it, in
+  `rollEnemyFaction` (`js/state.js`), and `G.esc` carries no `faction` field. It
+  shipped pinned one army per rung ("prove it against every army") and was
+  un-pinned deliberately: a rung is cleared only by a wave-100 boss kill, so a
+  hard rung is dozens of attempts, and a pin made every one of them the same army
+  on the same ground. The price is that a modifier now lands unevenly by roll —
+  rung VI's doubled plate is brutal against the Regio Esercito and literally
+  nothing against the Horde, which wears none — and that is accepted. The roll's
+  one rule is **no back-to-back repeat** (`G_lastFaction`, a per-session global,
+  not the save blob: it exists to space out a run of attempts). `G_forceFaction`
+  (TEST) still wins over both, and does not disturb the rotation.
 - **Armor is a soak pool, not a reduction fraction** — `damageUnit`/`damageEnemy`
   subtract it 1:1 until it breaks, then spill the remainder into HP. So rung VI
   doubles the POOL at spawn. Halving incoming damage instead would also halve the

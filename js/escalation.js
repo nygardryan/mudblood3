@@ -18,17 +18,23 @@
 // free when the feature is off.
 const ESC_MAX = 10;
 
-// each rung pins the enemy faction, cycling in this order. A climb is therefore
-// "prove it against every army", and it stops a modifier landing unevenly — the
-// doubled plate of rung VI is brutal against the Regio Esercito and literally
-// nothing against the Horde, which wears none.
-const ESC_FACTION_CYCLE = ['de', 'jp', 'zo', 'it'];
-const ESC_FACTION_NAME = {
-  de: 'WEHRMACHT',
-  jp: 'IMPERIAL JAPANESE ARMY',
-  zo: 'THE HORDE',
-  it: 'REGIO ESERCITO',
-};
+// THE LADDER DOES NOT PICK THE ENEMY. Every rung rolls the faction the same way
+// rung 0 always did (rollEnemyFaction in js/state.js) — no pin, no cycle.
+//
+// It shipped pinned, one army per rung, on the theory that a climb should be
+// "prove it against every army". The cost of that is paid by the player who is
+// STUCK: a rung is only cleared by putting a wave-100 boss down, so a hard rung
+// is dozens of runs, and a pin makes every one of them the same army on the same
+// ground — the same opening, the same counters, learnable to the point of
+// tedium. Rotation is the thing that keeps those attempts distinct, and it is
+// worth more than the tidiness of the cycle, even though a lucky roll lets a
+// player farm his best matchup for the unlock.
+//
+// What the pin bought and this gives up: a modifier now lands unevenly by roll.
+// Rung VI's doubled plate is brutal against the Regio Esercito and literally
+// nothing against the Horde, which wears none. That is accepted — the ladder is
+// a difficulty curve, not a fairness guarantee, and the no-repeat rule on the
+// roll means the uneven ones come around soon enough.
 const ESC_ROMAN = ['—', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
 // events fire 30% more often, so the interval between them is 1/1.3
@@ -38,8 +44,8 @@ const ESC_EVENT_RATE = 1.3;
 // reward curve as well as a difficulty one: the wave-10 milestone that banks 1
 // medal at rung 0 banks 2 at rung X. This is deliberately NOT an eleventh rung —
 // it is the continuous term that runs alongside the ten, which is why it is
-// derived from the level in buildEscMods (like `faction`) rather than applied by
-// one entry's apply(). +10% per rung: ×1.0 at 0, ×2.0 at X.
+// derived from the level in buildEscMods rather than applied by one entry's
+// apply(). +10% per rung: ×1.0 at 0, ×2.0 at X.
 const ESC_MEDAL_STEP = 0.1;
 
 function escMedalMult(level) {
@@ -143,7 +149,6 @@ const ESCALATIONS = [
 function defaultEscMods() {
   return {
     level: 0,
-    faction: null,          // null = roll the enemy faction at random, as before
     hpRampMult: 1,          // I
     incomeMult: 1,          // II
     trickleAdd: 0,          // II
@@ -166,14 +171,9 @@ function buildEscMods(level) {
   const n = clamp(Math.floor(level || 0), 0, ESC_MAX);
   if (!n) return m;
   m.level = n;
-  m.faction = escFactionFor(n);
   m.medalMult = escMedalMult(n);
   for (let i = 0; i < n; i++) ESCALATIONS[i].apply(m);
   return m;
-}
-
-function escFactionFor(level) {
-  return ESC_FACTION_CYCLE[(level - 1) % ESC_FACTION_CYCLE.length];
 }
 
 // Escalation VI, read from three places: the wave spawner's armor roll and the
@@ -294,9 +294,8 @@ function buildEscalationUI() {
   el('esc-count').textContent = level > 0
     ? level + ' MODIFIER' + (level === 1 ? '' : 'S') + ' IN EFFECT'
     : 'NO MODIFIERS';
-  el('esc-foe').textContent = level > 0
-    ? 'ENEMY: ' + ESC_FACTION_NAME[escFactionFor(level)]
-    : 'ENEMY: ROLLED AT RANDOM';
+  // #esc-foe is not written here: the rung never picks the enemy, so its line is
+  // the same at every rung and lives in the HTML as static copy.
   el('esc-mult').textContent = escMultLabel(level);
   el('esc-earned').textContent = 'EARNED: ' + ESC_ROMAN[unlocked];
   el('esc-topmult').textContent = escMultLabel(ESC_MAX) + ' MEDALS';

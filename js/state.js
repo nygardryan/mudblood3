@@ -4,6 +4,7 @@
 
 let G = null;         // game state
 let G_forceFaction = null; // test harness: pin the endless enemy faction roll ('de' | 'jp' | 'zo' | 'it')
+let G_lastFaction = null;  // the faction the last endless run rolled — see rollEnemyFaction
 let placing = null;   // placeable currently being placed
 let mouse = { x: W / 2, y: H / 2, inside: false };
 let drag = null;      // marquee selection in progress: { x0, y0, x1, y1, active }
@@ -61,6 +62,24 @@ function factionAdjUpper() {
 function factionPlural() {
   const f = enemyFaction();
   return f === 'jp' ? 'Japanese' : f === 'zo' ? 'undead' : f === 'it' ? 'Italians' : 'Germans';
+}
+
+// the four armies an endless run can face, and the roll that picks one. Every
+// endless run rolls, at every ESCALATION rung — the ladder used to pin one army
+// per rung and no longer does (see the note at the top of js/escalation.js).
+//
+// It is a roll with ONE rule: never the same army twice running. A flat pick
+// repeats a quarter of the time, and back-to-back repeats are exactly what the
+// player grinding one rung for its unlock is complaining about — a 1-in-4 chance
+// of "again?" on every restart is felt far more than the uniformity it buys. The
+// memory is deliberately per-SESSION (a plain global, not the save blob): it
+// exists to space out a run of attempts, and there is nothing to fix about
+// reloading the page tomorrow onto the same army you finished on.
+const ENEMY_FACTIONS = ['de', 'jp', 'zo', 'it'];
+
+function rollEnemyFaction() {
+  const pool = ENEMY_FACTIONS.filter(f => f !== G_lastFaction);
+  return G_lastFaction = pick(pool);
 }
 
 // is the infection mechanic live this run? Normally that's just the 'zo' roll,
@@ -181,13 +200,13 @@ function newGame(level, difficulty) {
   // War Chest front-loads the run's opening TP balance
   if (G.cardsOwned && G.cardsOwned.has('warchest')) G.tp += WAR_CHEST_TP;
   // endless-only: each run rolls which enemy the sector faces — the Wehrmacht,
-  // the Imperial Japanese Army, the Regio Esercito, or The Horde (undead). Every
-  // other mode (tutorials, campaigns) stays German so their scripted enemy types
-  // keep working. A caller (test harness) may pre-set G_forceFaction to lock the
-  // roll — it wins over the escalation pin so TEST.start's third argument keeps
-  // working at any rung.
+  // the Imperial Japanese Army, the Regio Esercito, or The Horde (undead). The
+  // ESCALATION rung has no say in it (see rollEnemyFaction). Every other mode
+  // (tutorials, campaigns) stays German so their scripted enemy types keep
+  // working. A caller (test harness) may pre-set G_forceFaction to lock the roll
+  // — it wins, so TEST.start's third argument keeps working at any rung.
   G.enemyFaction = level.id === 'endless'
-    ? (G_forceFaction || esc.faction || pick(['de', 'jp', 'zo', 'it']))
+    ? (G_forceFaction || rollEnemyFaction())
     : 'de';
   // starting an endless run refreshes the shop's reroll price back to base
   if (level.id === 'endless') resetRerollCost();

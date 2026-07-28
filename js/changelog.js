@@ -3,6 +3,16 @@
 // Add a new object to the TOP of this array whenever you ship changes.
 const CHANGELOG = [
   {
+    date: '2026-07-28',
+    title: 'The Ladder No Longer Picks Your Enemy',
+    changes: [
+      'ESCALATION rungs no longer pin the army you fight. Every run at every rung rolls the enemy the same way an unmodified endless run always has — Wehrmacht, Imperial Japanese Army, Horde or Regio Esercito.',
+      'A rung is only cleared by putting a wave-100 boss down, which is a lot of attempts, and a pinned rung made every one of those attempts the same army on the same ground. Rotation is what keeps them distinct — even though it means a lucky roll can hand you your best matchup for the unlock.',
+      'The roll never gives you the same army twice in a row, so a restart is always a change of front.',
+      'One consequence worth knowing: a modifier now lands where the roll puts it. CASE-HARDENED doubles plate that the Regio Esercito wears a lot of and the dead wear none of, so some runs at that rung are harder than others.',
+    ],
+  },
+  {
     date: '2026-07-27',
     title: 'Point At Anything',
     changes: [

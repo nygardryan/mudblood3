@@ -522,6 +522,14 @@ function drawDefenseRangeIndicator(key, x, y, tier = 0) {
     ctx.strokeRect(x - 40, y - 14, 80, 28);
     ctx.setLineDash([]);
   } else if (key === 'watchtower') {
+    // Forward Observer draws the tower's second, much wider footprint: the
+    // sector the spotter watches, painted fainter and UNDER the range aura so
+    // the two read as one piece. Only while the card is in the plan — without
+    // it the tower has no such reach. G is null when the codex opens this from
+    // the main menu, hence the guard.
+    if (G && G.cardsOwned && G.cardsOwned.has('forwardobserver')) {
+      drawOfficerAuraRing(x, y, WATCHTOWER_SPOT_R[tier], 0.22, true);
+    }
     drawOfficerAuraRing(x, y, WATCHTOWER_AURA, 0.45, true);
   } else if (key === 'ammocrate') {
     drawOfficerAuraRing(x, y, AMMOCRATE_AURA, 0.45, true);

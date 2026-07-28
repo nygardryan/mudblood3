@@ -626,6 +626,50 @@ function takeAmbushShot(u) {
   return true;
 }
 
+// Forward Observer: a spotter works from the top of every watch tower, and the
+// men in the sector below him pick targets through smoke that would otherwise
+// have them firing blind. The tower's SECOND footprint, and deliberately a much
+// wider one than WATCHTOWER_AURA — the aura is who is close enough to shoot
+// further off the tower's height, this is how much ground the man up it can
+// SEE. One radius per fortification tier, like BUNKER_COVER_R, so an engineer
+// widens the sector rather than only hardening the ladder he climbs.
+//
+// Sized against a rifle: 130 is about a rifleman's own reach, so one tower
+// covers roughly one sector of the line and never the field. That bound is the
+// point — the smokescreen event has to keep working everywhere else, or a
+// 10 TP tower switches an entire mechanic off.
+const WATCHTOWER_SPOT_R = [130, 155, 180];
+
+// true when this shooter is being spotted from a tower and so sees through
+// smoke. Read by smokeBlocksLOS on the OBSERVER only, so it can never hand an
+// enemy vision of a man standing under the tower.
+//
+// The 0.4s G.buffFrame cache the officer aura and Cannibalize use, and it is
+// tested FIRST — ahead of even the cards check. This is the one card helper
+// read per candidate PAIR rather than per shot, so a bare Set lookup at the top
+// measured 0.15us on every one of them (0.9 of 6.7ms across a 40v150 board);
+// behind the cache the repeat cost is one property compare and the lookup runs
+// at most once per actor per 0.4s. Enemies get stamped too, which is the point
+// — they are the `a` argument on half the calls in targeting.js. Same staleness
+// deal as isCamouflaged's nest lookup: a man who walks over the sector line is
+// spotted (or not) up to a beat late. The tower's own death is NOT deferred
+// that way, since hp is tested live below.
+function spotterSeesThrough(u) {
+  if (!u) return false;
+  const bf = G.buffFrame || 0;
+  if (u._spotFrame === bf) return u._spotted;
+  u._spotFrame = bf;
+  u._spotted = false;
+  if (u.side !== 'us' || !G.watchtowers.length) return false;
+  if (!(G.cardsOwned && G.cardsOwned.has('forwardobserver'))) return false;
+  for (const wt of G.watchtowers) {
+    if (wt.hp <= 0) continue;
+    const r = WATCHTOWER_SPOT_R[wt.up2 ? 2 : wt.up ? 1 : 0];
+    if (dist2(wt, u) < r * r) { u._spotted = true; break; }
+  }
+  return u._spotted;
+}
+
 // an instant reload is worth whatever the cooldown it erases is worth:
 // near-nothing on fast-cycling rifles, a run-warping 6 on the bazooka, whose
 // long rocket cooldown vanishes entirely against massed waves
@@ -1029,7 +1073,15 @@ const CARD_UNIQUES = {
   // takeAmbushShot, which is also where the scope of the bonus is argued.
   ambush: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Ambush', cost: 9, weight: 3,
-    desc: `A man who opens fire from a camo nest while the enemy still cannot see him hits for ${AMBUSH_DMG_MULT}x damage. The shot gives his position away, so the bonus only comes back once the nest hides him again — ${CAMONEST_REVEAL}s after his last shot, ${CAMONEST_REVEAL_FORTIFIED}s fortified, ${CAMONEST_REVEAL_HARDENED}s hardened. Aimed fire and buckshot only: grenades, rockets, mortar shells and flame break cover without the ambush.`,
+    desc: `A man who opens fire out of a camo nest while the enemy still cannot see him hits for ${AMBUSH_DMG_MULT}x damage. The shot gives his position away, so the bonus only comes back once the nest hides him again — ${CAMONEST_REVEAL}s after his last shot, ${CAMONEST_REVEAL_FORTIFIED}s fortified, ${CAMONEST_REVEAL_HARDENED}s hardened. Aimed fire and buckshot only: grenades, rockets, mortar shells and flame break cover without the ambush.`,
+    hooks: {},
+  },
+  // the fifth emplacement card, and the watch tower's own. Flag-only like the
+  // rest: smokeBlocksLOS (js/smoke.js) reads G.cardsOwned through
+  // spotterSeesThrough, so every target pick in the game honours it at once.
+  forwardobserver: {
+    unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Forward Observer', cost: 11, weight: 4,
+    desc: `A spotter works the top of every WATCH TOWER and calls targets for the sector below him: your men within ${WATCHTOWER_SPOT_R[0]} of a tower pick targets straight through smoke instead of standing blind in it — riflemen, machine guns, mortars, the AT gun and armour alike. Fortifying the tower widens the sector it watches to ${WATCHTOWER_SPOT_R[1]}, hardening it to ${WATCHTOWER_SPOT_R[2]}. It sees for your side only: the smoke still hides your men from them, and a tower that falls takes its sector's eyes with it.`,
     hooks: {},
   },
   // flag-only, like Rifled Slugs: updateAAGun reads G.cardsOwned directly to

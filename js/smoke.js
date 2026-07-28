@@ -161,6 +161,15 @@ function smokeBlocksLOS(a, b) {
   if (len2 <= SMOKE_SEE_THROUGH * SMOKE_SEE_THROUGH) return false;
   if ((a.x < box.x0 && b.x < box.x0) || (a.x > box.x1 && b.x > box.x1) ||
       (a.y < box.y0 && b.y < box.y0) || (a.y > box.y1 && b.y > box.y1)) return false;
+  // Forward Observer (card): a man in a watch tower's sector is having his
+  // targets called from above the murk. Hooked HERE rather than at the fourteen
+  // scan sites in targeting.js — every target pick in the game already funnels
+  // through this one function, so a new scan gets the card for free and cannot
+  // be forgotten. `a` is the OBSERVER at every call site (b is what he is
+  // looking at), which is what keeps this one-directional: the enemy scans pass
+  // their own shooter first and never qualify. Placed after the two free
+  // rejects above so a sight line nowhere near the smoke never pays for it.
+  if (spotterSeesThrough(a)) return false;
   const len = Math.sqrt(len2);
   const puffs = G.smoke;
   let depth = 0;

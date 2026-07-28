@@ -4,6 +4,16 @@
 const CHANGELOG = [
   {
     date: '2026-07-28',
+    title: 'New Card: Forward Observer',
+    changes: [
+      'New unique EMPLACEMENTS card — FORWARD OBSERVER. A spotter works the top of every WATCH TOWER, and your men in the sector below him pick their targets straight through smoke.',
+      'Smoke has always been something that happened to you. A canister goes up, the men either side of it stop being able to see anything, and there was nothing you could buy that answered it. Now there is, and it is a piece you can already build.',
+      'The sector is the tower\'s second footprint and a far wider one than the range aura — about as far as a rifleman shoots, so one tower covers a stretch of your line and never the whole field. Smoke somewhere else is still smoke. An engineer widens the sector when he fortifies the tower, and widens it again when he hardens it.',
+      'Everything under it sees: rifles, machine guns, the mortar crew, the AT gun and your armour. It works one way only — the smoke goes on hiding your men from the enemy — and it dies with the tower, which is a frail thing that the enemy was already shelling first.',
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'New Card: Ambush',
     changes: [
       'New unique EMPLACEMENTS card — AMBUSH. A man who opens fire out of a CAMO NEST while the enemy still cannot see him hits for double damage.',

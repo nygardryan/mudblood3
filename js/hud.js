@@ -88,9 +88,11 @@ function fitLayout() {
 
   let w, h;
   if (mobile) {
-    const safe = safeAreaInset();
     w = maxW;
-    h = Math.max(1, maxH - safe.top - safe.bottom);
+    // safe area is handled by CSS env() on positioned elements — don't
+    // subtract it here or it gets double-accounted, shrinking the stage
+    // below what the toolbar and mobile-actions need to be visible
+    h = Math.max(200, maxH);
   } else {
     w = maxW;
     h = w / ratio;

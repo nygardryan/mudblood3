@@ -351,7 +351,9 @@ function drawInfoPanel(a, own = false) {
   ty += m.titleLH;
 
   ctx.font = m.statFont;
-  ctx.fillStyle = '#8a8668';
+  // bronze, not the house grey-olive #8a8668 — that sat a shade off the panel
+  // and read as part of the background rather than as text
+  ctx.fillStyle = '#b58a5a';
   for (const l of statLines) { ctx.fillText(l, x + m.pad, ty); ty += m.statLH; }
 
   if (descLines.length) {

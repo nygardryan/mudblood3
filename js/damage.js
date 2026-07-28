@@ -890,8 +890,13 @@ function damageEnemy(e, dmg, from, kind) {
       // she goes up all along her length. The parts are killed DIRECTLY and the
       // secondaries go through the shell queue rather than calling explode here:
       // explode -> damageEnemy -> this block -> explode would recurse.
-      for (let i = 0; i < e.parts.length; i++) {
-        const p = e.parts[i];
+      // `|| []` for the same reason the mass's pods carry it: parts are built by
+      // initYamato on her first tick, so a hull killed before she has ever been
+      // updated has no list at all — TEST.deploy('jyamato') followed straight by
+      // damage is exactly that, and it used to throw here and abort the death.
+      const shipParts = e.parts || [];
+      for (let i = 0; i < shipParts.length; i++) {
+        const p = shipParts[i];
         if (p.dead) continue;
         p.dead = true;
         scheduleShell(p.x, p.y, 0.12 + i * 0.16, 55, 60, true, null);
@@ -917,8 +922,13 @@ function damageEnemy(e, dmg, from, kind) {
       // killed DIRECTLY and the secondaries go through the shell queue — the
       // same recursion reasoning as the ship. Each wagon leaves its own wreck
       // decal, so a burnt train stays stamped on the field where it stopped.
-      for (let i = 0; i < e.parts.length; i++) {
-        const p = e.parts[i];
+      // `|| []` for the ship's reason: initWarTrain builds the consist lazily on
+      // the first tick, so an engine killed before it has ever been updated has
+      // no parts list — TEST.deploy('itrain') and immediate damage hit exactly
+      // that, and the throw took bossVictory() down with it.
+      const trainParts = e.parts || [];
+      for (let i = 0; i < trainParts.length; i++) {
+        const p = trainParts[i];
         if (p.dead) continue;
         p.dead = true;
         // wreck decals for the armored wagons only — four crew posts would just

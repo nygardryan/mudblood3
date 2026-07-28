@@ -886,11 +886,13 @@ function spawnWave() {
   maybeOfficerFireMission();    // Fire Mission card: an officer may call in a salvo
   launchWave(G.wave);
   if (G.wave === 1) {
+    // name the army outright — the wave-1 banner is the only place the run
+    // says who you're fighting, and "here they come" told the player nothing
     const f = enemyFaction();
-    showBanner(f === 'jp' ? 'THE IMPERIAL ARMY ATTACKS'
-      : f === 'zo' ? 'THE DEAD ARE RISING'
-      : f === 'it' ? 'THE REGIO ESERCITO ATTACKS'
-      : 'HERE THEY COME');
+    showBanner(f === 'jp' ? 'IMPERIAL JAPAN MARCHES ONTO THE FIELD'
+      : f === 'zo' ? 'THE UNDEAD HORDE IS RISING'
+      : f === 'it' ? 'THE ITALIAN ARMY DIGS IN'
+      : 'THE GERMAN REICH BLITZES IN');
   }
 }
 

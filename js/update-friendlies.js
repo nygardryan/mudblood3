@@ -91,6 +91,11 @@ function watchtowerRangeMult(u) {
   if (u.t.mortar || isVehicleOrGun(u) || !G.watchtowers.length) return 1;
   let mult = 1;
   for (const wt of G.watchtowers) {
+    // a tower that has just been knocked down spots for nobody. compactDefenses
+    // only sweeps hp <= 0 out at the END of update(), so without this the wreck
+    // keeps extending everyone's reach for the rest of the frame it died in —
+    // the same guard coverBlock and spotterSeesThrough already carry.
+    if (wt.hp <= 0) continue;
     if (dist2(wt, u) < WATCHTOWER_AURA * WATCHTOWER_AURA) {
       const wtMult = wt.up2 ? WATCHTOWER_RANGE_MULT_HARDENED
         : wt.up ? WATCHTOWER_RANGE_MULT_UPGRADED : WATCHTOWER_RANGE_MULT;

@@ -83,7 +83,7 @@ function tieredEnemyTarget(u, range, tiers) {
     }
   }
   const f = G && G.focusTarget;
-  const focusOk = f && !f.dead && f.y >= 0 && !(f.chute > 0) &&
+  const focusOk = f && !f.dead && f.y >= 0 && !f.entering && !(f.chute > 0) &&
     dist2(u, f) <= range * range && !smokeBlocksLOS(u, f);
   for (let i = 0; i < n; i++) {
     if (focusOk && tiers[i](f)) return f;

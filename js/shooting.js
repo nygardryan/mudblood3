@@ -138,14 +138,14 @@ function coverBlock(target) {
   if (target.side !== 'us') return italianCoverBlock(target);
   // bunker walls first: they stop more fire and barely notice small arms
   for (const b of G.bunkers) {
-    const r = b.up2 ? 38 : b.up ? 34 : 30;
+    const r = BUNKER_COVER_R[b.up2 ? 2 : b.up ? 1 : 0];
     if (b.hp > 0 && dist2(b, target) < r * r) {
       if (Math.random() < (b.up2 ? 0.92 : b.up ? 0.85 : 0.75)) { b.hp -= b.up ? 1 : 2; return true; }
     }
   }
   for (const s of G.sandbags) {
     // fortified bags stop more and shrug off hits better; hardened, more still
-    const r = s.up2 ? 33 : s.up ? 30 : 26;
+    const r = SANDBAG_COVER_R[s.up2 ? 2 : s.up ? 1 : 0];
     if (s.hp > 0 && dist2(s, target) < r * r) {
       if (Math.random() < (s.up2 ? 0.78 : s.up ? 0.65 : 0.5)) { s.hp -= s.up2 ? 2 : s.up ? 3 : 4; return true; }
     }

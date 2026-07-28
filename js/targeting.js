@@ -491,11 +491,19 @@ function drawSpecialistRange(a) {
   drawSpecialistRangeAt(a.x, a.y, a.type, a.side);
 }
 
-// dashed area-of-effect indicator for defense-kind placement ghosts —
-// cover radius for bunker/sandbags, blast radius for mines, slow zone for wire
-function drawDefenseRangeIndicator(key, x, y) {
+// dashed area-of-effect indicator for an emplacement — cover radius for
+// bunker/sandbags, blast radius for mines, slow zone for wire. Drawn both under
+// the placement ghost (where the piece has no tier yet, hence the 0 default) and
+// under the hover inspector, where `tier` is the piece's live fortification so
+// the ring the player is shown is the reach he actually has.
+//
+// Returns whether anything was drawn: a decoy has no zone (it IS the effect —
+// enemies shoot at it), so the inspector needs to know to fall back to the
+// footprint box rather than highlight nothing.
+function drawDefenseRangeIndicator(key, x, y, tier = 0) {
   if (key === 'bunker' || key === 'sandbags' || key === 'camonest') {
-    const r = key === 'sandbags' ? 26 : CAMONEST_ZONE;
+    const r = key === 'sandbags' ? SANDBAG_COVER_R[tier]
+      : key === 'bunker' ? BUNKER_COVER_R[tier] : CAMONEST_ZONE;
     ctx.strokeStyle = key === 'camonest' ? 'rgba(150,190,110,0.5)' : 'rgba(120,175,235,0.5)';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 4]);
@@ -517,7 +525,10 @@ function drawDefenseRangeIndicator(key, x, y) {
     drawOfficerAuraRing(x, y, WATCHTOWER_AURA, 0.45, true);
   } else if (key === 'ammocrate') {
     drawOfficerAuraRing(x, y, AMMOCRATE_AURA, 0.45, true);
+  } else {
+    return false;
   }
+  return true;
 }
 
 function friendlyNearPoint(x, y, r, except) {

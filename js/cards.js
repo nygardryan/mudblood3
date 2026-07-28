@@ -182,6 +182,61 @@ function healBreachesBetweenWaves() {
   G.texts.push({ x: W / 2, y: H * 0.56, text: 'GROUND RETAKEN — BREACH RECOVERED', ttl: 3.2 });
 }
 
+// Fire Mission: a unique OFFICER card, and the second per-wave hook — spawnWave
+// (js/waves.js) calls the helper below next to healBreachesBetweenWaves, before
+// launchWave puts the next assault on the field. Flag-only, read straight from
+// G.cardsOwned like every other officer card.
+//
+// Three things about it:
+// - It needs an OFFICER ALIVE to fire. The officer is the only unit in the game
+//   who never shoots at anything, and this is the one card that gives him an
+//   offensive job; without the check it would be an HQ card wearing his chip,
+//   paying out on a field with no officer on it.
+// - It shells a random enemy ON THE FIELD (`y > 0`). A wave stages above the top
+//   edge at negative y, so an unfiltered pick would drop most fire missions on
+//   ground the player can't see, against men who haven't arrived. Called before
+//   launchWave, the pool is exactly the previous wave's survivors.
+// - The salvo is the toolbar MORTAR STRIKE's WEIGHT — 6 rounds, the same 42
+//   radius and 90 damage, and it credits nobody, exactly like the bought strike.
+//   What it does NOT inherit is that strike's pattern, and the difference is the
+//   whole reason the card works. The toolbar spread (±68/±57, rounds walking in
+//   one a second out to 7.4s) is sized for a player dropping rounds on a map
+//   square he picked himself, usually AHEAD of an advance; called automatically
+//   onto a man's own position it mostly lands around him. Measured on 16
+//   autoplayed boards, four per army, both patterns aimed at the same man on the
+//   same board and scored by enemies inside the blast at each round's impact:
+//   the toolbar spread caught 35, the tighter corrected one below caught 66.
+//   It is worse on exactly one army — Japanese chargers outrun a tight pattern,
+//   7 against 4 — and that is accepted, since the wide version's edge there is
+//   just a bigger box around men who have left it.
+// A floating notice over the caller rather than a banner, for the reason
+// Counterattack documents above: a special wave announces itself on this tick and
+// its banner must not be stomped. Over the officer, so it reads as HIS call.
+const FIRE_MISSION_CHANCE = 0.05;   // per wave, on top of a live officer
+const FIRE_MISSION_SHELLS = 6;
+const FIRE_MISSION_SPREAD_X = 38;   // observed fire, not a map square: about half
+const FIRE_MISSION_SPREAD_Y = 32;   // the toolbar strike's box
+const FIRE_MISSION_DELAY = 2.0;     // first round down
+const FIRE_MISSION_GAP = 0.55;      // and the rest inside three more seconds, so
+                                    // a walking target is still in the pattern
+
+function maybeOfficerFireMission() {
+  if (!(G.cardsOwned && G.cardsOwned.has('firemission'))) return;
+  const officers = G.units.filter(u => !u.dead && u.type === 'officer');
+  if (!officers.length) return;
+  const targets = G.enemies.filter(e => !e.dead && e.y > 0);
+  if (!targets.length) return;
+  if (Math.random() >= FIRE_MISSION_CHANCE) return;
+  const caller = pick(officers);
+  const tgt = pick(targets);
+  for (let i = 0; i < FIRE_MISSION_SHELLS; i++) {
+    scheduleShell(tgt.x + rand(-FIRE_MISSION_SPREAD_X, FIRE_MISSION_SPREAD_X),
+      tgt.y + rand(-FIRE_MISSION_SPREAD_Y, FIRE_MISSION_SPREAD_Y),
+      FIRE_MISSION_DELAY + i * FIRE_MISSION_GAP, 42, 90, false);
+  }
+  G.texts.push({ x: caller.x, y: caller.y - 22, text: 'FIRE MISSION — SHOT OUT', ttl: 2.6 });
+}
+
 // Level the Barrels: the flak mount learns to depress. It keeps its full air
 // role, but anything that closes inside this range on the ground catches a
 // 40mm HE round. Deliberately short — this is a last-ditch self-defence wedge,
@@ -853,6 +908,13 @@ const CARD_UNIQUES = {
   officercorps: {
     unit: 'officer', name: 'Officer Corps', cost: 12, weight: 5,
     desc: 'Raises the officer limit from 5 to 10.',
+    hooks: {},
+  },
+  // flag-only, like the two officer cards above it: spawnWave calls
+  // maybeOfficerFireMission() once per wave.
+  firemission: {
+    unit: 'officer', name: 'Fire Mission', cost: 14, weight: 4,
+    desc: `Every wave, a ${Math.round(FIRE_MISSION_CHANCE * 100)}% chance an officer gets a battery on the radio: ${FIRE_MISSION_SHELLS} rounds of 60mm come down on a random enemy out on the field, free — the same weight of shell as a MORTAR STRIKE off the toolbar, in a tighter pattern because he is looking at the target. It takes an officer alive to make the call, and the rounds land where the man stood when he made it.`,
     hooks: {},
   },
   // flag-only: the grenade explosion in update.js reads

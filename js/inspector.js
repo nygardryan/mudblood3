@@ -284,11 +284,26 @@ function wrapCanvasText(parts, maxW, sep = ' ') {
   return lines;
 }
 
-// dashed reticle on the man under the cursor, drawn in world space. An
-// emplacement gets the box it was actually picked by rather than a circle, so
-// the outline reads as the piece and not as a man standing on it.
+// dashed reticle on the man under the cursor, drawn in world space.
+//
+// An emplacement gets its EFFECT ZONE rather than its footprint: the piece is
+// already drawn on the ground and outlining it says nothing the player can't
+// see, whereas what he wants to know while pointing at one is how far the cover
+// / blast / aura actually reaches. It's the same indicator the placement ghost
+// shows (drawDefenseRangeIndicator, js/targeting.js), so siting a piece and
+// checking one later read identically — but fed the piece's live fortify tier,
+// since an engineer widens a wall's shadow.
+//
+// Two kinds have no zone to draw and fall back to the picked box: a decoy (it IS
+// the effect — enemies shoot at it) and an ENEMY field work, whose cover is
+// resolved off its garrison link with no radius anywhere (italianCoverBlock), so
+// the player's cover ring would be a borrowed number and a lie.
 function drawHoverHighlight() {
   if (!hoverActor) return;
+  if (hoverActor.emp && !emplacementIsEnemy(hoverActor) &&
+      drawDefenseRangeIndicator(hoverActor.key, hoverActor.x, hoverActor.y,
+        emplacementTier(hoverActor.o))) return;
+
   ctx.strokeStyle = 'rgba(255,217,74,0.5)';
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 4]);

@@ -874,6 +874,7 @@ function spawnWave() {
   decayItalianWorks();   // the enemy line weathers between waves; abandoned works go
   awardWaveMedals();
   healBreachesBetweenWaves();   // Counterattack card: reserves take one breach back
+  maybeOfficerFireMission();    // Fire Mission card: an officer may call in a salvo
   launchWave(G.wave);
   if (G.wave === 1) {
     const f = enemyFaction();

@@ -4,6 +4,16 @@
 const CHANGELOG = [
   {
     date: '2026-07-28',
+    title: 'New Card: Fire Mission',
+    changes: [
+      'New unique OFFICER card — FIRE MISSION. Every wave there is a 5% chance one of your officers gets a battery on the radio and brings six rounds of 60mm down on a random enemy out on the field, free.',
+      'It is the officer\'s first offensive job. He is the one man on the field who never fires at anything — he pays for himself in TP and rallies men out of the dirt, and now he occasionally kills someone.',
+      'The salvo is the same weight of shell as a MORTAR STRIKE off your own toolbar, but it comes down in a tighter box and finishes sooner. He is correcting onto a man he can see, rather than dropping rounds on a square you picked off the map.',
+      'It takes an officer alive to make the call, and the rounds land on the enemy the field held when the order went out — men still marching in from the treeline are not on the target list.',
+    ],
+  },
+  {
+    date: '2026-07-28',
     title: 'The Ladder No Longer Picks Your Enemy',
     changes: [
       'ESCALATION rungs no longer pin the army you fight. Every run at every rung rolls the enemy the same way an unmodified endless run always has — Wehrmacht, Imperial Japanese Army, Horde or Regio Esercito.',

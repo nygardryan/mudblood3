@@ -15,6 +15,12 @@ const MEDIC_RANGE = 95;
 const ENGINEER_RANGE = 95;
 const OFFICER_AURA = 78;
 const WATCHTOWER_AURA = 22;
+// cover radii by fortify tier — an engineer's work widens the shadow a wall
+// throws, so these are what coverBlock (js/shooting.js) measures against AND
+// what the hover inspector draws. One table, or the ring the player is shown
+// would quote a different reach than the one that stops rounds.
+const BUNKER_COVER_R = [30, 34, 38];
+const SANDBAG_COVER_R = [26, 30, 33];
 const RANKUP_RADIUS = 140;  // testing-mode-only field-promotion ability
 const PURGE_RADIUS = 150;   // testing-mode-only kill-everything ability
 const WATCHTOWER_RANGE_MULT = 1.25;

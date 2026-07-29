@@ -166,6 +166,25 @@ const bannerEl = el('banner');
 // (a wave starting, promotions, fog) reads in the neutral signal orange
 const BANNER_DANGER = /BREAKTHROUGH|AIR RAID|TAKE (COVER|FIRE)|ARTILLERIE|BOMBER|RAMPS DOWN|PARATROOPER|FALLSCHIRM|BARRAGE|MORTAR FIRE|STRAFING|INBOUND/i;
 
+// a banner belongs to the run that raised it, and OUTLIVES it: its ttl is ticked
+// in update(), which stops the moment the run does, so the last alert of a lost
+// run stays frozen over the game-over screen and the menu and is still up when
+// the next run starts. Entering or leaving a run wipes both halves — the state
+// and the element — which is why this is not just `G.banner = null`. The hide is
+// forced through without the .3s opacity fade, since the point is that the new
+// run opens on a clean field rather than on the old run's last words fading out.
+// Deliberately NOT called when a run merely ENDS: finishTutorial leaves the
+// 'TUTORIAL COMPLETE' banner up on purpose.
+function clearBanner() {
+  if (G) G.banner = null;
+  bannerEl.classList.remove('show', 'banner--danger');
+  bannerEl.style.transition = 'none';
+  void bannerEl.offsetWidth;   // commit opacity 0 before the transition comes back
+  bannerEl.style.transition = '';
+  bannerEl.textContent = '';
+  bannerEl.dataset.txt = '';
+}
+
 function setStat(labelEl, valEl, label, val) {
   labelEl.textContent = label;
   valEl.textContent = val;

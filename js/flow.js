@@ -184,6 +184,7 @@ function returnToMenu() {
   hideOverlays();
   el('intro').classList.remove('hidden');
   hideTutorialMsg();
+  clearBanner();
   syncMobileViewUI();
   syncMobileChrome();
 }
@@ -296,6 +297,7 @@ function backToTutorialSelect() {
   clearField();
   el('tutorial-complete').classList.add('hidden');
   hideTutorialMsg();
+  clearBanner();
   syncToolbarVisibility();
   syncMobileChrome();
   openTutorialSelect();
@@ -328,6 +330,7 @@ function startGame(levelId, difficultyId) {
   el('intro').classList.add('hidden');
   hideOverlays();
   hideTutorialMsg();   // clear any queued messages from a previous run
+  clearBanner();       // and the previous run's last alert, still frozen on screen
   if (G.tutorial) tutEnterStep(G.tutorial.step);   // enter each script's opening step
   syncMobileViewUI();
   syncMobileChrome();

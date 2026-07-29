@@ -19,7 +19,7 @@ function setupTutorial1(G) {
   G.tutorial = {
     script: 't1',
     step: 'welcome',
-    timer: 3,
+    timer: 0,        // set from the step's own text on entry (flow.js enters it)
     rifle,
     bunker: G.bunkers[0],
     foe: null,
@@ -47,7 +47,7 @@ function setupTutorial2(G) {
   G.tutorial = {
     script: 't2',
     step: 'intro',
-    timer: 3.5,
+    timer: 0,        // set from the step's own text on entry (flow.js enters it)
     rifle,
     medic,
     bunker: G.bunkers[0],
@@ -112,14 +112,32 @@ function tutCamArrived() {
          Math.hypot(viewCam.x - c.tx, viewCam.y - c.ty) < 3;
 }
 
-// ---- Tutorial message box with a minimum on-screen time ----------------------
+// ---- Tutorial message box with a per-message on-screen time -------------------
 // A step that is entered and then quickly superseded used to have its message
-// flash by. Messages are now queued: the flush (run every tutorial frame) only
-// swaps in the next one once the current box has been up for TUT_MSG_MIN seconds,
-// so every box reads before the next replaces it.
-const TUT_MSG_MIN = 3;
+// flash by. Messages are queued: the flush (run every tutorial frame) only swaps
+// in the next one once the current box has had ITS OWN read time, so every box
+// reads before the next replaces it.
+//
+// Read time is derived from the text rather than typed per step. 0.4s to notice
+// the box and get gaze onto it, then ~210 wpm (3.5 words/s — Brysbaert 2019 puts
+// silent non-fiction reading at 238 wpm, derated the way subtitle standards
+// derate it for text read over moving action: BBC 160-180 wpm, Netflix ~200),
+// times a 1.4 comprehension buffer because this is unfamiliar vocabulary read
+// under divided attention. Floored at 3s so a two-word box survives a glance
+// away (Netflix's own floor is 5/6s for a viewer already looking at the text),
+// capped at 10s (Material's snackbar max) because anything needing longer than
+// that should be a panel, not a transient message.
+const TUT_READ_MIN = 3;
+const TUT_READ_MAX = 10;
+function tutReadTime(text) {
+  if (!text) return 0;   // a blank box has no minimum
+  const words = text.trim().split(/\s+/).length;
+  return clamp(0.4 + (words / 3.5) * 1.4, TUT_READ_MIN, TUT_READ_MAX);
+}
+
 let tutMsgCurrent = null;   // text in the box right now (null = hidden)
 let tutMsgShownAt = 0;      // G.time when it went up
+let tutMsgHold = 0;         // its read time — how long before the next may replace it
 let tutMsgQueue = [];       // pending texts, in order
 
 function applyTutorialMsg(text) {
@@ -127,6 +145,15 @@ function applyTutorialMsg(text) {
   if (!m) return;
   m.textContent = text || '';
   m.classList.toggle('hidden', !text);
+  if (!text) m.classList.remove('can-skip');
+}
+
+// show the "click to continue" tail only while a timed step is counting down;
+// an action-gated box advances on the world and has nothing to skip
+function syncTutorialSkipHint() {
+  const m = el('tutorial-msg');
+  if (!m) return;
+  m.classList.toggle('can-skip', !!(tutMsgCurrent && G && G.tutorial && G.tutorial.timer > 0));
 }
 
 // queue a message (or null to blank the box), deduped against whatever is
@@ -138,24 +165,57 @@ function setTutorialMsg(text) {
   tutMsgQueue.push(text);
 }
 
-// advance the queue once the current box has had its minimum time; a blank box
-// has no minimum, so the next message can appear immediately after a clear
+// advance the queue once the current box has had its read time; a blank box has
+// no minimum, so the next message can appear immediately after a clear
 function flushTutorialMsg() {
   if (!tutMsgQueue.length) return;
-  const ready = tutMsgCurrent == null || (G.time - tutMsgShownAt) >= TUT_MSG_MIN;
+  const ready = tutMsgCurrent == null || (G.time - tutMsgShownAt) >= tutMsgHold;
   if (!ready) return;
   tutMsgCurrent = tutMsgQueue.shift();
   tutMsgShownAt = G.time;
+  tutMsgHold = tutReadTime(tutMsgCurrent);
   applyTutorialMsg(tutMsgCurrent);
 }
 
 // hard reset: clear the box now and drop anything queued. Used at teardown and
-// game start, where the min-time gate must not hold a stale message on screen.
+// game start, where the read-time gate must not hold a stale message on screen.
 function hideTutorialMsg() {
   tutMsgQueue.length = 0;
   tutMsgCurrent = null;
   tutMsgShownAt = 0;
+  tutMsgHold = 0;
   applyTutorialMsg(null);
+}
+
+// Is the box behind the script? True while any message is still waiting its turn.
+// A timed step must not burn its clock down while its own text is still queued
+// behind the previous box, or the step expires before the player ever sees it.
+function tutMsgPending() {
+  return tutMsgQueue.length > 0;
+}
+
+// Set the step's message AND its timer from the same string, so a step's read
+// time can never drift from the text it is giving the player.
+function tutMsg(T, text) {
+  setTutorialMsg(text);
+  T.timer = tutReadTime(text);
+}
+
+// Timer-only steps hold while the box catches up (see tutMsgPending).
+function tutStepDt(dt) {
+  return tutMsgPending() ? 0 : dt;
+}
+
+// WCAG 2.2 SC 2.2.1 (Timing Adjustable): auto-advancing text must be dismissable.
+// Click or key gives up the rest of the current box's read time — and, if the
+// box is caught up with the script, the rest of a timed step with it. Steps that
+// gate on a world condition ignore T.timer, so this can never skip a lesson.
+function dismissTutorialMsg() {
+  if (!tutorialScriptActive() || tutMsgCurrent == null) return false;
+  tutMsgHold = 0;
+  if (!tutMsgPending() && G.tutorial.timer > 0) G.tutorial.timer = 0;
+  flushTutorialMsg();
+  return true;
 }
 
 function tutEnterStep(step) {
@@ -163,30 +223,32 @@ function tutEnterStep(step) {
   T.step = step;
   // reset per-step interaction gating; each case re-enables only what it needs
   T.allowBuy = []; T.placeZone = null; T.pulseCat = null; T.pulseKey = null; T.ringTargets = null;
+  // and the clock: an action-gated case sets no timer, and a leftover positive
+  // one from the previous step would light the "click to continue" hint on a box
+  // that has nothing to skip
+  T.timer = 0;
   if (T.script === 't2') { tutEnterStep2(T, step); return; }
   if (T.script === 't3') { tutEnterStep3(T, step); return; }
   switch (step) {
     case 'welcome':
-      T.timer = 8;
-      setTutorialMsg('Welcome to the war, soldier!');
+      tutMsg(T, 'Welcome to the war, soldier!');
       break;
     case 'select':
       setTutorialMsg('Click on a unit to select it.');
       break;
     case 'moveToBunker':
       tutSetCam(1.5, 225, 450);
-      setTutorialMsg('Now click on the bunker to move a unit there. Units near bunkers and sandbags have a chance to block damage.');
+      setTutorialMsg('Now click the bunker to move him there — men in cover can block damage.');
       break;
     case 'fight':
       T.timer = 1.2;
       setTutorialMsg(null);
       break;
     case 'rankup':
-      T.timer = 10.5;
       // the duel usually leaves him unscathed behind bunker cover — make sure
       // he carries a wound so the medic lesson has something to heal
       T.rifle.hp = Math.min(T.rifle.hp, T.rifle.maxhp - 35);
-      setTutorialMsg('Your soldiers gain experience and rank up. Experienced soldiers are far superior to their green counterparts — try and keep them alive.');
+      tutMsg(T, 'Your soldiers gain experience and rank up. Veterans far outfight green troops — keep them alive.');
       break;
     case 'buyMedic':
       if (G.tp < 12) G.tp = 12;   // exactly enough for the medic
@@ -212,12 +274,13 @@ function tutEnterStep(step) {
       }
       break;
     case 'handoff':
-      setTutorialMsg('That\'s basic training, soldier — select, move, and reinforce your line. Well done.');
+      // tutMsg sets the timer from the text: the completion screen waits out the
+      // handoff's own read time rather than a guessed 4.5s
+      tutMsg(T, 'That\'s basic training, soldier — select, move, and reinforce your line. Well done.');
       showBanner('TUTORIAL COMPLETE');
       markLevelComplete(G.level.id);
       T.done = true;
       T.cam.active = false;
-      T.timer = 4.5;        // let the message breathe before showing the completion screen
       break;
   }
 }
@@ -227,19 +290,17 @@ function tutEnterStep(step) {
 function tutEnterStep2(T, step) {
   switch (step) {
     case 'intro':
-      T.timer = 5.5;
-      setTutorialMsg("Dawn on the line, Sergeant. You held the bunker through the night — but the Germans aren't finished with you.");
+      tutMsg(T, "Dawn on the line, Sergeant. You held through the night — the Germans aren't finished.");
       break;
     case 'spot':
       // reveal the threat: a flamethrower frozen at the top of the center lane
-      T.timer = 6.5;
       T.foe = makeEnemy('eflame', 150, 44);
       T.foe.hp = T.foe.maxhp = 60;   // scripted duel: the wire + rifleman must win reliably
       T.foe.tutHold = true;
       G.enemies.push(T.foe);
       T.ringTargets = [T.foe];
       tutSetCam(1.0, W / 2, H / 2);
-      setTutorialMsg("Contact — Flammenwerfer up the center! He closes fast and burns through everything. Your rifleman can't trade blows with that.");
+      tutMsg(T, "Contact — Flammenwerfer up the center! He closes fast and burns through anything your rifleman has.");
       break;
     case 'wire':
       if (G.tp < 8) G.tp = 8;               // two wire, with a little to spare
@@ -248,7 +309,7 @@ function tutEnterStep2(T, step) {
       T.placeZone = { x0: 95, y0: 270, x1: 210, y1: 362 };
       T.ringTargets = [T.foe];
       tutSetCam(1.0, W / 2, H / 2);
-      setTutorialMsg("Barbed wire bogs down a charge. Lay two lines across his path in the marked zone — buy your rifleman time to shoot.");
+      setTutorialMsg("Barbed wire bogs down a charge. Lay two lines across his path in the marked zone.");
       break;
     case 'charge':
       if (T.foe) T.foe.tutHold = false;     // release him; the wire does the rest
@@ -256,7 +317,6 @@ function tutEnterStep2(T, step) {
       break;
     case 'flankwarn':
       // a fresh squad masses on the undefended right flank
-      T.timer = 6.5;
       T.flankFoes = [
         makeEnemy('erifle', 432, 205),
         makeEnemy('erifle', 476, 195),
@@ -266,7 +326,7 @@ function tutEnterStep2(T, step) {
       for (const e of T.flankFoes) { e.hp = e.maxhp = 45; e.tutHold = true; G.enemies.push(e); }
       T.ringTargets = T.flankFoes.slice();
       tutSetCam(1.15, 410, 320);
-      setTutorialMsg("More of them — massing on your right flank, and you've got nothing over there!");
+      tutMsg(T, "More of them — massing on your right flank, and you've got nothing over there!");
       break;
     case 'sandbag':
       if (G.tp < 10) G.tp = 10;             // two sandbags, with a little to spare
@@ -275,7 +335,7 @@ function tutEnterStep2(T, step) {
       T.placeZone = { x0: 345, y0: 408, x1: 508, y1: 532 };
       T.ringTargets = T.flankFoes.slice();
       tutSetCam(1.2, 400, 430);
-      setTutorialMsg("Sandbags go up fast — not a bunker, but the men behind them dodge half the incoming fire. Throw one up on the right.");
+      setTutorialMsg("Sandbags go up fast — men behind them dodge half the incoming fire. Cover the right.");
       break;
     case 'buyunits':
       if (G.tp < 12) G.tp = 12;             // a couple of riflemen, or a gunner and a rifleman
@@ -283,20 +343,19 @@ function tutEnterStep2(T, step) {
       T.placeZone = { x0: 330, y0: 404, x1: 516, y1: 544 };
       T.ringTargets = T.flankFoes.slice();
       tutSetCam(1.2, 400, 430);
-      setTutorialMsg("One man can't hold two fronts. Buy two men — a couple of riflemen will do — and post them both behind that sandbag.");
+      setTutorialMsg("One man can't hold two fronts. Buy two riflemen and post them both behind that sandbag.");
       break;
     case 'flankcharge':
       for (const e of T.flankFoes) e.tutHold = false;   // send them in
       setTutorialMsg("Hold them! Don't let them break through!");
       break;
     case 'handoff':
-      setTutorialMsg("Good work, Sergeant. Fortify your weak points, stack your defenses, and pick the right man for the job.");
+      tutMsg(T, "Good work, Sergeant. Fortify your weak points and pick the right man for the job.");
       showBanner('TUTORIAL COMPLETE');
       markLevelComplete(G.level.id);
       T.done = true;
       T.cam.active = false;
       resetViewCam(G.mode);
-      T.timer = 4.5;        // let the message breathe before showing the completion screen
       break;
   }
 }
@@ -305,11 +364,11 @@ function updateTutorial2(dt, T) {
   if (T.rifle.dead) { gameOver(); return; }   // the flamethrower got through
   switch (T.step) {
     case 'intro':
-      T.timer -= dt;
+      T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('spot');
       break;
     case 'spot':
-      T.timer -= dt;
+      T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('wire');
       break;
     case 'wire':
@@ -319,7 +378,7 @@ function updateTutorial2(dt, T) {
       if (T.foe && T.foe.dead) tutEnterStep('flankwarn');
       break;
     case 'flankwarn':
-      T.timer -= dt;
+      T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('sandbag');
       break;
     case 'sandbag':
@@ -357,7 +416,7 @@ function setupTutorial3(G) {
   G.tutorial = {
     script: 't3',
     step: 'intro',
-    timer: 4,
+    timer: 0,        // set from the step's own text on entry (flow.js enters it)
     gunner,
     bunker: G.bunkers[0],
     squad,
@@ -397,13 +456,11 @@ const TUT3_TANK_HOLD_Y = 330;
 function tutEnterStep3(T, step) {
   switch (step) {
     case 'intro':
-      T.timer = 4;
       tutSetCam(1.0, W / 2, H / 2);
-      setTutorialMsg('Hold the line, soldier. Your gunner has the center — watch his rifle work.');
+      tutMsg(T, 'Hold the line, soldier. Your gunner has the center — watch his rifle work.');
       break;
     case 'won':
-      T.timer = 2.6;
-      setTutorialMsg('Bullets tear through infantry in the open — accurate and deadly. Easy work.');
+      tutMsg(T, 'Bullets tear through infantry in the open — accurate and deadly. Easy work.');
       break;
     case 'flame':
       // a flamethrower charges the gun; heavy HP so he survives the gunner's
@@ -420,8 +477,7 @@ function tutEnterStep3(T, step) {
       if (T.flame) { T.flame.dead = true; }   // his point is made; pull him off the field
       T.ringTargets = null;
       tutSetCam(1.3, TUT3_BX, TUT3_BY - 30);
-      setTutorialMsg('Bunkers and sandbags do not protect against fire. Nothing does — flame melts men behind cover or not.');
-      T.timer = 5;
+      tutMsg(T, 'Bunkers and sandbags do not stop fire. Nothing does — flame melts men in cover.');
       break;
     case 'rebuild':
       G.tp = 30;
@@ -432,7 +488,7 @@ function tutEnterStep3(T, step) {
       T.pulseCat = 'units'; T.pulseKey = null;
       T.placeZone = TUT3_ZONE;
       tutSetCam(1.25, W / 2, 470);
-      setTutorialMsg('Rebuild your line — spend your requisition on any men you choose. Post at least two, then brace for the next attack.');
+      setTutorialMsg('Rebuild your line — spend your requisition on any men you choose. Post at least two.');
       break;
     case 'tank':
       // a Panzer rolls the center, shelling the men below it as it comes. A mild
@@ -452,7 +508,7 @@ function tutEnterStep3(T, step) {
       T.pulseCat = 'units'; T.pulseKey = 'bazooka';
       T.placeZone = TUT3_ZONE;
       T.ringTargets = [T.tank];
-      setTutorialMsg('Bullets just bounce off armor. Explosives do bonus damage — buy bazookas, post them at the back, and pour rockets into that tank.');
+      setTutorialMsg('Bullets bounce off armor. Explosives do bonus damage — buy a bazooka, post it at the back.');
       break;
     case 'armorFight':
       if (G.tp < 12) G.tp = 12;               // never leave the player unable to answer armor
@@ -460,12 +516,11 @@ function tutEnterStep3(T, step) {
       T.pulseCat = 'units'; T.pulseKey = 'bazooka';
       T.placeZone = TUT3_ZONE;
       T.ringTargets = [T.tank];
-      setTutorialMsg('Armor-piercing rockets chew through even a Panzer — keep them coming until it burns. Add another bazooka if you have the men.');
+      setTutorialMsg('Rockets chew through even a Panzer — keep them coming until it burns.');
       break;
     case 'mixIntro':
-      T.timer = 4.5;
       tutSetCam(1.0, W / 2, H / 2);
-      setTutorialMsg('Last push, soldier — infantry AND armor, together. Full requisition. Buy the right tool for each threat.');
+      tutMsg(T, 'Last push, soldier — infantry AND armor together. Buy the right tool for each threat.');
       break;
     case 'mix': {
       G.tp = 60;
@@ -488,7 +543,7 @@ function tutEnterStep3(T, step) {
       T.placeZone = TUT3_ZONE;
       T.ringTargets = T.mixFoes.slice();
       tutSetCam(1.0, W / 2, H / 2);
-      setTutorialMsg('Riflemen for the infantry, a bazooka for the tank. Post your mix — a bazooka and at least one more — then hold.');
+      setTutorialMsg('Riflemen for the infantry, a bazooka for the tank. Post a bazooka and one more man.');
       break;
     }
     case 'mixCharge':
@@ -498,13 +553,12 @@ function tutEnterStep3(T, step) {
       setTutorialMsg('Here they come — bullets for the infantry, rockets for the tank. Hold the line!');
       break;
     case 'handoff':
-      setTutorialMsg('That is the trade, soldier: bullets for infantry, fire to burn out cover, explosives for armor. Choose the right weapon and the line holds.');
+      tutMsg(T, 'That is the trade, soldier: bullets for infantry, fire for cover, explosives for armor.');
       showBanner('TUTORIAL COMPLETE');
       markLevelComplete(G.level.id);
       T.done = true;
       T.cam.active = false;
       resetViewCam(G.mode);
-      T.timer = 4.5;        // let the message breathe before the completion screen
       break;
   }
 }
@@ -518,11 +572,11 @@ function updateTutorial3(dt, T) {
   }
   switch (T.step) {
     case 'intro':
-      T.timer -= dt;
+      T.timer -= tutStepDt(dt);
       if (T.timer <= 0 && T.squad.every(e => e.dead)) tutEnterStep('won');
       break;
     case 'won':
-      T.timer -= dt;
+      T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('flame');
       break;
     case 'flame':
@@ -530,7 +584,7 @@ function updateTutorial3(dt, T) {
       if (T.gunner.dead) tutEnterStep('flameLesson');
       break;
     case 'flameLesson':
-      T.timer -= dt;
+      T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('rebuild');
       break;
     case 'rebuild':
@@ -547,7 +601,7 @@ function updateTutorial3(dt, T) {
       if (!T.tank || T.tank.dead) tutEnterStep('mixIntro');
       break;
     case 'mixIntro':
-      T.timer -= dt;
+      T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('mix');
       break;
     case 'mix':
@@ -561,11 +615,12 @@ function updateTutorial3(dt, T) {
 
 function updateTutorial(dt) {
   const T = G.tutorial;
-  flushTutorialMsg();   // honor each box's minimum on-screen time before the next
+  flushTutorialMsg();   // honor each box's read time before the next replaces it
+  syncTutorialSkipHint();
   if (T.cam.active) tutCamLerp(dt);
   if (T.done) {
     if (T.step === 'handoff') {
-      T.timer -= dt;
+      T.timer -= tutStepDt(dt);
       if (T.timer <= 0) {
         T.step = 'over';
         setTutorialMsg(null);
@@ -579,7 +634,7 @@ function updateTutorial(dt) {
   if (T.rifle.dead) { gameOver(); return; }   // trainee lost the scripted duel
   switch (T.step) {
     case 'welcome':
-      T.timer -= dt;
+      T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('select');
       break;
     case 'select':
@@ -598,7 +653,7 @@ function updateTutorial(dt) {
       if (T.foe && T.foe.dead) tutEnterStep('rankup');
       break;
     case 'rankup':
-      T.timer -= dt;
+      T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('buyMedic');
       break;
     case 'buyMedic':
@@ -608,12 +663,12 @@ function updateTutorial(dt) {
       if (G.units.some(u => u.type === 'medic' && !u.dead)) tutEnterStep('breather');
       break;
     case 'breather':
-      T.timer -= dt;
+      T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('zoomOut');
       break;
     case 'zoomOut':
       if (mobileViewActive() || !T.cam.active) {
-        T.timer -= dt;
+        T.timer -= tutStepDt(dt);
         if (T.timer <= 0) tutEnterStep('handoff');
       } else if (tutCamArrived()) {
         viewCam.zoom = T.cam.tzoom;

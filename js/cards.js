@@ -199,10 +199,20 @@ function healBreachesBetweenWaves() {
 //   who never shoots at anything, and this is the one card that gives him an
 //   offensive job; without the check it would be an HQ card wearing his chip,
 //   paying out on a field with no officer on it.
-// - It shells a random enemy ON THE FIELD (`y > 0`). A wave stages above the top
-//   edge at negative y, so an unfiltered pick would drop most fire missions on
-//   ground the player can't see, against men who haven't arrived. Called before
-//   launchWave, the pool is exactly the previous wave's survivors.
+// - It shells a random enemy ON THE FIELD, and that is three conditions, not one.
+//   A wave stages above the top edge at negative y, so an unfiltered pick would
+//   drop most fire missions on ground the player can't see, against men who
+//   haven't arrived. But `y > 0` alone is NOT "on the field" — it is the test the
+//   rest of the game pairs with two others, and this scan is hand-rolled rather
+//   than routed through targeting.js, so it has to carry them itself:
+//   `entering` (the Yamato rolls in from a FLANK, so her y is on-field while her
+//   x is hundreds of pixels off the edge — measured x -170 on a 540-wide field,
+//   all ELEVEN of her actors admitted here and none by any other scan), and
+//   `chute > 0` (a paradropped stick hangs at an on-field y for seconds before
+//   it lands — measured 3 admitted here, 0 anywhere else). Both are untouchable:
+//   damageEnemy returns early on each, so a mission called onto one spent the
+//   proc to shell empty ground the player mostly cannot even see.
+//   Called before launchWave, the pool is exactly the previous wave's survivors.
 // - The salvo is the toolbar MORTAR STRIKE's WEIGHT — 6 rounds, the same 42
 //   radius and 90 damage, and it credits nobody, exactly like the bought strike.
 //   What it does NOT inherit is that strike's pattern, and the difference is the
@@ -231,7 +241,7 @@ function maybeOfficerFireMission() {
   if (!(G.cardsOwned && G.cardsOwned.has('firemission'))) return;
   const officers = G.units.filter(u => !u.dead && u.type === 'officer');
   if (!officers.length) return;
-  const targets = G.enemies.filter(e => !e.dead && e.y > 0);
+  const targets = G.enemies.filter(e => !e.dead && e.y > 0 && !e.entering && !(e.chute > 0));
   if (!targets.length) return;
   if (Math.random() >= FIRE_MISSION_CHANCE) return;
   const caller = pick(officers);
@@ -354,25 +364,43 @@ for (const p of PLACEABLES) if (p.kind === 'unit') PLACEABLE_COST_BY_TYPE[p.key]
 const PASSENGER_INFANTRY = ['rifleman', 'gunner', 'grenadier', 'shotgunner',
   'bazooka', 'mortarman', 'sniper', 'medic', 'engineer', 'officer', 'flamer'];
 
-function rollPassengerType() {
+function rollPassengerType(pool) {
+  if (!pool.length) return null;
   let total = 0;
-  const weights = PASSENGER_INFANTRY.map(k => {
+  const weights = pool.map(k => {
     const w = 1 / PLACEABLE_COST_BY_TYPE[k];
     total += w;
     return w;
   });
   let r = Math.random() * total;
-  for (let i = 0; i < PASSENGER_INFANTRY.length; i++) {
+  for (let i = 0; i < pool.length; i++) {
     r -= weights[i];
-    if (r <= 0) return PASSENGER_INFANTRY[i];
+    if (r <= 0) return pool[i];
   }
-  return PASSENGER_INFANTRY[0];
+  return pool[0];
+}
+
+// The officer cap is a RULE, not a price, and this is the one seat in the game
+// that doesn't pay a price. Every purchase path enforces it — place(), the
+// mobile toolbar, TEST.buy, and the toolbar's own greyed-out chip — but a
+// passenger is pushed straight into G.units, so before this the card was a way
+// to field an eleventh officer, and then a twelfth. Measured: a field already
+// holding the full 10 took 22 more from 400 jeeps.
+//
+// Dropped from the POOL rather than rerolled after the fact, so the remaining
+// types renormalize and a jeep bought at the cap still carries someone. The
+// officer is the priciest type on the list and so the rarest seat anyway
+// (weights run 1/cost), which is why this went unnoticed.
+function passengerPool() {
+  if (officerCount() < officerLimit()) return PASSENGER_INFANTRY;
+  return PASSENGER_INFANTRY.filter(k => k !== 'officer');
 }
 
 function maybeSpawnPassenger(jeep) {
   if (!G.cardsOwned || !G.cardsOwned.has('passenger')) return;
   if (jeep.type !== 'jeep') return;
-  const type = rollPassengerType();
+  const type = rollPassengerType(passengerPool());
+  if (!type) return;
   // drop the passenger just behind the jeep so he doesn't spawn on the .50 cal
   const u = makeUnit(type, jeep.x + rand(-22, 22), jeep.y + rand(18, 34));
   G.units.push(u);
@@ -554,18 +582,26 @@ function headshotKills(shooter, target) {
   const t = target.t;
   if (t.tank || t.apc || t.vehicle || t.bike || t.v2 || t.gunEmplacement) return false;
   // and never a boss or one of its child part actors — a 40% instant kill on a
-  // battery or a pus module would end every wave-100 fight in a magazine. Same
-  // exclusion list as maybeShellShock above, kept in the same shape so a fifth
-  // faction's boss gets added to both.
-  if (t.germanBoss || t.japBoss || t.ship || t.shipPart) return false;
-  if (t.hordeBoss || t.bossPart) return false;
-  if (t.itaBoss || t.trainPart) return false;
-  // and the Alien Walker, for the reason the whole AW_ block is tuned around:
-  // it is meant to be hard to REACH rather than hard to hurt, so its 3000 HP is
-  // the entire fight. A 40% instant kill on the round that finally reaches it
-  // deletes the encounter, and the tell would be a rifleman one-shotting a
-  // tripod. It carries no faction-boss flag, so it needs its own line here.
-  if (t.awalker) return false;
+  // battery or a pus module would end every wave-100 fight in a magazine.
+  //
+  // `boss` carries the parent half, and it is deliberately NOT the per-faction
+  // flag list maybeShellShock above uses. Naming the four faction bosses and the
+  // Alien Walker catches every actor that arrives at wave 100 or 666 — and
+  // silently lets the round through on the ABOMINATION, a mid-run zombie whose
+  // whole design is "enormous HP standing in for armor" and which this card's
+  // own text ("bosses are unaffected") already promises to spare.
+  // Measured before this line: 775 procs in 2000 rolls on a zabom, against 0 on
+  // the Progenitor beside it. It is boss:true like the other five, so one flag
+  // covers all of them and a fifth faction's boss for free. canisterHittable
+  // reaches for `e.type === 'zabom'` by name instead only because it must ALSO
+  // reject things that are not bosses at all.
+  //
+  // The two lists therefore diverge on purpose, and must: a daze on the
+  // Abomination is a real effect that its own dispatch reads, so adding `boss`
+  // to maybeShellShock would delete a working card rather than fix one.
+  if (t.boss) return false;
+  // the child part actors, which carry no `boss` of their own
+  if (t.shipPart || t.bossPart || t.trainPart) return false;
   return Math.random() < HEADSHOT_CHANCE[shooter.type];
 }
 
@@ -1402,7 +1438,7 @@ function buyShopSlot() {
 }
 
 // draw a fresh shop offer for medals; each reroll costs twice the last
-// (2, 4, 8, ...), and the new cards avoid both the collection and the ones
+// (1, 2, 4, ...), and the new cards avoid both the collection and the ones
 // currently on display so a reroll always turns the slots over
 function rerollShop() {
   const data = loadEndlessCards();
@@ -1623,7 +1659,7 @@ function buildCardShopUI() {
       '<div class="cs-card__foot">' +
         '<span class="cs-cmd"><span class="cs-cmd__lab">COMMAND</span>' +
           '<span class="cs-pips">' + commandPips(card.weight) + '</span></span>' +
-        '<span class="cs-cost">' + card.cost + '<span class="cs-cost__u">' + (afford ? 'RB' : 'NEED') + '</span></span>' +
+        '<span class="cs-cost">' + card.cost + '<span class="cs-cost__u">' + (afford ? 'MED' : 'NEED') + '</span></span>' +
       '</div>';
     btn.addEventListener('click', () => {
       if (buyCard(card.id)) {
@@ -1786,7 +1822,7 @@ function buildEndgameCard(card, medals) {
       '<span class="ee-card__unit">' + cardUnitLabel(card) + '</span>' +
       '<span class="ee-card__rar ' + (card.unique ? 'ee-card__rar--uni">UNIQUE' : 'ee-card__rar--std">STANDARD') + '</span>' +
       '<span class="ee-card__cost' + (afford ? '' : ' ee-card__cost--need') + '">' + card.cost +
-        '<u>' + (afford ? 'RB' : 'NEED') + '</u></span>' +
+        '<u>' + (afford ? 'MED' : 'NEED') + '</u></span>' +
     '</div>' +
     '<div class="ee-card__name">' + card.name.toUpperCase() + '</div>' +
     '<div class="ee-card__desc">' + card.desc + '</div>' +

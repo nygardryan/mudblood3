@@ -263,10 +263,25 @@ body {
   font-size: clamp(11px, 2.6vw, 13px);
   line-height: 1.5;
   text-shadow: 1px 1px 0 rgba(0,0,0,.7);
+  /* click-through by default: the box sits low and centered, right over the
+     build zone, and an action-gated step is exactly the one where the player
+     must click the field underneath it */
   pointer-events: none;
   z-index: 40;
 }
 #tutorial-msg.hidden { display: none; }
+/* A timed box IS a timing limit, so it takes the click that gives up the rest of
+   its read time (WCAG 2.2 SC 2.2.1). Only these are clickable — they are also
+   the only boxes with anything to skip, so nothing is stolen from placement. */
+#tutorial-msg.can-skip {
+  pointer-events: auto;
+  cursor: pointer;
+}
+#tutorial-msg.can-skip::after {
+  content: ' ▸';
+  color: #ffd94a;
+  opacity: .75;
+}
 
 #view-strip {
   position: absolute;

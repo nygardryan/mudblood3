@@ -869,6 +869,12 @@ document.addEventListener('keydown', e => {
     clearPlacing(); drag = null; if (G) G.selected = [];
     return;
   }
+  // give up the rest of a tutorial box's read time (WCAG 2.2 SC 2.2.1). Space and
+  // Enter are safe here: no placeable hotkey is either, and dismiss is a no-op
+  // outside a running tutorial script.
+  if (e.key === ' ' || e.key === 'Enter') {
+    if (dismissTutorialMsg()) { e.preventDefault(); return; }
+  }
   if (isSandbox() && isPlaying()) {
     if (e.key === ']') { jumpSandboxWave(e.shiftKey ? 5 : e.ctrlKey ? 10 : 1); return; }
   }
@@ -876,6 +882,15 @@ document.addEventListener('keydown', e => {
   const p = activePlaceables().find(pl => pl.hotkey === k);
   if (p) selectPlaceable(p);
 });
+
+// the tutorial box itself is the click target for skipping its read time
+{
+  const tutBox = el('tutorial-msg');
+  if (tutBox) {
+    tutBox.addEventListener('mousedown', e => { e.stopPropagation(); });
+    tutBox.addEventListener('click', e => { e.stopPropagation(); dismissTutorialMsg(); });
+  }
+}
 
 for (const btn of document.querySelectorAll('[data-wave-skip]')) {
   btn.addEventListener('click', () => jumpSandboxWave(Number(btn.dataset.waveSkip)));

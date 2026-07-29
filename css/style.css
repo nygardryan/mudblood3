@@ -49,6 +49,16 @@ body {
   background: #5c5a3f;
   --tool-scale: 1;
 }
+/* on small mobile screens, shrink tool buttons to fit */
+@media (max-height: 700px) {
+  #stage { --tool-scale: 0.85; }
+}
+@media (max-height: 600px) {
+  #stage { --tool-scale: 0.72; }
+}
+@media (max-height: 500px) {
+  #stage { --tool-scale: 0.60; }
+}
 
 #game {
   display: block;

@@ -453,6 +453,7 @@ function drawCorpse(cp) {
 }
 
 function stampWreck(e) {
+  logGroundStamp('wreck', e.x, e.y);
   gctx.save();
   gctx.translate(e.x, e.y);
   gctx.fillStyle = '#2e2c26';
@@ -463,6 +464,7 @@ function stampWreck(e) {
 }
 
 function stampSandbagRubble(s) {
+  logGroundStamp('sandbag', s.x, s.y);
   gctx.fillStyle = 'rgba(120,105,70,0.5)';
   gctx.beginPath();
   gctx.ellipse(s.x, s.y, 20, 9, 0, 0, 7);
@@ -471,6 +473,7 @@ function stampSandbagRubble(s) {
 
 // a shot-apart scarecrow leaves a scatter of straw and a snapped post
 function stampDummyRubble(d) {
+  logGroundStamp('dummy', d.x, d.y);
   gctx.strokeStyle = 'rgba(94,74,44,0.6)';
   gctx.lineWidth = 2;
   gctx.beginPath(); gctx.moveTo(d.x - 4, d.y + 4); gctx.lineTo(d.x + 3, d.y - 6); gctx.stroke();
@@ -487,6 +490,7 @@ function stampDummyRubble(d) {
 // above, and what matters is that the ground stays marked so the player can see
 // where the enemy line used to run.
 function stampItalianWorkRubble(w) {
+  logGroundStamp('itwork', w.x, w.y, { kind: w.kind });
   const box = IT_WORK_KINDS[w.kind].box;
   gctx.fillStyle = w.kind === 'bunker' ? 'rgba(96,94,86,0.55)' : 'rgba(104,98,74,0.5)';
   gctx.beginPath();
@@ -502,6 +506,7 @@ function stampItalianWorkRubble(w) {
 }
 
 function stampBunkerRubble(b) {
+  logGroundStamp('bunker', b.x, b.y);
   // shattered concrete slab plus scattered chunks
   gctx.fillStyle = 'rgba(105,102,92,0.6)';
   gctx.beginPath();
@@ -516,6 +521,7 @@ function stampBunkerRubble(b) {
 }
 
 function stampWatchtowerRubble(t) {
+  logGroundStamp('watchtower', t.x, t.y);
   // splintered timber frame collapsed in a heap
   gctx.fillStyle = 'rgba(80,66,44,0.55)';
   gctx.beginPath();
@@ -533,6 +539,7 @@ function stampWatchtowerRubble(t) {
 }
 
 function stampCamoNestRubble(cn) {
+  logGroundStamp('camonest', cn.x, cn.y);
   // scorched brush and torn netting
   gctx.fillStyle = 'rgba(45,42,30,0.55)';
   gctx.beginPath();
@@ -547,6 +554,7 @@ function stampCamoNestRubble(cn) {
 }
 
 function stampAmmoCrateRubble(t) {
+  logGroundStamp('ammocrate', t.x, t.y);
   // shattered crates and scattered boards
   gctx.fillStyle = 'rgba(70,58,34,0.5)';
   gctx.beginPath();

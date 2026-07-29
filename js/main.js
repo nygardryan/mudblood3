@@ -70,7 +70,11 @@ el('pause-resume-btn').addEventListener('click', resumeGame);
 el('pause-codex-btn').addEventListener('click', openCodexFromPause);
 el('pause-loadout-btn').addEventListener('click', openLoadoutView);
 el('loadout-view-close').addEventListener('click', closeLoadoutView);
+el('pause-save-btn').addEventListener('click', saveAndExit);
 el('pause-menu-btn').addEventListener('click', returnToMenu);
+el('continue-run').addEventListener('click', continueRun);
+el('abandon-confirm-btn').addEventListener('click', confirmAbandonRun);
+el('abandon-cancel-btn').addEventListener('click', closeAbandonConfirm);
 el('boss-fight-on-btn').addEventListener('click', bossFightOn);
 el('boss-end-run-btn').addEventListener('click', bossEndRun);
 el('mobile-deselect').addEventListener('click', () => {
@@ -125,6 +129,7 @@ function frame(now) {
 
 buildToolbar(PLACEABLES);
 applySavedSettings();
+refreshContinueUI();   // surface a saved run on the menu from page load
 fitLayout();
 const hudEl = el('hud');
 if (hudEl && typeof ResizeObserver !== 'undefined') {

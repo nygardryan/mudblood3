@@ -1516,8 +1516,10 @@ function equippedEndlessCards() {
 // Built once in newGame(); null when no cards are equipped or outside endless.
 // `accMult` is a scalar the shot roll multiplies by; every other key is a list
 // of hook fns. A card supplies accMult as a plain number in its hooks object.
-function buildCardHooks() {
-  const owned = equippedEndlessCards();
+// `ownedList` lets a resumed run rebuild hooks from ITS OWN saved card list
+// (js/save.js) — every other caller omits it and reads the live loadout
+function buildCardHooks(ownedList) {
+  const owned = ownedList || equippedEndlessCards();
   if (!owned.length) return null;
   const table = {};
   for (const id of owned) {
@@ -1588,6 +1590,13 @@ function openCardShop(fromScreen) {
 // buying half hidden, so they can pick and swap a battle plan before deploying.
 // With an empty collection there's nothing to arrange, so skip straight in.
 function openEndlessLoadout(difficultyId) {
+  // every menu-driven endless start funnels through here — one gate covers the
+  // deploy button and the sandbox/testing chips. Confirming the abandon prompt
+  // clears the slot and re-enters, so the gate passes the second time.
+  if (hasRunSave()) {
+    openAbandonConfirm(difficultyId);
+    return;
+  }
   if (!loadEndlessCards().owned.length) {
     startGame('endless', difficultyId);
     return;

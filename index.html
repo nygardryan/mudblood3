@@ -71,6 +71,15 @@
         <div class="mm-block">
           <div class="mm-block-label">QUICK PLAY</div>
           <div class="mm-grid mm-grid--quick">
+            <!-- shown only while a saved run exists; refreshContinueUI (js/save.js)
+                 toggles it and fills the meta line -->
+            <button id="continue-run" class="mm-card mm-card--continue hidden">
+              <span class="mm-card-glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 L19 12 L7 20 Z" fill="currentColor"/></svg></span>
+              <span class="mm-card-copy">
+                <span class="mm-card-title">CONTINUE</span>
+                <span id="continue-meta" class="mm-card-desc">Resume your saved run.</span>
+              </span>
+            </button>
             <button id="start-tutorial" class="mm-card mm-card--tutorial">
               <span class="mm-card-glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9.4" y="3" width="5.2" height="18"/><rect x="3" y="9.4" width="18" height="5.2"/></svg></span>
               <span class="mm-card-copy">
@@ -288,7 +297,21 @@
         <button id="pause-codex-btn" class="secondary">CODEX</button>
         <button id="pause-loadout-btn" class="secondary">LOADOUT</button>
         <button id="pause-settings-btn" class="secondary">SETTINGS</button>
+        <!-- endless only; pauseGame hides it for tutorials (js/flow.js) -->
+        <button id="pause-save-btn" class="secondary">SAVE AND EXIT</button>
         <button id="pause-menu-btn" class="secondary">MAIN MENU</button>
+      </div>
+    </div>
+
+    <!-- Single-slot save guard: starting a new endless run while a saved one
+         exists must be a decision, not a misclick. Swaps out #endless-select
+         the way the card shop does; wired in js/save.js. -->
+    <div id="abandon-confirm" class="overlay hidden">
+      <h1>ABANDON SAVED RUN?</h1>
+      <p class="quote" id="abandon-meta">Your saved run will be lost.</p>
+      <div class="intro-btns">
+        <button id="abandon-cancel-btn">BACK</button>
+        <button id="abandon-confirm-btn" class="secondary">ABANDON AND DEPLOY</button>
       </div>
     </div>
 
@@ -514,6 +537,7 @@
 <script src="js/changelog.js"></script>
 <script src="js/recap.js"></script>
 <script src="js/flow.js"></script>
+<script src="js/save.js"></script>
 <script src="js/main.js"></script>
 <script src="js/export-sprites.js"></script>
 <script src="js/test-api.js"></script>

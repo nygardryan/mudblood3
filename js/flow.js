@@ -36,7 +36,7 @@ function freezeField() {
 const FULL_SCREEN_OVERLAYS = [
   'pause', 'boss-victory', 'gameover', 'endless-endgame', 'recap', 'codex',
   'changelog', 'settings', 'endless-select', 'esc-dossier', 'leaderboard-select',
-  'card-shop', 'tutorial-select', 'loadout-view',
+  'card-shop', 'tutorial-select', 'loadout-view', 'abandon-confirm',
 ];
 
 function hideOverlays() {
@@ -100,6 +100,10 @@ function pauseGame() {
   freezeField();
   // G.cardsOwned is null outside endless, so tutorials have no loadout to show
   el('pause-loadout-btn').classList.toggle('hidden', !(G && G.cardsOwned));
+  // only endless runs can be saved — tutorials never see the button (js/save.js)
+  const saveBtn = el('pause-save-btn');
+  saveBtn.textContent = 'SAVE AND EXIT';   // clear a stale SAVE FAILED label
+  saveBtn.classList.toggle('hidden', !saveableRun());
   el('pause').classList.remove('hidden');
   refreshHUD();
 }
@@ -224,6 +228,7 @@ function returnToMenu() {
   clearRunState();
   clearField();   // the menu layers over the stage — don't leave a board behind it
   hideOverlays();
+  refreshContinueUI();   // the CONTINUE card tracks the save slot (js/save.js)
   el('intro').classList.remove('hidden');
   hideTutorialMsg();
   clearBanner();
@@ -357,6 +362,14 @@ function startGame(levelId, difficultyId) {
     const hero = G.tutorial.rifle || G.tutorial.gunner || G.tutorial.bunker;
     if (hero) tutSetCam(2.6, hero.x, hero.y, true);
   } else resetViewCam(level.mode);
+  enterField(level, difficulty);
+}
+
+// Everything a run needs on the way IN that isn't the game state itself:
+// loop flags, toolbar, overlays, tipbar, HUD. Shared by startGame (above, after
+// newGame) and continueRun (js/save.js, after a save is deserialized into G) —
+// one path, so the resume flow can never drift from the start flow.
+function enterField(level, difficulty) {
   placing = null;
   mobileToolbarMinimized = false;
   running = true;

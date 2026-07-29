@@ -2441,6 +2441,7 @@ function dismountBike(e) {
 // mirrors the live drawBike silhouette (bike left, sidecar right, nose +y)
 // but drained of colour — dull olive when abandoned, charred when destroyed.
 function stampBike(e, wrecked) {
+  logGroundStamp('bike', e.x, e.y, { wrecked: !!wrecked });
   const g = gctx;
   g.save();
   g.translate(e.x, e.y);

@@ -522,6 +522,7 @@ function drawJeepBody(c, color, us) {
 }
 
 function stampJeepWreck(a) {
+  logGroundStamp('jeep', a.x, a.y);
   gctx.save();
   gctx.translate(a.x, a.y);
   gctx.rotate(rand(-0.5, 0.5));
@@ -649,6 +650,7 @@ function drawJeep(a) {
 }
 
 function stampHalftrackWreck(a) {
+  logGroundStamp('halftrack', a.x, a.y);
   gctx.save();
   gctx.translate(a.x, a.y);
   gctx.rotate(rand(-0.4, 0.4));

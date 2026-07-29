@@ -176,6 +176,10 @@ function newGame(level, difficulty) {
     corpses: [],     // fallen soldiers, cleared away after CORPSE_TTL
     gibs: [],        // detached body parts mid-flight, then settled on the ground
     groundMarks: [], // blood stains and blast craters, fade after GROUND_MARK_TTL
+    // wreck/rubble stamps baked into groundCanvas, logged so a saved run can
+    // replay them (js/save.js). NB a field added to this literal needs a look
+    // at js/save.js — and possibly a RUN_SAVE_VERSION bump.
+    groundStamps: [],
 
     spawnTimer: 6,
     tpTrickle: TP_TRICKLE_INTERVAL + esc.trickleAdd,

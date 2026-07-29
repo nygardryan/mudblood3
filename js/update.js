@@ -305,6 +305,9 @@ function update(dt) {
 }
 
 function endRun(won, title, stats) {
+  // a finished endless run can't be resurrected — but a tutorial death must
+  // not cost the player an endless run saved earlier (js/save.js)
+  if (G && G.level.id === 'endless') clearRunSave();
   G.over = true;
   running = false;
   paused = false;

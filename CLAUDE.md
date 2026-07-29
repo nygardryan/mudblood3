@@ -958,6 +958,44 @@ ground layer) must not be looked up under three tier names. Verify with
 `TEST.spriteRoundtrip(id)` — it bakes, encodes, reloads and diffs; single-digit
 `meanChannelDiff` is resampling, tens mean a wrong anchor or a clipped box.
 
+**The RUN SAVE** (`js/save.js`) is the single-slot save/continue: SAVE AND EXIT on the
+pause menu (endless only — `pauseGame` hides it for tutorials, which also carry live
+actor refs in `G.tutorial` that must never reach a save), CONTINUE on the main menu
+(`refreshContinueUI` toggles the card off `readRunSave()`). It is a **whitelist
+serializer, never `JSON.stringify(G)`**: the boss parent/part links are true cycles
+(stringify throws), every actor's `t` is a shared type record, and the Sets
+(`cardsOwned`, `dummyBlind`, `awHit`, `recap.usedNames`) plus a corpse's baked
+`_sprite` all round-trip as poison. Cross-refs are saved as indices into a **union
+list** (`G.enemies` in order, then dead boss parts that survive only in a parent's
+`parts`/`pods`) and re-linked on load with object identity restored — `e.parts[n]`
+IS `G.enemies[m]` again. `SAVE_STRIP` is an explicit list, NOT an underscore rule:
+`e._burst` (the bloater's died-once guard) is load-bearing and rides. Projectile `by`
+survives as a ref or a `{side,x,y,type}` stub because ESCALATION rung IV keys on
+`by.side`. Corruption stance mirrors `loadEndlessCards`: parse under try/catch,
+blanket-discard on version mismatch (`RUN_SAVE_VERSION`), and `deserializeRun` builds
+into a local `g` and THROWS on any structural failure (unknown type key, out-of-range
+index, orphaned or duplicated `isBossPart`, malformed `itWorks` row — those are indexed
+by garrison links, so they're strict, not filtered) — `G` is assigned only after every
+check passes, and a discarded save just means no CONTINUE card, silently. **The
+strict/tolerant split is the thing to get right, and it was wrong once:** `reqArr` fails
+on any state-bearing field that isn't an array and on a missing `scalars` block, because
+the tolerant `arr()`/`num()` defaults meant `run.enemies = {}` resumed a wave-40 board
+with no enemies and a deleted `scalars` resumed it at wave 0 — *worse* outcomes than
+ditching, which is the whole promise. `serializeRun` always writes every one of those
+fields, so requiring them is free. Tolerance is only for genuinely optional per-actor
+data (card ids, stamp records, `dummySeen`/`dummyBlind`). The slot is deleted in
+`endRun` (guarded on `G.level.id === 'endless'`, so a tutorial death spares an
+endless save) and by the `#abandon-confirm` prompt gating `openEndlessLoadout` — the
+one choke point for every menu-driven endless start. The resume path reuses
+`enterField` (extracted from `startGame`'s tail — keep them one path) and runs
+`paintGround → replayGroundStamps → resetDecals` in newGame's order. Baked wreck art
+survives via `G.groundStamps`: all 13 `stamp*` writers log `{k,x,y}` through
+`logGroundStamp` (capped 1000; a `replayingStamps` guard stops replay re-logging),
+which also lets `refreshGroundArt`'s forced repaint keep the run's history now. **A
+field added to the `newGame` literal or a new actor ref needs a look at js/save.js**
+— and possibly a version bump, which is the escape hatch. Drive it with
+`TEST.save()` / `TEST.continue()` / `TEST.hasSave()`.
+
 Useful internals when TEST isn't enough: game state is the global `G`
 (`js/state.js:105` for its shape), `update(dt)` steps the sim, `draw()`
 renders, level catalog is `LEVELS`, unit catalogs are `UNIT_TYPES` /

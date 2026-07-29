@@ -1353,6 +1353,10 @@ body {
 .mm-card--commando { border-left-color: #9a8bb0; }
 .mm-card--commando .mm-card-glyph { color: #b6a6d0; border-color: #4c4560; }
 .mm-card--commando:hover { border-color: #b6a6d0; box-shadow: -3px 0 0 0 rgba(182, 166, 208, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4); }
+/* CONTINUE: full-width headline card when a saved run exists (js/save.js) */
+.mm-card--continue { grid-column: 1 / -1; border-left-color: #c9a227; }
+.mm-card--continue .mm-card-glyph { color: #e0b93e; border-color: #7a6420; }
+.mm-card--continue:hover { border-color: #e0b93e; box-shadow: -3px 0 0 0 rgba(224, 185, 62, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4); }
 
 /* JS-built mode lists (endless difficulties + campaign levels) rendered as field cards */
 .mm .intro-btns.modes { width: 100%; max-width: none; margin: 0; gap: 9px; }

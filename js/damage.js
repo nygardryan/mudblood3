@@ -569,6 +569,10 @@ function stampAmmoCrateRubble(t) {
 // (40% per hit he wises up); a fortified one wearing a helmet, or a hardened
 // one in body armor, sells the disguise longer (30% / 20%). Once he's wise he
 // permanently ignores THIS decoy and moves on to a real target.
+// This is the SECOND gate. The first is dummyFools (js/targeting.js), which
+// rolls once, for free, before a man ever aims: half of them never register a
+// plain decoy at all. Only the ones it fooled reach this function — the two
+// compose, and both record the result in the same dummyBlind Set.
 function damageDummy(d, dmg, from, kind) {
   d.hp -= dmg;
   for (let i = 0; i < 3; i++) {

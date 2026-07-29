@@ -464,9 +464,11 @@ costs one line. `TEST.works()` and `TEST.state().it` are the inspection surface.
 The **Semovente 75/18** (`isemo`) is the one vehicle with its own hull painter,
 `paintSemoventeHull` (`js/render-vehicles.js`), dispatched off `a.type` at the top
 of `paintTankHull`. It has one because the shared `casemate` branch it used to run
-through **lays its superstructure and gun along +x while the hull under it is drawn
+through **laid its superstructure and gun along +x while the hull under it is drawn
 facing +y** — so a casemate drove downfield with its gun aimed permanently at 3
-o'clock. `estug` is still on that branch and still has it. Nothing else changed:
+o'clock. That branch has since been rotated onto the hull's axis, so `estug` (the
+only other casemate) is correct on it now and this painter is kept for its ART, not
+as a workaround. Nothing else changed:
 `casemate: true` still means "no turret sprite, gun baked into the hull", so the
 export surface is one PNG (`tank_isemo_hull`, no `_turret`) and a pack ships one
 image. The consequence is that the drawn gun follows the HULL while the sim aims

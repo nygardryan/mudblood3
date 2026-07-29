@@ -95,14 +95,32 @@ function paintTankHull(c, a) {
     c.stroke();
   }
   if (casemate) {
+    // DOWN THE HULL'S OWN AXIS (+y), not along +x. This block used to be laid
+    // out in paintTankTurret's frame — barrel along +x — while everything above
+    // it here (tracks, plate, insignia) is drawn facing +y. A casemate has no
+    // turret sprite: `casemate: true` means the gun is baked into the hull and
+    // blitted at the HULL's heading, so a +x gun on a +y hull drove downfield
+    // aiming permanently at 3 o'clock, straight across its own right track.
+    // The Semovente was given its own painter (paintSemoventeHull below) rather
+    // than inherit that; this is the same fix for everything still on the
+    // shared branch. The sim was always right — a.turret aims at the target and
+    // the muzzle flash is placed 26 units along it; only the art disagreed.
+    //
+    // Rotated, not redrawn: every extent is the old one with (x, y) -> (-y, x),
+    // so the superstructure is still 28x10 and the gun still 18 long. The one
+    // deliberate change is pulling the box back 3 (-4 -> -7), because the old
+    // overhang past the hull edge was 7 against hw 17 and a bare rotation would
+    // have made it 10 against hh 14 — same silhouette, same seat on the hull.
     c.fillStyle = heavy ? '#3a3a34' : '#44443b';
-    c.fillRect(-4, -5, 28, 10);
+    c.fillRect(-5, -7, 10, 28);
     c.strokeStyle = '#2b2b25'; c.lineWidth = 1.2;
-    c.strokeRect(-4, -5, 28, 10);
-    c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(-4, -5, 28, 1.6);
+    c.strokeRect(-5, -7, 10, 28);
+    // the lit edge stays on the local TOP of the block (the -y side), where the
+    // hull's own highlight above is — both turn with the vehicle together
+    c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(-5, -7, 10, 1.6);
     c.fillStyle = '#4c4c43';
-    c.fillRect(20, -3, 18, 6);
-    c.fillStyle = '#26261f'; c.fillRect(37, -3.4, 2.4, 6.8);
+    c.fillRect(-3, 17, 6, 18);
+    c.fillStyle = '#26261f'; c.fillRect(-3.4, 34, 6.8, 2.4);
   }
 }
 
@@ -136,11 +154,14 @@ function paintTankTurret(c, a) {
 /* ---- the Semovente 75/18 -------------------------------------------------
 
    The Regio Esercito's assault gun gets its own hull painter rather than the
-   shared `casemate` branch above, because that branch lays its superstructure
-   and gun along +x while the hull it sits on is drawn facing +y — so a casemate
-   drove downfield with its gun aimed permanently at 3 o'clock. Here the gun
-   points where the vehicle points, which is the whole grammar of the type: no
-   turret ring, so the crew aims by turning the tank.
+   shared `casemate` branch above, because that branch USED TO lay its
+   superstructure and gun along +x while the hull under it was drawn facing +y —
+   so a casemate drove downfield with its gun aimed permanently at 3 o'clock.
+   That branch has since been rotated onto the hull's axis (see the comment on
+   it), so this painter is no longer a workaround for a broken shared path: it
+   exists for the ART, which is the rest of this block. Either way the gun points
+   where the vehicle points, which is the whole grammar of the type: no turret
+   ring, so the crew aims by turning the tank.
 
    The vehicle is ~48×34px on screen, which buys about six features before it
    turns to mush — the first pass at this had bogies, a loader's hatch, a

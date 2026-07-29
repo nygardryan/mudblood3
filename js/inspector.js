@@ -223,12 +223,22 @@ function hoverStats(a, own = false) {
     parts.push(RANKS[a.rank].name.toUpperCase());
     parts.push(`${a.xp} ${a.type === 'medic' || a.type === 'engineer' ? 'XP' : 'KILLS'}`);
   }
+  // The medic's dmg/range are the ONLY weapon numbers on a type that the actor
+  // can contradict: he musters unarmed and never opens fire (the `!u.armed`
+  // early-out in updateUnit), and only the Standard Issue card hands him the
+  // rifle. This panel describes one man, not a catalogue entry, so a medic with
+  // no weapon was reading "8 DMG · 94 RNG" directly under "Carries no weapon"
+  // — and beside a sprite drawn with empty hands, since drawSoldier keys the
+  // same flag. Placement ghosts have no `armed` yet, so ask the card too: that
+  // is what riflemanSwapActive exists for, and the preview range ring already
+  // uses it for exactly this reason.
+  const unarmedMedic = a.type === 'medic' && !a.armed && !riflemanSwapActive('medic');
   // Flame Tank reads as a flamethrower, not a cannon: no shell, shorter reach
   const flameTank = t.tank ? tankFlame(a) : null;
   if (flameTank) parts.push('FLAME');
   else if (t.shellDmg) parts.push(`${t.shellDmg} SHELL`);
-  else if (t.dmg > 0) parts.push(`${t.dmg} DMG`);
-  if (t.range > 0) parts.push(`${Math.round(flameTank ? flameTank.range : t.range)} RNG`);
+  else if (t.dmg > 0 && !unarmedMedic) parts.push(`${t.dmg} DMG`);
+  if (t.range > 0 && !unarmedMedic) parts.push(`${Math.round(flameTank ? flameTank.range : t.range)} RNG`);
   if (t.flame) parts.push('FLAME');
   if (t.grenade) parts.push('GRENADES');
   if (t.rocket) parts.push('ROCKET');

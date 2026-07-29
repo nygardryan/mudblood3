@@ -559,6 +559,25 @@ function friendlyNearPoint(x, y, r, except) {
   return false;
 }
 
+// Does this decoy fool this enemy at all? Rolled ONCE per (enemy, decoy) pair,
+// the first time the decoy would actually win his pick, and memoized — a roll
+// per scan would flicker the decision several times a second and would break
+// stillTargetableUnit's rule that a cached pick can never be one the fresh scan
+// would reject. An ignore is written into the same dummyBlind Set the
+// see-through roll uses, so both causes are read by one test at the top of the
+// loop below and the cached-target path needs no new check. Reaching here with
+// the pair already rolled therefore means he was fooled: dummyBlind was checked
+// two lines up. Fortifying does NOT re-roll a man already on the field — the
+// better disguise works on whoever arrives next.
+function dummyFools(e, dm) {
+  const seen = e.dummySeen || (e.dummySeen = new Set());
+  if (seen.has(dm.id)) return true;
+  seen.add(dm.id);
+  if (Math.random() >= DUMMY_IGNORE_CHANCE[emplacementTier(dm)]) return true;
+  (e.dummyBlind || (e.dummyBlind = new Set())).add(dm.id);
+  return false;
+}
+
 function nearestUnitInRange(e, range, pred) {
   const sm = smokeOnField();
   let best = null, bd = range * range;
@@ -569,12 +588,17 @@ function nearestUnitInRange(e, range, pred) {
     if (d < bd && !(sm && smokeBlocksLOS(e, u))) { bd = d; best = u; }
   }
   // decoy scarecrows draw fire like any body on the field, unless this enemy
-  // has already put rounds into one and seen through the ruse (damageDummy)
+  // never fell for it (dummyFools) or has already put rounds into one and seen
+  // through the ruse (damageDummy) — dummyBlind records both. The roll sits in
+  // the winning branch on purpose: a decoy that loses the distance race was
+  // never something he was choosing between, and testing there keeps the cost
+  // of this loop exactly what it was. Order matters too — a decoy he cannot see
+  // through smoke goes unrolled, so he gets his look when the smoke clears.
   for (const dm of G.dummies) {
     if (dm.hp <= 0 || (e.dummyBlind && e.dummyBlind.has(dm.id))) continue;
     if (pred && !pred(dm)) continue;
     const d = dist2(e, dm);
-    if (d < bd && !(sm && smokeBlocksLOS(e, dm))) { bd = d; best = dm; }
+    if (d < bd && !(sm && smokeBlocksLOS(e, dm)) && dummyFools(e, dm)) { bd = d; best = dm; }
   }
   return best;
 }

@@ -662,10 +662,34 @@ const cycleAtMaxRank = (rate) =>
 // A reach row straight off the function the sim calls, so a type whose reach
 // curve is retuned can't leave a stale number on this page. The label stays
 // bespoke per unit — UNIT_SIGNATURE keys on it.
+//
+// ONLY for reaches that actually go through unitRange(). unitRangeRankRate is a
+// WEAPON reach curve and unitRange is its only consumer, so asking it about a
+// support radius answers a question nobody asked — see fixedRow below.
 const reachRow = (label, type) => {
   const rate = unitRangeRankRate(type);
   return { label, per: perRank(rate), max: atMaxRank(rate) };
 };
+// A radius rank does NOT move. Three of them are flat constants read raw by the
+// sim — MEDIC_RANGE in the heal scan and cureNearestInfected, ENGINEER_RANGE in
+// every updateEngineer pass (and the Cannibalize count, and the forward build
+// pocket), OFFICER_AURA in officerBuff — with no rank term at any of those
+// sites. The overlay rings (drawSpecialistRangeAt, js/targeting.js) and the
+// inspector draw those same bare constants, so the player is SHOWN a fixed
+// circle; this page was the only thing claiming otherwise.
+//
+// It claimed it because these rows were hand-written, and then because the
+// derivation above was pointed at unitRangeRankRate, which answers for the
+// carbine on the man's back and not for the radius the row is named after: it
+// put the medic's aid range at +1%/rank and the engineer's and officer's at
+// +5%/rank — 95→100.7, 95→123.5 and 78→101.4 at MSG, none of which happens.
+// Measured: a rank-0 and a rank-6 medic both treat at 90px and both fail at 96,
+// and the engineer repairs at 90 and fails at 96 at either rank.
+//
+// If these are ever meant to grow, the fix is to plumb the curve through those
+// sites AND the two overlays — not to describe a curve here that the sim
+// doesn't run.
+const fixedRow = (label, px) => ({ label, per: 'same at every rank', max: px + ' radius' });
 // The emplaced guns' traverse row, off RANK_ARC_RATE — which is kept in radians
 // because that is what emplacementArc adds, and quoted in degrees because that
 // is what a player reads. The last hand-copied pair of numbers on this page.
@@ -721,19 +745,21 @@ const UNIT_RANK_PERKS = {
   ],
   medic:      [
     { label: 'Healing per pulse', per: '+1.2 HP / rank', max: '3 → ' + Math.round(3 + 1.2 * MAX_RANK) + ' HP' },
-    reachRow('Aid range', 'medic'),
+    // a medic never fires, so his type's weapon-reach curve says nothing about
+    // the only reach he has
+    fixedRow('Aid range', MEDIC_RANGE),
     RB.spd, RB.cover,
   ],
   engineer:   [
     { label: 'Repair & fortify rate', per: perRank(0.35), max: 'over 3× faster' },
-    reachRow('Work reach', 'engineer'),
+    fixedRow('Work reach', ENGINEER_RANGE),
     RB.rof, RB.spd,
   ],
   officer:    [
     { label: 'Aura: allied fire rate', per: '+3% / rank',   max: 'men fire much faster' },
     { label: 'Aura: allied accuracy',  per: '+4% / rank',   max: '+24% straighter' },
     { label: 'TP income',              per: '+⅓ TP / rank', max: '1 → 3 TP / 30s' },
-    reachRow('Command reach', 'officer'),
+    fixedRow('Command reach', OFFICER_AURA),
   ],
   flamer:     [
     { label: 'Burn damage',    per: perRank(0.35), max: atMaxRank(0.35) },
@@ -1008,6 +1034,7 @@ const FORT_TIERS = {
     rows: [
       { label: 'HP',              v: ['495', '990', '1,485'] },
       { label: 'Disguise',        v: ['scarecrow', 'helmet', 'body armor'] },
+      { label: 'Enemy ignores it', v: DUMMY_IGNORE_CHANCE.map(d => Math.round(d * 100) + '%') },
       { label: 'Enemy sees ruse', v: DUMMY_SEE_THROUGH.map(d => Math.round(d * 100) + '%/hit') },
     ],
   },

@@ -43,6 +43,11 @@ const WIRE_DRAG = [0.126, 0.0525, 0.021];
 const WIRE_WEAR = [5, 3, 2];
 // the decoy's odds an attacker sees through the ruse on a direct hit
 const DUMMY_SEE_THROUGH = [0.40, 0.30, 0.20];
+// the decoy's odds an attacker never registers it as a target at all, by tier —
+// rolled once per (enemy, decoy) pair the first time it would win his pick.
+// The gate BEFORE DUMMY_SEE_THROUGH: that one costs him a shot to break, this
+// one costs him nothing, so a wave no longer arrives uniformly fooled.
+const DUMMY_IGNORE_CHANCE = [0.50, 0.35, 0.25];
 const RANKUP_RADIUS = 140;  // testing-mode-only field-promotion ability
 const PURGE_RADIUS = 150;   // testing-mode-only kill-everything ability
 // how far a tower stretches the reach of the men under it, by tier — the third
@@ -1787,7 +1792,7 @@ const PLACEABLES = [
   { key: 'sandbags', label: 'SANDBAGS', cost: 4, kind: 'defense', hotkey: '8',
     desc: 'Cover. Soldiers behind it dodge half of incoming fire.' },
   { key: 'dummy', label: 'DUMMY', cost: 8, kind: 'defense', hotkey: 'D',
-    desc: 'Straw decoy. Enemies waste fire on it, but each hit they may see the ruse and move on (40%). Fortify for a helmet, harden for body armor — a better disguise holds their attention longer (30%/20%) and each tier adds another decoy\'s worth of HP.' },
+    desc: 'Straw decoy. Half the enemy never falls for it at all (50%); the rest waste fire on it, but each hit they may see the ruse and move on (40%). Fortify for a helmet, harden for body armor — a better disguise both takes in more of them (35%/25% ignore it) and holds their attention longer (30%/20%), and each tier adds another decoy\'s worth of HP.' },
   { key: 'bunker', label: 'BUNKER', cost: 15, kind: 'defense', hotkey: 'K',
     desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },
   { key: 'watchtower', label: 'WATCH TOWER', cost: 10, kind: 'defense', hotkey: 'W',

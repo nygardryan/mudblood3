@@ -54,7 +54,12 @@ function update(dt) {
       triggerEvent();
     }
   }
-  if (G.fog > 0) G.fog -= dt;
+  // fogAge counts UP alongside the countdown: G.fog alone cannot tell a bank
+  // that has just rolled in from one about to lift, and the two special waves
+  // stack more fog onto a screen already standing, so a "how long was rolled
+  // for" figure would jump under them. An age doesn't. (js/fog.js)
+  if (G.fog > 0) { G.fog -= dt; G.fogAge += dt; }
+  else if (G.fogAge !== 0) G.fogAge = 0;
   // smokescreen: burning pots, drifting puffs, and the sight-line bbox the
   // targeting scans reject against — must run before anyone picks a target
   updateSmoke(dt);
@@ -305,6 +310,11 @@ function update(dt) {
 }
 
 function endRun(won, title, stats) {
+  // ATTRACT: the menu demo is an endless run and WILL reach this. It must not
+  // drop a results screen over the menu, and — the reason this early-out is the
+  // first line rather than somewhere tidier — it must not reach clearRunSave()
+  // below and delete the player's saved run while they read the menu.
+  if (attractRunning()) { restartAttract(); return; }
   // a finished endless run can't be resurrected — but a tutorial death must
   // not cost the player an endless run saved earlier (js/save.js)
   if (G && G.level.id === 'endless') clearRunSave();

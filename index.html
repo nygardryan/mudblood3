@@ -60,122 +60,80 @@
 
     <div id="toolbar" class="hidden"></div>
 
-    <div id="intro" class="overlay mm-screen">
-      <div class="mm">
-        <header class="mm-head">
-          <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>FIELD MANUAL · FRANCE 1944<span class="mm-eyebrow-mark"></span></div>
-          <h1 class="mm-title">TRENCHWORKS: <span class="mm-amp">WW2</span></h1>
-          <p class="mm-brief">Earn <b>Tactical Points</b> from kills and spend them on men, defenses and fire support.</p>
+    <!-- THE MENU. One screen: the title owns the top, the deploy stack owns the
+         bottom, nothing competes. There is no mode picker because there is one
+         mode — PLAY *is* the deploy control, and the rung it deploys at is
+         printed inside it with EASIER / HARDER recessed into its ends.
+         Everything the old #endless-select held now lives here or in Settings.
+         The escalation half is written by buildEscalationUI() (js/escalation.js);
+         the medal count and the first-launch promotion by refreshFrontMenu()
+         (js/flow.js). Not a `.mm` panel: this screen is full-bleed over the
+         attract demo (js/attract.js), so it has no card chrome to sit inside. -->
+    <div id="intro" class="overlay">
+      <div class="fm-scrim"></div>
+      <div class="fm">
+        <header class="fm-head">
+          <div class="fm-eyebrow"><span class="fm-rule"></span>FRANCE 1944 · SQUAD DEFENSE<span class="fm-rule"></span></div>
+          <h1 class="fm-title">TRENCHWORKS</h1>
+          <div class="fm-sub"><span class="fm-rule fm-rule--thick"></span><span class="fm-sub__word">WW2</span><span class="fm-rule fm-rule--thick"></span></div>
         </header>
 
-        <div class="mm-block">
-          <div class="mm-block-label">QUICK PLAY</div>
-          <div class="mm-grid mm-grid--quick">
-            <!-- shown only while a saved run exists; refreshContinueUI (js/save.js)
-                 toggles it and fills the meta line -->
-            <button id="continue-run" class="mm-card mm-card--continue hidden">
-              <span class="mm-card-glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 L19 12 L7 20 Z" fill="currentColor"/></svg></span>
-              <span class="mm-card-copy">
-                <span class="mm-card-title">CONTINUE</span>
-                <span id="continue-meta" class="mm-card-desc">Resume your saved run.</span>
+        <div class="fm-deploy" id="fm-deploy-stack">
+          <!-- shown only while a saved run exists; refreshContinueUI (js/save.js)
+               toggles it and fills the meta line -->
+          <button id="continue-run" class="fm-resume hidden" type="button">
+            <span class="fm-resume__glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 L19 12 L7 20 Z" fill="currentColor"/></svg></span>
+            <span class="fm-resume__name">RESUME</span>
+            <span id="continue-meta" class="fm-resume__meta"></span>
+          </button>
+          <!-- first launch (no save, no medals, best wave 0) promotes the tutorial
+               into the RESUME slot; every other launch it is a footer chip and
+               refreshFrontMenu() moves it back there -->
+          <button id="start-tutorial" class="fm-chip" type="button">TUTORIAL</button>
+
+          <!-- the welded slab: one control, two recessed ends -->
+          <div class="fm-play" id="fm-play-slab">
+            <button id="esc-prev" class="fm-play__arrow fm-play__arrow--down" type="button" aria-label="Lower escalation">
+              <span class="fm-play__chev">◀</span><span class="fm-play__arrowlab">EASIER</span>
+            </button>
+            <button id="esc-deploy" class="fm-play__go" type="button">
+              <span class="fm-play__word">PLAY</span>
+              <span class="fm-play__read">
+                <span class="fm-play__lvl" id="esc-level">NO ESCALATION</span>
+                <span class="fm-play__mult" id="esc-mult">×1.0 MEDALS</span>
               </span>
             </button>
-            <button id="start-tutorial" class="mm-card mm-card--tutorial">
-              <span class="mm-card-glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9.4" y="3" width="5.2" height="18"/><rect x="3" y="9.4" width="18" height="5.2"/></svg></span>
-              <span class="mm-card-copy">
-                <span class="mm-card-title">TUTORIAL</span>
-                <span class="mm-card-desc">Learn the basics.</span>
-              </span>
-            </button>
-            <button id="start-endless" class="mm-card mm-card--endless">
-              <span class="mm-card-glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 C4 8.4 9.6 8.4 12 12 C14.4 15.6 20 15.6 20 12 C20 8.4 14.4 8.4 12 12 C9.6 15.6 4 15.6 4 12 Z" fill="none" stroke="currentColor" stroke-width="2.4"/></svg></span>
-              <span class="mm-card-copy">
-                <span class="mm-card-title">ENDLESS</span>
-                <span class="mm-card-desc">Survive endless waves.</span>
-              </span>
+            <button id="esc-next" class="fm-play__arrow fm-play__arrow--up" type="button" aria-label="Raise escalation">
+              <span class="fm-play__chev">▶</span><span class="fm-play__arrowlab">HARDER</span>
             </button>
           </div>
-        </div>
 
-        <div class="mm-footer">
-          <button id="codex-btn" class="mm-chip">CODEX</button>
-          <button id="changelog-btn" class="mm-chip">CHANGELOG</button>
-          <button id="settings-btn" class="mm-chip">SETTINGS</button>
+          <!-- one line under the slab: the modifier this rung just added, how far
+               up the ladder you have earned, and the way into all ten -->
+          <div class="fm-status">
+            <span class="fm-status__name" id="esc-newest-name"></span>
+            <span class="fm-status__desc" id="esc-newest-desc"></span>
+            <span class="fm-status__dot">·</span>
+            <span class="fm-status__earned" id="esc-earned"></span>
+            <button type="button" class="fm-status__link" id="esc-dossier-open">ALL 10 ▸</button>
+          </div>
+
+          <div class="fm-chips" id="fm-chips-row">
+            <button id="card-shop-btn" class="fm-chip fm-chip--cards" type="button">CARDS<span class="fm-medal"><span class="fm-medal__disc">★</span><span class="fm-medal__n" id="menu-medals">0</span></span></button>
+            <button id="endless-leaderboard-btn" class="fm-chip" type="button">LEADERBOARDS</button>
+            <button id="codex-btn" class="fm-chip" type="button">CODEX</button>
+            <button id="settings-btn" class="fm-chip" type="button">SETTINGS</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <div id="endless-select" class="overlay mm-screen hidden">
-      <div class="mm">
-        <header class="mm-head">
-          <div class="mm-eyebrow"><span class="mm-eyebrow-mark"></span>OPERATION · HOLD THE LINE<span class="mm-eyebrow-mark"></span></div>
-          <h1 class="mm-title">ENDLESS</h1>
-          <p class="mm-brief">Hold the sector as long as you can. Put the boss down to earn the next escalation — each one stacks a permanent modifier on every one below it, and pays <b>more medals for every wave you survive</b>.</p>
-        </header>
-        <!-- ESCALATION: always on screen, because PLAY inside it IS the deploy
-             control for endless. At rung 0 it reads as a clean sector with the
-             ladder locked ahead of you — the teaser is the point. Built by
-             buildEscalationUI(). -->
-        <div class="mm-block" id="esc-block">
-          <div class="mm-block-label">ESCALATION</div>
-          <!-- rung strip: every earned rung is one tap away. Built by buildEscRungs() -->
-          <div class="esc-rungs" id="esc-rungs"></div>
-          <div class="esc-scale">
-            <span>NO MODIFIERS</span>
-            <span id="esc-earned">EARNED: —</span>
-            <span id="esc-topmult">×2.0 MEDALS</span>
-          </div>
-          <div class="esc-step">
-            <button id="esc-prev" class="esc-arrow" type="button" aria-label="Lower escalation">◀</button>
-            <!-- the readout pairs the rung with what it PAYS: the pay modifier
-                 (escMedalMult) is the other half of every step up the ladder -->
-            <div class="esc-read">
-              <div class="esc-read__main">
-                <div class="esc-read__head">
-                  <span class="esc-read__lvl" id="esc-level">NO ESCALATION</span>
-                  <span class="esc-read__sub" id="esc-count">NO MODIFIERS</span>
-                </div>
-                <div class="esc-read__sub esc-read__foe" id="esc-foe">ENEMY: ROLLED AT RANDOM</div>
-              </div>
-              <div class="esc-read__pay">
-                <div class="esc-read__mult" id="esc-mult">×1.0</div>
-                <div class="esc-read__paylab">MEDAL PAYOUT</div>
-              </div>
-            </div>
-            <button id="esc-next" class="esc-arrow" type="button" aria-label="Raise escalation">▶</button>
-          </div>
-          <div class="esc-nextline" id="esc-nextline"></div>
-          <div class="esc-actions">
-            <button type="button" class="esc-play" id="esc-deploy">PLAY ▸</button>
-            <button type="button" class="esc-ladder-btn" id="esc-dossier-open">ALL MODIFIERS (<span id="esc-sel">0</span>)</button>
-          </div>
-          <div class="esc-subhead"><span>NEWEST MODIFIER IN EFFECT</span></div>
-          <div class="esc-newest" id="esc-newest"></div>
-        </div>
-        <!-- no TAKE THE LINE card here: PLAY above starts that run, and two
-             controls doing the same thing read as a bug. The briefing lines
-             these buttons used to carry survive as tooltips. -->
-        <div class="mm-block">
-          <div class="mm-block-label">OTHER MODES</div>
-          <div class="esc-modes">
-            <button type="button" data-endless-diff="sandbox"
-              title="Unlimited TP, skip waves. No escalation, no medals.">SANDBOX</button>
-            <button type="button" data-endless-diff="testing"
-              title="Unlimited TP, spawn your own enemies.">TESTING</button>
-          </div>
-        </div>
-        <div class="mm-footer">
-          <button id="card-shop-btn">CARD SHOP</button>
-          <button id="endless-leaderboard-btn">LEADERBOARDS</button>
-          <button id="endless-back-btn">BACK</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ESCALATION dossier: all ten modifiers, reached from ALL MODIFIERS above.
-         A sibling overlay rather than a panel inside #endless-select, because
+    <!-- ESCALATION dossier: all ten modifiers, reached from ALL 10 above.
+         A sibling overlay rather than a panel inside #intro, because
          one-screen-at-a-time is how every other secondary menu here works
-         (card shop, leaderboards). Built by buildEscDossier(). -->
+         (card shop, leaderboards). It is also the only rung PICKER now that the
+         slab carries just two arrows — the strip and the rows both select.
+         Built by buildEscDossier(). -->
     <div id="esc-dossier" class="overlay hidden">
       <div class="escd">
         <div class="escd-head">
@@ -185,6 +143,10 @@
           </div>
           <button type="button" id="esc-dossier-close" class="escd-close">✕ CLOSE</button>
         </div>
+        <!-- rung strip: every earned rung is one tap away, so dropping from IX
+             back to II isn't seven presses of the slab's arrow. Built by
+             buildEscRungs(). -->
+        <div class="esc-rungs" id="esc-dossier-rungs"></div>
         <div class="escd-rows" id="esc-dossier-rows"></div>
       </div>
     </div>
@@ -241,11 +203,18 @@
 
     <div id="leaderboard-select" class="overlay hidden">
       <h1>LEADERBOARDS</h1>
-      <p>Furthest wave reached before the line broke. Sandbox and Testing don't count — the supply is unlimited.</p>
-      <div id="leaderboard-tabs">
-        <button type="button" class="codex-tab lb-tab" data-lb-diff="easy">EASY</button>
-        <button type="button" class="codex-tab lb-tab" data-lb-diff="medium">MEDIUM</button>
-        <button type="button" class="codex-tab lb-tab" data-lb-diff="hard">HARD</button>
+      <p>Furthest wave reached before the line broke — one board per rung of the ladder. Sandbox and Testing don't count, the supply is unlimited.</p>
+      <!-- one chip per ESCALATION rung, '—' plus I..X, built by
+           buildLeaderboardRungs(). Same strip, states and styling as the one on
+           the endless menu: the rung is the difficulty, so it is what a board is
+           keyed on. -->
+      <div id="leaderboard-strip">
+        <div id="leaderboard-tabs" class="esc-rungs"></div>
+        <div id="leaderboard-head">
+          <span id="lb-board-rung">NO ESCALATION</span>
+          <span id="lb-board-name">CLEAN SECTOR</span>
+          <span id="lb-board-mult">×1.0 MEDALS</span>
+        </div>
       </div>
       <ul id="leaderboard-select-list" class="leaderboard-list"></ul>
       <button id="leaderboard-back-btn" class="secondary">BACK</button>
@@ -304,8 +273,9 @@
     </div>
 
     <!-- Single-slot save guard: starting a new endless run while a saved one
-         exists must be a decision, not a misclick. Swaps out #endless-select
-         the way the card shop does; wired in js/save.js. -->
+         exists must be a decision, not a misclick. Swaps out the screen it was
+         launched from (#intro, or #settings for the dev-tools tiers) the way the
+         card shop does; wired in js/save.js. -->
     <div id="abandon-confirm" class="overlay hidden">
       <h1>ABANDON SAVED RUN?</h1>
       <p class="quote" id="abandon-meta">Your saved run will be lost.</p>
@@ -417,6 +387,24 @@
             <button id="settings-custom-sprites-btn" class="secondary">ART OFF</button>
           </div>
         </div>
+
+        <!-- DEV TOOLS: sandbox and testing used to sit on the menu one row under
+             the deploy button, where being adjacent to the only real mode made
+             them read as modes themselves. They are instruments, so they live
+             with the other instruments. The changelog came here for the same
+             reason — it is a thing you consult, not a thing you launch. -->
+        <div class="settings-section">
+          <div class="settings-section-title">Dev tools</div>
+          <p class="settings-hint">Unlimited-supply sectors for trying things out. Neither banks medals,
+            earns an escalation rung, or records a score.</p>
+          <div class="settings-devrow">
+            <button type="button" class="secondary" data-endless-diff="sandbox"
+              title="Unlimited TP, skip waves. No escalation, no medals.">SANDBOX</button>
+            <button type="button" class="secondary" data-endless-diff="testing"
+              title="Unlimited TP, spawn your own enemies.">TESTING</button>
+            <button type="button" class="secondary" id="changelog-btn">CHANGELOG</button>
+          </div>
+        </div>
       </div>
       <button id="settings-back-btn">BACK</button>
     </div>
@@ -497,6 +485,7 @@
 <script src="js/waves.js"></script>
 <script src="js/events.js"></script>
 <script src="js/smoke.js"></script>
+<script src="js/fog.js"></script>
 <script src="js/ordnance.js"></script>
 <script src="js/damage.js"></script>
 <script src="js/shooting.js"></script>
@@ -537,6 +526,9 @@
 <script src="js/changelog.js"></script>
 <script src="js/recap.js"></script>
 <script src="js/flow.js"></script>
+<!-- ATTRACT: the live demo behind the main menu. Self-contained and designed to
+     be deleted — see the removal recipe at the top of js/attract.js. -->
+<script src="js/attract.js"></script>
 <script src="js/save.js"></script>
 <script src="js/main.js"></script>
 <script src="js/export-sprites.js"></script>

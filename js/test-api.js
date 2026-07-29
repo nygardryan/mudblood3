@@ -517,6 +517,10 @@ const TEST = {
 
   reset() {
     if (running || G) returnToMenu();
+    // ATTRACT: returnToMenu stands the menu's demo up (js/attract.js), which
+    // would leave state() reporting a game nobody started. The harness wants a
+    // genuinely blank stage.
+    stopAttract();
     G = null;
     return { ok: true, at: 'main menu' };
   },

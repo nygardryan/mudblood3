@@ -35,7 +35,7 @@ function freezeField() {
 // underneath the next one.
 const FULL_SCREEN_OVERLAYS = [
   'pause', 'boss-victory', 'gameover', 'endless-endgame', 'recap', 'codex',
-  'changelog', 'settings', 'endless-select', 'esc-dossier', 'leaderboard-select',
+  'changelog', 'settings', 'esc-dossier', 'leaderboard-select',
   'card-shop', 'tutorial-select', 'loadout-view', 'abandon-confirm',
 ];
 
@@ -181,6 +181,10 @@ function bossNotDoneCopy() {
 // (full recap flow, marked victorious) or fight on, in which case the run
 // continues and the boss returns at the next hundredth wave
 function bossVictory() {
+  // ATTRACT: the menu demo runs the real sim, so it can reach a wave-100 boss.
+  // It must never freeze the board under an overlay the player didn't ask for,
+  // and the rung unlock below is already excluded by medalsEligible().
+  if (attractRunning()) return;
   if (!running || !G || G.over) return;
   // Escalation X wants him down twice. Below the quota the run does NOT pause
   // and no overlay opens — a banner, and the field keeps moving.
@@ -228,23 +232,52 @@ function returnToMenu() {
   clearRunState();
   clearField();   // the menu layers over the stage — don't leave a board behind it
   hideOverlays();
-  refreshContinueUI();   // the CONTINUE card tracks the save slot (js/save.js)
+  refreshMenu();
   el('intro').classList.remove('hidden');
   hideTutorialMsg();
   clearBanner();
   syncMobileViewUI();
   syncMobileChrome();
+  startAttract();   // ATTRACT: the menu's live background (js/attract.js)
 }
 
-function openEndlessSelect() {
-  el('intro').classList.add('hidden');
-  buildEscalationUI();   // rebuild from the save: a boss kill may have unlocked a rung
-  el('endless-select').classList.remove('hidden');
+// Everything on the front page that is read from storage rather than written in
+// the HTML. One call, because the menu is now ONE screen and all of it is stale
+// the moment a run ends: a boss kill may have unlocked a rung, the run may have
+// banked medals, and the save slot may have been created or consumed. Called
+// from returnToMenu and once at bootstrap (js/main.js).
+function refreshMenu() {
+  refreshContinueUI();   // the RESUME card tracks the save slot (js/save.js)
+  buildEscalationUI();   // the PLAY slab and its status line (js/escalation.js)
+  refreshFrontMenu();
 }
 
-function closeEndlessSelect() {
-  el('endless-select').classList.add('hidden');
-  el('intro').classList.remove('hidden');
+// The medal count and the first-launch shape. Medals are shown ONCE, on the
+// CARDS chip — the count belongs on the thing you spend it in, and it was
+// previously printed on two screens that disagreed while the shop was open.
+//
+// On a truly fresh save there is nothing to resume, nothing banked and no run on
+// any board, so the RESUME slot is empty and TUTORIAL is a chip among four
+// others — the one thing a new player should do is the least prominent thing on
+// screen. So it is PROMOTED into the empty slot instead. The test is all three
+// signals and not just the save slot, because clearing a save is something a
+// returning player does constantly and being handed the tutorial again for it
+// would read as the game forgetting them.
+function refreshFrontMenu() {
+  const medals = loadEndlessCards().medals;
+  el('menu-medals').textContent = medals;
+  const firstLaunch = !hasRunSave() && medals === 0 && bestWaveEver() === 0;
+  el('start-tutorial').classList.toggle('fm-chip--promoted', firstLaunch);
+  // in the chip row it rides with the others; promoted it sits in the deploy
+  // stack, which is where the DOM already has it — so the flag only has to move
+  // it back down when there is nothing to promote it over
+  const chips = el('fm-chips-row');
+  const stack = el('fm-deploy-stack');
+  const home = firstLaunch ? stack : chips;
+  if (el('start-tutorial').parentElement !== home) {
+    if (firstLaunch) home.insertBefore(el('start-tutorial'), el('fm-play-slab'));
+    else home.appendChild(el('start-tutorial'));
+  }
 }
 
 // the tutorial lessons, in order — beat each to unlock the next
@@ -370,6 +403,7 @@ function startGame(levelId, difficultyId) {
 // newGame) and continueRun (js/save.js, after a save is deserialized into G) —
 // one path, so the resume flow can never drift from the start flow.
 function enterField(level, difficulty) {
+  stopAttract();   // ATTRACT: the one door into a real run (js/attract.js)
   placing = null;
   mobileToolbarMinimized = false;
   running = true;

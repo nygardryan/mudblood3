@@ -58,7 +58,7 @@ const SAVE_STRIP = new Set([
 const SAVE_SCALARS = {
   tp: 15, wave: 0, kills: 0, medalsEarned: 0, breaches: 0, time: 0,
   bossKills: 0, spawnTimer: 6, tpTrickle: TP_TRICKLE_INTERVAL, officerTick: 30,
-  eventTimer: 50, fog: 0, itFrontY: IT_FRONT_Y_START, itTick: 0, itCharge: 0,
+  eventTimer: 50, fog: 0, fogAge: 0, itFrontY: IT_FRONT_Y_START, itTick: 0, itCharge: 0,
   itAvantiCd: 30, itLastAvanti: -999, buffFrame: 0,
 };
 
@@ -465,39 +465,44 @@ function refreshContinueUI() {
 }
 
 // -- abandon confirm: gates every menu-driven endless start while a save
-// exists (see openEndlessLoadout). Swaps out #endless-select the way the card
-// shop does; confirm re-enters openEndlessLoadout, which now finds no save.
+// exists (see openEndlessLoadout). Swaps the launching screen out the way the
+// card shop does; confirm re-enters openEndlessLoadout, which now finds no save.
+// The screen it came from rides along, because the sandbox and testing buttons
+// launch from Settings and only the menu launches from #intro.
 let pendingAbandonDiff = null;
+let pendingAbandonFrom = 'intro';
 
 function abandonConfirmOpen() {
   return !el('abandon-confirm').classList.contains('hidden');
 }
 
-function openAbandonConfirm(difficultyId) {
+function openAbandonConfirm(difficultyId, fromScreen) {
   pendingAbandonDiff = difficultyId;
+  pendingAbandonFrom = fromScreen || 'intro';
   const blob = readRunSave();
   const m = blob && blob.meta;
   el('abandon-meta').textContent = m
     ? 'Your saved run — wave ' + (Number.isFinite(m.wave) ? m.wave : '?') + ' vs ' +
       (SAVE_FACTION_NAMES[m.faction] || '???').toLowerCase() + ' — will be lost.'
     : 'Your saved run will be lost.';
-  el('endless-select').classList.add('hidden');
+  el(pendingAbandonFrom).classList.add('hidden');
   el('abandon-confirm').classList.remove('hidden');
 }
 
 function closeAbandonConfirm() {
   pendingAbandonDiff = null;
   el('abandon-confirm').classList.add('hidden');
-  el('endless-select').classList.remove('hidden');
+  el(pendingAbandonFrom).classList.remove('hidden');
 }
 
 function confirmAbandonRun() {
   const diff = pendingAbandonDiff;
+  const from = pendingAbandonFrom;
   pendingAbandonDiff = null;
   clearRunSave();
   refreshContinueUI();
   el('abandon-confirm').classList.add('hidden');
-  openEndlessLoadout(diff);   // no save left, so this proceeds for real
+  openEndlessLoadout(diff, from);   // no save left, so this proceeds for real
 }
 
 // ---- ground-stamp log ----------------------------------------------------

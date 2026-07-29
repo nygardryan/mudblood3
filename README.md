@@ -90,9 +90,9 @@ workflow.
     - Every 10th wave is its own set-piece (a horde surge, a hound pack, a bile
       bombardment, or the Abomination itself), and the paradrop event becomes the
       **dead clawing up out of the ground behind your line**.
-  Take the line straight away, or fight in **Sandbox** (unlimited TP, free
-  purchases; **+1 / +5 / +10** HUD buttons or **] / Shift+] / Ctrl+]** to jump
-  ahead and spawn later waves).
+  Take the line straight away, or fight in **Sandbox** (in Settings, under Dev
+  tools: unlimited TP, free purchases; **+1 / +5 / +10** HUD buttons or
+  **] / Shift+] / Ctrl+]** to jump ahead and spawn later waves).
   - **Escalation (the difficulty ladder):** put the wave-100 boss down and you
     unlock **Escalation I**. Each of the ten rungs stacks a permanent modifier on
     top of every rung below it. The rung does **not** pick your enemy — every run
@@ -105,14 +105,15 @@ workflow.
     often**; **waves stop spacing out**; **kills stop paying**; and finally the
     boss has to be put down **twice** before the run is won. Every rung also
     **pays better** — the medal payout climbs 10% a rung, from ×1.0 at the
-    bottom to **×2.0 at Escalation X**. On the Endless menu, the rung strip or
-    the arrows pick your rung, the readout shows what it pays, and **ALL
-    MODIFIERS** opens the full ladder.
+    bottom to **×2.0 at Escalation X**. The arrows on the PLAY button step your
+    rung one at a time, and **ALL 10** opens the full ladder — where the rung
+    strip and the rows themselves jump straight to any rung you have earned.
   - **Medals & cards (roguelite meta-progression):** every 10th wave survived
     banks **medals** — wave 10 pays 1, wave 20 pays 2, and so on (a run to
     wave 46 earns 10 total), multiplied by your escalation's payout. Sandbox and
     Testing pay nothing. Between runs,
-    spend them in the **CARDS** shop on the Endless menu: three cards are on
+    spend them in the **CARDS** shop on the main menu, which also shows what you
+    have banked: three cards are on
     offer at a time, and buying one reveals another. Cards are **permanent
     upgrades** to one unit type, active in every future Endless run. Commons
     exist for every type (e.g. **Frenzy** — a kill instantly reloads that
@@ -121,7 +122,11 @@ workflow.
 
 ## How to play
 
-France, 1944. Pick a mode from the main menu.
+France, 1944. The main menu is one screen and **PLAY** is the whole of it — there
+is no mode to pick. The arrows at either end of the PLAY button step the
+[Escalation](#game-modes) rung it deploys at, and **ALL 10** opens the ladder,
+where any rung you have earned is one tap away. **RESUME** appears above it when
+you have a saved run. Sandbox and Testing live in **SETTINGS**, under Dev tools.
 
 - **Tactical Points (TP)** are your only currency. You earn them from kills, **+1 TP
   every 3 s**, and living officers (**+1 TP / 30 s** each — up to **3 TP** for a

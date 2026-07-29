@@ -2,16 +2,17 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
-el('start-endless').addEventListener('click', openEndlessSelect);
-el('endless-back-btn').addEventListener('click', closeEndlessSelect);
+// sandbox / testing now live in Settings under DEV TOOLS — the selector is
+// unchanged, it just finds them there
 for (const btn of document.querySelectorAll('[data-endless-diff]')) {
-  btn.addEventListener('click', () => openEndlessLoadout(btn.dataset.endlessDiff));
+  btn.addEventListener('click', () => openEndlessLoadout(btn.dataset.endlessDiff, 'settings'));
 }
+// the two ends of the PLAY slab. They walk one rung; the dossier's strip and
+// rows are the way to jump (buildEscRungs / buildEscDossier wire their own).
 el('esc-prev').addEventListener('click', () => stepEscalation(-1));
 el('esc-next').addEventListener('click', () => stepEscalation(1));
-// PLAY is the deploy control for endless — it starts a run at whatever rung is
-// currently shown, which is why there is no separate mode card for it. The rung
-// chips wire themselves in buildEscRungs, since the strip is rebuilt on every pick.
+// PLAY is the deploy control, and the only one — it starts a run at whatever
+// rung the slab is showing, which is why the menu has no mode picker at all.
 el('esc-deploy').addEventListener('click', () => openEndlessLoadout('easy'));
 el('esc-dossier-open').addEventListener('click', openEscalationDossier);
 el('esc-dossier-close').addEventListener('click', closeEscalationDossier);
@@ -20,8 +21,9 @@ el('esc-dossier-close').addEventListener('click', closeEscalationDossier);
 el('esc-dossier').addEventListener('click', e => {
   if (e.target === el('esc-dossier')) closeEscalationDossier();
 });
-el('endless-leaderboard-btn').addEventListener('click', () => openLeaderboardSelect('endless-select', 'easy'));
-el('card-shop-btn').addEventListener('click', () => openCardShop('endless-select'));
+// no rung argument: it opens on the one you're set to play (see openLeaderboardSelect)
+el('endless-leaderboard-btn').addEventListener('click', () => openLeaderboardSelect('intro'));
+el('card-shop-btn').addEventListener('click', () => openCardShop('intro'));
 el('card-shop-deploy').addEventListener('click', deployEndlessLoadout);
 el('card-shop-deploy-top').addEventListener('click', deployEndlessLoadout);
 el('card-shop-back').addEventListener('click', closeCardShop);
@@ -48,9 +50,8 @@ el('card-shop-slot').addEventListener('click', () => {
   }
 });
 el('leaderboard-back-btn').addEventListener('click', closeLeaderboardSelect);
-for (const btn of document.querySelectorAll('.lb-tab')) {
-  btn.addEventListener('click', () => { leaderboardActiveDiff = btn.dataset.lbDiff; buildLeaderboardSelect(); });
-}
+// the rung chips are built per open by buildLeaderboardRungs() and carry their
+// own handlers — there's nothing static to wire here
 el('go-save-score-btn').addEventListener('click', saveGoLeaderboardScore);
 el('go-name-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') saveGoLeaderboardScore();
@@ -112,11 +113,25 @@ function frame(now) {
       remaining -= step;
     }
   }
-  if (G && (playing || viewDirty)) {
+  // ATTRACT: the menu's live background (js/attract.js). It is deliberately NOT
+  // `playing` — it never sets `running`, so the HUD, the toolbar, the tipbar and
+  // every input handler stay inert with no guards of their own. Sub-stepped the
+  // same way a real run is, because the sim is the same sim.
+  const attracting = !playing && attractStepping();
+  if (attracting) {
+    let remaining = dt;
+    while (remaining > 0) {
+      const step = Math.min(remaining, 0.05);
+      stepAttract(step);
+      remaining -= step;
+    }
+  }
+  if (G && (playing || attracting || viewDirty)) {
     // G outlives the run, so a redraw request that arrives while we're back on
     // the menu would put the old board back under the panel — re-wipe instead
-    // (see clearField). A live run always draws; nothing else does.
-    if (fieldBlank && !playing) clearField();
+    // (see clearField). A live run always draws; so does the attract demo, which
+    // IS the board behind the menu; nothing else does.
+    if (fieldBlank && !playing && !attracting) clearField();
     else draw();
     viewDirty = false;
   }
@@ -129,8 +144,9 @@ function frame(now) {
 
 buildToolbar(PLACEABLES);
 applySavedSettings();
-refreshContinueUI();   // surface a saved run on the menu from page load
+refreshMenu();   // surface the save, the rung and the medal count from page load
 fitLayout();
+startAttract();   // ATTRACT: the menu is the first thing up (js/attract.js)
 const hudEl = el('hud');
 if (hudEl && typeof ResizeObserver !== 'undefined') {
   new ResizeObserver(() => syncToolbarLayout()).observe(hudEl);

@@ -343,6 +343,40 @@ band — otherwise a fast wind stretches the plume into a dotted line and troops
 shoot clean through the gaps (measured 15% of the plume body before this). Air paths are deliberately NOT blocked: bombers and AA pick
 targets with their own scans, since smoke screens the ground, not the sky.
 
+**FOG is the other half of the weather** (`js/fog.js`), and unlike smoke it is
+purely a look plus one scalar: `fogMult()` (`js/shooting.js`) cuts every
+acquisition range to 60% while `G.fog` runs, and there is no per-puff geometry
+and nothing to block. The renderer is three tiling cloud layers composed on
+their own buffer and blitted once — they DRIFT on `G.wind`, the same vector the
+smokescreen rides, at different fractions of it and sheared a few degrees off
+it so they churn against each other rather than sliding as one; and the bank is
+near-solid at the top of the field thinning to `FOG_DEPTH_NEAR` over the
+player's own trench, so the ground he is shooting at dissolves while the men he
+is commanding stay legible. It does **not** sweep in across the field — that
+shipped first, with the front rolling down out of the enemy's treeline, and was
+cut deliberately; it fades up in place over `FOG_FADE_IN`. Four things are
+load-bearing:
+- **`G.fogAge` counts UP beside the countdown**, and is why there is a new save
+  scalar. `G.fog` alone cannot tell a bank that has just arrived from one about
+  to lift, and the two `nebel`/`infiltrate` special waves stack more fog onto a
+  screen already standing (`Math.max`), so any "how long has it been up" figure
+  derived from the countdown would jump under them and re-run the fade-in on a
+  settled bank. An age doesn't. It also means a run saved under fog resumes
+  mid-bank rather than fading in again.
+- **The layer is composed at `FOG_LAYER_DIV` of field resolution.** The six
+  full-field fills that build it are the whole cost of the effect: +26.6 ms a
+  frame at 1:1 under software rasterization, +1.0 ms at a quarter, and the two
+  are indistinguishable side by side because there is nothing on the layer but
+  soft gradients. Nothing else in the renderer may copy this.
+- **The wisp tiles are cut against the wind, not rotated per frame.** The wind
+  only turns between waves, so a bank bakes once and stands, and every frame is
+  an axis-aligned fill per layer instead of one covering the field's diagonal.
+  The stretch along the drift is most of what separates fog from a mottle — a
+  field of round blobs reads as camouflage, the same trap the biomes hit.
+- **The drift phase runs off the bank's own age, never `G.time`.** A speed
+  factor (the settling gust) applied to a `G.time` phase shifts the pattern by
+  the whole run's length the instant the factor changes.
+
 The **Regio Esercito** is the fourth endless foe (`faction:'it'` in `ENEMY_TYPES`,
 17 keys) and the only one that **builds**. It shipped once before and was cut for
 being dull — its mechanic was *morale*, men who broke and ran, the only
@@ -773,8 +807,24 @@ The only modes are **endless** and the three **tutorial** lessons
 There are no attacker/campaign modes — your men always live in `G.units`, the foe
 in `G.enemies`. Endless difficulty is `easy` plus the ESCALATION ladder below;
 `sandbox`/`testing` are the unlimited-TP tiers. **`medium` and `hard` still exist
-in `ENDLESS_DIFFICULTIES` but left the menu** — keep them, `TEST.start` and the
-banked leaderboard boards are keyed on those ids.
+in `ENDLESS_DIFFICULTIES` but left the menu** — keep them, `TEST.start` is keyed
+on those ids.
+
+The **LEADERBOARDS are keyed on the RUNG**, one board per rung (`js/leaderboards.js`,
+`endlessLeaderboard` v2, top 10 each). The three difficulty boards were a relic: two
+of the tabs recorded a run nobody could start any more, while every real run landed
+on the third. A board holds one rung, so entries inside it compare on **wave alone**
+(the old esc-then-wave comparator is gone) and no rung is printed on a row — the
+header names the board. Recording is gated on `medalsEligible()` reused verbatim,
+the same test the rung unlock and the medal payout use. The v1 blob **migrates
+rather than being discarded**: every entry re-homes onto the board its own `esc`
+field names, medium/hard ones included — those tiers were harder than the rung they
+land on, so the migration UNDER-credits them and can never invent a score a rung
+didn't earn. The picker is the escalation menu's own rung strip (shared `.esc-rung`
+styling; `#leaderboard-strip` declares its own `esc` container so the `cqi` units
+measure the strip and not the window). An unearned rung is inert **unless its board
+holds entries** — `TEST.escalation()` and the migration can both bank a score on a
+rung this save no longer counts as earned, and a record must stay readable.
 
 **ESCALATION** (`js/escalation.js`) is the endless difficulty ladder: ten rungs,
 each ADDING one permanent modifier on top of every rung below it, unlocked one at
@@ -833,32 +883,89 @@ can't be farmed for rungs in sandbox. Drive it with `TEST.escalation(n)`, which
 unlocks as well as selects, because the real unlock costs a wave-100 boss kill
 per rung.
 
-The menu (`#esc-block` in `index.html`) is three surfaces: a **rung strip** of
-eleven chips (every earned rung one tap away), a **readout** pairing the rung
-with what it PAYS, and `#esc-dossier`, holding all ten modifiers — the ten
-`ee-card`s that used to sit under the stepper moved in there because at rung X
-they pushed the deploy button a screen and a half down a panel whose only job is
-to start a run. `pickEscalation` is the single write path for the selection
-(strip and both arrows).
+**THE MENU IS ONE SCREEN** (`#intro`). There is no `#endless-select` — it was
+deleted, along with the ENDLESS mode card that reached it. A game with one mode
+does not need a mode picker, so the front page IS the deploy screen: the title
+marquee owns the top, `.fm-deploy` owns the bottom, and nothing competes. The
+word "endless" appears nowhere in the UI; the wave counter is the only progress
+language. `#intro` is also the return screen for every secondary menu, so
+`cardShopReturnScreen` / `leaderboardReturnScreen` and the abandon prompt all
+name it.
 
-**`#esc-block` is always on screen and its PLAY button IS the deploy control for
-endless** — that is why there is no TAKE THE LINE mode card any more and
-`OTHER MODES` is just sandbox/testing. At rung 0 the block reads as a clean
-sector with the ladder locked ahead of it, which is the teaser. Rung 0 has no
-numeral, so any copy naming the rung you must beat has to drop the `ON —`
-(`buildEscalationUI`'s next-line and the dossier's locked rows both branch on
-it). Unlike the card shop and the leaderboards, the dossier **layers over**
-`#endless-select` rather than swapping it out (z-index 11 over 10, own scrim, own
-fade) — it's a reference sheet you consult mid-decision. It closes on ✕, on a
-backdrop click (`e.target` check, so a row click still expands), and on Escape,
-which it claims first in `js/input.js`'s handler via `escDossierOpen()`.
+`#esc-deploy` is the **welded slab** — ONE control with `#esc-prev` / `#esc-next`
+(EASIER / HARDER) recessed into its ends, sharing its orange body and its single
+drop-shadow. Broken into three separate chips the arrows read as their own
+destinations; welded, they read as adjusting the thing they sit inside. The rung
+it will deploy at is printed INSIDE the button (`#esc-level` + `#esc-mult`), so
+the control states what it does. Under it, `.fm-status` is one line: the modifier
+this rung just added, how far up the ladder you have earned, and the way into all
+ten. Under that, the footer chips — CARDS (carrying the **only** medal count in
+the game's UI, because the count belongs on the thing you spend it in),
+LEADERBOARDS, CODEX, SETTINGS, and TUTORIAL. **SANDBOX, TESTING and CHANGELOG
+moved into Settings** under a DEV TOOLS heading: sitting next to the only real
+mode was making them read as modes. `openEndlessLoadout`/`openAbandonConfirm`
+therefore take a `fromScreen` — the two dev buttons swap `#settings` out, not
+`#intro`.
 
-Two CSS notes: everything in the panel measures in `cqi` off a container
-declared on `#endless-select .mm`, because an overlay lives inside the scaled
-`#stage` and `vw`/`@media` there read the WINDOW, not the ~576px the panel gets
-(same trap the After-Action Report documents); and every selector for a
-`<button>` is prefixed `#endless-select` / `#esc-dossier` to outrank
-`.overlay button`, which repaints every overlay button gold.
+`refreshMenu()` (`js/flow.js`) rebuilds everything the front page reads from
+storage — the save slot, the rung, the medal count — and is called from
+`returnToMenu` and once at boot. It owns the **first-launch promotion**: on a
+save with no run, no medals and `bestWaveEver() === 0`, TUTORIAL is moved out of
+the chip row into the empty RESUME slot. All three signals, not just the save
+slot, because clearing a save is something a returning player does constantly.
+
+**The rung strip moved INTO `#esc-dossier`, and the dossier's rows became
+selectable with it.** The slab's arrows walk one rung, so a IX→II drop is seven
+presses without a strip — and that is exactly the move a player stuck on a rung
+makes. What the front page gains by not carrying eleven chips is the whole point
+of the redesign, so the strip lives where you go to READ the ladder, since
+reading it is when you decide where to stand on it. A row's side says `SET ▸`
+rather than `AVAILABLE` for that reason. `pickEscalation` is still the single
+write path (arrows, strip and rows), and it **repaints** the dossier
+(`refreshEscDossierStates`) rather than rebuilding it — a rebuild would
+`innerHTML` the rows out from under the finger that just tapped one, collapsing
+the briefing the same tap opened. Nothing on that screen can change the SHAPE of
+the list, so only classes and labels can differ. Rung 0 has no numeral, so any
+copy naming the rung you must beat drops the `ON —` (`escDossierSubText` and the
+dossier's locked rows both branch on it). Unlike the card shop and the
+leaderboards, the dossier **layers over** the menu rather than swapping it out
+(z-index 11 over 10, own scrim, own fade). It closes on ✕, on a backdrop click
+(`e.target` check, so a row click still selects), and on Escape, which it claims
+first in `js/input.js`'s handler via `escDossierOpen()`.
+
+Three CSS notes. Everything measures in `cqi` off a container declared on
+`#intro .fm`, because an overlay lives inside the scaled `#stage` and
+`vw`/`@media` there read the WINDOW, not the ~600px the panel gets (same trap the
+After-Action Report documents) — there are no breakpoints on this screen at all,
+just clamps between a phone value and a desktop one. Every selector for a
+`<button>` is prefixed `#intro` / `#esc-dossier` to outrank `.overlay button`,
+which repaints every overlay button gold. And this sheet has **no generic
+`.hidden` rule** — every hide is spelled out per element, which is why
+`#intro .fm-resume.hidden` exists: the card it replaced never had one, so
+`refreshContinueUI` had been adding a class that did nothing and CONTINUE sat on
+the menu offering a saved run that did not exist.
+
+**ATTRACT MODE** (`js/attract.js`) is the live demo behind the menu, which is why
+`#intro` is the one menu screen that is NOT opaque (`.fm-scrim` carries the
+gradient instead). It drives the real sim — same `update()`, same `draw()`, same
+waves — but **deliberately never sets `running`**, so `isPlaying()` stays false
+and the HUD, toolbar, tipbar, speed/pause buttons, canvas handlers and hotkeys
+all stay inert with no guards of their own. The frame loop runs it instead of the
+`playing` branch; that is the only place `running` is worked around. The run
+chrome still had to be hidden, because it sits *below* the overlay layer and now
+shows THROUGH it — one `#stage:has(> #intro:not(.hidden))` rule in the CSS.
+
+Its containment is the part to preserve: the demo is a real endless run and will
+bank medals, unlock rungs, take leaderboard scores and reach `endRun`, which
+**deletes the player's single-slot save**. Three guards, two of which are one
+predicate — `medalsEligible()` returns false (already the gate on all three of
+medals, the rung unlock and score recording), `endRun` early-outs into
+`restartAttract()` ABOVE its `clearRunSave()`, and `bossVictory` early-outs.
+Nothing in `attract.js` writes localStorage, and that is the invariant. Verified
+over 1500 sim-seconds to wave 63 with three collapses: medals, `escUnlocked`, the
+save slot and every board byte-identical, and no overlay ever shown. It is built
+to be **removable** — six `// ATTRACT` call sites and the removal recipe are in
+the file's header comment.
 
 **The GROUND DECAL LAYER** (`js/render-decals.js`) is why the frame no longer grows
 with the run. `G.groundMarks` is uncapped, accrues ~30 marks/s in a sustained fight

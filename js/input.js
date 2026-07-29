@@ -854,7 +854,7 @@ document.addEventListener('keydown', e => {
     // the escalation dossier is the only overlay here that layers over another
     // one, so it gets first claim on Escape
     if (escDossierOpen()) { closeEscalationDossier(); return; }
-    // the abandon-save prompt swaps out #endless-select; Escape means BACK,
+    // the abandon-save prompt swaps out the screen that launched it; Escape means BACK,
     // never fall-through (the paused branch below would resume a hidden fight)
     if (abandonConfirmOpen()) { closeAbandonConfirm(); return; }
     // codex / settings / loadout — see PAUSE_SUBSCREENS (js/flow.js). They swap

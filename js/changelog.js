@@ -417,16 +417,23 @@ function renderChangelog() {
   }).join('');
 }
 
-function openChangelog() {
+// reached from Settings (DEV TOOLS) rather than the front page — it is a thing
+// you consult, not a thing you launch. It swaps whatever opened it out, so it
+// has to put that screen back rather than assume the menu, the same shape
+// openSettings/openCodex already use.
+let changelogReturnTo = 'settings';
+
+function openChangelog(from) {
+  changelogReturnTo = from || 'settings';
   renderChangelog();
   el('changelog').classList.remove('hidden');
-  el('intro').classList.add('hidden');
+  el(changelogReturnTo).classList.add('hidden');
 }
 
 function closeChangelog() {
   el('changelog').classList.add('hidden');
-  el('intro').classList.remove('hidden');
+  el(changelogReturnTo).classList.remove('hidden');
 }
 
-el('changelog-btn').addEventListener('click', openChangelog);
+el('changelog-btn').addEventListener('click', () => openChangelog('settings'));
 el('changelog-back-btn').addEventListener('click', closeChangelog);

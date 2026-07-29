@@ -432,12 +432,9 @@ function draw() {
     }
   }
 
-  // fog overlay
-  if (G.fog > 0) {
-    const a = clamp(G.fog / 4, 0, 1) * 0.35;
-    ctx.fillStyle = `rgba(190,195,185,${a})`;
-    ctx.fillRect(0, 0, W, H);
-  }
+  // the fog bank, over the whole ground scene like the smokescreen above it —
+  // it's what's stealing everyone's sight of each other (js/fog.js)
+  drawFog();
 
   drawTutorialHighlights();
   drawMoveDestinations();

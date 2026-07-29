@@ -1534,10 +1534,15 @@ function buildCardHooks(ownedList) {
   return table;
 }
 
-// medals only accrue where the leaderboard counts: real endless runs on
-// easy/medium/hard. Sandbox and testing (unlimited TP) and the tutorial pay
-// nothing, so wave-jumping can't farm the shop.
+// medals only accrue where the leaderboard counts: real endless runs. Sandbox
+// and testing (unlimited TP) and the tutorial pay nothing, so wave-jumping can't
+// farm the shop. Also the gate on the rung unlock (js/flow.js) and on recording
+// a score (updateGameOverLeaderboard) — one definition of "this run counted".
 function medalsEligible() {
+  // ATTRACT: the menu demo (js/attract.js) drives a real endless run, so it
+  // would otherwise bank medals, earn rungs and take leaderboard scores while
+  // nobody is playing. One term, because this predicate is all three gates.
+  if (attractRunning()) return false;
   return G && G.level.id === 'endless' && G.difficulty && !G.difficulty.sandbox;
 }
 
@@ -1560,7 +1565,7 @@ function awardWaveMedals() {
 
 // ---- card shop UI
 
-let cardShopReturnScreen = 'endless-select';
+let cardShopReturnScreen = 'intro';
 // 'shop' = the full card shop reached from the menu; 'loadout' = the same screen
 // opened when an endless run starts, stripped to just the battle plans (no
 // purchasing) with a DEPLOY button that launches the run
@@ -1579,7 +1584,7 @@ function openCardShop(fromScreen) {
   cardShopMode = 'shop';
   pendingLoadoutDiff = null;
   collectionFilter = null;
-  cardShopReturnScreen = fromScreen || 'endless-select';
+  cardShopReturnScreen = fromScreen || 'intro';
   el(cardShopReturnScreen).classList.add('hidden');
   applyCardShopMode();
   buildCardShopUI();
@@ -1589,12 +1594,18 @@ function openCardShop(fromScreen) {
 // starting an endless run first drops the player onto the card shop with the
 // buying half hidden, so they can pick and swap a battle plan before deploying.
 // With an empty collection there's nothing to arrange, so skip straight in.
-function openEndlessLoadout(difficultyId) {
+// `fromScreen` is the menu screen this was launched from and the one BACK
+// returns to. It is 'intro' for the PLAY slab, but the sandbox and testing
+// buttons moved into Settings when the menu was unified — and those swap
+// #settings out, not #intro, so hard-coding the front page here left the
+// settings panel sitting on top of the card shop.
+function openEndlessLoadout(difficultyId, fromScreen) {
+  const from = fromScreen || 'intro';
   // every menu-driven endless start funnels through here — one gate covers the
-  // deploy button and the sandbox/testing chips. Confirming the abandon prompt
+  // deploy button and the sandbox/testing buttons. Confirming the abandon prompt
   // clears the slot and re-enters, so the gate passes the second time.
   if (hasRunSave()) {
-    openAbandonConfirm(difficultyId);
+    openAbandonConfirm(difficultyId, from);
     return;
   }
   if (!loadEndlessCards().owned.length) {
@@ -1604,8 +1615,8 @@ function openEndlessLoadout(difficultyId) {
   cardShopMode = 'loadout';
   pendingLoadoutDiff = difficultyId;
   collectionFilter = null;
-  cardShopReturnScreen = 'endless-select';
-  el('endless-select').classList.add('hidden');
+  cardShopReturnScreen = from;
+  el(from).classList.add('hidden');
   applyCardShopMode();
   buildCardShopUI();
   el('card-shop').classList.remove('hidden');
@@ -1622,6 +1633,10 @@ function deployEndlessLoadout() {
 function closeCardShop() {
   el('card-shop').classList.add('hidden');
   el(cardShopReturnScreen).classList.remove('hidden');
+  // the menu prints the banked medal count on its CARDS chip, and this screen is
+  // where that number is spent — so coming back from it is the one transition
+  // that can return to a stale front page
+  if (cardShopReturnScreen === 'intro') refreshFrontMenu();
   // coming back to the endgame ceremony, resync its offer/banked with anything
   // bought or rerolled inside the full shop
   if (cardShopReturnScreen === 'endless-endgame') {

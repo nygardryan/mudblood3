@@ -69,14 +69,6 @@ function framePadY() {
   return (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
 }
 
-function safeAreaInset() {
-  const cs = getComputedStyle(document.body);
-  return {
-    top: parseFloat(cs.paddingTop) || 0,
-    bottom: parseFloat(cs.paddingBottom) || 0,
-  };
-}
-
 function fitLayout() {
   const wrap = el('wrap');
   const stage = el('stage');
@@ -306,6 +298,19 @@ function toolbarSelectionCollapsed() {
   return !touchUI() && isPlaying() && !placing && !!G?.selected.length;
 }
 
+// The toolbar grows a ← BACK button in three different states — deselect, cancel
+// a placement, leave a category — and all three built the same five lines by
+// hand. Only the click and the tooltip ever differed.
+function appendToolbarBack(bar, onClick, title) {
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'tool-btn tool-back-btn';
+  back.textContent = '← BACK';
+  if (title) back.title = title;
+  back.addEventListener('click', onClick);
+  bar.appendChild(back);
+}
+
 function renderToolbar() {
   const bar = el('toolbar');
   bar.innerHTML = '';
@@ -323,17 +328,11 @@ function renderToolbar() {
   if (toolbarCollapsedForSelection) {
     bar.classList.remove('toolbar-placing');
     bar.classList.add('toolbar-collapsed');
-    const back = document.createElement('button');
-    back.type = 'button';
-    back.className = 'tool-btn tool-back-btn';
-    back.textContent = '← BACK';
-    back.title = 'Deselect';
-    back.addEventListener('click', () => {
+    appendToolbarBack(bar, () => {
       G.selected = [];
       SFX.click();
       syncSelectionMobile();
-    });
-    bar.appendChild(back);
+    }, 'Deselect');
 
     syncToolbarVisibility();
     syncToolbarLayout();
@@ -343,17 +342,12 @@ function renderToolbar() {
   if (placing) {
     bar.classList.add('toolbar-placing');
     const active = placing;
-    const back = document.createElement('button');
-    back.type = 'button';
-    back.className = 'tool-btn tool-back-btn';
-    back.textContent = '← BACK';
-    back.addEventListener('click', () => {
+    appendToolbarBack(bar, () => {
       placing = null;
       if (toolbarView === 'categories') toolbarView = categoryForPlaceable(active);
       SFX.click();
       renderToolbar();
     });
-    bar.appendChild(back);
 
     const cost = placeableCost(active);
     const b = document.createElement('button');
@@ -389,18 +383,13 @@ function renderToolbar() {
       bar.appendChild(b);
     }
   } else {
-    const back = document.createElement('button');
-    back.type = 'button';
-    back.className = 'tool-btn tool-back-btn';
-    back.textContent = '← BACK';
-    back.addEventListener('click', () => {
+    appendToolbarBack(bar, () => {
       placing = null;
       toolbarView = 'categories';
       SFX.click();
       renderToolbar();
       syncToolbarVisibility();
     });
-    bar.appendChild(back);
 
     for (const p of placeablesForCategory(toolbarView)) {
       const cost = placeableCost(p);

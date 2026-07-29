@@ -13,7 +13,6 @@ const IT_HELMET_LT = '#828463';
 const IT_WOOD = '#6a5334';       // Carcano furniture
 const IT_STEEL = '#2b2a22';
 const IT_BLADE = '#c2c6cc';
-const IT_BRASS = '#b09838';
 const IT_PLUME = '#221f18';      // Bersaglieri capercaillie feathers
 
 // ---- weapons -------------------------------------------------------------

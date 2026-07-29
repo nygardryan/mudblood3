@@ -644,15 +644,45 @@ function renderPortrait(typeKey, side) {
 }
 
 // ---- Veterancy: what each unit actually gains as it climbs the rank ladder.
-// Numbers mirror the live formulas in update-friendlies.js / shooting.js /
-// targeting.js so the codex never lies about a promotion's payoff.
+//
+// The percentages are DERIVED from the rates the sim itself applies (the
+// RANK_*_RATE constants that unitBuffs/unitSpeed read, and unitRangeRankRate for
+// reach), not typed out beside them. They used to be hand-copied "mirroring" the
+// live formulas, and had drifted in the way that phrasing invites: see the
+// RANK_ROF_RATE comment in constants.js — a cycle-time curve is not its own
+// reciprocal, and the Rate of fire row was quoting half the real gain.
+const perRank = (rate) => '+' + Math.round(rate * 100) + '% / rank';
+const atMaxRank = (rate) => '+' + Math.round(rate * MAX_RANK * 100) + '%';
+// A cycle-time curve — reloads and rate of fire. The interval is scaled by
+// (1 - rate*rank), so what the player actually gains is the RECIPROCAL. Every
+// row describing this curve goes through here, so the reload rows and the rate
+// of fire row can never again disagree about the same 8%.
+const cycleAtMaxRank = (rate) =>
+  '≈' + (Math.round(1 / (1 - rate * MAX_RANK) * 10) / 10) + '× as fast';
+// A reach row straight off the function the sim calls, so a type whose reach
+// curve is retuned can't leave a stale number on this page. The label stays
+// bespoke per unit — UNIT_SIGNATURE keys on it.
+const reachRow = (label, type) => {
+  const rate = unitRangeRankRate(type);
+  return { label, per: perRank(rate), max: atMaxRank(rate) };
+};
+// The emplaced guns' traverse row, off RANK_ARC_RATE — which is kept in radians
+// because that is what emplacementArc adds, and quoted in degrees because that
+// is what a player reads. The last hand-copied pair of numbers on this page.
+const arcRow = {
+  label: 'Traverse arc',
+  per: '+' + Math.round(RANK_ARC_RATE * 180 / Math.PI) + '° / rank',
+  max: '+' + Math.round(RANK_ARC_RATE * MAX_RANK * 180 / Math.PI) + '°',
+};
+
 // Shared benefit lines (the universal small-arms buffs from unitBuffs()):
 const RB = {
-  rof:   { label: 'Rate of fire',   per: '+8% / rank',  max: '+48%' },
-  acc:   { label: 'Accuracy',       per: '+8% / rank',  max: '+48%' },
-  dmg:   { label: 'Damage',         per: '+4% / rank',  max: '+24%' },
-  spd:   { label: 'Movement speed', per: '+4% / rank',  max: '+24%' },
-  reach: { label: 'Weapon reach',   per: '+1% / rank',  max: '+6%'  },
+  rof:   { label: 'Rate of fire',   per: perRank(RANK_ROF_RATE), max: cycleAtMaxRank(RANK_ROF_RATE) },
+  acc:   { label: 'Accuracy',       per: perRank(RANK_ACC_RATE), max: atMaxRank(RANK_ACC_RATE) },
+  dmg:   { label: 'Damage',         per: perRank(RANK_DMG_RATE), max: atMaxRank(RANK_DMG_RATE) },
+  spd:   { label: 'Movement speed', per: perRank(RANK_SPD_RATE), max: atMaxRank(RANK_SPD_RATE) },
+  // every type that keeps the default reach curve shares this row
+  reach: reachRow('Weapon reach', 'rifleman'),
   cover: { label: 'Shrugs off suppression', per: 'up faster each rank', max: 'back in the fight fast' },
 };
 
@@ -662,69 +692,73 @@ const UNIT_RANK_PERKS = {
   sniper:     [RB.rof, RB.acc, RB.dmg, RB.reach, RB.spd, RB.cover],
   grenadier:  [
     RB.rof, RB.acc, RB.dmg,
-    { label: 'Grenade frequency', per: '+8% / rank',  max: 'thrown far more often' },
-    { label: 'Throwing range',    per: '+10% / rank', max: '+60%' },
-    { label: 'Grenade accuracy',  per: '+8% / rank',  max: '+48%' },
-    { label: 'Grenade damage',    per: '+5% / rank',  max: '+30%' },
+    { label: 'Grenade frequency', per: perRank(0.08), max: 'thrown far more often' },
+    { label: 'Throwing range',    per: perRank(0.10), max: atMaxRank(0.10) },
+    { label: 'Grenade accuracy',  per: perRank(0.08), max: atMaxRank(0.08) },
+    { label: 'Grenade damage',    per: perRank(0.05), max: atMaxRank(0.05) },
     RB.spd,
   ],
   shotgunner: [
-    { label: 'Buckshot reach', per: '+5% / rank', max: '+30%' },
-    { label: 'Tighter spread', per: '+8% / rank', max: '+48%' },
+    reachRow('Buckshot reach', 'shotgunner'),
+    { label: 'Tighter spread', per: perRank(0.08), max: atMaxRank(0.08) },
     RB.rof, RB.spd, RB.cover,
   ],
   bazooka:    [
-    { label: 'Reload speed',     per: '+8% / rank', max: 'nearly 2× as fast' },
-    { label: 'Rocket accuracy',  per: '+8% / rank', max: 'much tighter' },
-    { label: 'Rocket damage',    per: '+4% / rank', max: '+24%' },
+    { label: 'Reload speed',     per: perRank(RANK_ROF_RATE), max: cycleAtMaxRank(RANK_ROF_RATE) },
+    { label: 'Rocket accuracy',  per: perRank(0.08), max: 'much tighter' },
+    { label: 'Rocket damage',    per: perRank(0.04), max: atMaxRank(0.04) },
     RB.spd,
   ],
   mortarman:  [
-    { label: 'Reload speed',    per: '+8% / rank', max: 'nearly 2× as fast' },
-    { label: 'Shell accuracy',  per: '+8% / rank', max: 'tighter grouping' },
-    { label: 'Shell damage',    per: '+5% / rank', max: '+30%' },
+    { label: 'Reload speed',    per: perRank(RANK_ROF_RATE), max: cycleAtMaxRank(RANK_ROF_RATE) },
+    { label: 'Shell accuracy',  per: perRank(0.08), max: 'tighter grouping' },
+    { label: 'Shell damage',    per: perRank(0.05), max: atMaxRank(0.05) },
+    // mortar crews get their own bespoke reach curve (unitRangeRankRate gives
+    // them 3%, between the default 1% and the close-range specialists' 5%) and
+    // this page never mentioned it at all
+    reachRow('Shell reach', 'mortarman'),
     RB.spd,
   ],
   medic:      [
-    { label: 'Healing per pulse', per: '+1.2 HP / rank', max: '3 → 10 HP' },
-    { label: 'Aid range',         per: '+1% / rank',     max: '+6%' },
+    { label: 'Healing per pulse', per: '+1.2 HP / rank', max: '3 → ' + Math.round(3 + 1.2 * MAX_RANK) + ' HP' },
+    reachRow('Aid range', 'medic'),
     RB.spd, RB.cover,
   ],
   engineer:   [
-    { label: 'Repair & fortify rate', per: '+35% / rank', max: 'over 3× faster' },
-    { label: 'Work reach',            per: '+5% / rank',  max: '+30%' },
+    { label: 'Repair & fortify rate', per: perRank(0.35), max: 'over 3× faster' },
+    reachRow('Work reach', 'engineer'),
     RB.rof, RB.spd,
   ],
   officer:    [
     { label: 'Aura: allied fire rate', per: '+3% / rank',   max: 'men fire much faster' },
     { label: 'Aura: allied accuracy',  per: '+4% / rank',   max: '+24% straighter' },
     { label: 'TP income',              per: '+⅓ TP / rank', max: '1 → 3 TP / 30s' },
-    { label: 'Command reach',          per: '+5% / rank',   max: '+30%' },
+    reachRow('Command reach', 'officer'),
   ],
   flamer:     [
-    { label: 'Burn damage',    per: '+35% / rank', max: '+210%' },
-    { label: 'Flame reach',    per: '+5% / rank',  max: '+30%' },
+    { label: 'Burn damage',    per: perRank(0.35), max: atMaxRank(0.35) },
+    reachRow('Flame reach', 'flamer'),
     { label: 'Promotion heal', per: '+45 HP',      max: 'flak vest patched up' },
     RB.spd,
   ],
   jeep:       [RB.rof, RB.acc, RB.dmg, RB.spd],
   sherman:    [
-    { label: 'Reload speed',      per: '+8% / rank', max: 'nearly 2× as fast' },
-    { label: 'Gunnery accuracy',  per: '+8% / rank', max: '+48%' },
-    { label: 'Shell damage',      per: '+6% / rank', max: '+36%' },
+    { label: 'Reload speed',      per: perRank(RANK_ROF_RATE), max: cycleAtMaxRank(RANK_ROF_RATE) },
+    { label: 'Gunnery accuracy',  per: perRank(0.08), max: atMaxRank(0.08) },
+    { label: 'Shell damage',      per: perRank(0.06), max: atMaxRank(0.06) },
     RB.spd,
   ],
   atgun:      [
-    { label: 'Traverse arc',    per: '+3° / rank', max: '+18°' },
-    { label: 'Reload speed',    per: '+8% / rank', max: 'nearly 2× as fast' },
-    { label: 'Shell accuracy',  per: '+8% / rank', max: '+48%' },
-    { label: 'Shell damage',    per: '+6% / rank', max: '+36%' },
+    arcRow,
+    { label: 'Reload speed',    per: perRank(RANK_ROF_RATE), max: cycleAtMaxRank(RANK_ROF_RATE) },
+    { label: 'Shell accuracy',  per: perRank(0.08), max: atMaxRank(0.08) },
+    { label: 'Shell damage',    per: perRank(0.06), max: atMaxRank(0.06) },
   ],
   aagun:      [
-    { label: 'Traverse arc',  per: '+3° / rank', max: '+18°' },
-    { label: 'Reload speed',  per: '+8% / rank', max: 'nearly 2× as fast' },
-    { label: 'Flak accuracy', per: '+8% / rank', max: '+48%' },
-    { label: 'Flak damage',   per: '+6% / rank', max: '+36%' },
+    arcRow,
+    { label: 'Reload speed',  per: perRank(RANK_ROF_RATE), max: cycleAtMaxRank(RANK_ROF_RATE) },
+    { label: 'Flak accuracy', per: perRank(0.08), max: atMaxRank(0.08) },
+    { label: 'Flak damage',   per: perRank(0.06), max: atMaxRank(0.06) },
   ],
 };
 
@@ -944,54 +978,64 @@ function buildVeterancyPanel(key, ut) {
 
 // ---- Fortification tiers: what an engineer's work buys each emplacement.
 // Standard (as placed) → Fortified (engineer, ~6s, or free at placement with
-// the Pre-Hardened card) → Hardened (needs the Hardened Works card). Values
-// mirror shooting.js, update-enemies.js, and the
-// WATCHTOWER/CAMONEST constants; HP compounds by the piece's fortifyMult.
+// the Pre-Hardened card) → Hardened (needs the Hardened Works card).
+//
+// Every number here is DERIVED from the tier table the sim itself reads. It used
+// to be typed out by hand "mirroring" those constants, and it had already
+// drifted: the camo nest advertised 4 s / 2 s / 1 s of exposure against actual
+// values of 3 / 1.5 / 0.5, and wire advertised 12%/5%/2% against 12.6/5.25/2.1.
+// A page whose whole job is to tell the player what a thing does cannot be a
+// second copy of what it does — same rule the BUNKER_COVER_R comment states for
+// the hover ring. Only prose rows ('scarecrow', 'slowest') stay hand-written,
+// and HP, which compounds by the piece's own fortifyMult.
+const fortPct = (arr, sign) => arr.map(v => (sign && v > 0 ? '+' : '') + Math.round(v * 100) + '%');
 const FORT_TIERS = {
   wire: {
     rows: [
       { label: 'HP',              v: ['3,750', '5,625', '8,438'] },
-      { label: 'Slows enemy to',  v: ['12% speed', '5% speed', '2% speed'] },
+      { label: 'Slows enemy to',  v: WIRE_DRAG.map(d => Math.round(d * 100) + '% speed') },
       { label: 'Wears out',       v: ['fast', 'slower', 'slowest'] },
     ],
   },
   sandbags: {
     rows: [
       { label: 'HP',           v: ['660', '990', '1,485'] },
-      { label: 'Dodge chance', v: ['50%', '65%', '78%'] },
-      { label: 'Cover radius', v: ['26', '30', '33'] },
+      { label: 'Dodge chance', v: fortPct(SANDBAG_COVER_DODGE) },
+      { label: 'Cover radius', v: SANDBAG_COVER_R.map(String) },
     ],
   },
   dummy: {
     rows: [
       { label: 'HP',              v: ['495', '990', '1,485'] },
       { label: 'Disguise',        v: ['scarecrow', 'helmet', 'body armor'] },
-      { label: 'Enemy sees ruse', v: ['40%/hit', '30%/hit', '20%/hit'] },
+      { label: 'Enemy sees ruse', v: DUMMY_SEE_THROUGH.map(d => Math.round(d * 100) + '%/hit') },
     ],
   },
   bunker: {
     rows: [
       { label: 'HP',           v: ['2,040', '3,060', '4,590'] },
-      { label: 'Dodge chance', v: ['75%', '85%', '92%'] },
-      { label: 'Cover radius', v: ['30', '34', '38'] },
+      { label: 'Dodge chance', v: fortPct(BUNKER_COVER_DODGE) },
+      { label: 'Cover radius', v: BUNKER_COVER_R.map(String) },
     ],
   },
   watchtower: {
     rows: [
       { label: 'HP',          v: ['500', '750', '1,125'] },
-      { label: 'Range boost', v: ['+25%', '+35%', '+50%'] },
+      { label: 'Range boost', v: fortPct(WATCHTOWER_RANGE_MULT_TIERS.map(m => m - 1), true) },
     ],
   },
   camonest: {
     rows: [
       { label: 'HP',                   v: ['280', '560', '1,120'] },
-      { label: 'Exposed after firing', v: ['4 s', '2 s', '1 s'] },
+      // lower is better here, so the row reads the same direction as the others
+      { label: 'Exposed after firing', v: CAMONEST_REVEAL_TIERS.map(s => s + ' s') },
     ],
   },
   ammocrate: {
     rows: [
       { label: 'HP',                   v: ['320', '480', '720'] },
-      { label: 'Fire & reload speed',  v: ['+10%', '+20%', '+30%'] },
+      { label: 'Fire & reload speed',
+        v: fortPct(AMMOCRATE_ROF_MULT_TIERS.map(m => 1 - m), true) },
     ],
   },
 };
@@ -1116,7 +1160,7 @@ function codexEntries(tab) {
     // entries, but they're parts of her — not foes in their own right, and three
     // extra cards would just clutter the roster
     // (and the Progenitor's pus modules and the train's wagons, for the same reason)
-    return Object.entries(ENEMY_TYPES).filter(([, t]) => !t.shipPart && !t.bossPart && !t.trainPart).map(([key, t]) => {
+    return Object.entries(ENEMY_TYPES).filter(([, t]) => !isBossPart(t)).map(([key, t]) => {
       const parts = [`${t.hp} HP`, `${t.reward} TP REWARD`];
       if (t.dmg > 0) parts.splice(1, 0, `${t.dmg} DMG`);
       if (t.range > 0) parts.splice(t.dmg > 0 ? 2 : 1, 0, `${t.range} RNG`);
@@ -1152,24 +1196,6 @@ function codexEntries(tab) {
     stats: `FROM WAVE ${ev.wave}`,
     desc: ev.desc,
   }));
-}
-
-// shared expandable section: a labelled button that shows/hides an info panel.
-// no-op when there's no panel (e.g. a mine or strike, which never upgrades).
-function addCodexCollapsible(body, label, panel) {
-  if (!panel) return;
-  const toggle = document.createElement('button');
-  toggle.className = 'codex-vet-toggle';
-  toggle.innerHTML = `<span class="chev">▸</span> ${label}`;
-  toggle.setAttribute('aria-expanded', 'false');
-  panel.classList.add('hidden');
-  toggle.addEventListener('click', () => {
-    const open = panel.classList.toggle('hidden') === false;
-    toggle.classList.toggle('open', open);
-    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-  });
-  body.appendChild(toggle);
-  body.appendChild(panel);
 }
 
 // the tab bar with per-section record counts, rebuilt each time so the active

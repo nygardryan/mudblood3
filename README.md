@@ -26,7 +26,7 @@ workflow.
 - **Endless** — the classic. Each run rolls its foe: you face the **Germans**,
   the **Imperial Japanese Army**, **The Horde** (the undead), or the
   **Regio Esercito**, attacking in endless waves from the top of the screen. Hold
-  the line as long as you can — if **7 enemies** slip past the bottom edge, your
+  the line as long as you can — if **8 enemies** slip past the bottom edge, your
   sector collapses and it's game over. There is no victory, only a higher wave count.
   - **The Japanese** field a wholly different 15-unit roster: Arisaka riflemen
     with long bayonets, SNLF SMG troopers, grenadiers, Nambu light and Type 92
@@ -95,9 +95,10 @@ workflow.
   ahead and spawn later waves).
   - **Escalation (the difficulty ladder):** put the wave-100 boss down and you
     unlock **Escalation I**. Each of the ten rungs stacks a permanent modifier on
-    top of every rung below it, and each pins which army you face — so climbing
-    the ladder means beating the Wehrmacht, the Imperial Japanese Army, the Horde
-    and the Regio Esercito in turn. In order: enemies **toughen faster**; **income
+    top of every rung below it. The rung does **not** pick your enemy — every run
+    at every rung still rolls its own army (never the same one twice running), so
+    a modifier can land hard against one foe and barely register against another.
+    In order: enemies **toughen faster**; **income
     drops a fifth** and the supply trickle slows; the **breather between waves
     disappears**; every enemy attack lands **10% harder**; you deploy with
     **nothing banked**; enemy **body armor doubles**; **events come 30% more
@@ -123,10 +124,11 @@ workflow.
 France, 1944. Pick a mode from the main menu.
 
 - **Tactical Points (TP)** are your only currency. You earn them from kills, **+1 TP
-  every 8 s**, and living officers (**+1 TP / 30 s** each — up to **3 TP** for a
-  max-rank officer; **5 officers** max on the field). In Endless, supply lines thin
-  out as the battle drags on: all income shrinks ~1% per wave, dropping to a hard
-  10% floor from wave 90 on.
+  every 3 s**, and living officers (**+1 TP / 30 s** each — up to **3 TP** for a
+  max-rank officer; **5 officers** max on the field). The supply trickle and officer
+  pay hold their rate all run; it is the **kill bounties** that thin out, decaying
+  smoothly per wave to a hard 10% floor by wave 200 (the War Bonds card stretches
+  that curve to wave 400).
 - Open **Units**, **Abilities**, or **Emplacements** on the left toolbar, pick an
   item (each shows its hotkey), then click the field to deploy. Right-click or
   **Esc** cancels placement.
@@ -154,22 +156,29 @@ France, 1944. Pick a mode from the main menu.
 | Gunner | 9 | BAR. Long-range automatic bursts. |
 | Grenadier | 7 | Outranges the rifleman by 50%; lobs a devastating frag every ~10–14 s. |
 | Shotgunner | 5 | M97 trench gun and body armor. High HP; buckshot shreds every enemy in the cone up close. |
-| Bazooka | 12 | M1A1 rocket launcher. Prioritizes armor. Scatters badly at range; veterans aim better. |
-| Mortarman | 14 | Portable 60mm mortar. Long-range indirect fire, blind inside 220px. |
-| Sniper | 10 | Sees the whole field, prioritizes officers, snipers, MGs. |
+| Bazooka | 13 | M1A1 rocket launcher. Prioritizes armor. Scatters badly at range; veterans aim better. |
+| Mortarman | 11 | Portable 60mm mortar. Long-range indirect fire, blind inside 118px. |
+| Sniper | 10 | The longest reach of any infantryman; prioritizes officers, snipers, MGs. |
 | Medic | 12 | Heals nearby wounded over time. |
 | Engineer | 14 | Repairs emplacements; fortifies nearby sandbags/bunkers/wire (more HP, better effect). SMG, close range only. |
 | Officer | 15 | Nearby men fire faster and straighter; generates TP. |
 | Flamer | 7 | M2 flamethrower and flak vest. Devastating cone of fire — burns friend and foe alike. |
-| Jeep | 30 | Willys jeep with a .50 cal HMG. Fast, fires on the move, unarmored — no field repairs. |
-| Sherman | 80 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
-| AT Gun | 40 | 57mm anti-tank gun. Immobile once placed; only fires on vehicles inside its forward cone. Direct-fire AP shells wreck armor. |
-| Wire | 4 | Slows the advance until it wears out. |
-| Sandbags | 5 | Soldiers behind them dodge half of incoming fire. |
-| Bunker | 15 | Concrete pillbox with 10x sandbag HP. Soldiers inside dodge 75% of incoming fire; shrugs off shellfire. |
-| Minefield | 6 | Places 3 invisible mines. Hurts tanks badly. |
-| Mortar Strike | 8 | 6 shells on target. Friendly fire is very real. |
-| Artillery Strike | 16 | 16 heavy 105mm shells, wide spread. Indiscriminate. |
+| Jeep | 26 | Willys jeep with a .50 cal HMG. Fast, fires on the move, unarmored — no field repairs. |
+| Sherman | 50 | M4 tank. Alternates 75mm HE shells and coaxial MG bursts, even while driving. Medics **cannot** repair it. |
+| AT Gun | 21 | 57mm anti-tank gun. Immobile once placed; only fires on vehicles inside its forward cone. Direct-fire AP shells wreck armor. |
+| AA Gun | 21 | 40mm Bofors. Immobile; elevated barrels engage aircraft and descending paratroopers only. |
+| Wire | 3 | Slows the advance until it wears out. |
+| Sandbags | 4 | Soldiers behind them dodge half of incoming fire. |
+| Bunker | 15 | Concrete pillbox with ~3x sandbag HP. Soldiers inside dodge 75% of incoming fire; shrugs off shellfire. |
+| Watch Tower | 10 | Wooden lookout. +25% range for nearby soldiers (+35% fortified, +50% hardened). Frail. |
+| Camo Nest | 4 | Concealed position. Hidden until it fires, then exposed 3 s after the last shot (less when fortified). Weak to explosives. |
+| Ammo Crate | 8 | Nearby soldiers fire and reload 10% faster (+20% fortified, +30% hardened). Frail. |
+| Dummy | 8 | Straw decoy. Enemies waste fire on it; each hit is a 40% chance they see the ruse (lower when fortified). |
+| Minefield | 6 | Places 5 invisible mines. Hurts tanks badly. |
+| Mortar Strike | 5 | 6 shells on target. Friendly fire is very real. |
+| Artillery Strike | 12 | 16 heavy 105mm shells, wide spread. Indiscriminate. |
+| Body Armor | 2 | Plate carrier for one infantryman. Its own bar soaks bullet damage until it breaks. |
+| Flak Armor | 2 | Flak vest for one infantryman. Its own bar soaks explosion damage until it breaks. |
 
 ### Promotions
 
@@ -192,19 +201,21 @@ veteran is worth more than anything you can buy.
 
 ### What's coming at you
 
-Riflemen at first, then stormtroopers, grenadiers, MG teams, flamethrowers who
-burn anything in front of them (including their own men), officers who drive
-their men harder, and snipers from wave 14 on. From wave 9, watch for
-**motorcycle sidecar teams** that race down the field and drop a two-man crew
-(random types) at rifle range. Shoot the bike early and the crew dies with it;
-barbed wire ends the ride instantly. From wave 16 the **Kübelwagen** gun car may
-roll in — it halts at range and hoses your line with an MG42 until someone
-deals with it. From wave 18 the **Sd.Kfz. 251 halftrack** hauls a full squad
-forward: it dumps six troopers the moment it reaches rifle distance of your
-line, then keeps fighting as an armored gun truck. Kill the bus early, before
-it delivers. From wave 25 on, the occasional **Panzer IV** grinds in; from
-wave 60, **mortar teams**; from wave 80, **Panzerfaust** carriers. Small arms
-bounce off armor; use mines, mortars, or artillery.
+Riflemen at first, then stormtroopers (wave 4), grenadiers (7), MG teams (9),
+flamethrowers who burn anything in front of them including their own men (11),
+officers who drive their men harder (12), and snipers from wave 13 on. From
+wave 9, watch for **motorcycle sidecar teams** that race down the field and drop
+a two-man crew (random types) at rifle range. Shoot the bike early and the crew
+dies with it; barbed wire ends the ride instantly. From wave 13 the
+**Kübelwagen** gun car may roll in — it halts at range and hoses your line with
+an MG42 until someone deals with it. From wave 14 the **Sd.Kfz. 251 halftrack**
+hauls a full squad forward: it dumps six troopers the moment it reaches rifle
+distance of your line, then keeps fighting as an armored gun truck. Kill the bus
+early, before it delivers. From wave 30 on, the occasional **Panzer IV** grinds
+in; from wave 32, **Granatwerfer mortar teams**; from wave 45, **Panzerfaust**
+carriers. Small arms bounce off armor; use mines, mortars, or artillery. Past
+wave 100 the assault mechanizes — a growing share of every wave rolls in on
+wheels and tracks — and from wave 140 a **V2 battery** may set up, one at a time.
 
 Every **10th wave** is a themed set-piece assault, and they rotate:
 Blitzkrieg (a swarm of motorcycles), Fallschirmjäger Assault (a mass paradrop
@@ -243,6 +254,7 @@ an item, then the field. Hold on the field to cancel placement.
 - `css/style.css` — styling
 - `assets/sounds/` — open-licensed OGG sound effects (+ `ATTRIBUTION.md`)
 - `js/audio.js` — sample playback with WebAudio synthesis fallback
+- `js/music.js` — music playback
 - `docs/axis-units.md` — design notes for tuning German unit stats and AI
 
 The game code lives in `js/` as plain scripts sharing one global scope; they
@@ -264,12 +276,24 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/update-enemies.js` — per-frame enemy unit logic
 - `js/tutorial.js` — tutorial scripts
 - `js/update.js` — main update loop
+- `js/sprite-cache.js` — the baked-sprite cache every painter draws through
+- `js/sprites.js` — sprite packs: loading an artist's PNGs over the procedural art
 - `js/render-overlays.js` — the badges every actor wears: health/armor bars, rank chevrons, selection ring & caption
+- `js/render-ground.js` — the per-faction terrain baked once per run
 - `js/render-decals.js` — the ground decal layer: blood & craters stamped into one bitmap instead of redrawn each frame
-- `js/render-soldier.js` — soldier, kit & weapon drawing
+- `js/render-soldier-poses.js` — the shared soldier body/limb poses
+- `js/render-weapons.js` — small arms & sidearm drawing
+- `js/render-weapons-heavy.js` — the heavy kit: BARs, bazookas, flamethrowers, MGs, mortars
+- `js/render-soldier.js` — soldier & kit assembly
 - `js/render-japanese.js` — the Imperial Japanese Army soldier renderer
-- `js/render-zombie.js` — The Horde (undead) renderer
-- `js/render-world.js` — vehicle, emplacement & defense drawing
+- `js/render-zombie.js` — The Horde (undead) renderer, including the Progenitor
+- `js/render-italian.js` — the Regio Esercito soldier renderer
+- `js/render-vehicles.js` — vehicle & tank drawing
+- `js/render-emplacements.js` — AT/AA guns and the Italian field works
+- `js/render-defenses.js` — sandbags, bunkers, wire, towers & the rest
+- `js/render-yamato.js` — the Yamato land battleship
+- `js/render-train.js` — the Treno Armato armored train
+- `js/render-alien-walker.js` — the wave-666 tripod and its walk cycle
 - `js/render.js` — scene composition (main draw)
 - `js/camera.js` — view camera: mobile pan/zoom/pinch, world<->screen transforms
 - `js/inspector.js` — hover inspector
@@ -281,7 +305,9 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/campaign.js` — tutorial progress
 - `js/leaderboards.js` — endless leaderboards
 - `js/settings.js` — settings
+- `js/changelog.js` — the in-game changelog
 - `js/recap.js` — post-game After-Action Report (per-run stat tracking + recap screen)
 - `js/flow.js` — menus & game flow
 - `js/main.js` — event wiring, frame loop & bootstrap
+- `js/export-sprites.js` — bakes every drawable to PNGs + a manifest (a sprite-pack starter kit)
 - `js/test-api.js` — `window.TEST` console/automation harness (inert during play)

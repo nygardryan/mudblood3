@@ -102,227 +102,13 @@ function paintSoldierBody(c, a) {
   if (type === 'eflame') {
     drawFlammenwerfer(c, fx, fy, gunLen, a.face, a.flameT > 0);
   } else if (type === 'flamer') {
-    // M2 flamethrower wand — heat shield, grip, bell nozzle, fuel hose
-    const tipX = fx * gunLen, tipY = fy * gunLen;
-    c.strokeStyle = '#3a3830';
-    c.lineWidth = 4;
-    c.beginPath();
-    c.moveTo(fx * 2, fy * 2);
-    c.lineTo(tipX, tipY);
-    c.stroke();
-    c.strokeStyle = '#26261e';
-    c.lineWidth = 1.5;
-    c.beginPath();
-    c.moveTo(fx * 2.4, fy * 2.4);
-    c.lineTo(fx * (gunLen - 0.6), fy * (gunLen - 0.6));
-    c.stroke();
-    // vent slots on the heat shield
-    c.strokeStyle = '#2e2c24';
-    c.lineWidth = 0.8;
-    for (let t = 0.32; t <= 0.78; t += 0.12) {
-      const sx = fx * (gunLen * t), sy = fy * (gunLen * t);
-      c.beginPath();
-      c.moveTo(sx - fy * 1.8, sy + fx * 1.8);
-      c.lineTo(sx + fy * 1.8, sy - fx * 1.8);
-      c.stroke();
-    }
-    // pistol grip
-    c.strokeStyle = '#4a3f32';
-    c.lineWidth = 2.3;
-    c.beginPath();
-    c.moveTo(fx * 3.8 + fy * 1.4, fy * 3.8 - fx * 1.4);
-    c.lineTo(fx * 3.8 + fy * 4.8, fy * 3.8 - fx * 4.8);
-    c.stroke();
-    // nozzle bell
-    c.strokeStyle = '#5a4a38';
-    c.lineWidth = 2.6;
-    c.beginPath();
-    c.moveTo(tipX - fy * 2.4, tipY + fx * 2.4);
-    c.lineTo(tipX + fx * 2, tipY + fy * 2);
-    c.lineTo(tipX + fy * 2.4, tipY - fx * 2.4);
-    c.stroke();
-    // hose from backpack tanks to the wand
-    c.strokeStyle = '#2a2820';
-    c.lineWidth = 2;
-    c.beginPath();
-    c.moveTo(-6, 0);
-    c.quadraticCurveTo(-fy * 4 + fx * 1, fx * 4 + fy * 1, fx * 3.2, fy * 3.2);
-    c.stroke();
-    c.strokeStyle = '#1e1c18';
-    c.lineWidth = 0.9;
-    c.beginPath();
-    c.moveTo(-6, 0);
-    c.quadraticCurveTo(-fy * 4 + fx * 1, fx * 4 + fy * 1, fx * 3.2, fy * 3.2);
-    c.stroke();
-    // pilot flame at the nozzle
-    const lit = a.flameT > 0;
-    const nozX = tipX + fx * 1.4, nozY = tipY + fy * 1.4;
-    if (lit) {
-      c.shadowColor = '#ff6820';
-      c.shadowBlur = 10;
-      c.fillStyle = '#fff4b0';
-      c.beginPath(); c.arc(nozX, nozY, 3, 0, 7); c.fill();
-      c.shadowBlur = 0;
-      c.fillStyle = '#ff9a28';
-      c.beginPath(); c.arc(nozX, nozY, 1.8, 0, 7); c.fill();
-    } else {
-      c.fillStyle = '#8a4020';
-      c.beginPath(); c.arc(nozX, nozY, 1.5, 0, 7); c.fill();
-      c.fillStyle = '#ff7020';
-      c.beginPath(); c.arc(nozX, nozY, 0.75, 0, 7); c.fill();
-    }
+    drawM2Flamethrower(c, fx, fy, gunLen, a.flameT > 0);
   } else if (isBar) {
-    // M1918 BAR — long barrel, wooden stock, box mag, bipod, carry handle
-    const tipX = fx * gunLen, tipY = fy * gunLen;
-    c.strokeStyle = '#26261e';
-    c.lineWidth = 2.8;
-    c.beginPath();
-    c.moveTo(fx * 2, fy * 2);
-    c.lineTo(tipX, tipY);
-    c.stroke();
-    // wooden stock and pistol grip
-    c.strokeStyle = '#4a3f2e';
-    c.lineWidth = 2.4;
-    c.beginPath();
-    c.moveTo(fx * 1.1 - fy * 2.6, fy * 1.1 + fx * 2.6);
-    c.lineTo(fx * 1.1 + fy * 2.4, fy * 1.1 - fx * 2.4);
-    c.stroke();
-    c.lineWidth = 2;
-    c.beginPath();
-    c.moveTo(fx * 3.2 + fy * 1.5, fy * 3.2 - fx * 1.5);
-    c.lineTo(fx * 3.2 + fy * 4.2, fy * 3.2 - fx * 4.2);
-    c.stroke();
-    // gas tube along the top
-    c.strokeStyle = '#3a3830';
-    c.lineWidth = 1.2;
-    c.beginPath();
-    c.moveTo(fx * 2.5 - fy * 0.9, fy * 2.5 + fx * 0.9);
-    c.lineTo(fx * (gunLen - 1) - fy * 0.9, fy * (gunLen - 1) + fx * 0.9);
-    c.stroke();
-    // box magazine
-    const magX = fx * (gunLen * 0.42), magY = fy * (gunLen * 0.42);
-    c.fillStyle = '#2a2a1e';
-    c.fillRect(magX - fy * 2.2 - 1.2, magY + fx * 2.2 - 1.5, fy * 4.4 + 2.4, -fx * 4.4 + 3);
-    c.strokeStyle = '#1a1a14';
-    c.lineWidth = 0.7;
-    c.strokeRect(magX - fy * 2.2 - 1.2, magY + fx * 2.2 - 1.5, fy * 4.4 + 2.4, -fx * 4.4 + 3);
-    c.fillStyle = '#c8a858';
-    c.fillRect(magX - fy * 1.2 - 0.6, magY + fx * 1.2 - 2, fy * 2.4 + 1.2, -fx * 2.4 + 1.2);
-    // carry handle
-    c.strokeStyle = '#3a3a30';
-    c.lineWidth = 1.5;
-    c.beginPath();
-    c.arc(fx * (gunLen * 0.34) + fy * 1.3, fy * (gunLen * 0.34) - fx * 1.3, 1.6, 0, 7);
-    c.stroke();
-    // bipod legs
-    c.strokeStyle = '#26261e';
-    c.lineWidth = 1.4;
-    for (const s of [-0.72, 0.72]) {
-      c.beginPath();
-      c.moveTo(fx * (gunLen - 0.5), fy * (gunLen - 0.5));
-      c.lineTo(
-        fx * (gunLen + 1.5) + Math.cos(a.face + s + 0.45) * 4,
-        fy * (gunLen + 1.5) + Math.sin(a.face + s + 0.45) * 4,
-      );
-      c.stroke();
-    }
-    // flash hider
-    c.strokeStyle = '#4a4038';
-    c.lineWidth = 2;
-    c.beginPath();
-    c.moveTo(tipX - fy * 1.6, tipY + fx * 1.6);
-    c.lineTo(tipX + fy * 1.6, tipY - fx * 1.6);
-    c.stroke();
-    c.fillStyle = '#1c1c16';
-    c.beginPath(); c.arc(tipX, tipY, 1.1, 0, 7); c.fill();
-    // sling loop on the stock
-    c.strokeStyle = '#6a5a40';
-    c.lineWidth = 1.1;
-    c.beginPath();
-    c.moveTo(fx * 1.5 - fy * 3, fy * 1.5 + fx * 3);
-    c.quadraticCurveTo(-fy * 2, fx * 2, fx * 2.5 + fy * 2, fy * 2.5 - fx * 2);
-    c.stroke();
+    drawBAR(c, fx, fy, gunLen, a.face);
   } else if (isShotgun) {
-    // M97 trench gun — long barrel, pump forend, wide choke, wooden stock
-    const tipX = fx * gunLen, tipY = fy * gunLen;
-    const pumpT = a.shotgunBlastT > 0 ? clamp(a.shotgunBlastT / 0.12, 0, 1) : 0;
-    const pumpOff = pumpT * 1.4;
-    c.strokeStyle = '#26261e';
-    c.lineWidth = 3.4;
-    c.beginPath();
-    c.moveTo(fx * 2, fy * 2);
-    c.lineTo(tipX, tipY);
-    c.stroke();
-    c.strokeStyle = '#4a3f2e';
-    c.lineWidth = 2;
-    c.beginPath();
-    c.moveTo(fx * 1.5 - fy * 2.6, fy * 1.5 + fx * 2.6);
-    c.lineTo(fx * 1.5 + fy * 2.2, fy * 1.5 - fx * 2.2);
-    c.stroke();
-    // magazine tube under the barrel
-    c.strokeStyle = '#3a3830';
-    c.lineWidth = 1.8;
-    c.beginPath();
-    c.moveTo(fx * 2.5 + fy * 1.5, fy * 2.5 - fx * 1.5);
-    c.lineTo(fx * (gunLen - 1.2) + fy * 1.5, fy * (gunLen - 1.2) - fx * 1.5);
-    c.stroke();
-    // pump forend — slides back on recoil
-    const px = fx * (gunLen * 0.38 - pumpOff), py = fy * (gunLen * 0.38 - pumpOff);
-    c.fillStyle = '#5a4a38';
-    c.beginPath();
-    c.moveTo(px - fy * 2.2, py + fx * 2.2);
-    c.lineTo(px + fx * 3.8, py + fy * 3.8);
-    c.lineTo(px + fy * 2.2, py - fx * 2.2);
-    c.lineTo(px - fx * 3.8, py - fy * 3.8);
-    c.closePath(); c.fill();
-    c.strokeStyle = '#3a3028';
-    c.lineWidth = 0.9;
-    c.stroke();
-    // vent rib along the barrel
-    c.strokeStyle = '#3a3830';
-    c.lineWidth = 0.7;
-    for (let t = 0.55; t <= 0.92; t += 0.1) {
-      const sx = fx * (gunLen * t), sy = fy * (gunLen * t);
-      c.beginPath();
-      c.moveTo(sx - fy * 1.4, sy + fx * 1.4);
-      c.lineTo(sx + fy * 1.4, sy - fx * 1.4);
-      c.stroke();
-    }
-    // wide muzzle choke
-    c.strokeStyle = '#4a4038';
-    c.lineWidth = 2.8;
-    c.beginPath();
-    c.moveTo(tipX - fy * 2.8, tipY + fx * 2.8);
-    c.lineTo(tipX + fx * 1.5, tipY + fy * 1.5);
-    c.lineTo(tipX + fy * 2.8, tipY - fx * 2.8);
-    c.stroke();
-    c.fillStyle = '#1c1c16';
-    c.beginPath(); c.arc(tipX, tipY, 1.2, 0, 7); c.fill();
+    drawTrenchGun(c, fx, fy, gunLen, a.shotgunBlastT);
   } else if (isGrenadier && us) {
-    // M1 carbine — short barrel, side mag, curved stock
-    c.strokeStyle = '#26261e';
-    c.lineWidth = 2.1;
-    c.beginPath();
-    c.moveTo(fx * 2, fy * 2);
-    c.lineTo(fx * gunLen, fy * gunLen);
-    c.stroke();
-    c.strokeStyle = '#4a3f2e';
-    c.lineWidth = 1.8;
-    c.beginPath();
-    c.moveTo(fx * 1.4 - fy * 2, fy * 1.4 + fx * 2);
-    c.lineTo(fx * 1.4 + fy * 2, fy * 1.4 - fx * 2);
-    c.stroke();
-    c.fillStyle = '#2a2a1e';
-    const magX = fx * (gunLen * 0.42), magY = fy * (gunLen * 0.42);
-    c.fillRect(magX - fy * 1.6 - 0.9, magY + fx * 1.6 - 1.1, fy * 3.2 + 1.8, -fx * 3.2 + 2.2);
-    c.strokeStyle = '#3a3a30';
-    c.lineWidth = 1.1;
-    c.beginPath();
-    c.moveTo(fx * (gunLen * 0.55) + fy * 1.5, fy * (gunLen * 0.55) - fx * 1.5);
-    c.lineTo(fx * (gunLen * 0.55) + fy * 3.2, fy * (gunLen * 0.55) - fx * 3.2);
-    c.stroke();
-    c.fillStyle = '#1c1c16';
-    c.beginPath(); c.arc(fx * (gunLen - 0.5), fy * (gunLen - 0.5), 1, 0, 7); c.fill();
+    drawM1Carbine(c, fx, fy, gunLen);
   } else if (type === 'egren') {
     drawKar98kGrenadier(c, fx, fy, gunLen, a.face);
   } else if (type === 'erifle') {
@@ -603,44 +389,10 @@ function paintSoldierBody(c, a) {
     drawErifleKit(c, fx, fy, a.face);
   }
   if (isShotgun) {
-    // 12-gauge bandolier and shell loops on the belt
-    c.strokeStyle = '#8a7a48';
-    c.lineWidth = 1.5;
-    c.beginPath();
-    c.moveTo(-fy * 5 - fx * 1.2, fx * 5 - fy * 1.2);
-    c.lineTo(fy * 5 - fx * 1.2, -fx * 5 - fy * 1.2);
-    c.stroke();
-    drawShotgunShell(c, -5.2, 2.8, 0.9, 0.25);
-    drawShotgunShell(c, -2.8, 4.5, 0.85, -0.15);
-    drawShotgunShell(c, 0.2, 5.2, 0.82, 0.4);
-    drawShotgunShell(c, 3.2, 4.2, 0.8, 0.65);
-    c.fillStyle = '#3a4034';
-    c.fillRect(-6.2, 4.5, 4.5, 2.8);
-    c.strokeStyle = '#4a4a3e';
-    c.lineWidth = 0.8;
-    c.strokeRect(-6.2, 4.5, 4.5, 2.8);
-    c.fillStyle = '#2f3328';
-    c.fillRect(4.8, 3.8, 2.6, 2.2);
+    drawShotgunnerKit(c, fx, fy);
   }
   if (type === 'grenadier') {
-    // M1 carbine bandolier and frags clipped to the harness
-    c.strokeStyle = '#8a7a48';
-    c.lineWidth = 1.5;
-    c.beginPath();
-    c.moveTo(-fy * 4.5 - fx * 1.5, fx * 4.5 - fy * 1.5);
-    c.lineTo(fy * 4.5 - fx * 1.5, -fx * 4.5 - fy * 1.5);
-    c.stroke();
-    c.fillStyle = '#3a4034';
-    c.beginPath(); c.ellipse(-fy * 5.2, fx * 5.2, 2.4, 2.8, a.face, 0, 7); c.fill();
-    c.beginPath(); c.ellipse(fy * 4.8, -fx * 4.8, 2.2, 2.5, a.face, 0, 7); c.fill();
-    drawFragGrenade(c, -4.8, 3.2, 0.88, { rot: 0.35 });
-    drawFragGrenade(c, -1.5, 5.2, 0.82, { rot: -0.2 });
-    drawFragGrenade(c, 2.2, 4.6, 0.78, { rot: 0.55 });
-    c.fillStyle = '#2f3328';
-    c.fillRect(-5.8, 4.8, 3.2, 2.4);
-    c.strokeStyle = '#4a4a3e';
-    c.lineWidth = 0.8;
-    c.strokeRect(-5.8, 4.8, 3.2, 2.4);
+    drawGrenadierKit(c, fx, fy, a.face);
   }
   if (type === 'egren') {
     drawEgrenKit(c, fx, fy, a.face);
@@ -658,34 +410,7 @@ function paintSoldierBody(c, a) {
     drawEmortarKit(c, fx, fy, a.face, tube);
   } else if (a.t.mortar) {
     const tube = drawMortarTube(c, a.face, fx, fy, a.mortarFireT || 0);
-    // wooden ammo crate beside the baseplate
-    c.fillStyle = '#5a4a38';
-    c.fillRect(tube.bx - 4.5, tube.by + 2.5, 5.5, 3.8);
-    c.strokeStyle = '#3a3028';
-    c.lineWidth = 0.8;
-    c.strokeRect(tube.bx - 4.5, tube.by + 2.5, 5.5, 3.8);
-    c.strokeStyle = '#4a4030';
-    c.lineWidth = 0.7;
-    c.beginPath(); c.moveTo(tube.bx - 4.5, tube.by + 4.4); c.lineTo(tube.bx + 1, tube.by + 4.4); c.stroke();
-    drawMortarRound(c, tube.bx - 3.2, tube.by + 3.2, 0.75, 0.2);
-    drawMortarRound(c, tube.bx - 1.5, tube.by + 3.5, 0.72, -0.15);
-    drawMortarRound(c, tube.bx - 0.2, tube.by + 3.1, 0.7, 0.35);
-    // shell carry bag on the chest
-    c.fillStyle = '#3a4034';
-    c.beginPath(); c.ellipse(fy * 3.5, -fx * 3.5, 2.8, 3.4, a.face, 0, 7); c.fill();
-    c.strokeStyle = '#2a2e24';
-    c.lineWidth = 0.9;
-    c.stroke();
-    drawMortarRound(c, fy * 3.2, -fx * 3.2, 0.65, a.face + 0.5);
-    // range table / map board tucked under arm
-    c.fillStyle = '#c8b898';
-    c.fillRect(-fy * 4.8 - 2, fx * 4.8 - 1.5, 4, 3);
-    c.strokeStyle = '#6a5a40';
-    c.lineWidth = 0.6;
-    c.strokeRect(-fy * 4.8 - 2, fx * 4.8 - 1.5, 4, 3);
-    c.strokeStyle = '#8a7a58';
-    c.lineWidth = 0.5;
-    c.beginPath(); c.moveTo(-fy * 4.8 - 1.5, fx * 4.8); c.lineTo(-fy * 4.8 + 1, fx * 4.8 + 1.2); c.stroke();
+    drawMortarKit(c, fx, fy, a.face, tube);
   }
   if (type === 'officer') {
     drawOfficerKit(c, fx, fy, a.face, true);
@@ -696,26 +421,7 @@ function paintSoldierBody(c, a) {
   if (type === 'eflame') {
     drawEflameKit(c, fx, fy, a.face);
   } else if (type === 'flamer') {
-    // twin fuel tanks on the back — metal cylinders, straps, warning stripe
-    const tankX = -6.2;
-    for (const [ty, fill, cap] of [[-2.2, '#7a4828', '#4a4038'], [2.8, '#3a3c30', '#323028']]) {
-      c.fillStyle = fill;
-      c.beginPath(); c.ellipse(tankX, ty, 2.3, 4, 0, 0, 7); c.fill();
-      c.strokeStyle = 'rgba(0,0,0,0.4)';
-      c.lineWidth = 0.9;
-      c.beginPath(); c.ellipse(tankX, ty, 2.3, 4, 0, 0, 7); c.stroke();
-      c.fillStyle = cap;
-      c.beginPath(); c.ellipse(tankX, ty - 3.6, 1.6, 1.1, 0, 0, 7); c.fill();
-    }
-    c.strokeStyle = '#2a2820';
-    c.lineWidth = 1.6;
-    c.beginPath(); c.moveTo(tankX - 2.5, -5.5); c.lineTo(tankX + 2.5, 5.5); c.stroke();
-    c.beginPath(); c.moveTo(tankX + 2.5, -5.5); c.lineTo(tankX - 2.5, 5.5); c.stroke();
-    c.fillStyle = '#e8c030';
-    c.fillRect(tankX - 0.8, -1.2, 1.6, 4.8);
-    c.strokeStyle = '#1a1814';
-    c.lineWidth = 0.7;
-    c.beginPath(); c.moveTo(tankX - 2.3, 0); c.lineTo(-2, fy * 2); c.stroke();
+    drawFlamerKit(c, fx, fy);
   }
 
   // ---- headgear

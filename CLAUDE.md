@@ -127,9 +127,32 @@ guns, no landing party, no clamps, via one early-out in `updateYamato`. She has 
 be, because the staging strip is held off the field by a `y < 0` test in every scan
 and a 300px hull lying broadside-on does not fit in it. `entering` (stamped on the
 hull AND all ten parts, cleared together on arrival) is what stands in for that
-gate, joined onto the `y < 0` checks in targeting/shooting/update/input plus a
-guard at the top of `damageEnemy` — **nothing anywhere in this game gates on `x`**,
-so without it her stern would be shootable while off-screen. She is the **first of
+gate — **nothing anywhere in this game gates on `x`**, so without it her stern
+would be shootable while off-screen.
+
+That term now lives in **`inTheFight(a)`** (`js/helpers.js`), the one predicate for
+"alive and actually on the field": `dead`, `y < 0` (staging strip), `chute > 0`
+(canopy still up) and `entering`. It was extracted because the rule had GROWN
+twice and each addition — `chute` for paradrops, `entering` for her — cost a hand
+sweep of the sixteen sites that spelled it out across targeting/shooting/input/
+update/cards, and one of them (`maybeOfficerFireMission`) was still carrying only
+two of the four terms in a stale form. A fifth term should be one edit. Verified
+identical to the expressions it replaced over all 180 combinations of those four
+fields. The **three faction rosters** (`isJapaneseInfantry`, `isItalianFoot`,
+`isZombie` in `js/update-enemies.js`) were the last hand-rolled copies, and had
+drifted apart exactly as predicted: `isItalianFoot` folded `chute` IN while the
+other two left it out and made their one caller append `|| o.chute > 0` by hand,
+and none of the three carried `y < 0`, so all three reached into the staging
+strip. Measured to wave 24: staging men counted in 20% of sampled seconds, worst
+7 of 13, flipping `italianForce`'s `IT_AVANTI_PRESSURE_FORCE` gate in 7 of them —
+so the AVANTI clock accelerated on a force that had not arrived. They take
+`inTheFight` now; keep the `!t.tank`/`!t.fixed` terms, which are theirs.
+`damageEnemy` keeps its own early-outs on `entering`/`chute` — that is the
+backstop, not the gate, and the scans still have to hold: an actor admitted to a
+scan it cannot hurt burns the pick (the Alien Walker's once-per-sweep `Set` is
+where that bites). Sites that invert the rule on purpose keep their own
+predicates: AA fire hunts `chute > 0` because that is exactly what it shoots, and
+`explode`'s blast passes UNDER a descending stick. She is the **first of
 two multi-hitbox actors** (the Progenitor below is the other), and that is the thing to understand
 before touching her: every other
 actor here is a bare `(x,y)` point — there is no `r`/`w`/`h` field anywhere in
@@ -256,8 +279,10 @@ that — see the shared `bossPartDamageMult` rule below the train.
 
 Flags are split rather than reusing hers: **`hordeBoss`** = "killing this ends the
 fight" (mirror of `germanBoss`/`japBoss`; read in `damageEnemy`'s `bossVictory()`
-call), **`bossPart`** = the child-actor flag (the `shipPart` equivalent, kept
-separate so her nine touchpoints keep meaning what their comments say). Pods also
+call; now read via `isFinalBoss`), **`bossPart`** = the child-actor flag (the
+`shipPart` equivalent, kept separate so her nine touchpoints keep meaning what
+their comments say — the sites that want all three ask `isBossPart` /
+`isMultiActorBoss` instead; see the shared-predicate note below the train). Pods also
 carry `fixed` (prone exemption + keeps them out of `isZombie`, so a Screamer can't
 rouse a sac) and deliberately carry **no `zombie` flag** — that would route them to
 `updateZombie` before dispatch reached `updateProgenitor`, and it is what the +15%
@@ -556,6 +581,61 @@ free. Five things about it, four of which are the reason it is written this way:
   hard her guns are to kill and shows the player nothing is just a difficulty spike
   with no tell.
 
+**The three part flags stay separate; the questions ASKED of them are shared.**
+`shipPart`/`bossPart`/`trainPart` are deliberately not one flag — a site that
+genuinely cares about one boss has to be able to say so, which is what keeps her
+nine touchpoints meaning what their comments say. But most sites care about the
+CATEGORY, and were spelling all three out — four parallel lists to keep in step,
+and a fourth such boss would have had to find every one of them. So
+`js/helpers.js` carries the predicates:
+- **`isBossPart(t)`** — any of the three child flags. The armor-vest skip in
+  `waves.js`, the shell-shock skip and a card guard in `cards.js`, the part-death
+  branch in `damage.js`, the exporter's "handled with their parent" skip, and the
+  codex roster filter.
+- **`isFinalBoss(t)`** — "killing this ends the fight": the four faction-boss
+  flags `damageEnemy` keys `bossVictory()` on. A fifth faction boss is one row.
+- **`isMultiActorBoss(t)`** — parent AND children, for the two sites that handle
+  a boss WHOLE: the standard-draw skip in `render.js` (each has its own pass) and
+  the breach loop in `update.js` (one regressed clamp must not breach eleven, six
+  or nine times in a frame). Der Schlächter and the Alien Walker are outside it on
+  purpose — a single actor each, drawn and breached by the ordinary paths.
+
+The Alien Walker is in **neither** of the last two despite `boss:true`, which it
+buys only for the `armorEnemy` skip and the prone/suppression exemptions.
+
+Three more shared reads live beside them, each extracted after the duplicate
+copies had already drifted:
+- **`actorHitRadius(a)`** — how close a click, tap or hover has to land, and (at
+  `-2`) the ring the inspector draws. There were two tables, and the walker was
+  the tell: the hover ring drew at 28px while the focus-fire tap still wanted 14,
+  so the player aimed inside a ring the tap couldn't see. Order matters — `apc`
+  before `vehicle`, and the boss flags above everything, since parts carry `tank`.
+- **`emplacementTier(o)`** — `up2 ? 2 : up ? 1 : 0`, the index into every per-tier
+  table. Those tables are now tables rather than nested ternaries
+  (`BUNKER_COVER_DODGE`/`BUNKER_COVER_CHIP`, `SANDBAG_COVER_DODGE`/
+  `SANDBAG_COVER_CHIP`, `WIRE_DRAG`/`WIRE_WEAR`,
+  `WATCHTOWER_RANGE_MULT_TIERS`, `AMMOCRATE_ROF_MULT_TIERS`,
+  `CAMONEST_REVEAL_TIERS`, `DUMMY_SEE_THROUGH`), so a wall's whole per-tier story
+  reads in one place — and the deliberate flat spots stay visible (a bunker chips
+  the same 1 hp fortified or hardened, where sandbags keep improving).
+- **the veterancy curves** — `rankCdMult`, `rankScatterMult`, `rankSpreadMult`,
+  `emplacementArc`, off `RANK_ROF_RATE`/`RANK_SCATTER_RATE`/`RANK_SPREAD_RATE`/
+  `RANK_ARC_RATE`. These cover the weapons that skip `unitBuffs` and set their own
+  numbers. Two exist for a sharper reason than tidiness: `drawUnitWeaponRange`
+  (`js/targeting.js`) drew the traverse cone and the buckshot cone from its own
+  copies of the formulas `updateATGun`/`updateAAGun`/`fireShotgun` fire by, so a
+  tuning pass could leave the drawn cone describing a gun the player doesn't have.
+  The rates are kept as four constants even though three read 0.08 today — they
+  are different promises, and folding them together would let a reload tuning pass
+  silently retighten every mortar and every buckshot cone in the game.
+
+The codex's veterancy panel now **derives** its percentages from those rates
+rather than restating them, which is what had already gone wrong: a cycle-time
+curve is not its own reciprocal, so the "Rate of fire" row advertised +48% at max
+rank where the real gain is ≈1.9× (the interval shrinks to `1 - 0.08*6 = 0.52`).
+Five other rows describing the very same curve had it right, which is the only
+reason the error was visible.
+
 The **Alien Walker** (`awalker`) is the easter egg that ends a run that won't end
 — a striding tripod that walks out of the treeline at wave 666 and sweeps a laser
 lance across the field. It is the only enemy that is **not a faction's**: no
@@ -801,7 +881,7 @@ Three things hold it together:
 The pass walks a **snapshot** of `G.groundMarks`, not the live array: `updateDecals()`
 runs at the end of `update()` *after* compaction, which splices expired marks out
 mid-pass, and walking a shifting array by index would skip marks. The layer carries
-the same `ss` density stamp `clearSpriteCache()` and `drawCorpse` use, and rebuilds
+the same `ss` density stamp `sprite()` and `drawCorpse` use, and rebuilds
 SYNCHRONOUSLY on a density change (mobile zoom) rather than progressively, so a pinch
 never shows a half-built field. It is also the one thing in the renderer holding BAKED
 pixels rather than redrawing, so it cannot notice art changing under it — `SPRITES`

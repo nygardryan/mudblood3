@@ -71,18 +71,11 @@ function enemyAtWorld(x, y) {
   if (!G) return null;
   let best = null, bd = Infinity;
   for (const e of G.enemies) {
-    if (e.dead || e.y < 0 || e.entering || e.chute > 0) continue;
-    // the Yamato's hitboxes sit 62px apart, so a 26px tank radius would leave an
-    // 8px dead band at every midpoint and clicks would fall THROUGH her hull
-    const base = e.t.shipPart || e.t.ship ? 34
-               : e.t.hordeBoss ? 30 : e.t.bossPart ? 12
-               // a gun post sits 22px off the wagon's centreline, so it gets a
-               // tight radius or it would swallow every click meant for the wagon
-               : e.t.trainMg ? 10 : e.t.itaBoss || e.t.trainPart ? 26
-               : e.t.tank ? 26 : e.t.apc ? 22 : e.t.vehicle || e.t.bike ? 20
-               : e.t.v2 ? 24 : 14;
+    if (!inTheFight(e)) continue;
+    // the same radii the inspector hovers and rings with (js/helpers.js), grown
+    // for a fingertip — so what the player can point at is what he can tap
     const d = dist(e, { x, y });
-    if (d < touchHitRadius(base) && d < bd) { bd = d; best = e; }
+    if (d < touchHitRadius(actorHitRadius(e)) && d < bd) { bd = d; best = e; }
   }
   return best;
 }

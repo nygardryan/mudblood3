@@ -651,6 +651,33 @@ function drawErifleKit(c, fx, fy, face) {
   c.beginPath(); c.ellipse(fy * 5.5, -fx * 5.5 + 1.2, 0.7, 1.2, face + 0.5, 0, 7); c.fill();
 }
 
+// M1 carbine — short barrel, side mag, curved stock
+function drawM1Carbine(c, fx, fy, gunLen) {
+  c.strokeStyle = '#26261e';
+  c.lineWidth = 2.1;
+  c.beginPath();
+  c.moveTo(fx * 2, fy * 2);
+  c.lineTo(fx * gunLen, fy * gunLen);
+  c.stroke();
+  c.strokeStyle = '#4a3f2e';
+  c.lineWidth = 1.8;
+  c.beginPath();
+  c.moveTo(fx * 1.4 - fy * 2, fy * 1.4 + fx * 2);
+  c.lineTo(fx * 1.4 + fy * 2, fy * 1.4 - fx * 2);
+  c.stroke();
+  c.fillStyle = '#2a2a1e';
+  const magX = fx * (gunLen * 0.42), magY = fy * (gunLen * 0.42);
+  c.fillRect(magX - fy * 1.6 - 0.9, magY + fx * 1.6 - 1.1, fy * 3.2 + 1.8, -fx * 3.2 + 2.2);
+  c.strokeStyle = '#3a3a30';
+  c.lineWidth = 1.1;
+  c.beginPath();
+  c.moveTo(fx * (gunLen * 0.55) + fy * 1.5, fy * (gunLen * 0.55) - fx * 1.5);
+  c.lineTo(fx * (gunLen * 0.55) + fy * 3.2, fy * (gunLen * 0.55) - fx * 3.2);
+  c.stroke();
+  c.fillStyle = '#1c1c16';
+  c.beginPath(); c.arc(fx * (gunLen - 0.5), fy * (gunLen - 0.5), 1, 0, 7); c.fill();
+}
+
 // Kar98k with Schiessbecher rifle-grenade discharger — the Axis grenadier's signature
 function drawKar98kGrenadier(c, fx, fy, gunLen, face) {
   drawKar98k(c, fx, fy, gunLen, face, false);
@@ -690,6 +717,27 @@ function drawKar98kGrenadier(c, fx, fy, gunLen, face) {
   c.beginPath();
   c.arc(tipX + fx * 1.8, tipY + fy * 1.8, 1.1, 0, 7);
   c.stroke();
+}
+
+// The US grenadier's kit — carbine bandolier, harness pouches and clipped frags.
+function drawGrenadierKit(c, fx, fy, face) {
+  c.strokeStyle = '#8a7a48';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.moveTo(-fy * 4.5 - fx * 1.5, fx * 4.5 - fy * 1.5);
+  c.lineTo(fy * 4.5 - fx * 1.5, -fx * 4.5 - fy * 1.5);
+  c.stroke();
+  c.fillStyle = '#3a4034';
+  c.beginPath(); c.ellipse(-fy * 5.2, fx * 5.2, 2.4, 2.8, face, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(fy * 4.8, -fx * 4.8, 2.2, 2.5, face, 0, 7); c.fill();
+  drawFragGrenade(c, -4.8, 3.2, 0.88, { rot: 0.35 });
+  drawFragGrenade(c, -1.5, 5.2, 0.82, { rot: -0.2 });
+  drawFragGrenade(c, 2.2, 4.6, 0.78, { rot: 0.55 });
+  c.fillStyle = '#2f3328';
+  c.fillRect(-5.8, 4.8, 3.2, 2.4);
+  c.strokeStyle = '#4a4a3e';
+  c.lineWidth = 0.8;
+  c.strokeRect(-5.8, 4.8, 3.2, 2.4);
 }
 
 function drawEgrenKit(c, fx, fy, face) {

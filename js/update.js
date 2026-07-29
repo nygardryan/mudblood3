@@ -60,7 +60,7 @@ function update(dt) {
   updateSmoke(dt);
 
   // drop a focus-fire mark once its target is dead or off the field
-  if (G.focusTarget && (G.focusTarget.dead || G.focusTarget.y < 0 || G.focusTarget.entering)) G.focusTarget = null;
+  if (G.focusTarget && !inTheFight(G.focusTarget)) G.focusTarget = null;
 
   // per-unit cosmetic/exposure timers tick inside updateUnit/updateEnemy —
   // one pass over each roster instead of a dozen
@@ -80,7 +80,7 @@ function update(dt) {
       // ZERO damage before she was even shootable. Measured: 14 of 20 legally
       // bought mines gone, 0 damage to the ship, in the 5s of her roll-in.
       // Tripping on a mine has to mean something died.
-      if (e.dead || e.y < 0 || e.entering || e.chute > 0) continue;
+      if (!inTheFight(e)) continue;
       const trig = e.t.tank ? 22 : e.t.apc ? 19 : e.t.vehicle ? 16 : 11;
       if (dist2(m, e) < trig * trig) {
         m.dead = true;
@@ -210,7 +210,7 @@ function update(dt) {
     const falloff = 1 - (sh.dist / sh.maxDist) * 0.7;
     const r2 = FRAG_SHRAPNEL_HITR * FRAG_SHRAPNEL_HITR;
     for (const e of G.enemies) {
-      if (e.dead || e.chute > 0 || e.y < 0 || e.entering) continue;
+      if (!inTheFight(e)) continue;
       const dx = e.x - sh.x, dy = e.y - sh.y;
       if (dx * dx + dy * dy > r2) continue;
       if (!sh.hit) sh.hit = new Set();
@@ -237,18 +237,14 @@ function update(dt) {
 
   // breaches: an enemy that reaches the bottom edge cracks the line
   for (const e of G.enemies) {
-    // The Yamato is clamped to YAM_SAFE_Y and can never get here — but this loop
-    // has no break, so if that clamp ever regressed all twelve of her actors
-    // would breach in the SAME frame, blowing straight past breachLimit into an
-    // instant gameOver(). Cheap insurance against a one-line tuning mistake.
-    if (e.t.ship || e.t.shipPart) continue;
-    // Same insurance for the Progenitor: it is clamped to PROG_SAFE_Y, but if
-    // that clamp regressed all six of its actors would breach in one frame.
-    if (e.t.hordeBoss || e.t.bossPart) continue;
-    // And the Treno Armato: it PARKS at TRAIN_STOP_Y by design — reaching the
-    // bottom is its whole act, not a breakthrough, and a regressed stop constant
-    // would otherwise end the run with all eight of its actors in one frame.
-    if (e.t.itaBoss || e.t.trainPart) continue;
+    // None of the three multi-actor bosses can get here: the Yamato is clamped
+    // to YAM_SAFE_Y, the Progenitor to PROG_SAFE_Y, and the Treno Armato PARKS
+    // at TRAIN_STOP_Y — reaching the bottom is its whole act, not a
+    // breakthrough. But this loop has no break, so a regressed clamp would
+    // breach with EVERY actor of that boss in the same frame — eleven, six or
+    // nine — blowing straight past breachLimit into an instant gameOver().
+    // Cheap insurance against a one-line tuning mistake.
+    if (isMultiActorBoss(e.t)) continue;
     if (!e.dead && e.y > H + 10) {
       e.dead = true; e.breached = true;
       G.breaches++;

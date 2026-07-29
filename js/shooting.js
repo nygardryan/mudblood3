@@ -127,7 +127,7 @@ function italianCoverBlock(target) {
   const w = target.garrison;
   if (!w || w.hp <= 0) return false;
   const k = IT_WORK_KINDS[w.kind];
-  const tier = w.up2 ? 2 : w.up ? 1 : 0;
+  const tier = emplacementTier(w);
   if (Math.random() >= k.dodge[tier]) return false;
   w.hp -= k.chip[tier];
   return true;
@@ -143,16 +143,18 @@ function coverBlock(target) {
   if (target.side !== 'us') return italianCoverBlock(target);
   // bunker walls first: they stop more fire and barely notice small arms
   for (const b of G.bunkers) {
-    const r = BUNKER_COVER_R[b.up2 ? 2 : b.up ? 1 : 0];
+    const tier = emplacementTier(b);
+    const r = BUNKER_COVER_R[tier];
     if (b.hp > 0 && dist2(b, target) < r * r) {
-      if (Math.random() < (b.up2 ? 0.92 : b.up ? 0.85 : 0.75)) { b.hp -= b.up ? 1 : 2; return true; }
+      if (Math.random() < BUNKER_COVER_DODGE[tier]) { b.hp -= BUNKER_COVER_CHIP[tier]; return true; }
     }
   }
   for (const s of G.sandbags) {
     // fortified bags stop more and shrug off hits better; hardened, more still
-    const r = SANDBAG_COVER_R[s.up2 ? 2 : s.up ? 1 : 0];
+    const tier = emplacementTier(s);
+    const r = SANDBAG_COVER_R[tier];
     if (s.hp > 0 && dist2(s, target) < r * r) {
-      if (Math.random() < (s.up2 ? 0.78 : s.up ? 0.65 : 0.5)) { s.hp -= s.up2 ? 2 : s.up ? 3 : 4; return true; }
+      if (Math.random() < SANDBAG_COVER_DODGE[tier]) { s.hp -= SANDBAG_COVER_CHIP[tier]; return true; }
     }
   }
   // watch tower: spotters call out incoming fire, a flat 10% dodge for anyone under it
@@ -193,8 +195,7 @@ function isCamouflaged(u) {
 function markCamoFired(u) {
   if (u.side !== 'us') return;
   const cn = camoNestAt(u);
-  if (cn) u.camoExposed = cn.up2 ? CAMONEST_REVEAL_HARDENED
-    : cn.up ? CAMONEST_REVEAL_FORTIFIED : CAMONEST_REVEAL;
+  if (cn) u.camoExposed = CAMONEST_REVEAL_TIERS[emplacementTier(cn)];
 }
 
 function fireShot(shooter, target, opts) {
@@ -426,7 +427,7 @@ function fireShotgun(actor, buffs) {
   markCamoFired(actor);
   actor.shotgunBlastT = 0.12;
   G.flashes.push({ x: mx, y: my, r: 11, ttl: 0.09, max: 0.09, kind: 'muzzle', angle: actor.face });
-  const spreadMult = Math.max(0.4, 1 - (actor.rank || 0) * 0.08);
+  const spreadMult = rankSpreadMult(actor);
   if (slug) {
     // a single tight tracer punching out to full range
     G.tracers.push({
@@ -466,7 +467,7 @@ function fireShotgun(actor, buffs) {
   const foes = actor.side === 'de' ? G.units : G.enemies;
   const reach2 = (range + 8) * (range + 8);
   for (const e of foes) {
-    if (e.dead || e.y < 0 || e.entering || e.chute > 0 || isCamouflaged(e)) continue;
+    if (!inTheFight(e) || isCamouflaged(e)) continue;
     const d2 = dist2(actor, e);
     if (d2 > reach2) continue;
     const d = Math.sqrt(d2);
@@ -550,7 +551,7 @@ function fireCanister(u, range) {
   const rank = u.rank || 0;
   const reach2 = (range + 8) * (range + 8);
   for (const e of G.enemies) {
-    if (e.dead || e.y < 0 || e.entering || e.chute > 0) continue;
+    if (!inTheFight(e)) continue;
     if (!canisterHittable(e)) continue;   // armor is the AP shell's job, not this one's
     const d2 = dist2(u, e);
     if (d2 > reach2) continue;

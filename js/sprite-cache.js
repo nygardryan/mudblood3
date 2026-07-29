@@ -53,10 +53,17 @@ function blitSprite(c, rec, x, y, rot, alpha) {
 
 // Shared cache for bitmaps many entities reuse — keyed by an identity string such
 // as `type|facing|frame`. Per-entity one-off sprites (corpses) attach their record
-// to the entity instead, so it's freed when the entity is. Cleared on a density
-// change so bakes follow the current supersample factor.
+// to the entity instead, so it's freed when the entity is.
 const _spriteCache = new Map();
 
+// A density change is handled LAZILY and per record, by the `ss` compare below
+// rather than by emptying the map: mobile zoom changes the supersample mid-run,
+// and a bitmap baked at the old one would resample forever. Each key re-bakes on
+// its next request, so nothing has to know a density change happened — the same
+// reasoning as deriving a boss part's plate from its parent's phase instead of
+// stamping it. A blunt clearSpriteCache() used to sit here for this job and was
+// never once called; the two comments citing it as the `ss` guard (render-decals.js,
+// CLAUDE.md) meant this compare.
 function sprite(key, w, h, ax, ay, renderFn) {
   let rec = _spriteCache.get(key);
   if (!rec || rec.ss !== spriteSupersample()) {
@@ -64,10 +71,6 @@ function sprite(key, w, h, ax, ay, renderFn) {
     _spriteCache.set(key, rec);
   }
   return rec;
-}
-
-function clearSpriteCache() {
-  _spriteCache.clear();
 }
 
 // Snap a world angle to one of `n` evenly spaced facing buckets — for bodies that

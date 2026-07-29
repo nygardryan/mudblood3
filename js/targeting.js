@@ -10,20 +10,20 @@
 // only test candidates that would otherwise win, keeping a clear day free.
 
 // ---- who is even in the fight ----------------------------------------------
-// Every scan below skips `dead`, `y < 0` (still in the staging strip above the
-// top edge), `chute > 0` (canopy still up) and `entering`. That last one is the
-// Yamato's roll-in: she is 300px long and comes on from the SIDE, so the y < 0
-// staging gate can't hold her — and nothing here, or anywhere else in the game,
-// gates on x. Without it her stern would be shootable while off the edge and
-// invisible. It is stamped on the hull and all ten parts, and cleared together
-// when she reaches YAM_X_MARGIN (yamatoRollIn, js/update-enemies.js).
+// Every scan below admits only inTheFight(e) (js/helpers.js): alive, out of the
+// staging strip above the top edge, canopy already shed, and not mid roll-in.
+// That last term is the Yamato's: she is 300px long and comes on from the SIDE,
+// so the y < 0 staging gate can't hold her — and nothing here, or anywhere else
+// in the game, gates on x. Without it her stern would be shootable while off the
+// edge and invisible. It is stamped on the hull and all ten parts, and cleared
+// together when she reaches YAM_X_MARGIN (yamatoRollIn, js/update-enemies.js).
 
 // the player can click an enemy to mark it as a focus target: any troop that
 // could otherwise shoot it (in range, matches its own weapon's target filter)
 // prefers it over its default pick, so a whole line concentrates fire on cue.
 function focusPick(u, range, pred) {
   const f = G && G.focusTarget;
-  if (!f || f.dead || f.y < 0 || f.entering || f.chute > 0) return null;
+  if (!inTheFight(f)) return null;
   if (pred && !pred(f)) return null;
   if (dist2(u, f) > range * range) return null;
   // a marked enemy is still an order, not x-ray vision: smoke voids it
@@ -37,7 +37,7 @@ function nearestEnemyInRange(u, range, pred) {
   const sm = smokeOnField();
   let best = null, bd = range * range;
   for (const e of G.enemies) {
-    if (e.dead || e.y < 0 || e.entering || e.chute > 0) continue;
+    if (!inTheFight(e)) continue;
     if (pred && !pred(e)) continue;
     const d = dist2(u, e);
     // the smoke test runs only on a candidate that would take the lead, and
@@ -53,7 +53,7 @@ function firstEnemyInRange(u, range, pred) {
   const sm = smokeOnField();
   const r2 = range * range;
   for (const e of G.enemies) {
-    if (e.dead || e.y < 0 || e.entering || e.chute > 0) continue;
+    if (!inTheFight(e)) continue;
     if (pred && !pred(e)) continue;
     if (dist2(u, e) <= r2 && !(sm && smokeBlocksLOS(u, e))) return e;
   }
@@ -69,7 +69,7 @@ function tieredEnemyTarget(u, range, tiers) {
   const bd = new Array(n).fill(range * range);
   const sm = smokeOnField();
   for (const e of G.enemies) {
-    if (e.dead || e.y < 0 || e.entering || e.chute > 0) continue;
+    if (!inTheFight(e)) continue;
     const d2 = dist2(u, e);
     let vis = -1;   // this candidate's sight line: -1 untested, 0 smoked out, 1 clear
     for (let i = 0; i < n; i++) {
@@ -83,7 +83,7 @@ function tieredEnemyTarget(u, range, tiers) {
     }
   }
   const f = G && G.focusTarget;
-  const focusOk = f && !f.dead && f.y >= 0 && !f.entering && !(f.chute > 0) &&
+  const focusOk = inTheFight(f) &&
     dist2(u, f) <= range * range && !smokeBlocksLOS(u, f);
   for (let i = 0; i < n; i++) {
     if (focusOk && tiers[i](f)) return f;
@@ -123,7 +123,7 @@ function sniperTarget(u, range) {
   let best = null, bp = -1, bd = Infinity;
   const r2 = range * range;
   for (const e of G.enemies) {
-    if (e.dead || e.t.tank || e.y < 0 || e.entering || e.chute > 0) continue;
+    if (!inTheFight(e) || e.t.tank) continue;
     const d = dist2(u, e);
     if (d > r2) continue;
     if (e.t.priority > bp || (e.t.priority === bp && d < bd)) {
@@ -153,7 +153,7 @@ function primaryEnemyTarget(u, range) {
   const focus = focusPick(u, range, null);
   if (focus) return focus;
   const c = u._tgt;
-  if (c && u._tgtUntil > G.time && !c.dead && !(c.y < 0) && !c.entering && !(c.chute > 0)
+  if (c && u._tgtUntil > G.time && inTheFight(c)
       && dist2(u, c) <= range * range && !smokeBlocksLOS(u, c)) {
     return c;
   }
@@ -161,7 +161,7 @@ function primaryEnemyTarget(u, range) {
   const sm = smokeOnField();
   let best = null, bd = range * range;
   for (const e of G.enemies) {
-    if (e.dead || e.y < 0 || e.entering || e.chute > 0) continue;
+    if (!inTheFight(e)) continue;
     const d = dist2(u, e);
     if (d < bd && !(sm && smokeBlocksLOS(u, e))) { bd = d; best = e; }
   }
@@ -393,7 +393,7 @@ function drawUnitWeaponRange(a, opts) {
 
   const empl = emplacementSpec(t);
   if (empl) {
-    const arc = empl.arc + (a.rank || 0) * 0.05236;
+    const arc = emplacementArc(a);
     const full = unitRange(a, t.range) * fog;
     drawATGunRangeCone(a.x, a.y, -Math.PI / 2, arc, full, alpha);
     // Level the Barrels: overlay the near wedge in red — that's the slice of
@@ -427,7 +427,8 @@ function drawUnitWeaponRange(a, opts) {
     return;
   }
   if (t.shotgun) {
-    drawBuckshotCone(a.x, a.y, bearing, t.shotgun.arc * Math.max(0.4, 1 - (a.rank || 0) * 0.08), unitRange(a, t.shotgun.range) * fog, alpha);
+    drawBuckshotCone(a.x, a.y, bearing, t.shotgun.arc * rankSpreadMult(a),
+      unitRange(a, t.shotgun.range) * fog, alpha);
     return;
   }
   if (t.mortar) {

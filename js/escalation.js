@@ -202,14 +202,6 @@ function runPostureLabel() {
 // medals and shop width), normalized in loadEndlessCards — no version bump,
 // because an additive field is exactly what that normalizer already backfills.
 
-function escalationSelected() {
-  return loadEndlessCards().escalation;
-}
-
-function escalationUnlocked() {
-  return loadEndlessCards().escUnlocked;
-}
-
 function setEscalationLevel(n) {
   const data = loadEndlessCards();
   data.escalation = clamp(Math.floor(n), 0, data.escUnlocked);

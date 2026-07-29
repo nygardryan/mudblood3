@@ -299,9 +299,7 @@ function armorEnemy(e, w) {
   const t = e.t;
   if (t.tank || t.vehicle || t.apc || t.bike || t.v2) return; // already armored hulls
   if (t.boss) return;                                         // bosses already sponge damage via HP
-  if (t.shipPart) return;                                     // a gun tub doesn't wear a flak vest
-  if (t.bossPart) return;                                     // nor does a sac of pus
-  if (t.trainPart) return;                                    // nor does a wagon or its gun crew
+  if (isBossPart(t)) return;   // no flak vest on a gun tub, a sac of pus or a wagon
   // Foot soldiers of every faction qualify, the undead included — reanimated
   // men still wear the plate they died in.
   const chance = enemyArmorChance(w);

@@ -81,20 +81,15 @@ const SHELLSHOCK_DURATION = 1;   // seconds an enemy is stunned per hit
 
 function maybeShellShock(e, from) {
   if (e.dead || !from || from.side !== 'us' || from.type !== 'mortarman') return;
-  // the boss never reads his stun timer (dispatch order in updateEnemy), so
-  // skip the daze outright — otherwise the floating text would be a lie. Same
-  // for the Yamato and her parts: nothing ticks a part's stun down, so a daze
-  // set here would latch on forever while the battery kept firing anyway.
-  if (e.t.germanBoss || e.t.japBoss || e.t.shipPart) return;
-  if (e.t.hordeBoss || e.t.bossPart) return;   // ditto the Progenitor and its sacs
-  if (e.t.itaBoss || e.t.trainPart) return;    // and the train — nothing ticks a wagon's stun down
-  // ...and the Alien Walker. It is none of the four above and killing it ends
-  // nothing, but it dispatches up there WITH them (updateEnemy) — which is
-  // exactly what makes it belong here: sitting above the stun block is its
-  // immunity, so a daze set on it would latch on forever, unread, while the
-  // lance kept sweeping. Its `boss` flag can't carry this test, since the four
-  // faction bosses' own parts don't have one.
-  if (e.t.awalker) return;
+  // No boss ever reads its stun timer — every one of them dispatches ABOVE the
+  // stun block in updateEnemy, and nothing ticks a part's timer down at all. So
+  // skip the daze outright: a stun set here would latch on forever, unread,
+  // while the battery kept firing, and the floating text would be a lie.
+  // The Alien Walker belongs here for exactly that reason and no other — it is
+  // none of the four faction bosses and killing it ends nothing, but it
+  // dispatches up there WITH them. Its `boss` flag can't carry the test, since
+  // the faction bosses' own parts don't have one.
+  if (isFinalBoss(e.t) || isBossPart(e.t) || e.t.awalker) return;
   if (!(G.cardsOwned && G.cardsOwned.has('shellshocked'))) return;
   e.stun = Math.max(e.stun || 0, SHELLSHOCK_DURATION);
   G.texts.push({ x: e.x, y: e.y - 24, text: 'SHELL SHOCKED', ttl: 1.2 });
@@ -202,16 +197,17 @@ function healBreachesBetweenWaves() {
 // - It shells a random enemy ON THE FIELD, and that is three conditions, not one.
 //   A wave stages above the top edge at negative y, so an unfiltered pick would
 //   drop most fire missions on ground the player can't see, against men who
-//   haven't arrived. But `y > 0` alone is NOT "on the field" — it is the test the
-//   rest of the game pairs with two others, and this scan is hand-rolled rather
-//   than routed through targeting.js, so it has to carry them itself:
-//   `entering` (the Yamato rolls in from a FLANK, so her y is on-field while her
-//   x is hundreds of pixels off the edge — measured x -170 on a 540-wide field,
-//   all ELEVEN of her actors admitted here and none by any other scan), and
-//   `chute > 0` (a paradropped stick hangs at an on-field y for seconds before
-//   it lands — measured 3 admitted here, 0 anywhere else). Both are untouchable:
-//   damageEnemy returns early on each, so a mission called onto one spent the
-//   proc to shell empty ground the player mostly cannot even see.
+//   haven't arrived. But `y > 0` alone is NOT "on the field" — it is one term of
+//   inTheFight (js/helpers.js), and this scan is hand-rolled rather than routed
+//   through targeting.js, so it went without the others until that predicate was
+//   extracted. The two it was missing are why the helper exists: `entering` (the
+//   Yamato rolls in from a FLANK, so her y is on-field while her x is hundreds of
+//   pixels off the edge — measured x -170 on a 540-wide field, all ELEVEN of her
+//   actors admitted here and none by any other scan), and `chute > 0` (a
+//   paradropped stick hangs at an on-field y for seconds before it lands —
+//   measured 3 admitted here, 0 anywhere else). Both are untouchable: damageEnemy
+//   returns early on each, so a mission called onto one spent the proc to shell
+//   empty ground the player mostly cannot even see.
 //   Called before launchWave, the pool is exactly the previous wave's survivors.
 // - The salvo is the toolbar MORTAR STRIKE's WEIGHT — 6 rounds, the same 42
 //   radius and 90 damage, and it credits nobody, exactly like the bought strike.
@@ -241,7 +237,7 @@ function maybeOfficerFireMission() {
   if (!(G.cardsOwned && G.cardsOwned.has('firemission'))) return;
   const officers = G.units.filter(u => !u.dead && u.type === 'officer');
   if (!officers.length) return;
-  const targets = G.enemies.filter(e => !e.dead && e.y > 0 && !e.entering && !(e.chute > 0));
+  const targets = G.enemies.filter(inTheFight);
   if (!targets.length) return;
   if (Math.random() >= FIRE_MISSION_CHANCE) return;
   const caller = pick(officers);
@@ -428,33 +424,16 @@ function fireJeepBazooka(u, dt) {
   u.jbazCd -= dt;
   if (u.jbazCd > 0) return;
   const rk = JEEP_BAZOOKA;
-  const rr = unitRange(u, rk.range) * fogMult();
-  // tanks first, then soft vehicles, infantry only when nothing's on wheels —
-  // and never so close the blast catches the jeep itself
-  const safeR2 = (rk.r + 20) * (rk.r + 20);
-  const safe = e => dist2(u, e) > safeR2;
-  const rt = tieredEnemyTarget(u, rr, [
-    e => e.t.tank && safe(e),
-    e => (e.t.vehicle || e.t.bike) && safe(e),
-    safe,
-  ]);
-  if (!rt || friendlyNearPoint(rt.x, rt.y, 40, u)) return;
-  // a veteran jeep crew reloads the tube faster and walks its shots in
-  u.jbazCd = rand(rk.cdMin, rk.cdMax) * (1 - u.rank * 0.08);
+  // same pick and same launch as the man on foot (js/update-friendlies.js) —
+  // all that differs is where the rider keeps his bearing, since the tube tracks
+  // independently of the .50's swing, and that he has no camo nest to give away
+  const rt = rocketTarget(u, rk, unitRange(u, rk.range) * fogMult());
+  if (!rt) return;
+  // a veteran jeep crew reloads the tube faster
+  u.jbazCd = rand(rk.cdMin, rk.cdMax) * rankCdMult(u);
   u.jbazFace = Math.atan2(rt.y - u.y, rt.x - u.x);
   u.jbazFlash = 0.08;
-  SFX.rocket();
-  const d = dist(u, rt);
-  let scatter = 8 + d * 0.11;
-  if (rt.t.tank) scatter *= 0.45;
-  scatter = Math.max(6, scatter * (1 - u.rank * 0.08));
-  const tx = rt.x + rand(-scatter, scatter), ty = rt.y + rand(-scatter, scatter);
-  G.rockets.push({
-    sx: u.x, sy: u.y, x: u.x, y: u.y, tx, ty,
-    t: 0, dur: Math.max(dist(u, { x: tx, y: ty }) / rk.speed, 0.15),
-    r: rk.r, dmg: rk.dmg * (1 + u.rank * 0.04), by: u,
-    kind: 'rocket',
-  });
+  launchRocket(u, rk, rt);
 }
 
 // Armor Piercing: a unique gunner card. His BAR loads an AP belt that chews
@@ -601,7 +580,7 @@ function headshotKills(shooter, target) {
   // to maybeShellShock would delete a working card rather than fix one.
   if (t.boss) return false;
   // the child part actors, which carry no `boss` of their own
-  if (t.shipPart || t.bossPart || t.trainPart) return false;
+  if (isBossPart(t)) return false;
   return Math.random() < HEADSHOT_CHANCE[shooter.type];
 }
 
@@ -717,7 +696,7 @@ function spotterSeesThrough(u) {
   if (!(G.cardsOwned && G.cardsOwned.has('forwardobserver'))) return false;
   for (const wt of G.watchtowers) {
     if (wt.hp <= 0) continue;
-    const r = WATCHTOWER_SPOT_R[wt.up2 ? 2 : wt.up ? 1 : 0];
+    const r = WATCHTOWER_SPOT_R[emplacementTier(wt)];
     if (dist2(wt, u) < r * r) { u._spotted = true; break; }
   }
   return u._spotted;

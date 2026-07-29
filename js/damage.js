@@ -586,7 +586,7 @@ function damageDummy(d, dmg, from, kind) {
   dummyRicochet(d, dmg, from, kind);
   // only an attributed direct attack from an enemy can see through the ruse
   if (from && from.t) {
-    const seeThrough = d.up2 ? 0.20 : d.up ? 0.30 : 0.40;
+    const seeThrough = DUMMY_SEE_THROUGH[emplacementTier(d)];
     if (Math.random() < seeThrough) {
       (from.dummyBlind || (from.dummyBlind = new Set())).add(d.id);
     }
@@ -785,6 +785,25 @@ function partPlate(parent, segments, resist) {
   return Math.max(0, 1 - resist * intact);
 }
 
+// All a child actor's death does differently from its siblings': what the notice
+// says and what it leaves behind. Everything else about the three — TP, credit,
+// no kill count, no recap, no corpse, dropped from the selection — is shared, in
+// damageEnemy below. The pod VENTS rather than explodes: the sac is full of the
+// same infectious bile it was spitting, so bursting one at close range costs the
+// man who did it. A wagon leaves a coupled hulk (syncTrainParts repositions dead
+// parts on purpose), which is why its blast is the tub's and not the engine's.
+const PART_DEATH = {
+  ship: { text: 'KNOCKED OUT', burst: e => explode(e.x, e.y, 30, 40, false) },
+  train: { text: 'KNOCKED OUT', burst: e => explode(e.x, e.y, 30, 40, false) },
+  pod: {
+    text: 'POD BURST', color: '#b6e88a',
+    burst: e => {
+      const sp = e.t.spit;
+      if (sp) bileBurst(e.x, e.y, sp.r * 0.8, sp.dmg * 0.8, sp.infect, e);
+    },
+  },
+};
+
 function damageEnemy(e, dmg, from, kind) {
   if (e.chute > 0) return; // untouchable while the canopy is up
   // and likewise the Yamato's roll-in, hull and parts alike. The targeting gate
@@ -840,46 +859,19 @@ function damageEnemy(e, dmg, from, kind) {
   }
   if (e.hp <= 0 && !e.dead) {
     e.dead = true;
-    // A gun tub or a battery going quiet pays TP and credits the shooter, but it
-    // is not a man: it never touches the kill count or the recap, leaves no
-    // corpse, and takes an early return rather than a clause in the vehicle
-    // chain below so that chain never has to be re-audited for it.
-    if (e.t.shipPart) {
+    // A gun tub going quiet, a pus module bursting and a wagon knocked out are
+    // all the SAME kind of event, and were three copies of it: TP and credit to
+    // the shooter, but it is not a man — no kill count, no recap, no corpse. One
+    // early return, so the vehicle chain below never has to be re-audited for
+    // any of the three, and a fourth multi-actor boss is one row in PART_DEATH.
+    if (isBossPart(e.t)) {
       earnTP(e.t.reward);
       creditKill(from);
-      G.texts.push({ x: e.x, y: e.y - 20, text: 'KNOCKED OUT', ttl: 1.4 });
-      explode(e.x, e.y, 30, 40, false);
-      const spi = G.selected.indexOf(e);
-      if (spi !== -1) G.selected.splice(spi, 1);
-      return;
-    }
-    // A pus module bursting is the same kind of event as a gun tub going quiet:
-    // it pays TP and credits the shooter, but it is not a man — no kill count, no
-    // recap, no corpse. Early return for the same reason, so the vehicle chain
-    // below never has to be re-audited for it. It vents rather than explodes: the
-    // sac is full of the same infectious bile it was spitting, so bursting one at
-    // close range costs the man who did it.
-    if (e.t.bossPart) {
-      earnTP(e.t.reward);
-      creditKill(from);
-      G.texts.push({ x: e.x, y: e.y - 20, text: 'POD BURST', ttl: 1.4, color: '#b6e88a' });
-      const sp = e.t.spit;
-      if (sp) bileBurst(e.x, e.y, sp.r * 0.8, sp.dmg * 0.8, sp.infect, e);
-      const bpi = G.selected.indexOf(e);
-      if (bpi !== -1) G.selected.splice(bpi, 1);
-      return;
-    }
-    // A wagon knocked out is the same kind of event as a gun tub going quiet:
-    // TP and credit, but no kill count, no recap, no corpse. Early return for
-    // the same reason as the other two part flags. The hulk stays coupled and
-    // rides on — syncTrainParts repositions dead parts on purpose.
-    if (e.t.trainPart) {
-      earnTP(e.t.reward);
-      creditKill(from);
-      G.texts.push({ x: e.x, y: e.y - 20, text: 'KNOCKED OUT', ttl: 1.4 });
-      explode(e.x, e.y, 30, 40, false);
-      const tpi = G.selected.indexOf(e);
-      if (tpi !== -1) G.selected.splice(tpi, 1);
+      const d = PART_DEATH[e.t.shipPart ? 'ship' : e.t.bossPart ? 'pod' : 'train'];
+      G.texts.push({ x: e.x, y: e.y - 20, text: d.text, ttl: 1.4, color: d.color });
+      d.burst(e);
+      const pi = G.selected.indexOf(e);
+      if (pi !== -1) G.selected.splice(pi, 1);
       return;
     }
     G.kills++;
@@ -975,7 +967,7 @@ function damageEnemy(e, dmg, from, kind) {
     if (si !== -1) G.selected.splice(si, 1);
     // the boss falling is a victory: freeze the field and offer the choice
     // to take the win or fight on (flow.js)
-    if (e.t.germanBoss || e.t.japBoss || e.t.hordeBoss || e.t.itaBoss) bossVictory();
+    if (isFinalBoss(e.t)) bossVictory();
   }
   if (dmg >= 3) tryGoProne(e, 0.65);
   // Shell Shocked: a surviving enemy hit by a mortarman is dazed for a beat

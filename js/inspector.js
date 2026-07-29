@@ -42,22 +42,10 @@ function hostileRoster() {
   return G.enemies;
 }
 
-// same click targets selection uses — vehicles and tanks are bigger
-function actorHitRadius(a) {
-  // 34 for the Yamato: her hitboxes are 62px apart, and 26 would leave gaps
-  // between them that the hover would fall straight through
-  if (a.t.shipPart || a.t.ship) return 34;
-  // the Progenitor's mass is ~26px of body; its sacs are small and ring it, so
-  // they get a tight radius or they'd swallow every click meant for the core
-  if (a.t.hordeBoss) return 30;
-  if (a.t.bossPart) return 12;
-  // gun posts tight (they ride 22px off the wagon centreline), wagons tank-sized
-  if (a.t.trainMg) return 10;
-  if (a.t.itaBoss || a.t.trainPart) return 26;
-  // the walker is tank-sized across the hull and stands on legs well clear of it
-  if (a.t.awalker) return 30;
-  return a.t.tank ? 26 : a.t.vehicle ? 20 : a.t.gunEmplacement ? 18 : 14;
-}
+// actorHitRadius (js/helpers.js) is the shared table — the mouse hover, the
+// mobile long-press and the focus-fire tap all pick with the same radii, so a
+// Sherman is as easy to point at as a Panzer and the ring the hover draws is
+// the ring the tap honours.
 
 // nearest hostile whose hit radius covers a world point, or null. Shared by the
 // mouse hover and the mobile long-press inspector.
@@ -157,10 +145,6 @@ function emplacementDesc(w) {
   if (emplacementIsEnemy(w)) return IT_WORK_INFO[w.key] || '';
   const p = PLACEABLES.find(pl => pl.key === w.key);
   return p ? p.desc : '';
-}
-
-function emplacementTier(o) {
-  return o.up2 ? 2 : o.up ? 1 : 0;
 }
 
 // What the piece is worth right now. The player's own pieces read their per-tier

@@ -31,7 +31,6 @@ const YAM_STEEL_DK = '#38381f';
 // sat within a few points of the field's own olive and a 300px silhouette went
 // half-camouflaged. A boss has to pop off the ground.
 const YAM_DECK = '#5c5a33';
-const YAM_DECK_DK = '#464526';
 const YAM_TREAD = '#22231d';
 const YAM_HINOMARU = '#b42a2a';
 const YAM_BRASS = '#d4be50';

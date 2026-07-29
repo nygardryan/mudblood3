@@ -144,16 +144,8 @@ function updateEnemy(e, dt) {
         e.moveTo = null;
       } else {
         e.face = Math.atan2(e.moveTo.y - e.y, e.moveTo.x - e.x);
-        let speed = e.t.speed * (buffed ? 1.25 : 1);
         // barbed wire drags commandos just like everyone else
-        for (const wr of G.wires) {
-          if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-            speed *= wr.up ? 0.0525 : 0.126;
-            wr.hp -= (wr.up ? 3 : 5) * dt;
-            wireBite(e, dt);
-            break;
-          }
-        }
+        const speed = wireDrag(e, e.t.speed * (buffed ? 1.25 : 1), dt);
         e.x = clamp(e.x + Math.cos(e.face) * speed * dt, 14, W - 14);
         e.y = clamp(e.y + Math.sin(e.face) * speed * dt, 14, H - 14);
         return;
@@ -377,19 +369,46 @@ function rollEnemyPushUrge(e, target, dt, command) {
   }
 }
 
-function advance(e, dt, buffed) {
-  e.wobble += dt * 3;
-  // a banzai-command surge drives men forward 40% faster until it wears off
-  let speed = e.t.speed * (buffed ? 1.25 : 1) * (e.chargeT > 0 ? 1.4 : 1);
-  // barbed wire drag; fortified wire grips harder and wears slower, hardened more still
+// ---- barbed wire ----
+// FOUR movement paths cross wire — advance(), pursuePoint(), the player-ordered
+// walk in updateEnemy() and the hound's leap test — and every one of them has to
+// agree about where a band is and what crossing it costs. They didn't: the
+// ordered-move copy was written before the hardened tier existed and never
+// picked it up, so a commandeered trooper walked through up2 wire at the
+// FORTIFIED rate (0.0525 instead of 0.021, tearing 3 hp/s out of it instead of
+// 2) — a 2.5x hole in the top wire upgrade, in a path nothing else touches. One
+// band predicate and one table per tier (WIRE_DRAG / WIRE_WEAR / WIRE_BAND_*,
+// js/constants.js, beside the cover tables), so a fifth caller can't drift again.
+//
+// The two vehicle paths (updateBike, driveEnemyVehicle) come through here too,
+// passing WIRE_BAND_Y_VEHICLE: they catch the strand a little sooner than a man
+// does. They do NOT come through wireDrag below — a vehicle carries its own drag
+// and its own wear (a motorcycle's ride simply ends), and nothing bites a crew.
+function inWireBand(wr, x, y, halfY) {
+  return Math.abs(x - wr.x) < WIRE_BAND_X
+    && Math.abs(y - wr.y) < (halfY || WIRE_BAND_Y);
+}
+
+// Drag `speed` through the first live band the man is standing in, wearing the
+// strand down and letting it bite him. Returns the dragged speed.
+function wireDrag(e, speed, dt) {
   for (const wr of G.wires) {
-    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-      speed *= wr.up2 ? 0.021 : wr.up ? 0.0525 : 0.126;
-      wr.hp -= (wr.up2 ? 2 : wr.up ? 3 : 5) * dt;
+    if (wr.hp > 0 && inWireBand(wr, e.x, e.y)) {
+      const tier = emplacementTier(wr);
+      speed *= WIRE_DRAG[tier];
+      wr.hp -= WIRE_WEAR[tier] * dt;
       wireBite(e, dt);
       break;
     }
   }
+  return speed;
+}
+
+function advance(e, dt, buffed) {
+  e.wobble += dt * 3;
+  // a banzai-command surge drives men forward 40% faster until it wears off
+  let speed = e.t.speed * (buffed ? 1.25 : 1) * (e.chargeT > 0 ? 1.4 : 1);
+  speed = wireDrag(e, speed, dt);
   e.face = Math.PI / 2 + Math.sin(e.wobble) * 0.25;
   e.x += Math.cos(e.face) * speed * dt * 0.4;
   e.y += Math.sin(e.face) * speed * dt;
@@ -403,14 +422,7 @@ function advance(e, dt, buffed) {
 // charger makes a beeline instead of the shuffling zig-zag of a line trooper.
 function pursuePoint(e, tx, ty, speed, dt) {
   e.face = Math.atan2(ty - e.y, tx - e.x);
-  for (const wr of G.wires) {
-    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-      speed *= wr.up2 ? 0.021 : wr.up ? 0.0525 : 0.126;
-      wr.hp -= (wr.up2 ? 2 : wr.up ? 3 : 5) * dt;
-      wireBite(e, dt);
-      break;
-    }
-  }
+  speed = wireDrag(e, speed, dt);
   e.x = clamp(e.x + Math.cos(e.face) * speed * dt, 14, W - 14);
   e.y += Math.sin(e.face) * speed * dt;   // no top clamp — a charger can breach
 }
@@ -430,7 +442,7 @@ function wireOnLeap(x0, y0, x1, y1) {
     for (let i = 0; i <= steps; i++) {
       const f = i / steps;
       const sx = x0 + (x1 - x0) * f, sy = y0 + (y1 - y0) * f;
-      if (Math.abs(sx - wr.x) < 40 && Math.abs(sy - wr.y) < 14) return true;
+      if (inWireBand(wr, sx, sy)) return true;
     }
   }
   return false;
@@ -503,8 +515,12 @@ function detonateLunge(e) {
   explode(e.x, e.y, lu.r, lu.dmg, true, by);
 }
 
+// Everyone a banzai order applies to. See isItalianFoot below for why all three
+// faction rosters take inTheFight rather than a bare `!dead`: an officer who has
+// only just crossed the top edge is within BANZAI_CMD_RADIUS of the men still
+// staging behind him, and their chargeT burns down before they arrive.
 function isJapaneseInfantry(e) {
-  return !e.dead && e.t.faction === 'jp' && !e.t.tank && !e.t.fixed;
+  return inTheFight(e) && e.t.faction === 'jp' && !e.t.tank && !e.t.fixed;
 }
 
 // ---- Regio Esercito: the dig ----------------------------------------------
@@ -844,10 +860,23 @@ function updateItalianMedic(e, dt, buffed) {
 
 // ---- Regio Esercito: AVANTI SAVOIA -----------------------------------------
 
-// Everyone the order applies to: foot troops of the faction, wherever they are.
+// Everyone the order applies to: foot troops of the faction who are ON the field.
 // Armour drives its own fight, and `fixed` things can't charge by definition.
+//
+// This and its two sister rosters (isJapaneseInfantry, isZombie) are the last
+// hand-rolled copies of inTheFight (js/helpers.js), and they had drifted from
+// each other in the way that predicate exists to stop: this one folded `chute`
+// IN, while both of the others left it out and made their one caller append
+// `|| o.chute > 0` by hand. None of the three carried `y < 0`, so all three
+// reached into the staging strip above the top edge. Measured over ~360 sampled
+// seconds to wave 24, no player interference beyond a gunner line: staging men
+// were counted in 20% of seconds, worst 7 of 13 — and in 7 of those seconds they
+// flipped the answer to italianForce's IT_AVANTI_PRESSURE_FORCE gate, so the
+// AVANTI clock accelerated on a force that had not arrived. The Horde's was
+// visible the same way (a Screamer's frenzy reaching zombies still off-field, 5
+// times), and the Japanese one admitted 14 descending paratroopers.
 function isItalianFoot(e) {
-  return !e.dead && e.t.faction === 'it' && !e.t.tank && !e.t.fixed && !(e.chute > 0);
+  return inTheFight(e) && e.t.faction === 'it' && !e.t.tank && !e.t.fixed;
 }
 
 // one pass for both numbers the trigger needs
@@ -1002,7 +1031,7 @@ function japBanzaiCommand(e, dt) {
   let roused = 0;
   const r2 = BANZAI_CMD_RADIUS * BANZAI_CMD_RADIUS;
   for (const o of G.enemies) {
-    if (o === e || !isJapaneseInfantry(o) || o.chute > 0) continue;
+    if (o === e || !isJapaneseInfantry(o)) continue;   // chute: the roster's own gate
     if (dist2(e, o) > r2) continue;
     o.chargeT = rand(2.2, 3.6);
     o.pushT = Math.max(o.pushT || 0, o.chargeT);
@@ -1732,8 +1761,10 @@ function updateWarTrain(e, dt) {
 
 // ---- The Horde: bite & infection, spitters, bloaters, the screamer's frenzy ----
 
+// The Horde's roster, on the same rule as the other two (see isItalianFoot).
+// No `tank` term: the dead field no armour, so there is nothing to reject.
 function isZombie(e) {
-  return !e.dead && e.t.faction === 'zo' && !e.t.fixed;
+  return inTheFight(e) && e.t.faction === 'zo' && !e.t.fixed;
 }
 
 // plant the infection in a defender: he rots on a countdown and, if a medic
@@ -2028,7 +2059,7 @@ function zombieFrenzyCommand(e, dt) {
   let roused = 0;
   const r2 = FRENZY_CMD_RADIUS * FRENZY_CMD_RADIUS;
   for (const o of G.enemies) {
-    if (o === e || !isZombie(o) || o.chute > 0) continue;
+    if (o === e || !isZombie(o)) continue;              // chute: the roster's own gate
     if (dist2(e, o) > r2) continue;
     o.chargeT = rand(2.4, 3.8);
     o.pushT = Math.max(o.pushT || 0, o.chargeT);
@@ -2289,7 +2320,7 @@ function updateBike(e, dt) {
   // barbed wire ends the ride on the spot
   let hitWire = false;
   for (const wr of G.wires) {
-    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
+    if (wr.hp > 0 && inWireBand(wr, e.x, e.y, WIRE_BAND_Y_VEHICLE)) {
       hitWire = true;
       wr.hp -= 30;
       break;
@@ -2324,11 +2355,13 @@ function updateEnemyJeep(e, dt) {
   driveEnemyVehicle(e, dt, 0.08, 8, true);
 }
 
-function driveEnemyVehicle(e, dt, wireDrag, wireDmg, wobble) {
+// NB: `wireMult`, not `wireDrag` — that name belongs to the shared foot-drag
+// helper above, and a parameter shadowing it here would read as a call to it.
+function driveEnemyVehicle(e, dt, wireMult, wireDmg, wobble) {
   let speed = e.t.speed;
   for (const wr of G.wires) {
-    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
-      speed *= wireDrag;
+    if (wr.hp > 0 && inWireBand(wr, e.x, e.y, WIRE_BAND_Y_VEHICLE)) {
+      speed *= wireMult;
       wr.hp -= wireDmg * dt;
       break;
     }
@@ -2586,13 +2619,13 @@ function awBeamTick(e) {
   // Regio Esercito with equal indifference. Other walkers are the one
   // exemption — two spawned together would delete each other before either
   // finished a sweep and the mechanic would never land in front of the player.
+  // inTheFight matters here beyond the usual reason: damageEnemy early-returns
+  // on `entering` and `chute`, so admitting one SPENDS the once-per-sweep slot
+  // on an actor the lance cannot hurt — sweep a rolling-in Yamato or a stick
+  // still under silk and they are keyed into `hit` for nothing, then arrive or
+  // land immune to the rest of that sweep.
   for (const en of G.enemies) {
-    if (en.dead || en.t.awalker) continue;
-    // damageEnemy early-returns on `entering` and `chute`, so without this the
-    // lance SPENDS the once-per-sweep slot on an actor it cannot hurt: sweep a
-    // rolling-in Yamato or a stick still under silk and they are keyed into
-    // `hit` for nothing, then arrive/land immune to the rest of that sweep.
-    if (en.y < 0 || en.entering || en.chute > 0) continue;
+    if (!inTheFight(en) || en.t.awalker) continue;
     if (cut(en)) { damageEnemy(en, AW_SWEEP_DMG, e); awSlag(en.x, en.y); }
   }
 

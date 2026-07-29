@@ -1025,6 +1025,36 @@ body {
   background: linear-gradient(180deg, #e7b93d, #b78e22);
 }
 
+/* multi-filter layout: column of rows inside #plan-filter */
+#plan-filter.cs-filters {
+  flex-direction: column;
+  gap: 8px;
+}
+.cs-fgroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cs-fgroup--wide {
+  border-top: 1px solid #3a3b28;
+  padding-top: 8px;
+}
+.cs-filter__cnt {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 999px;
+  padding: 0 6px;
+  margin-left: 3px;
+  font-size: 9px;
+  line-height: 15px;
+  vertical-align: middle;
+  color: #6c6650;
+}
+.cs-filter--active .cs-filter__cnt {
+  color: #1a160a;
+  background: rgba(0, 0, 0, 0.15);
+}
+
 /* collection grid: compact chits with a deployed/reserve state stripe */
 #plan-collection {
   display: grid;

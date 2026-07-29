@@ -286,8 +286,33 @@
       <div class="intro-btns">
         <button id="pause-resume-btn">RESUME</button>
         <button id="pause-codex-btn" class="secondary">CODEX</button>
+        <button id="pause-loadout-btn" class="secondary">LOADOUT</button>
         <button id="pause-settings-btn" class="secondary">SETTINGS</button>
         <button id="pause-menu-btn" class="secondary">MAIN MENU</button>
+      </div>
+    </div>
+
+    <!-- Mid-run loadout sheet: the cards this run is actually running, read-only.
+         Reached only from PAUSE, which it swaps out (the way #codex does) rather
+         than layering over — the field is already frozen by the time you get here,
+         so there's nothing for a layer to keep visible. -->
+    <div id="loadout-view" class="overlay hidden">
+      <div class="lv">
+        <div class="lv-head">
+          <div class="lv-head__copy">
+            <h1 class="lv-title">LOADOUT</h1>
+            <div class="lv-sub" id="lv-sub"></div>
+          </div>
+          <button type="button" id="loadout-view-close" class="lv-close">✕ CLOSE</button>
+        </div>
+        <div class="lv-meter">
+          <div class="lv-meter__top">
+            <span class="lv-meter__lab">COMMAND</span>
+            <span class="lv-meter__val" id="lv-command"></span>
+          </div>
+          <div class="cs-segs" id="lv-segs"></div>
+        </div>
+        <div class="lv-rows" id="lv-rows"></div>
       </div>
     </div>
 

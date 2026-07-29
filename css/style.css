@@ -840,7 +840,10 @@ body {
   gap: 8px;
   margin-bottom: 9px;
 }
-#card-shop .cs-chip {
+/* the unit chip, the command pips and the segmented meter are shared with the
+   mid-run loadout sheet (#loadout-view), which renders them from the very same
+   helpers — commandPips() and the cs-seg loop in js/cards.js */
+#card-shop .cs-chip, #loadout-view .cs-chip {
   font-size: 9px;
   letter-spacing: 2px;
   font-weight: bold;
@@ -887,9 +890,9 @@ body {
 }
 #card-shop .cs-cmd { display: flex; flex-direction: column; gap: 4px; }
 #card-shop .cs-cmd__lab { font-size: 8px; letter-spacing: 2px; color: #6c6650; font-weight: bold; }
-#card-shop .cs-pips { display: flex; gap: 3px; }
-#card-shop .cs-pip { width: 9px; height: 9px; border-radius: 2px; border: 1px solid #50512f; }
-#card-shop .cs-pip--on { background: #e7b93d; border-color: #e7b93d; }
+#card-shop .cs-pips, #loadout-view .cs-pips { display: flex; gap: 3px; }
+#card-shop .cs-pip, #loadout-view .cs-pip { width: 9px; height: 9px; border-radius: 2px; border: 1px solid #50512f; }
+#card-shop .cs-pip--on, #loadout-view .cs-pip--on { background: #e7b93d; border-color: #e7b93d; }
 #card-shop .cs-cost {
   font-size: 13px;
   font-weight: bold;
@@ -970,8 +973,8 @@ body {
 }
 #card-shop .cs-meter__lab { font-size: 10px; letter-spacing: 2px; color: #6c6650; font-weight: bold; }
 #card-shop .cs-meter__val { font-size: 14px; font-weight: bold; letter-spacing: 1px; color: #ddd5ad; font-variant-numeric: tabular-nums; }
-#card-shop .cs-segs { display: flex; gap: 4px; margin-bottom: 12px; }
-#card-shop .cs-seg {
+#card-shop .cs-segs, #loadout-view .cs-segs { display: flex; gap: 4px; margin-bottom: 12px; }
+#card-shop .cs-seg, #loadout-view .cs-seg {
   flex: 1;
   height: 12px;
   border-radius: 3px;
@@ -979,7 +982,7 @@ body {
   border: 1px solid #3a3b28;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
-#card-shop .cs-seg--fill { background: linear-gradient(180deg, #96c45c, #4f6b2c); border-color: #4f6b2c; }
+#card-shop .cs-seg--fill, #loadout-view .cs-seg--fill { background: linear-gradient(180deg, #96c45c, #4f6b2c); border-color: #4f6b2c; }
 #card-shop .cs-upg {
   width: 100%;
   font-family: inherit;
@@ -3067,6 +3070,97 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
     grid-column: 1 / -1; flex-direction: row; align-items: center;
     justify-content: flex-start; gap: 8px;
   }
+}
+
+/* --- mid-run loadout sheet (#loadout-view) ------------------------------ */
+/* there is no generic `.hidden` rule in this sheet — every hide is spelled out
+   per element — so the pause button that pauseGame() toggles needs its own */
+#pause-loadout-btn.hidden { display: none; }
+
+/* Built on the dossier above, which is the other read-only reference sheet in
+   the game. Two differences, both deliberate: it SWAPS #pause out rather than
+   layering over it, so it stays at .overlay's z-index 10 and needs no scrim of
+   its own — and it keeps that translucent .9 backdrop instead of the dossier's
+   near-opaque .96, because in-run overlays let the field show through (see the
+   note by .overlay). Sizes are cqi off the container below: this lives inside
+   the scaled #stage, where vw and @media read the WINDOW, not the ~576px the
+   panel actually gets. */
+#loadout-view {
+  justify-content: flex-start;
+  animation: escDossierIn .18s ease both;
+}
+.lv {
+  width: 100%; max-width: 720px; margin: auto; text-align: left;
+  container-type: inline-size; container-name: lv;
+}
+.lv-head {
+  display: flex; align-items: flex-start; gap: 16px;
+  border-bottom: 1px solid #2f3020; padding-bottom: 14px;
+}
+.lv-head__copy { min-width: 0; }
+#loadout-view .lv-title {
+  font-family: 'Saira Stencil One', 'Barlow Condensed', sans-serif; font-weight: 400;
+  font-size: clamp(20px, 5cqi, 30px); letter-spacing: 4px;
+  color: #e7b93d; text-shadow: 3px 3px 0 #000; margin: 0 0 6px;
+}
+.lv-sub {
+  font-family: 'JetBrains Mono', monospace; font-size: clamp(8.5px, 1.9cqi, 10px);
+  letter-spacing: 2px; color: #8a6a3a; line-height: 1.5;
+}
+/* prefixed to outrank `.overlay button`, which paints every overlay button gold */
+#loadout-view .lv-close {
+  margin-left: auto; min-height: 0; padding: 10px 16px; white-space: nowrap;
+  font-family: 'Oswald', sans-serif; font-size: clamp(10px, 2.2cqi, 12px);
+  font-weight: 600; letter-spacing: 1.5px; color: #c9c19a;
+  background: #2b2c1d; border: 1px solid #50512f; border-radius: 6px; cursor: pointer;
+  transition: border-color .16s ease, color .16s ease;
+}
+#loadout-view .lv-close:hover { border-color: #e8873a; color: #e8873a; }
+.lv-meter { padding: 14px 0 2px; }
+.lv-meter__top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
+.lv-meter__lab {
+  font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 2px;
+  font-weight: 700; color: #6c6650;
+}
+.lv-meter__val {
+  font-family: 'Oswald', sans-serif; font-size: clamp(13px, 2.9cqi, 15px);
+  font-weight: 700; letter-spacing: 1px; color: #ddd5ad; font-variant-numeric: tabular-nums;
+}
+/* a column, not the shop's grid: the effect text is the content here, and full
+   width rows read better than two-up at the width the stage actually gives */
+.lv-rows { display: flex; flex-direction: column; gap: 7px; padding: 8px 0 4px; }
+.lv-row {
+  display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 14px;
+  padding: 12px 14px; border-radius: 8px;
+  background: linear-gradient(180deg, #2b2c1d, #232418);
+  border: 1px solid #3a3b28; border-left: 3px solid #6c6650;
+}
+.lv-row--unique { border-left-color: #e7b93d; }
+.lv-row__copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.lv-row__line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lv-row__name {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800;
+  font-size: clamp(13px, 2.9cqi, 15px); letter-spacing: .5px; color: #ddd5ad;
+}
+.lv-row--unique .lv-row__name { color: #e7b93d; }
+.lv-row__desc {
+  font-family: 'Barlow Condensed', sans-serif; font-size: clamp(12px, 2.7cqi, 13px);
+  line-height: 1.4; color: #b7b089;
+}
+.lv-row__cmd { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.lv-row__w {
+  font-family: 'Oswald', sans-serif; font-size: 8px; letter-spacing: 1.5px;
+  font-weight: 700; color: #6c6650; white-space: nowrap;
+}
+.lv-row--empty {
+  display: block; text-align: center; padding: 18px;
+  background: none; border: 2px dashed #3a3620; border-radius: 8px;
+  font-family: 'Oswald', sans-serif; font-size: 11px; letter-spacing: 1.5px; color: #6c6650;
+}
+/* narrow stage: the pips drop under the card rather than squeezing the text */
+@container lv (max-width: 460px) {
+  .lv-row { grid-template-columns: 1fr; gap: 8px; padding: 10px 11px; }
+  .lv-row__cmd { flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; }
 }
 
 .ee-shop-btn {

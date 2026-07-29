@@ -68,6 +68,8 @@ el('speed-btn').addEventListener('click', cycleSpeed);
 el('pause-btn').addEventListener('click', pauseGame);
 el('pause-resume-btn').addEventListener('click', resumeGame);
 el('pause-codex-btn').addEventListener('click', openCodexFromPause);
+el('pause-loadout-btn').addEventListener('click', openLoadoutView);
+el('loadout-view-close').addEventListener('click', closeLoadoutView);
 el('pause-menu-btn').addEventListener('click', returnToMenu);
 el('boss-fight-on-btn').addEventListener('click', bossFightOn);
 el('boss-end-run-btn').addEventListener('click', bossEndRun);

@@ -36,11 +36,51 @@ function freezeField() {
 const FULL_SCREEN_OVERLAYS = [
   'pause', 'boss-victory', 'gameover', 'endless-endgame', 'recap', 'codex',
   'changelog', 'settings', 'endless-select', 'esc-dossier', 'leaderboard-select',
-  'card-shop', 'tutorial-select',
+  'card-shop', 'tutorial-select', 'loadout-view',
 ];
 
 function hideOverlays() {
   for (const id of FULL_SCREEN_OVERLAYS) el(id).classList.add('hidden');
+}
+
+// Screens reached FROM the pause menu, which they swap out rather than layer
+// over. `paused` stays true underneath them, so the Escape ladder's plain
+// `if (paused) resumeGame()` would restart the fight behind a screen that is
+// still on top of it — the player ends up steering a live game they can't see.
+// Each of these has to claim Escape first and hand back to PAUSE.
+//
+// Written as a list because it kept being got wrong one screen at a time: the
+// codex has had this bug since it was reachable from pause, settings has had it
+// since it was, and the loadout sheet would have shipped with it. A fourth is
+// one row here, not another guard to remember.
+//
+// The entries are WRAPPED rather than bare references on purpose. These scripts
+// share one global scope with no build step, so a bare reference is resolved
+// while this file is still evaluating — and a name that isn't there yet (a typo,
+// a reordered <script>, a file that failed to load) throws at that point and
+// abandons the REST of flow.js. Everything below stays uninitialized while the
+// hoisted function declarations keep working, so the game runs and then dies
+// later somewhere unrelated: the first symptom of getting this wrong was the
+// boss-victory screen failing on BOSS_COPY, 100 lines further down. Wrapped,
+// the lookup happens when Escape is pressed and can't take the file with it.
+const PAUSE_SUBSCREENS = [
+  { open: () => codexOpen(), close: () => closeCodex() },
+  { open: () => settingsOpen(), close: () => closeSettings() },
+  { open: () => loadoutViewOpen(), close: () => closeLoadoutView() },
+];
+
+// close whichever pause sub-screen is up; true if one was. Also correct from the
+// main menu, where these are reached from #intro and `paused` is false — they
+// return to whichever screen opened them either way.
+function closePauseSubscreen() {
+  for (const s of PAUSE_SUBSCREENS) {
+    if (s.open()) { s.close(); return true; }
+  }
+  return false;
+}
+
+function bossVictoryOpen() {
+  return !el('boss-victory').classList.contains('hidden');
 }
 
 // leaving a run: no field, no pointer state, nothing half-issued
@@ -58,6 +98,8 @@ function clearRunState() {
 function pauseGame() {
   if (!running || !G || G.over || paused) return;
   freezeField();
+  // G.cardsOwned is null outside endless, so tutorials have no loadout to show
+  el('pause-loadout-btn').classList.toggle('hidden', !(G && G.cardsOwned));
   el('pause').classList.remove('hidden');
   refreshHUD();
 }

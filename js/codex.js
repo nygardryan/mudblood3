@@ -1384,7 +1384,12 @@ function openCodexFromPause() {
   openCodexOverlay();
 }
 
+function codexOpen() {
+  return !el('codex').classList.contains('hidden');
+}
+
 function closeCodex() {
+  if (!codexOpen()) return;
   el('codex').classList.add('hidden');
   if (codexReturnTo === 'pause') {
     el('pause').classList.remove('hidden');

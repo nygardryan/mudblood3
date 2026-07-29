@@ -854,6 +854,15 @@ document.addEventListener('keydown', e => {
     // the escalation dossier is the only overlay here that layers over another
     // one, so it gets first claim on Escape
     if (escDossierOpen()) { closeEscalationDossier(); return; }
+    // codex / settings / loadout — see PAUSE_SUBSCREENS (js/flow.js). They swap
+    // #pause out but leave `paused` true, so they have to be closed here or the
+    // line below resumes the fight behind a screen that's still on top of it.
+    if (closePauseSubscreen()) return;
+    // The boss-victory screen freezes the field to ask a FORCED question (FIGHT
+    // ON / END RUN). Escape must not answer it for the player, and must not fall
+    // through to resume — that leaves the run going under a modal they never
+    // dismissed, and a second Escape then stacks #pause on top of it.
+    if (bossVictoryOpen()) return;
     if (paused) { resumeGame(); return; }
     if (placing) { clearPlacing(); return; }
     if (G && G.focusTarget) { G.focusTarget = null; return; }

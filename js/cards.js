@@ -1820,6 +1820,94 @@ function buildBattlePlanUI() {
   }
 }
 
+// ---- mid-run loadout sheet (#loadout-view): what you brought, read-only
+//
+// The loadout is picked before the run and then goes invisible — several cards
+// are pure flags with no tell on the field, and a long run outlives the player's
+// memory of a 100+ card catalog. This is the reference sheet for that.
+//
+// It reads G.cardsOwned, never the saved plan: the Set built in newGame() is
+// what the run is actually running, and it's the same thing every gameplay site
+// checks. Read-only on purpose — G.cardHooks is built once at newGame(), so
+// swapping here would mean rebuilding it mid-fight AND would let a player
+// re-spec against the wave standing in front of them.
+
+function buildLoadoutView() {
+  // a card id with no catalog entry can't be rendered or weighed; loadEndlessCards
+  // already drops those, so this only catches a hand-set Set (TEST, console)
+  const ids = (G && G.cardsOwned ? [...G.cardsOwned] : []).filter(id => CARDS[id]);
+  const data = loadEndlessCards();
+  const used = planCommandUsed(ids);
+
+  el('lv-sub').textContent = PLAN_NAMES[data.activePlan] + ' · ' +
+    ids.length + (ids.length === 1 ? ' CARD' : ' CARDS') + ' IN THE FIELD';
+  el('lv-command').textContent = used + ' / ' + data.capacity;
+
+  // the shop's segmented meter. Cells are max(used, capacity) so the bar can
+  // never show fewer than it lights — capacity is read from the save and the
+  // run's own cards are the truth if the two ever disagree.
+  const segs = el('lv-segs');
+  segs.replaceChildren();
+  for (let s = 0; s < Math.max(used, data.capacity); s++) {
+    const seg = document.createElement('span');
+    seg.className = 'cs-seg' + (s < used ? ' cs-seg--fill' : '');
+    segs.appendChild(seg);
+  }
+
+  const rows = el('lv-rows');
+  rows.replaceChildren();
+  if (!ids.length) {
+    const none = document.createElement('div');
+    none.className = 'lv-row lv-row--empty';
+    none.textContent = 'NO CARDS DEPLOYED THIS RUN.';
+    rows.appendChild(none);
+    return;
+  }
+  for (const id of ids) {
+    const card = CARDS[id];
+    // a DIV, not a button: nothing here is clickable, so it shouldn't take focus
+    // — and a div sidesteps `.overlay button`, which repaints every overlay
+    // button gold and would have to be outranked selector by selector
+    const row = document.createElement('div');
+    row.className = 'lv-row' + (card.unique ? ' lv-row--unique' : '');
+    row.innerHTML =
+      '<div class="lv-row__copy">' +
+        '<div class="lv-row__line">' +
+          '<span class="lv-row__name">' + card.name.toUpperCase() + '</span>' +
+          '<span class="cs-chip">' + cardUnitLabel(card) + '</span>' +
+        '</div>' +
+        '<div class="lv-row__desc">' + card.desc + '</div>' +
+      '</div>' +
+      '<div class="lv-row__cmd">' +
+        '<span class="cs-pips">' + commandPips(card.weight) + '</span>' +
+        '<span class="lv-row__w">' + card.weight + ' CMD</span>' +
+      '</div>';
+    rows.appendChild(row);
+  }
+}
+
+// un-hide BEFORE building, same reasoning as openCodexOverlay (js/codex.js): a
+// card that throws while the overlay is still hidden leaves the player staring
+// at the field with no ✕ and nothing for Escape to claim
+function openLoadoutView() {
+  el('pause').classList.add('hidden');
+  el('loadout-view').classList.remove('hidden');
+  buildLoadoutView();
+  SFX.click();
+}
+
+// pause is the only way in, so there's no returnTo token to keep
+function closeLoadoutView() {
+  if (el('loadout-view').classList.contains('hidden')) return;
+  el('loadout-view').classList.add('hidden');
+  el('pause').classList.remove('hidden');
+  SFX.click();
+}
+
+function loadoutViewOpen() {
+  return !el('loadout-view').classList.contains('hidden');
+}
+
 // ---- endless endgame: the "Spotlight Locker" medal ceremony (design 2b)
 
 // count the hero medal number up from zero for a bit of ceremony

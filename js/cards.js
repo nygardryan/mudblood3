@@ -1776,77 +1776,78 @@ function buildBattlePlanUI() {
     grid.appendChild(none);
     return;
   }
-  // ---- compact filter row: all chips in one wrapping line
+  // ---- dropdown filter row: status · command · unit type
   //
-  // Groups: status | command weight | unit type.  Reset the unit-type filter
-  // when only one category exists so the collection doesn't show a singleton
-  // 'ALL' row.
+  // Three <select> elements in a single compact row.  Reset the unit-type
+  // filter when only one category exists so the collection doesn't show a
+  // singleton option.
   const cats = new Map();
   for (const id of data.owned) {
     const key = cardFilterKey(CARDS[id]);
     if (!cats.has(key)) cats.set(key, key === 'other' ? 'OTHER' : UNIT_TYPES[key].name.toUpperCase());
   }
 
-  // separator element between filter groups
-  function fsep() {
-    const s = document.createElement('span');
-    s.className = 'cs-fsep';
-    s.textContent = '|';
-    return s;
+  // rebuild helpers — called when any dropdown changes
+  function rebuildStatus() {
+    collectionStatusFilter = selStatus2.value === JSON.stringify(null) ? null : selStatus2.value;
+    SFX.click();
+    buildBattlePlanUI();
+  }
+  function rebuildCmd() {
+    const v = JSON.parse(selCmd.value);
+    collectionCmdFilter = v;
+    SFX.click();
+    buildBattlePlanUI();
+  }
+  function rebuildUnit() {
+    collectionFilter = selUnit.value || null;
+    SFX.click();
+    buildBattlePlanUI();
   }
 
-  // status: All / Deployed / Reserve
-  for (const [val, lbl] of [[null, 'ALL'], ['deployed', 'DEPLOYED'], ['reserve', 'RESERVE']]) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'cs-filter' + (collectionStatusFilter === val ? ' cs-filter--active' : '');
-    chip.textContent = lbl;
-    chip.addEventListener('click', () => {
-      if (collectionStatusFilter === val) return;
-      collectionStatusFilter = val;
-      SFX.click();
-      buildBattlePlanUI();
-    });
-    filterRow.appendChild(chip);
+  // status dropdown
+  const selStatus2 = document.createElement('select');
+  selStatus2.className = 'cs-ddown';
+  selStatus2.dataset.label = 'STATUS';
+  for (const [val, text] of [[JSON.stringify(null), 'All cards'], ['deployed', 'Deployed only'], ['reserve', 'Reserve only']]) {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = text;
+    selStatus2.appendChild(opt);
   }
-  filterRow.appendChild(fsep());
+  selStatus2.value = collectionStatusFilter === null ? JSON.stringify(null) : collectionStatusFilter;
+  selStatus2.addEventListener('change', rebuildStatus);
+  filterRow.appendChild(selStatus2);
 
-  // command weight: All / 1-2 / 3-4 / 5-6
-  const CMD_GROUPS = [
-    [null, 'CMD'],
-    [{ min: 1, max: 2 }, '1-2'],
-    [{ min: 3, max: 4 }, '3-4'],
-    [{ min: 5, max: 6 }, '5-6'],
-  ];
-  for (const [val, lbl] of CMD_GROUPS) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    const active = val === null
-      ? collectionCmdFilter === null
-      : collectionCmdFilter !== null && collectionCmdFilter.min === val.min && collectionCmdFilter.max === val.max;
-    chip.className = 'cs-filter' + (active ? ' cs-filter--active' : '');
-    chip.textContent = lbl;
-    chip.addEventListener('click', () => {
-      const same = val === null
-        ? collectionCmdFilter === null
-        : collectionCmdFilter !== null && collectionCmdFilter.min === val.min && collectionCmdFilter.max === val.max;
-      if (same) return;
-      collectionCmdFilter = val;
-      SFX.click();
-      buildBattlePlanUI();
-    });
-    filterRow.appendChild(chip);
+  // command weight dropdown
+  const selCmd = document.createElement('select');
+  selCmd.className = 'cs-ddown';
+  selCmd.dataset.label = 'CMD';
+  const cmdOpts = [[JSON.stringify(null), 'All weight'], [JSON.stringify({min:1,max:2}), '1-2 CMD'], [JSON.stringify({min:3,max:4}), '3-4 CMD'], [JSON.stringify({min:5,max:6}), '5-6 CMD']];
+  for (const [val, text] of cmdOpts) {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = text;
+    selCmd.appendChild(opt);
   }
-  filterRow.appendChild(fsep());
+  selCmd.value = JSON.stringify(collectionCmdFilter);
+  selCmd.addEventListener('change', rebuildCmd);
+  filterRow.appendChild(selCmd);
 
-  // unit-type chips; skip when there's nothing to split
+  // unit-type dropdown; hidden when there's nothing to split
   if (cats.size > 1) {
+    const selUnit = document.createElement('select');
+    selUnit.className = 'cs-ddown';
+    selUnit.dataset.label = 'TYPE';
+    const allOpt = document.createElement('option');
+    allOpt.value = '';
+    allOpt.textContent = 'All types';
+    selUnit.appendChild(allOpt);
     const entries = [...cats.entries()].sort((a, b) =>
       a[0] === 'other' ? 1 : b[0] === 'other' ? -1 : a[1].localeCompare(b[1]));
-    entries.unshift([null, 'ALL']);
     for (const [key, label] of entries) {
       const count = data.owned.filter(id => {
-        if (key !== null && cardFilterKey(CARDS[id]) !== key) return false;
+        if (cardFilterKey(CARDS[id]) !== key) return false;
         if (collectionCmdFilter !== null) {
           const w = CARDS[id].weight;
           if (w < collectionCmdFilter.min || w > collectionCmdFilter.max) return false;
@@ -1858,18 +1859,14 @@ function buildBattlePlanUI() {
         }
         return true;
       }).length;
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'cs-filter' + (collectionFilter === key ? ' cs-filter--active' : '');
-      chip.innerHTML = key === null ? label : label + ' <span class="cs-filter__cnt">' + count + '</span>';
-      chip.addEventListener('click', () => {
-        if (collectionFilter === key) return;
-        collectionFilter = key;
-        SFX.click();
-        buildBattlePlanUI();
-      });
-      filterRow.appendChild(chip);
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = label + ' (' + count + ')';
+      selUnit.appendChild(opt);
     }
+    selUnit.value = collectionFilter || '';
+    selUnit.addEventListener('change', rebuildUnit);
+    filterRow.appendChild(selUnit);
   } else {
     collectionFilter = null;
   }

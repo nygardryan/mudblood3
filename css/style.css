@@ -1025,39 +1025,33 @@ body {
   background: linear-gradient(180deg, #e7b93d, #b78e22);
 }
 
-/* multi-filter layout: all chips in one compact wrapping row */
+/* dropdown filter row: three <select> elements in a single line */
 #plan-filter.cs-filters {
   flex-direction: row;
-  gap: 2px;
+  gap: 6px;
   align-items: center;
 }
-#plan-filter .cs-filter {
-  padding: 3px 8px;
-  font-size: 9px;
-}
-.cs-fsep {
-  display: inline-block;
-  color: #3a3b28;
-  margin: 0 4px;
-  font-size: 10px;
+#plan-filter .cs-ddown {
+  font-family: inherit;
+  font-size: 11px;
   font-weight: bold;
-  user-select: none;
-  pointer-events: none;
+  letter-spacing: 0.5px;
+  background: #1b1c12;
+  color: #ddd5ad;
+  border: 1px solid #3a3b28;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  min-width: 0;
+  max-width: 170px;
+  appearance: auto;
 }
-.cs-filter__cnt {
-  display: inline-block;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 999px;
-  padding: 0 5px;
-  margin-left: 2px;
-  font-size: 8px;
-  line-height: 13px;
-  vertical-align: middle;
-  color: #6c6650;
+#plan-filter .cs-ddown:hover {
+  border-color: #50512f;
 }
-.cs-filter--active .cs-filter__cnt {
-  color: #1a160a;
-  background: rgba(0, 0, 0, 0.15);
+#plan-filter .cs-ddown:focus {
+  outline: none;
+  border-color: #e7b93d;
 }
 
 /* collection grid: compact chits with a deployed/reserve state stripe */

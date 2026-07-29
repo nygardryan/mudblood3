@@ -31,8 +31,6 @@ const PLAN_NAMES = ['LOADOUT A', 'LOADOUT B', 'LOADOUT C'];
 // collection grid filter: a UNIT_TYPES key, 'other' for cards with no unit
 // tie, or null to show everything. Reset whenever the card shop is (re)opened.
 let collectionFilter = null;
-let collectionCmdFilter = null;   // null or {min, max} — command weight range
-let collectionStatusFilter = null; // null, 'deployed', or 'reserve'
 const BASE_COMMAND_CAP = 6;
 const COMMAND_UPGRADE_BASE_COST = 5;
 
@@ -1581,8 +1579,6 @@ function openCardShop(fromScreen) {
   cardShopMode = 'shop';
   pendingLoadoutDiff = null;
   collectionFilter = null;
-  collectionCmdFilter = null;
-  collectionStatusFilter = null;
   cardShopReturnScreen = fromScreen || 'endless-select';
   el(cardShopReturnScreen).classList.add('hidden');
   applyCardShopMode();
@@ -1608,8 +1604,6 @@ function openEndlessLoadout(difficultyId) {
   cardShopMode = 'loadout';
   pendingLoadoutDiff = difficultyId;
   collectionFilter = null;
-  collectionCmdFilter = null;
-  collectionStatusFilter = null;
   cardShopReturnScreen = 'endless-select';
   el('endless-select').classList.add('hidden');
   applyCardShopMode();
@@ -1776,117 +1770,34 @@ function buildBattlePlanUI() {
     grid.appendChild(none);
     return;
   }
-  // ---- filter row: status | command weight | unit type
-  //
-  // Three filter groups laid out in separate flex rows inside a column.
-  // Reset the unit-type filter when only one category exists so the collection
-  // doesn't show a singleton 'ALL' row.
+  // one chip per unit type actually owned, plus ALL to clear and OTHER for
+  // cards with no unit tie; skip the row entirely when there's nothing to split
   const cats = new Map();
   for (const id of data.owned) {
     const key = cardFilterKey(CARDS[id]);
     if (!cats.has(key)) cats.set(key, key === 'other' ? 'OTHER' : UNIT_TYPES[key].name.toUpperCase());
   }
-  // status row: All / Deployed / Reserve
-  const statusGroup = document.createElement('div');
-  statusGroup.className = 'cs-fgroup';
-  for (const [val, lbl] of [[null, 'ALL'], ['deployed', 'DEPLOYED'], ['reserve', 'RESERVE']]) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'cs-filter' + (collectionStatusFilter === val ? ' cs-filter--active' : '');
-    chip.textContent = lbl;
-    chip.addEventListener('click', () => {
-      if (collectionStatusFilter === val) return;
-      collectionStatusFilter = val;
-      SFX.click();
-      buildBattlePlanUI();
-    });
-    statusGroup.appendChild(chip);
-  }
-  filterRow.appendChild(statusGroup);
-
-  // command weight row: All / 1-2 / 3-4 / 5-6
-  const cmdGroup = document.createElement('div');
-  cmdGroup.className = 'cs-fgroup';
-  const CMD_GROUPS = [
-    [null, 'ALL'],
-    [{ min: 1, max: 2 }, '1-2 CMD'],
-    [{ min: 3, max: 4 }, '3-4 CMD'],
-    [{ min: 5, max: 6 }, '5-6 CMD'],
-  ];
-  for (const [val, lbl] of CMD_GROUPS) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    const active = val === null
-      ? collectionCmdFilter === null
-      : collectionCmdFilter !== null && collectionCmdFilter.min === val.min && collectionCmdFilter.max === val.max;
-    chip.className = 'cs-filter' + (active ? ' cs-filter--active' : '');
-    chip.textContent = lbl;
-    chip.addEventListener('click', () => {
-      const same = val === null
-        ? collectionCmdFilter === null
-        : collectionCmdFilter !== null && collectionCmdFilter.min === val.min && collectionCmdFilter.max === val.max;
-      if (same) return;
-      collectionCmdFilter = val;
-      SFX.click();
-      buildBattlePlanUI();
-    });
-    cmdGroup.appendChild(chip);
-  }
-  filterRow.appendChild(cmdGroup);
-
-  // unit-type chips; skip when there's nothing to split so the whole row stays clean
   if (cats.size > 1) {
-    const unitGroup = document.createElement('div');
-    unitGroup.className = 'cs-fgroup cs-fgroup--wide';
     const entries = [...cats.entries()].sort((a, b) =>
       a[0] === 'other' ? 1 : b[0] === 'other' ? -1 : a[1].localeCompare(b[1]));
     entries.unshift([null, 'ALL']);
     for (const [key, label] of entries) {
-      // count how many cards match this type + other active filters
-      const count = data.owned.filter(id => {
-        if (key !== null && cardFilterKey(CARDS[id]) !== key) return false;
-        if (collectionCmdFilter !== null) {
-          const w = CARDS[id].weight;
-          if (w < collectionCmdFilter.min || w > collectionCmdFilter.max) return false;
-        }
-        if (collectionStatusFilter !== null) {
-          const equipped = plan.includes(id);
-          if (collectionStatusFilter === 'deployed' && !equipped) return false;
-          if (collectionStatusFilter === 'reserve' && equipped) return false;
-        }
-        return true;
-      }).length;
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'cs-filter' + (collectionFilter === key ? ' cs-filter--active' : '');
-      chip.innerHTML = label + ' <span class="cs-filter__cnt">' + count + '</span>';
+      chip.textContent = label;
       chip.addEventListener('click', () => {
         if (collectionFilter === key) return;
         collectionFilter = key;
         SFX.click();
         buildBattlePlanUI();
       });
-      unitGroup.appendChild(chip);
+      filterRow.appendChild(chip);
     }
-    filterRow.appendChild(unitGroup);
   } else {
     collectionFilter = null;
   }
-
-  // apply all three filter dimensions
-  const visible = data.owned.filter(id => {
-    if (collectionFilter !== null && cardFilterKey(CARDS[id]) !== collectionFilter) return false;
-    if (collectionCmdFilter !== null) {
-      const w = CARDS[id].weight;
-      if (w < collectionCmdFilter.min || w > collectionCmdFilter.max) return false;
-    }
-    if (collectionStatusFilter !== null) {
-      const equipped = plan.includes(id);
-      if (collectionStatusFilter === 'deployed' && !equipped) return false;
-      if (collectionStatusFilter === 'reserve' && equipped) return false;
-    }
-    return true;
-  });
+  const visible = data.owned.filter(id => collectionFilter === null || cardFilterKey(CARDS[id]) === collectionFilter);
   if (!visible.length) {
     const none = document.createElement('div');
     none.className = 'cs-chit cs-chit--empty';

@@ -123,16 +123,22 @@ function slopedArmorSoftens(u, by) {
 }
 
 // Heavy Shells / High Explosive: two unique cards, one for the mortarman and one
-// for the Sherman, both doubling the blast radius of the round the unit lobs.
+// for the Sherman, both widening the blast radius of the round the unit lobs.
 // The shell's damage is untouched — but explode()'s falloff is linear only down
-// to 30% at the rim, so twice the radius is four times the ground covered AND
-// roughly twice the damage to everything standing at the old edge. Flag-only,
-// like Cluster Rounds: the mortar fire block and the tank cannon block in
+// to 30% at the rim, so the area grows with the SQUARE of the multiplier (the
+// mortar's ×2 is 4× the ground covered, the tank's ×1.5 is 2.25×) and everything
+// standing at the old rim takes proportionally more. Flag-only, like Cluster
+// Rounds: the mortar fire block and the tank cannon block in
 // update-friendlies.js read G.cardsOwned through unitBlastMult() and scale the
 // r they hand to scheduleShell. explode() itself is unchanged — every visual it
 // draws (crater, flash, shockwave ring, fire and smoke spread) already derives
 // from that r.
+//
+// The two are separate constants on purpose: the mortarman lobs into open
+// ground at range, while the Sherman fires flat at whatever it is aimed at with
+// friendlies alongside it, so its burst is deliberately the smaller of the two.
 const BIG_BLAST_MULT = 2;
+const HE_BLAST_MULT = 1.5;
 
 // blast-radius multiplier for the shell this unit is about to fire. US only:
 // both fire blocks are shared with every enemy mortar team and every German,
@@ -141,7 +147,7 @@ const BIG_BLAST_MULT = 2;
 function unitBlastMult(u) {
   if (!u || u.side !== 'us' || !G.cardsOwned) return 1;
   if (u.type === 'mortarman' && G.cardsOwned.has('heavyshells')) return BIG_BLAST_MULT;
-  if (u.type === 'sherman' && G.cardsOwned.has('heshells')) return BIG_BLAST_MULT;
+  if (u.type === 'sherman' && G.cardsOwned.has('heshells')) return HE_BLAST_MULT;
   return 1;
 }
 
@@ -879,10 +885,10 @@ const CARD_UNIQUES = {
     hooks: {},
   },
   // flag-only, like Sloped Armor: the tank cannon block in updateTankCombat
-  // reads G.cardsOwned via unitBlastMult and doubles the r it hands the shell
+  // reads G.cardsOwned via unitBlastMult and widens the r it hands the shell
   heshells: {
     unit: 'sherman', name: 'High Explosive', cost: 13, weight: 5,
-    desc: `The 75mm loads HE: every cannon shell bursts across ${BIG_BLAST_MULT}x the radius. The tank fires it at whatever it is aimed at, with no regard for how close your own men are standing.`,
+    desc: `The 75mm loads HE: every cannon shell bursts across ${HE_BLAST_MULT}x the radius. The tank fires it at whatever it is aimed at, with no regard for how close your own men are standing.`,
     hooks: {},
   },
   // flag-only: maybeSpawnPassenger (called from input.js placement) reads

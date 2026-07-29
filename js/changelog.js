@@ -3,6 +3,14 @@
 // Add a new object to the TOP of this array whenever you ship changes.
 const CHANGELOG = [
   {
+    date: '2026-07-29',
+    title: 'High Explosive Toned Down',
+    changes: [
+      'HIGH EXPLOSIVE now widens the Sherman\'s cannon burst by half instead of doubling it. Blast is area, not width — doubling the radius was four times the ground covered, and half again is a little over twice. It is still a considerably bigger hole than the standard round.',
+      'The mortarman\'s HEAVY SHELLS is untouched at twice the radius. He lobs into open ground at range and holds fire when your own men are near the impact point; the tank fires flat at whatever it is aimed at and has never checked. The two cards no longer pretend that is the same shell.',
+    ],
+  },
+  {
     date: '2026-07-28',
     title: 'New Card: Forward Observer',
     changes: [

@@ -502,7 +502,18 @@ arms have a job; the flatcar itself is scenery, not an actor), and one `itarty`
 howitzer wagon on the tail. No shared pool
 anywhere → no de-dupe clause in `explode`/`flameSpray`, and adding one would be
 a bug. No damage control: dead wagons stay COUPLED as hulks (`syncTrainParts`
-repositions dead parts on purpose, unlike hers). One pool ticked into
+repositions dead parts on purpose, unlike hers). It is also the one boss with a
+**second way to die**: strip every wagon and the engine dies with them, polled at
+the top of `updateWarTrain` (the phase poll's reasoning — every damage source
+reaches it for free) and routed back through `damageEnemy` so the ordinary boss
+death path runs, `bossVictory()` included. That is a stall-breaker, not a
+shortcut: the wagons are PLATED by the engine's health, so stripping all eight at
+phase 0 costs ~55k against its 26k pool, and it only pays for a player who has
+already broken segments the ordinary way. Its one knock-on is the wreck stamps —
+the death cascade in `damage.js` now stamps armored wagons ABOVE its `p.dead`
+skip, because `drawWarTrainPass` drops the whole consist the instant the engine
+dies and wagons killed earlier would otherwise leave nothing but an engine wreck.
+One pool ticked into
 `TRAIN_SEGMENTS` (3) phases, polled with a `while` in `updateWarTrain`; each
 break runs `trainSoundsCharge`, which arms the SAME `G.itCharge` signed clock
 the ambient AVANTI runs (telegraph included) rather than firing a charge of its

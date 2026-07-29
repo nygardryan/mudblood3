@@ -925,11 +925,16 @@ function damageEnemy(e, dmg, from, kind) {
       const trainParts = e.parts || [];
       for (let i = 0; i < trainParts.length; i++) {
         const p = trainParts[i];
+        // wreck decals for the armored wagons only — four crew posts would just
+        // stamp one overlapping blob over the gun wagon's own. Stamped for the
+        // ALREADY-dead ones too, above the skip: a wagon knocked out earlier is
+        // drawn as a coupled hulk only while the consist is drawn at all, and
+        // drawWarTrainPass drops the whole train the moment the engine dies — so
+        // without this the stripped-consist death above would leave nothing on
+        // the field but one engine wreck. They owe a decal, not a second blast.
+        if (p.t.tank) stampWreck(p);
         if (p.dead) continue;
         p.dead = true;
-        // wreck decals for the armored wagons only — four crew posts would just
-        // stamp one overlapping blob over the gun wagon's own
-        if (p.t.tank) stampWreck(p);
         scheduleShell(p.x, p.y, 0.14 + i * 0.16, 45, 55, true, null);
       }
       stampWreck(e);

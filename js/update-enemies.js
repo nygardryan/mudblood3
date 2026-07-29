@@ -1705,6 +1705,24 @@ function trainCrush(e, dt) {
 function updateWarTrain(e, dt) {
   if (!e.trainInit) initWarTrain(e);
 
+  // A STRIPPED CONSIST is a dead boss. Once every wagon is a hulk the engine has
+  // no guns, no boxcar and nothing left to be but a locomotive, so working the
+  // consist off it is a second way to win the fight — and, more importantly, the
+  // reason it can't stall: with the parked train's whole armament burnt out
+  // neither side can reach the other. It is not a shortcut. The wagons are PLATED
+  // by the engine's own health (bossPartDamageMult), so stripping all eight at
+  // phase 0 costs ~55k against the engine's 26k pool; it only pays off for a
+  // player who has already broken segments off the engine the ordinary way.
+  //
+  // Polled here rather than hooked into the part-death branch in damage.js, on the
+  // phase poll's reasoning below: every damage source (shells, blast, the crush,
+  // a TEST kill) reaches it for free. Routed back through damageEnemy so the whole
+  // boss death path runs — TP, recap, the wrecks along the rails and bossVictory().
+  if (e.parts.length && e.parts.every(p => p.dead)) {
+    damageEnemy(e, e.hp, null, null);
+    return;
+  }
+
   // ONE HP pool drawn as TRAIN_SEGMENTS bars — the Progenitor's poll, verbatim:
   // polled here rather than hooked into damageEnemy so it's robust to every
   // damage source, and a WHILE because one big hit can empty two segments and

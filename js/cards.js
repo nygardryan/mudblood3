@@ -1776,19 +1776,26 @@ function buildBattlePlanUI() {
     grid.appendChild(none);
     return;
   }
-  // ---- filter row: status | command weight | unit type
+  // ---- compact filter row: all chips in one wrapping line
   //
-  // Three filter groups laid out in separate flex rows inside a column.
-  // Reset the unit-type filter when only one category exists so the collection
-  // doesn't show a singleton 'ALL' row.
+  // Groups: status | command weight | unit type.  Reset the unit-type filter
+  // when only one category exists so the collection doesn't show a singleton
+  // 'ALL' row.
   const cats = new Map();
   for (const id of data.owned) {
     const key = cardFilterKey(CARDS[id]);
     if (!cats.has(key)) cats.set(key, key === 'other' ? 'OTHER' : UNIT_TYPES[key].name.toUpperCase());
   }
-  // status row: All / Deployed / Reserve
-  const statusGroup = document.createElement('div');
-  statusGroup.className = 'cs-fgroup';
+
+  // separator element between filter groups
+  function fsep() {
+    const s = document.createElement('span');
+    s.className = 'cs-fsep';
+    s.textContent = '|';
+    return s;
+  }
+
+  // status: All / Deployed / Reserve
   for (const [val, lbl] of [[null, 'ALL'], ['deployed', 'DEPLOYED'], ['reserve', 'RESERVE']]) {
     const chip = document.createElement('button');
     chip.type = 'button';
@@ -1800,18 +1807,16 @@ function buildBattlePlanUI() {
       SFX.click();
       buildBattlePlanUI();
     });
-    statusGroup.appendChild(chip);
+    filterRow.appendChild(chip);
   }
-  filterRow.appendChild(statusGroup);
+  filterRow.appendChild(fsep());
 
-  // command weight row: All / 1-2 / 3-4 / 5-6
-  const cmdGroup = document.createElement('div');
-  cmdGroup.className = 'cs-fgroup';
+  // command weight: All / 1-2 / 3-4 / 5-6
   const CMD_GROUPS = [
-    [null, 'ALL'],
-    [{ min: 1, max: 2 }, '1-2 CMD'],
-    [{ min: 3, max: 4 }, '3-4 CMD'],
-    [{ min: 5, max: 6 }, '5-6 CMD'],
+    [null, 'CMD'],
+    [{ min: 1, max: 2 }, '1-2'],
+    [{ min: 3, max: 4 }, '3-4'],
+    [{ min: 5, max: 6 }, '5-6'],
   ];
   for (const [val, lbl] of CMD_GROUPS) {
     const chip = document.createElement('button');
@@ -1830,19 +1835,16 @@ function buildBattlePlanUI() {
       SFX.click();
       buildBattlePlanUI();
     });
-    cmdGroup.appendChild(chip);
+    filterRow.appendChild(chip);
   }
-  filterRow.appendChild(cmdGroup);
+  filterRow.appendChild(fsep());
 
-  // unit-type chips; skip when there's nothing to split so the whole row stays clean
+  // unit-type chips; skip when there's nothing to split
   if (cats.size > 1) {
-    const unitGroup = document.createElement('div');
-    unitGroup.className = 'cs-fgroup cs-fgroup--wide';
     const entries = [...cats.entries()].sort((a, b) =>
       a[0] === 'other' ? 1 : b[0] === 'other' ? -1 : a[1].localeCompare(b[1]));
     entries.unshift([null, 'ALL']);
     for (const [key, label] of entries) {
-      // count how many cards match this type + other active filters
       const count = data.owned.filter(id => {
         if (key !== null && cardFilterKey(CARDS[id]) !== key) return false;
         if (collectionCmdFilter !== null) {
@@ -1859,16 +1861,15 @@ function buildBattlePlanUI() {
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'cs-filter' + (collectionFilter === key ? ' cs-filter--active' : '');
-      chip.innerHTML = label + ' <span class="cs-filter__cnt">' + count + '</span>';
+      chip.innerHTML = key === null ? label : label + ' <span class="cs-filter__cnt">' + count + '</span>';
       chip.addEventListener('click', () => {
         if (collectionFilter === key) return;
         collectionFilter = key;
         SFX.click();
         buildBattlePlanUI();
       });
-      unitGroup.appendChild(chip);
+      filterRow.appendChild(chip);
     }
-    filterRow.appendChild(unitGroup);
   } else {
     collectionFilter = null;
   }

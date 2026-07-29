@@ -11,12 +11,16 @@ function fogMult() { return G.fog > 0 ? 0.6 : 1; }
 function braveStandsFast(u) {
   if (u.side !== 'us' || !G.cardsOwned) return false;
   const t = u.t;
+  // fogMult, exactly as fireShotgun and flameSpray apply it: the reach tested
+  // here has to be the reach he can actually SHOOT, or fog inverts the card —
+  // it holds him on his feet against a man 77px out that his buckshot only
+  // carries 58px to, which is the one situation ducking is for.
   if (t.shotgun && G.cardsOwned.has('pointblank')) {
     const slug = G.cardsOwned.has('rifledslugs');
-    return !!nearestEnemyInRange(u, unitRange(u, t.shotgun.range) * (slug ? 1.6 : 1));
+    return !!nearestEnemyInRange(u, unitRange(u, t.shotgun.range) * fogMult() * (slug ? 1.6 : 1));
   }
   if (t.flame && G.cardsOwned.has('trialbyfire')) {
-    return !!nearestEnemyInRange(u, unitRange(u, t.flame.range));
+    return !!nearestEnemyInRange(u, unitRange(u, t.flame.range) * fogMult());
   }
   return false;
 }

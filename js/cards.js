@@ -1222,6 +1222,19 @@ const CARDS = {};
   }
 }
 
+// the command ceiling: the summed weight of the whole catalog, which is what a
+// plan holding literally every card would occupy. A point past it can never be
+// spent on anything, so it is where buyCommandCapacity stops selling.
+//
+// It is also a SAFETY RAIL, and that is the reason it is enforced on load and
+// not only at the till. Three sites walk the capacity one step at a time — the
+// upgrade price (a loop from BASE_COMMAND_CAP), the segmented budget bar (one
+// DOM node per point), and the plan shed in loadEndlessCards — so a capacity
+// that arrives absurd from a corrupted or hand-edited save doesn't render
+// wrong, it hangs the tab on the menu with no way back out. Derived rather than
+// written down so it can't drift as cards are added.
+const MAX_COMMAND_CAP = Object.keys(CARDS).reduce((sum, id) => sum + CARDS[id].weight, 0);
+
 // Standard Issue: at spawn, a support unit with the card for its type trades
 // its sidearm for the rifleman's M1 weapon profile. The shared UNIT_TYPES
 // entry is cloned so only this man's gun changes — his aura, healing, or
@@ -1323,7 +1336,7 @@ function loadEndlessCards() {
   const offer = Array.isArray(data.offer) ? data.offer : [];
   data.offer = offer.filter(id => CARDS[id] && !data.owned.includes(id));
   data.capacity = Number.isFinite(data.capacity)
-    ? Math.max(BASE_COMMAND_CAP, Math.floor(data.capacity)) : BASE_COMMAND_CAP;
+    ? clamp(Math.floor(data.capacity), BASE_COMMAND_CAP, MAX_COMMAND_CAP) : BASE_COMMAND_CAP;
   data.activePlan = Number.isInteger(data.activePlan)
     ? clamp(data.activePlan, 0, PLAN_SLOTS - 1) : 0;
   // reroll price is always a power-of-two multiple of the base; a missing or
@@ -1374,6 +1387,16 @@ function saveEndlessCards(data) {
   localStorage.setItem(ENDLESS_CARDS_KEY, JSON.stringify(data));
 }
 
+// how many cards are neither owned nor already on display — the deck the shop
+// still has left to draw from. Both medal sinks that PROMISE a new card gate on
+// this: a reroll that can't turn a single slot over, and a slot that would open
+// onto SOLD OUT, are purchases of nothing, and a completionist would otherwise
+// pay for them (and double the reroll price) with the deck empty.
+function undrawnCardCount(data) {
+  const taken = new Set([...data.owned, ...data.offer]);
+  return Object.keys(CARDS).filter(id => !taken.has(id)).length;
+}
+
 // a random card the player neither owns nor is currently being offered
 function drawUnofferedCard(data) {
   const taken = new Set([...data.owned, ...data.offer]);
@@ -1409,6 +1432,7 @@ function commandUpgradeCost(capacity) {
 
 function buyCommandCapacity() {
   const data = loadEndlessCards();
+  if (data.capacity >= MAX_COMMAND_CAP) return false;
   const cost = commandUpgradeCost(data.capacity);
   if (cost > data.medals) return false;
   data.medals -= cost;
@@ -1428,6 +1452,9 @@ function buyShopSlot() {
   const data = loadEndlessCards();
   const cost = shopSlotUpgradeCost(data.shopSlots);
   if (cost === null || cost > data.medals) return false;
+  // a slot with nothing to put in it is a SOLD OUT placeholder bought at full
+  // price, and the deck never refills — nothing un-owns a card
+  if (!undrawnCardCount(data)) return false;
   data.medals -= cost;
   data.shopSlots += 1;
   // stock the freshly opened slot so it isn't a "SOLD OUT" placeholder
@@ -1443,6 +1470,10 @@ function buyShopSlot() {
 function rerollShop() {
   const data = loadEndlessCards();
   if (data.rerollCost > data.medals) return false;
+  // with every remaining card already on display there is nothing a reroll can
+  // turn over: it would charge the medals, double its own price, and hand back
+  // the same row (or, with the deck fully collected, an empty one)
+  if (!undrawnCardCount(data)) return false;
   data.medals -= data.rerollCost;
   const avoid = new Set([...data.owned, ...data.offer]);
   data.offer = [];
@@ -1669,16 +1700,22 @@ function buildCardShopUI() {
     });
     row.appendChild(btn);
   }
+  // both medal sinks below sell a card the shop hasn't shown yet, so both go
+  // dead when the deck runs out — and SAY so, or they read as a broken button
+  const undrawn = undrawnCardCount(data);
   const reroll = el('card-shop-reroll');
   if (reroll) {
-    reroll.textContent = 'REROLL — ' + medalLabel(data.rerollCost);
-    reroll.disabled = data.rerollCost > data.medals;
+    reroll.textContent = undrawn ? 'REROLL — ' + medalLabel(data.rerollCost) : 'REROLL — DECK EMPTY';
+    reroll.disabled = !undrawn || data.rerollCost > data.medals;
   }
   const slotBtn = el('card-shop-slot');
   if (slotBtn) {
     const slotCost = shopSlotUpgradeCost(data.shopSlots);
     if (slotCost === null) {
       slotBtn.textContent = 'CARD SLOTS — MAX (6)';
+      slotBtn.disabled = true;
+    } else if (!undrawn) {
+      slotBtn.textContent = '+1 CARD SLOT — DECK EMPTY';
       slotBtn.disabled = true;
     } else {
       slotBtn.textContent = '+1 CARD SLOT — ' + medalLabel(slotCost);
@@ -1720,9 +1757,14 @@ function buildBattlePlanUI() {
     segs.appendChild(seg);
   }
   const upBtn = el('plan-upgrade');
-  const upCost = commandUpgradeCost(data.capacity);
-  upBtn.textContent = `+1 COMMAND — ${medalLabel(upCost)}`;
-  upBtn.disabled = upCost > data.medals;
+  if (data.capacity >= MAX_COMMAND_CAP) {
+    upBtn.textContent = `COMMAND — MAX (${MAX_COMMAND_CAP})`;
+    upBtn.disabled = true;
+  } else {
+    const upCost = commandUpgradeCost(data.capacity);
+    upBtn.textContent = `+1 COMMAND — ${medalLabel(upCost)}`;
+    upBtn.disabled = upCost > data.medals;
+  }
   const grid = el('plan-collection');
   const filterRow = el('plan-filter');
   grid.replaceChildren();

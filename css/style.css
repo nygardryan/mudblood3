@@ -494,9 +494,7 @@ body {
   flex-wrap: nowrap;
   gap: 4px;
   align-items: stretch;
-  /* `safe` keeps a bar that overflows scrollable from its start instead of
-     clipping the left half off-screen */
-  justify-content: safe center;
+  justify-content: flex-start;
   pointer-events: auto;
   z-index: 5;
   overflow-x: auto;

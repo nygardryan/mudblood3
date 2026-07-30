@@ -275,6 +275,31 @@ function draw() {
     if (!e.dead && e.t.shotgun && e.shotgunBlastT > 0) drawShotgunBlast(e);
   }
 
+  // sniper laser sights: a thin red beam from the scope to the current mark,
+  // brightest at the muzzle, ending in an aiming dot on the man it will hit.
+  // _laserTgt is stamped by the sniper branch of updateUnit; a pinned or
+  // running sniper is off his glass, so the stale ref those early returns
+  // leave behind is skipped here rather than cleared there.
+  for (const u of G.units) {
+    if (u.dead || u.type !== 'sniper' || u.prone > 0 || u.moveTo) continue;
+    const m = u._laserTgt;
+    if (!m || !inTheFight(m)) continue;
+    if (cullOn && (Math.max(u.x, m.x) < cullX0 || Math.min(u.x, m.x) > cullX1 ||
+                   Math.max(u.y, m.y) < cullY0 || Math.min(u.y, m.y) > cullY1)) continue;
+    const mx = u.x + Math.cos(u.face) * (u.t.gun + 3);
+    const my = u.y + Math.sin(u.face) * (u.t.gun + 3);
+    const beam = ctx.createLinearGradient(mx, my, m.x, m.y);
+    beam.addColorStop(0, 'rgba(255,45,35,0.5)');
+    beam.addColorStop(1, 'rgba(255,45,35,0.14)');
+    ctx.strokeStyle = beam;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(m.x, m.y); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,70,50,0.3)';
+    ctx.beginPath(); ctx.arc(m.x, m.y, 2.6, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,40,30,0.95)';
+    ctx.beginPath(); ctx.arc(m.x, m.y, 1.2, 0, 7); ctx.fill();
+  }
+
   // tracers — the round races from muzzle to impact, then the streak fades
   // out behind it rather than flashing on at full length for its whole life
   for (const tr of G.tracers) {

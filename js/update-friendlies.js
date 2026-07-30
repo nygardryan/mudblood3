@@ -342,6 +342,11 @@ function updateUnit(u, dt) {
     // (which sets u.armed at spawn) gives him a weapon
   } else if (u.type === 'sniper') {
     target = sniperTarget(u, range);
+    // laser sight: track the mark between shots so the beam runs down the
+    // rifle instead of kinking off the last shot's facing. Draw-only ref,
+    // re-stamped every tick and stripped from the run save like _tgt.
+    u._laserTgt = target;
+    if (target) u.face = Math.atan2(target.y - u.y, target.x - u.x);
   } else {
     target = primaryEnemyTarget(u, range);
   }

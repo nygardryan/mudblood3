@@ -559,9 +559,40 @@ function drawPlacementDefenseGhost(key, x, y, valid) {
   blitGhostBuffer(buf, x, y);
 }
 
+// red tint over ground where the armed placeable cannot go (same style and
+// edge bands as drawMoveRestrictedZone). Drawn whenever a purchase is armed,
+// not just while the pointer is over the field — touch has no hover, so this
+// is the mobile player's only map of where building is barred.
+function drawPlacementRestrictedZone(p) {
+  if (p.kind !== 'unit' && p.kind !== 'defense') return;
+  const minX = placementMinX(p);
+  const maxX = W - 14;
+  ctx.fillStyle = 'rgba(200,50,40,0.12)';
+  if (minX > 0) ctx.fillRect(0, 0, minX, H);
+  ctx.fillRect(maxX, 0, W - maxX, H);
+  ctx.fillRect(minX, 0, maxX - minX, 16);
+  ctx.fillRect(minX, H - 16, maxX - minX, 16);
+  // engineers extend the build zone forward: carve green pockets into the red
+  // for each engineer's radius, between the forward line and the deploy limit
+  if (p.kind === 'defense' && minX > FORWARD_X) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(FORWARD_X, 0, minX - FORWARD_X, H);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(90,180,110,0.20)';
+    for (const u of G.units) {
+      if (u.dead || u.type !== 'engineer' || u.side !== 'us') continue;
+      ctx.beginPath(); ctx.arc(u.x, u.y, ENGINEER_RANGE, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
 function drawPlacementGhost() {
-  if (!placing || !mouse.inside) return;
+  if (!placing) return;
   const p = placing;
+  drawPlacementRestrictedZone(p);
+  if (!mouse.inside) return;
   const x = mouse.x, y = mouse.y;
   const valid = placementValid(p, x, y);
   ctx.globalAlpha = 0.55;
@@ -594,23 +625,6 @@ function drawPlacementGhost() {
     ctx.moveTo(x, y - 10); ctx.lineTo(x, y + 10);
     ctx.stroke();
   } else {
-    // shade the invalid zone
-    ctx.fillStyle = 'rgba(200,50,40,0.12)';
-    ctx.fillRect(0, 0, placementMinX(p), H);
-    // engineers extend the build zone forward: carve green pockets into the red
-    // for each engineer's radius, between the forward line and the deploy limit
-    if (p.kind === 'defense' && placementMinX(p) > FORWARD_X) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(FORWARD_X, 0, placementMinX(p) - FORWARD_X, H);
-      ctx.clip();
-      ctx.fillStyle = 'rgba(90,180,110,0.20)';
-      for (const u of G.units) {
-        if (u.dead || u.type !== 'engineer' || u.side !== 'us') continue;
-        ctx.beginPath(); ctx.arc(u.x, u.y, ENGINEER_RANGE, 0, 7); ctx.fill();
-      }
-      ctx.restore();
-    }
     const ghostPositions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
     for (const pos of ghostPositions) {
       if (p.kind === 'unit') {

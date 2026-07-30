@@ -57,7 +57,7 @@ let runSaveCache;
 // canvas (_sprite), or a ref/Set re-encoded separately below.
 const SAVE_STRIP = new Set([
   't', '_sprite',
-  '_tgt', '_tgtUntil', '_camoNest', '_camoFrame', '_buffs', '_buffsFrame',
+  '_tgt', '_tgtUntil', '_laserTgt', '_camoNest', '_camoFrame', '_buffs', '_buffsFrame',
   '_spotted', '_spotFrame', '_repairCount', '_repairCountFrame',
   'flameTarget', 'mgTarget', 'awHit',
   // boss parent/part links and work links — re-encoded as indices

@@ -276,9 +276,12 @@ function tutEnterStep(step) {
       break;
     case 'zoomOut':
       if (mobileViewActive()) {
-        // the full map never fits a phone screen: release the cam and reset
+        // the full map never fits a phone screen: release the cam and snap to
+        // the widest available view. NOT resetViewCam — its normal gameplay
+        // default is cover (deliberately MORE zoomed in, to fill the screen),
+        // which would defeat the entire point of a step called "zoom out".
         T.cam.active = false;
-        resetViewCam(G.mode);
+        tutSetCam(containZoom(), W / 2, H / 2, true);
         T.timer = 1.5;
       } else {
         tutSetCam(1, W / 2, H / 2);

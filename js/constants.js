@@ -690,7 +690,7 @@ const ENEMY_TYPES = {
     mg: { range: 161, dmg: 8, acc: 0.42, burst: 6, burstGap: 0.08, gun: 26, sfx: 'mg' },
   },
   // A20 "V2" battery — a rear-echelon siege weapon, not a soldier. It stakes
-  // itself out near the top of the field the instant it spawns and mostly
+  // itself out just inside the enemy's own edge the instant it spawns and mostly
   // holds position, but pushes forward on the same discipline-break urge as
   // any German infantry; the counter is to reach out and kill it (AT gun,
   // artillery, a bazooka that gets lucky) before its next launch window
@@ -1656,7 +1656,7 @@ const ENEMY_INFO = {
   estug: 'StuG III assault gun. Low-profile casemate mount; hunts bunkers and armor from range.',
   etiger: 'Tiger I heavy tank. Nearly impenetrable frontal armor and a devastating 88mm.',
   ev2: 'A20 rocket battery. Mostly holds position but pushes forward under fire like any infantry, covers most of the map, and hits hard where it lands — wildly inaccurate, but it hunts vehicles first and wrecks them fast. Doesn\'t show up until the fighting gets desperate.',
-  eboss: 'Der Schlächter — the dark-haired executioner who takes the field every hundredth wave. Six revolver shots, each one a kill, and enough of a punch to hole a Sherman. When the cylinder runs dry he falls back to the top of the field, refits his plate and calls in reinforcements, then comes again down a different lane. Shell him while he reloads.',
+  eboss: 'Der Schlächter — the dark-haired executioner who takes the field every hundredth wave. Six revolver shots, each one a kill, and enough of a punch to hole a Sherman. When the cylinder runs dry he falls back up the field, refits his plate and calls in reinforcements, then comes again down a different lane. Shell him while he reloads.',
   // Imperial Japanese Army — the alternate endless foe. All of them are
   // fanatics: they never hit the dirt, closing the distance instead of pinning.
   jrifle: 'Imperial infantry with a Type 38 Arisaka and a long bayonet. Fanatical — never goes to ground, just keeps coming.',
@@ -1712,7 +1712,7 @@ const ENEMY_INFO = {
   isemo: 'Semovente 75/18 assault gun. A low casemate mount with no turret and the best anti-tank punch the Italians bring; it stands off and shells your bunkers and armour.',
   ibersa: 'Bersagliere close-assault trooper in a plumed helmet. Elite and quick — he runs the open ground to get inside buckshot range, then stops and shreds your line at point-blank. He never digs in; he is what comes out of the works at you.',
   awalker: 'No army fields this. It walks out of the treeline on three legs some time after the six hundred and sixty-sixth wave, plants itself beyond every rifle you own, and sweeps a lance of light across the whole sector — enough in one pass to gut a Sherman, and it does not care whose men are underneath. It comes whoever you are fighting, and the longer you last the more of them come. Artillery and anti-tank guns are the only things that reach it.',
-  itrain: 'The Italian final boss: an armored war train that rolls straight down its rails and PARKS at the bottom of your sector. Two turret wagons shell your line, four gun posts rake it, and an infantry wagon unloads fanteria beside the track. On the tail is a howitzer wagon that outranges every mortar you own and drops heavy shells across your whole trench — but it cannot depress onto anything close, so men who get in among the wheels are safe from it. Small arms only reach the gun crews — bring explosives. Every third of the engine\'s health you strip away, the whole army answers with an AVANTI charge.',
+  itrain: 'The Italian final boss: an armored war train that rolls straight down its rails and PARKS deep inside your sector. Two turret wagons shell your line, four gun posts rake it, and an infantry wagon unloads fanteria beside the track. On the tail is a howitzer wagon that outranges every mortar you own and drops heavy shells across your whole trench — but it cannot depress onto anything close, so men who get in among the wheels are safe from it. Small arms only reach the gun crews — bring explosives. Every third of the engine\'s health you strip away, the whole army answers with an AVANTI charge.',
 };
 
 const EVENT_INFO = [
@@ -2034,7 +2034,7 @@ const TESTING_ITALIAN_PLACEABLES = [
   // the engine only — its seven wagon/crew parts are built by initWarTrain on
   // the first tick, so deploying the boss deploys the whole consist
   { key: 'itrain', label: 'TRENO ARMATO', cost: 400, kind: 'egerman', hotkey: '',
-    desc: 'The Italian final boss: an armored war train that parks at the bottom of the field. Normally arrives at wave 100 — testing mode rolls one in on demand.' },
+    desc: 'The Italian final boss: an armored war train that parks deep inside your sector. Normally arrives at wave 100 — testing mode rolls one in on demand.' },
   // The field works. Their own kind ('itwork') because they aren't units — they
   // route through applyPlacement's G.itWorks branch, not makeEnemy. `workKind`
   // indexes IT_WORK_KINDS; the key only has to be unique in the toolbar.

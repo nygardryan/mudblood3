@@ -620,28 +620,44 @@ function drawFallingBomb(s) {
   const st = bombFlightState(s);
   const scale = (s.big ? 1.15 : 0.9) * (0.7 + (1 - st.altN) * 0.6);   // near speck at altitude, full-size at impact
 
+  // Which way it is going ON SCREEN, which is what both the streak and the nose
+  // below have to line up with. DERIVED from bombFlightState rather than
+  // differenced between frames: the ground track walks to the marker at a
+  // constant rate while the apparent altitude bleeds off as (1-f)^1.5, so the
+  // drawn motion is the d/df of that, exact at both ends and needing no dt.
+  //
+  // This was hand-rolled as `(x - sx, (y - altN*ARC) - sy)`, which is neither
+  // the velocity nor the release-to-here vector — it folds the CURRENT altitude
+  // into a term that should carry how much has been LOST, so it swings through
+  // zero mid-fall and the bomb rotates ~180° on the way down. It reads worst
+  // now, with the fall axis (screen y) square to the run-in axis (x), but it
+  // predates the landscape flip and was wrong in portrait too (mean nose error
+  // 115° there against 91° here — the flip made it less wrong, not more).
+  const vx = s.x - s.sx;
+  const vy = (s.y - s.sy) + 1.5 * Math.sqrt(Math.max(0, 1 - st.f)) * BOMB_FALL_ARC;
+  const vl = Math.hypot(vx, vy) || 1;
+
   // the whistle-streak: a faint tapering blur back along the fall path,
   // longest at speed near the ground
   const streak = 22 + (1 - st.altN) * 40;
-  const dx = s.x - s.sx, dy = (s.y - st.altN * BOMB_FALL_ARC) - s.sy;
-  const dl = Math.hypot(dx, dy) || 1;
   c.strokeStyle = `rgba(220,220,225,${0.06 + (1 - st.altN) * 0.12})`;
   c.lineWidth = 1.4 * scale;
   c.beginPath();
   c.moveTo(st.x, st.y);
-  c.lineTo(st.x - dx / dl * streak, st.y - dy / dl * streak);
+  c.lineTo(st.x - vx / vl * streak, st.y - vy / vl * streak);
   c.stroke();
 
   c.save();
   c.translate(st.x, st.y);
-  // nose points along the fall, tumbling slowly as it goes
-  c.rotate(Math.atan2(dy, dx) + Math.PI / 2 + Math.sin(s.spin + st.f * 6) * 0.12);
+  // nose points along the fall, tumbling slowly as it goes. The body below is
+  // authored nose at local +y, so the turn onto its course is `heading - PI/2`.
+  c.rotate(Math.atan2(vy, vx) - Math.PI / 2 + Math.sin(s.spin + st.f * 6) * 0.12);
   c.scale(scale, scale);
 
   // body: a stubby iron teardrop, lit down one flank
   c.fillStyle = '#2b2a24';
   c.beginPath();
-  c.moveTo(0, 9);                       // nose (pointing down-field)
+  c.moveTo(0, 9);                       // nose (local +y; the rotate above aims it)
   c.quadraticCurveTo(4.2, 2, 3.6, -5);
   c.lineTo(-3.6, -5);
   c.quadraticCurveTo(-4.2, 2, 0, 9);

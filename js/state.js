@@ -25,6 +25,15 @@ let viewDirty = false;
 let viewGesture = null;   // two-finger pinch/pan snapshot
 const activePointers = new Map();
 const VIEW_ZOOM_MAX_MUL = 2.5;
+// How much of an axis has to hang off the screen before the view is treated as
+// PANNABLE — the view strip appears and edge-auto-pan arms. This is not a float
+// epsilon: the field's 880:406 is cut to 19.5:9 on purpose, so a phone of that
+// nominal shape lands a pixel or two off in whichever direction its device-pixel
+// rounding falls, and both sites used to test `< W - 1`. That was enough to
+// declare 1.4px of hidden field pannable on the exact phone class the ratio was
+// cut FOR — a dead 4px strip across the top of the game, and edge-auto-pan
+// arming for a pan that travels a pixel and stops.
+const VIEW_PAN_MIN = 8;
 let lastFitZoom = null;
 
 function clearLongPress() {

@@ -56,6 +56,15 @@ function viewScale() {
   return canvas.width / viewSize().viewW;
 }
 
+// How much field hangs off the screen on each axis, and whether that is enough
+// to be worth navigating (VIEW_PAN_MIN, js/state.js). The view strip and
+// edge-auto-pan both read this, so the two can never disagree about which axes
+// the player is allowed to move along.
+function viewPanRange(zoom = viewCam.zoom) {
+  const { viewW, viewH } = viewSize(zoom);
+  return { x: Math.max(0, W - viewW), y: Math.max(0, H - viewH) };
+}
+
 function clampCamera() {
   const { viewW, viewH } = viewSize();
   // when the view is wider/taller than the field (zoomed out to fit), centre
@@ -116,12 +125,12 @@ function edgeAutoPan(clientX, clientY) {
   const margin = 44;
   const speed = 10 / viewScale();
   let moved = false;
-  const { viewW, viewH } = viewSize();
-  if (viewW < W - 1) {
+  const pan = viewPanRange();
+  if (pan.x > VIEW_PAN_MIN) {
     if (clientX - r.left < margin) { viewCam.x -= speed; moved = true; }
     if (r.right - clientX < margin) { viewCam.x += speed; moved = true; }
   }
-  if (viewH < H - 1) {
+  if (pan.y > VIEW_PAN_MIN) {
     // the HUD owns the top edge and the toolbar the bottom on every mobile
     // layout now, so both margins carry the chrome allowance unconditionally
     const topMargin = margin + 36;
@@ -239,10 +248,12 @@ function syncViewStrip() {
   const win = el('view-strip-window');
   if (!strip || !win) return;
   const { viewW, viewH } = viewSize();
-  const panX = viewW < W - 1;
-  const panY = viewH < H - 1;
-  // only meaningful when the field overflows the view on some axis — if it
-  // all fits, there's nothing to pan to and the strip would be a dead bar
+  const pan = viewPanRange();
+  const panX = pan.x > VIEW_PAN_MIN;
+  const panY = pan.y > VIEW_PAN_MIN;
+  // only meaningful when the field overflows the view by enough to be worth
+  // moving to — if it all fits (or all but a couple of px does) there is
+  // nothing to pan to and the strip is a dead bar
   const on = mobileViewActive() && isPlaying() && !paused && (panX || panY);
   strip.classList.toggle('hidden', !on);
   if (!on) return;

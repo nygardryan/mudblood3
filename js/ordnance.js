@@ -568,7 +568,12 @@ function drawBomberShadow(p) {
 
   c.save();
   c.translate(p.x, p.y);
-  c.rotate(Math.atan2(p.vy, p.vx) - Math.PI / 2);
+  // The silhouette below is authored nose -y, so the turn onto its course is
+  // `heading + PI/2` — the same term the kamikaze in drawPlane uses, and for
+  // the same reason. It was MINUS a quarter turn, which is a half turn out:
+  // bombers cross down-field at +x and were drawn flying tail-first, props and
+  // all, the whole way over.
+  c.rotate(Math.atan2(p.vy, p.vx) + Math.PI / 2);
 
   // the radius it's hunting inside — faint, so it reads as a threat envelope
   // rather than a UI element
@@ -629,9 +634,14 @@ function drawPlane(p) {
       c.translate(p.x, p.y + 28);
       c.beginPath(); c.ellipse(0, 0, 8, 26, 0, 0, 7); c.fill();
     } else {
+      // the strafer's. Drawn in SCREEN space (a drop shadow, so its offset is
+      // fixed and doesn't swing with the aircraft), but it is still a plane
+      // SILHOUETTE and has to lie the way the plane above it does — along x,
+      // wing across. Authored nose -y like the airframe itself, then carried
+      // through the body's own -PI/2 by hand: local (x, y) -> screen (y, -x).
       c.translate(p.x + 26, p.y + 34);
-      c.beginPath(); c.ellipse(0, 0, 20, 9, 0, 0, 7); c.fill();
-      c.beginPath(); c.ellipse(-2, 0, 5, 22, 0, 0, 7); c.fill();
+      c.beginPath(); c.ellipse(0, 0, 9, 20, 0, 0, 7); c.fill();
+      c.beginPath(); c.ellipse(0, 2, 22, 5, 0, 0, 7); c.fill();
     }
     c.restore();
   }

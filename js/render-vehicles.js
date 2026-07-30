@@ -826,9 +826,12 @@ function drawTank(a) {
   const heavy = !!a.t.heavy;
   // The tankette is the one tank whose footprint isn't the house medium's: two
   // thirds the length, and a towed trailer out behind it. So it gets its own
-  // shadow and its own HP bar geometry — a 44-wide bar over a 33-wide vehicle
-  // reads as belonging to something else, and at the medium's 26 the bar would
-  // sit ON the trailer, which is up-screen of the hull for an enemy.
+  // shadow and its own HP bar geometry. What the narrower bar buys is WIDTH: a
+  // 44-wide bar over a 33-wide vehicle reads as belonging to something else,
+  // and since the trailer now sits up-FIELD of the hull (-x, behind an enemy
+  // driving +x) rather than up-screen, the wide bar reaches out over it. Its
+  // raised `dy` is a leftover from when the trailer was up-screen and is only
+  // cosmetic now — the bar clears a 15-tall shadow either way.
   const tow = a.type === 'il3';
   // hull art is authored at the side's pre-flip home facing (US nose up-screen,
   // enemy nose down-screen); the quarter-turn to the new home lives in the blit

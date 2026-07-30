@@ -404,8 +404,13 @@ function maybeSpawnPassenger(jeep) {
   if (jeep.type !== 'jeep') return;
   const type = rollPassengerType(passengerPool());
   if (!type) return;
-  // drop the passenger just behind the jeep so he doesn't spawn on the .50 cal
-  const u = makeUnit(type, jeep.x + rand(-22, 22), jeep.y + rand(18, 34));
+  // Drop the passenger just behind the jeep so he doesn't spawn on the .50 cal.
+  // BEHIND is +x now — the landscape flip left this offset on the old axis, so
+  // he was stepping out sideways into the lane beside the gun instead. Clamped
+  // because the back of the deploy zone is one jeep-length from the field edge.
+  const u = makeUnit(type,
+    clamp(jeep.x + rand(18, 34), 16, W - 14),
+    clamp(jeep.y + rand(-22, 22), 16, H - 16));
   G.units.push(u);
   G.texts.push({ x: u.x, y: u.y - 22, text: 'PASSENGER: ' + UNIT_TYPES[type].name.toUpperCase(), ttl: 2 });
 }

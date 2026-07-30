@@ -19,7 +19,7 @@
      fractions of it and shear a few degrees off it, which is what churns them
      against each other: one layer at one speed is moving wallpaper, and reads as
      the camera sliding rather than as air.
-   - It has DEPTH. Near-solid at the top of the field, thin over the player's own
+   - It has DEPTH. Near-solid at the enemy treeline, thin over the player's own
      trench, because the whole point of the event is that the far end of the
      field is where sight is lost. It also keeps the men the player is actually
      commanding legible while the ground they are shooting at dissolves.

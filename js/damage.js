@@ -339,9 +339,11 @@ function spawnGib(cp, kind, us) {
     kind, x: cp.x, y: cp.y, z: 3,
     vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd * 0.7, vz: rand(70, 130),
     rot: rand(0, 7), spin: rand(-14, 14),
-    col: muteColor(cp.col, 0.32), limb: muteColor(cp.col, 0.5),
-    skin: us ? '#9a7350' : '#9c7a58',
-    helmet: corpseHelmet(cp),
+    // muted like the corpse's own post-wash palette — a landed gib sits on the
+    // field as long as the body it flew off, and must not out-shout it
+    col: muteColor(cp.col, 0.45), limb: muteColor(cp.col, 0.6),
+    skin: muteColor(us ? '#9a7350' : '#9c7a58', 0.42),
+    helmet: muteColor(corpseHelmet(cp), 0.42),
     landed: false, trail: 0, ttl: CORPSE_TTL,
   });
 }
@@ -429,12 +431,21 @@ function paintCorpse(c, cp) {
   };
   c.lineCap = 'round';
 
-  // soft ground shadow beneath the body
-  c.fillStyle = 'rgba(0,0,0,0.22)';
+  // faint ground shadow — a body flat on the ground casts far less than a
+  // standing man, and the shadow was one of the cues making the dead read alive
+  c.fillStyle = 'rgba(0,0,0,0.1)';
   c.beginPath(); c.ellipse(0, 1.5, 11, 5.5, 0, 0, 7); c.fill();
 
   if (cp.missing) poseDismembered(c, cp, P);
   else (CORPSE_POSES[cp.pose] || poseSprawl)(c, cp, P);
+
+  // grave-dirt wash over the whole body: flattens skin dots, helmet speculars
+  // and torso highlights in one pass, so a pile of the dead sinks toward the
+  // ground and never competes with a living man standing on it
+  c.globalCompositeOperation = 'source-atop';
+  c.fillStyle = 'rgba(34,30,24,0.42)';
+  c.fillRect(-CORPSE_SPR_AX, -CORPSE_SPR_AY, CORPSE_SPR_W, CORPSE_SPR_H);
+  c.globalCompositeOperation = 'source-over';
 }
 
 function drawCorpse(cp) {

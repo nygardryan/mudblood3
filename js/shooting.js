@@ -387,7 +387,7 @@ function flameSpray(actor, dt, opts) {
     // pours its full DPS into the same pool. At the ×0.6 tank floor that made one
     // veteran flamer worth ~120 dps against her (two, with Vampiric Flame, ~280
     // while healing) — comfortably the best anti-battleship weapon in the game,
-    // from a man standing at FORWARD_Y. The gun tubs are another matter: jymg
+    // from a man standing at FORWARD_X. The gun tubs are another matter: jymg
     // isn't `tank`, so it takes the whole stream, which is exactly the role we
     // want the flamer in — burn the crews, not the plate.
     if (a2.t.hullSection || a2.t.ship) dmg *= 0.06;

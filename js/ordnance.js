@@ -135,7 +135,8 @@ function explode(x, y, r, dmg, big, by) {
       if (dist2(ac, pt) < r2) ac.hp -= dmg;
     }
     for (const wr of G.wires) {
-      if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;
+      // a wire strand is a belt, long across the enemy's advance (the y axis)
+      if (Math.abs(wr.x - x) < r && Math.abs(wr.y - y) < r + 35) wr.hp -= dmg;
     }
   }
   // Regio Esercito field works — OUTSIDE the Blast Shelter guard on purpose.
@@ -553,14 +554,14 @@ function killPlane(p, by) {
       color: pick(['#2a2318', '#4a3d28', '#6e6046', '#8a7a5a', '#1a1712']),
     });
   }
-  // the wreck comes down south of where it was hit, still travelling
+  // the wreck comes down beyond where it was hit, still travelling
   const cx = clamp(p.x + p.vx * 0.5, 20, W - 20);
   const cy = clamp(p.y + p.vy * 0.55, 20, H - 20);
   explode(cx, cy, p.wreckR || 46, p.wreckDmg || 70, true);
 }
 
 // bombers are never seen, only their shadows: a twin-engine silhouette
-// sweeping south across the ground, with the attack radius it will bomb inside
+// sweeping down-field across the ground, with the attack radius it will bomb inside
 function drawBomberShadow(p) {
   const c = ctx;
   if (p.x < -55) return;

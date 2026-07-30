@@ -201,7 +201,7 @@ function healBreachesBetweenWaves() {
 //   offensive job; without the check it would be an HQ card wearing his chip,
 //   paying out on a field with no officer on it.
 // - It shells a random enemy ON THE FIELD, and that is three conditions, not one.
-//   A wave stages above the top edge at negative y, so an unfiltered pick would
+//   A wave stages off the enemy edge at negative x, so an unfiltered pick would
 //   drop most fire missions on ground the player can't see, against men who
 //   haven't arrived. But `y > 0` alone is NOT "on the field" — it is one term of
 //   inTheFight (js/helpers.js), and this scan is hand-rolled rather than routed

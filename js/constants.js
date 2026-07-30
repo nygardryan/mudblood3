@@ -423,7 +423,7 @@ const YAM_REPAIR_CD_MIN = 12, YAM_REPAIR_CD_MAX = 18;
 const YAM_REPAIR_FRAC = 0.55;        // damage control brings a part back part-worn, not new
 
 // ---- The Progenitor: the Horde's wave-100 boss ------------------------------
-// A slab of fused flesh the size of a bunker, crawling down the field with five
+// A slab of fused flesh the size of a bunker, crawling down-field with five
 // pus modules swollen out of its hide. It is the SECOND multi-actor boss and the
 // second consumer of the parent+parts pattern the Yamato introduced: a core
 // actor plus five child pod actors, all real entries in G.enemies, repositioned
@@ -1352,7 +1352,8 @@ Object.assign(ENEMY_TYPES, {
 });
 
 // ---- The Treno Armato: the Regio Esercito's wave-100 boss ------------------
-// An armored war train that rolls straight down a rail lane from the north and
+// An armored war train that rolls straight down a rail lane out of the enemy
+// treeline and
 // PARKS at the bottom of the field — it never breaches, it just sits there as a
 // fortress inside your lines until it's killed. The third multi-actor boss: an
 // engine (the parent, and the boss's whole HP pool) plus eight wagon/crew part
@@ -1686,7 +1687,7 @@ const EVENT_INFO = [
     key: 'airraid',
     name: 'Air Attack',
     wave: 4,
-    desc: 'Aircraft cross the field from north to south. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Against the Imperial Japanese Army it is a kamikaze attack instead: twice as many aircraft, no bombs, each one picking a defender and flying into him for a single blast exactly where it lands. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
+    desc: 'Aircraft cross the field out of the enemy treeline toward your line. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Against the Imperial Japanese Army it is a kamikaze attack instead: twice as many aircraft, no bombs, each one picking a defender and flying into him for a single blast exactly where it lands. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
   },
   {
     key: 'paradrop',
@@ -2069,7 +2070,7 @@ const TESTING_EVENTS = [
   { key: 'paradrop', label: 'PARADROP', cost: 0, kind: 'event', hotkey: '',
     desc: 'Fallschirmjäger drop into the field. Stick size scales with the current wave.' },
   { key: 'airraid', label: 'AIR RAID', cost: 0, kind: 'event', hotkey: '',
-    desc: 'Whatever the current enemy sends: bombers crossing north to south, or kamikaze against the Imperial Japanese Army. Formation and payload scale with the current wave.' },
+    desc: 'Whatever the current enemy sends: bombers crossing from their treeline over your line, or kamikaze against the Imperial Japanese Army. Formation and payload scale with the current wave.' },
   { key: 'kamikaze', label: 'KAMIKAZE', cost: 0, kind: 'event', hotkey: '',
     desc: 'Forces the Japanese half of the air raid against any enemy. Twice the aircraft of a bombing run, each picking a defender at random and diving into him for one blast.' },
   { key: 'airstrike', label: 'STRAFING RUN', cost: 0, kind: 'event', hotkey: '',

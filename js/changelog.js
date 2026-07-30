@@ -4,6 +4,15 @@
 const CHANGELOG = [
   {
     date: '2026-07-29',
+    title: 'The Field Turns: Landscape',
+    changes: [
+      'The whole war has wheeled a quarter turn. The enemy now stages off the LEFT edge and marches RIGHT, onto a trench line that runs down the right-hand side of your screen. Same field, same distances, same balance — every range, every spawn depth and every wall of the old fight carries over exactly — but the battlefield now fits a phone held sideways and a desktop monitor without drowning them in black bars.',
+      'The toolbar has moved to the BOTTOM on every device: one scrolling row of buttons, the same row a phone already had. The tip line sits just beneath it, and everything else — HUD on top, forward line, deploy trench — reads left to right the way the fighting now runs.',
+      'Everything that aims, marches, digs, crawls, flies or is thrown has learned the new direction: waves, bosses (the Yamato now rolls in from the top or bottom flank; the war train steams in from the left), paradrops, bombing runs, the Italian dig and the wave-666 visitor. Old mid-run saves are from the portrait war and will not resume — finished-run records, medals and Escalation progress all carry over.',
+    ],
+  },
+  {
+    date: '2026-07-29',
     title: 'Italian Armour Redrawn',
     changes: [
       'The three Regio Esercito vehicles are drawn from scratch, one silhouette each. Until now the tankette and the M13/40 were the same shape at two sizes — and they are the armour you meet on the same desert, in the same paint, often in the same wave, doing three completely different jobs to your line.',

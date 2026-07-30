@@ -748,7 +748,7 @@ function purgeRadius(x, y, r) {
   for (const cn of G.camoNests) if (dist(cn, at) < r) cn.hp = 0;
   for (const ac of G.ammoCrates) if (dist(ac, at) < r) ac.hp = 0;
   for (const d of G.dummies) if (dist(d, at) < r) d.hp = 0;
-  for (const wr of G.wires) if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp = 0;
+  for (const wr of G.wires) if (Math.abs(wr.x - x) < r && Math.abs(wr.y - y) < r + 35) wr.hp = 0;
   for (const w of G.itWorks) if (dist(w, at) < r) w.hp = 0;
   for (const m of G.mines) if (!m.dead && dist(m, at) < r) m.dead = true;
 }

@@ -448,7 +448,7 @@ function drawProgenitor(a) {
     c.stroke();
   }
 
-  // it only ever crawls straight down the field, so a pack ships it upright —
+  // it only ever crawls straight down-field, so a pack ships one frame —
   // the same view the codex portrait shows
   const ext = SPRITES.get('progenitor_body');
   if (ext) {

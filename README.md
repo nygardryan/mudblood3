@@ -25,8 +25,8 @@ workflow.
 
 - **Endless** — the classic. Each run rolls its foe: you face the **Germans**,
   the **Imperial Japanese Army**, **The Horde** (the undead), or the
-  **Regio Esercito**, attacking in endless waves from the top of the screen. Hold
-  the line as long as you can — if **8 enemies** slip past the bottom edge, your
+  **Regio Esercito**, attacking in endless waves from the left side of the screen. Hold
+  the line as long as you can — if **8 enemies** slip past the right edge, your
   sector collapses and it's game over. There is no victory, only a higher wave count.
   - **The Japanese** field a wholly different 15-unit roster: Arisaka riflemen
     with long bayonets, SNLF SMG troopers, grenadiers, Nambu light and Type 92

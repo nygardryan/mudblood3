@@ -27,8 +27,18 @@ function tankTurretSprite(a) {
     TANK_SPR, TANK_SPR, TANK_SPR_A, TANK_SPR_A, (c) => paintTankTurret(c, a));
 }
 
+// Per-type hull painters. All three Regio Esercito vehicles have one (see the
+// block below): a fourth Italian tank should get one too rather than fall onto
+// the generic branch, which carries no Italian art any more.
+const HULL_PAINTERS = {
+  isemo: paintSemoventeHull,
+  im13: paintM13Hull,
+  il3: paintL3Hull,
+};
+
 function paintTankHull(c, a) {
-  if (a.type === 'isemo') return paintSemoventeHull(c, a);
+  const own = HULL_PAINTERS[a.type];
+  if (own) return own(c, a);
   const us = (a.nation || a.side) === 'us';
   const heavy = !!a.t.heavy;
   const light = !!a.t.light;
@@ -83,16 +93,6 @@ function paintTankHull(c, a) {
     c.strokeStyle = 'rgba(255,255,255,0.35)';
     c.lineWidth = 0.7;
     c.beginPath(); c.arc(0, 8, 3, 0, 7); c.stroke();
-  } else if (a.nation === 'it') {
-    // Regio Esercito: a red squadron ID rectangle and a white cross marking
-    c.fillStyle = '#a83028';
-    c.fillRect(-hw + 3, 5, 6, 4);
-    c.strokeStyle = 'rgba(230,230,220,0.85)';
-    c.lineWidth = 1.1;
-    c.beginPath();
-    c.moveTo(6, 6); c.lineTo(6, 12);
-    c.moveTo(3, 9); c.lineTo(9, 9);
-    c.stroke();
   }
   if (casemate) {
     // DOWN THE HULL'S OWN AXIS (+y), not along +x. This block used to be laid
@@ -124,19 +124,28 @@ function paintTankHull(c, a) {
   }
 }
 
+// Per-type turret painters, as with the hulls. A casemate has no turret sprite
+// at all, so only the two Italian vehicles that carry something on the ring are
+// here — and the tankette's "turret" is a flame projector, not a gun.
+const TURRET_PAINTERS = {
+  im13: paintM13Turret,
+  il3: paintL3Projector,
+};
+
 // turret at canonical bearing (barrel along +x); the blit applies a.turret
 function paintTankTurret(c, a) {
+  const own = TURRET_PAINTERS[a.type];
+  if (own) return own(c, a);
   const us = (a.nation || a.side) === 'us';
   const jp = a.nation === 'jp';
-  const it = a.nation === 'it';
   const heavy = !!a.t.heavy;
   const light = !!a.t.light;
   const tr = heavy ? 12 : light ? 8 : 10;
-  c.fillStyle = us ? '#54634a' : jp ? '#57552f' : it ? '#655f3f' : (heavy ? '#353530' : '#4c4c43');
+  c.fillStyle = us ? '#54634a' : jp ? '#57552f' : (heavy ? '#353530' : '#4c4c43');
   c.fillRect(6, -2.5, heavy ? 28 : light ? 19 : 24, heavy ? 6 : light ? 4 : 5);          // barrel
   c.fillStyle = '#26261f';
   c.fillRect(heavy ? 32 : 28, -3, 2.6, heavy ? 7 : 6);          // muzzle brake
-  c.fillStyle = us ? '#5b6b50' : jp ? '#6d6a3c' : it ? '#79734f' : (heavy ? '#3a3a34' : '#525249');
+  c.fillStyle = us ? '#5b6b50' : jp ? '#6d6a3c' : (heavy ? '#3a3a34' : '#525249');
   c.beginPath(); c.arc(0, 0, tr, 0, 7); c.fill();
   c.strokeStyle = us ? '#2f3b26' : '#2b2b25';
   c.lineWidth = 1.4;
@@ -149,6 +158,106 @@ function paintTankTurret(c, a) {
   c.strokeStyle = us ? '#3a4630' : '#33332c';
   c.lineWidth = 0.8;
   c.beginPath(); c.arc(-tr * 0.28, 0, tr * 0.32, 0, 7); c.stroke();
+}
+
+/* ---- the Regio Esercito's armour: three vehicles, three silhouettes ------
+
+   The faction fields three fighting vehicles and they must not read as ONE
+   vehicle the player meets three times. Until this block they nearly did: only
+   the Semovente had its own art, and the tankette and the M13/40 were literally
+   the same drawing at two scales off the generic painter above — same rectangle,
+   same turret disc, same barrel with the same muzzle brake, differing in width
+   and in nothing else. That is the worst case in the game for it, because these
+   three are the only armour that turns up on the SAME desert biome, in the same
+   sand-and-green scheme, often in the same wave, and the three do completely
+   different jobs: burn the line, break the line, shell the emplacements.
+
+   What the three SHARE is the chassis grammar — running gear, riveted seams, the
+   fender lip, the disruptive scheme, the squadron markings — because that is the
+   family resemblance, and it lives in the helpers below so a fourth vehicle
+   inherits it in four calls. What has to DIFFER is the furniture on top, and each
+   one gets a single silhouette idea a player can name from across the field:
+     - L3 Lf   TOWS A TRAILER — the only towed anything in the game, and the
+               flame variant's actual defining feature. Half the width of the
+               others, and no turret.
+     - M13/40  HAS a turret and says so twice: a riveted collar ring the turret
+               sits inside, and a long thin 47/32 tube with no muzzle brake, which
+               is a different barrel from every German and American gun out there.
+     - Semo    NO turret disc at all; one short fat dark gun hard off-centre.
+   Each painter carries its own value ladder and the reasoning behind it.
+   Canonical frame for all three: forward is +y, i.e. an enemy at home heading. */
+const IT_EDGE = '#242219';       // outline: the darkest step, shared with the track
+const IT_TRACK = '#22221c';
+const IT_FENDER = '#6f6b4b';     // the mudguard lip down a track's outer edge
+const IT_CAMO = '#4a5133';       // the disruptive green over the sand base
+const IT_DECK = '#4b4832';       // engine deck: the dark cap that makes the back the back
+const IT_GUN = '#33322a';        // any tube, on any of the three: dark, so it cannot
+                                 // be mistaken for a turret at distance
+const IT_HATCH = '#5a5740';
+
+// A riveted seam: dots along a segment, spaced to land on both ends. The one
+// detail that says Italian rather than welded, and the tell shared with the
+// Treno Armato.
+function itRivets(c, x0, y0, x1, y1, step) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const n = Math.max(1, Math.round(Math.hypot(dx, dy) / step));
+  for (let i = 0; i <= n; i++) {
+    c.beginPath();
+    c.arc(x0 + dx * i / n, y0 + dy * i / n, 0.6, 0, 7);
+    c.fill();
+  }
+}
+
+// The running gear: a track pair with a forward drive sprocket and an aft idler,
+// so the hull can't read as driving in reverse, plus the fender lip down the
+// outer edge — the thing that separates the black track from the ground behind
+// it. Shared by all three, and the M13/40 and the Semovente pass the SAME
+// numbers because they really are the same chassis; the difference between those
+// two is meant to be everything above the tracks, not the tracks.
+function itRunningGear(c, off, w, hl, pitch) {
+  for (const tx of [-off, off - w]) {
+    c.fillStyle = IT_TRACK;
+    c.fillRect(tx, -hl, w, hl * 2);
+    c.fillStyle = 'rgba(140,136,118,0.22)';
+    c.fillRect(tx, -hl, w, 1.3);
+    c.fillRect(tx, hl - 1.3, w, 1.3);
+    c.strokeStyle = 'rgba(0,0,0,0.5)';
+    c.lineWidth = 0.8;
+    for (let ty = -(hl - 2.5); ty <= hl - 2.5; ty += pitch) {
+      c.beginPath(); c.moveTo(tx, ty); c.lineTo(tx + w, ty); c.stroke();
+    }
+    // Both wheels kept to thin rings at low alpha: drawn any heavier they stop
+    // reading as running gear inside the track and become bolt heads on the hull
+    // corners. Two of them rather than the sprocket alone, or the pair reads as
+    // a set of eyes rather than wheels.
+    c.strokeStyle = 'rgba(150,146,128,0.22)'; c.lineWidth = 0.9;
+    c.beginPath(); c.arc(tx + w / 2, hl - 5.1, w * 0.31, 0, 7); c.stroke();
+    c.beginPath(); c.arc(tx + w / 2, -(hl - 4.9), w * 0.26, 0, 7); c.stroke();
+    c.fillStyle = IT_FENDER;
+    c.fillRect(tx < 0 ? tx - 1.5 : tx + w, -hl, 1.5, hl * 2);
+  }
+}
+
+// The squadron ID rectangle and the white cross. Both go on a dark backing pass
+// first: each sits on lit plate somewhere on one of the three, and plain white
+// on a lit sand slope vanishes. `s` scales the pair — the tankette is two thirds
+// the size of the other two, and markings at full size on it stop being markings
+// and become a feature. Pass rx null to place the cross alone, which is what
+// that same lack of room asks for.
+function itMarkings(c, rx, ry, cx, cy, s = 1) {
+  if (rx != null) {
+    c.fillStyle = 'rgba(0,0,0,0.5)';
+    c.fillRect(rx - 0.4, ry - 0.4, 5.4 * s, 4 * s);
+    c.fillStyle = '#a83028';
+    c.fillRect(rx, ry, 4.6 * s, 3.2 * s);
+  }
+  for (const [w, col] of [[2.6 * s, 'rgba(0,0,0,0.45)'], [1.1 * s, 'rgba(238,238,226,0.9)']]) {
+    c.strokeStyle = col; c.lineWidth = w;
+    c.beginPath();
+    c.moveTo(cx, cy - 2 * s); c.lineTo(cx, cy + 2 * s);
+    c.moveTo(cx - 2 * s, cy); c.lineTo(cx + 2 * s, cy);
+    c.stroke();
+  }
 }
 
 /* ---- the Semovente 75/18 -------------------------------------------------
@@ -180,23 +289,17 @@ function paintTankTurret(c, a) {
        distance. The gun is the only near-black mass forward of the deck.
      - The asymmetry it makes with the commander's cupola, which sits on the
        opposite side for exactly that reason.
-   Riveted seams and the fender lip are the Italian tell shared with the M13/40
-   and the Treno Armato; the green blotches over the sand base are the Regio
-   Esercito's disruptive scheme, and they are there to keep the vehicle off the
-   desert biome it drives on (see the ground note in CLAUDE.md).
+   The green blotches over the sand base are the Regio Esercito's disruptive
+   scheme, and they are there to keep the vehicle off the desert biome it drives
+   on (see the ground note in CLAUDE.md).
    Canonical frame: forward is +y, i.e. an enemy at its home heading. */
-const SEMO_EDGE = '#242219';
-const SEMO_DECK = '#4b4832';
-const SEMO_CAMO = '#4a5133';
-const SEMO_GUN = '#33322a';
 const SEMO_MANTLET = '#403e33';
-const SEMO_TRACK = '#22221c';
-const SEMO_FENDER = '#6f6b4b';
 
-// the hull's plan: full-width box with the nose corners cut off, so the front
-// plate reads as sloped from above. Issued rather than cached as a Path2D so it
-// can be re-run for the camo clip and the outline without the two drifting.
-function semoHullPath(c) {
+// The chassis plan, shared with the M13/40 that really shares this chassis: a
+// full-width box with the nose corners cut off, so the front plate reads as
+// sloped from above. Issued rather than cached as a Path2D so it can be re-run
+// for the camo clip and the outline without the two drifting.
+function itChassisPath(c) {
   c.beginPath();
   c.moveTo(-16, -16);
   c.lineTo(16, -16);
@@ -207,46 +310,11 @@ function semoHullPath(c) {
   c.closePath();
 }
 
-// a riveted seam: dots along a segment, spaced to land on both ends
-function semoRivets(c, x0, y0, x1, y1, step) {
-  const dx = x1 - x0, dy = y1 - y0;
-  const n = Math.max(1, Math.round(Math.hypot(dx, dy) / step));
-  for (let i = 0; i <= n; i++) {
-    c.beginPath();
-    c.arc(x0 + dx * i / n, y0 + dy * i / n, 0.6, 0, 7);
-    c.fill();
-  }
-}
-
 function paintSemoventeHull(c, a) {
-  // --- tracks: the house bar, plus a front drive sprocket so the running gear
-  // has a front and a back and the hull can't read as driving in reverse ------
-  for (const tx of [-23, 15]) {
-    c.fillStyle = SEMO_TRACK;
-    c.fillRect(tx, -16.5, 8, 33);
-    c.fillStyle = 'rgba(140,136,118,0.22)';
-    c.fillRect(tx, -16.5, 8, 1.3);
-    c.fillRect(tx, 15.2, 8, 1.3);
-    c.strokeStyle = 'rgba(0,0,0,0.5)';
-    c.lineWidth = 0.8;
-    for (let ty = -14; ty <= 14; ty += 3.4) {
-      c.beginPath(); c.moveTo(tx, ty); c.lineTo(tx + 8, ty); c.stroke();
-    }
-    // drive sprocket forward, idler aft. Both kept to thin rings at low alpha:
-    // drawn any heavier they stop reading as running gear inside the track and
-    // become bolt heads on the hull corners. Two of them rather than the
-    // sprocket alone, or the pair reads as a set of eyes rather than wheels.
-    c.strokeStyle = 'rgba(150,146,128,0.22)'; c.lineWidth = 0.9;
-    c.beginPath(); c.arc(tx + 4, 11.4, 2.5, 0, 7); c.stroke();
-    c.beginPath(); c.arc(tx + 4, -11.6, 2.1, 0, 7); c.stroke();
-    // fender lip down the outer edge — the Italian mudguard, and the thing that
-    // separates the black track from the ground behind it
-    c.fillStyle = SEMO_FENDER;
-    c.fillRect(tx < 0 ? tx - 1.5 : tx + 8, -16.5, 1.5, 33);
-  }
+  itRunningGear(c, 23, 8, 16.5, 3.4);
 
   // --- hull ------------------------------------------------------------------
-  semoHullPath(c);
+  itChassisPath(c);
   c.fillStyle = a.t.color;
   c.fill();
 
@@ -255,9 +323,9 @@ function paintSemoventeHull(c, a) {
   // a flat drab next to the M13/40 it shares a chassis with, which is the one
   // comparison a player actually makes.
   c.save();
-  semoHullPath(c);
+  itChassisPath(c);
   c.clip();
-  c.fillStyle = SEMO_CAMO;
+  c.fillStyle = IT_CAMO;
   c.globalAlpha = 0.34;
   c.beginPath(); c.ellipse(-12, 3.5, 6, 4.6, 0.55, 0, 7); c.fill();
   c.beginPath(); c.ellipse(6, -4, 7, 3.4, -0.35, 0, 7); c.fill();
@@ -265,7 +333,7 @@ function paintSemoventeHull(c, a) {
   c.restore();
 
   // --- engine deck aft: the dark cap that makes the back the back ------------
-  c.fillStyle = SEMO_DECK;
+  c.fillStyle = IT_DECK;
   c.fillRect(-16, -16, 32, 8.4);
   c.strokeStyle = 'rgba(0,0,0,0.4)'; c.lineWidth = 0.9;
   for (let ly = -14.2; ly <= -9.4; ly += 1.6) {
@@ -286,42 +354,31 @@ function paintSemoventeHull(c, a) {
   c.moveTo(-16, 9.5); c.lineTo(16, 9.5); c.lineTo(11, 16); c.lineTo(-11, 16);
   c.closePath(); c.fill();
 
-  semoHullPath(c);
-  c.strokeStyle = SEMO_EDGE; c.lineWidth = 1.6;
+  itChassisPath(c);
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1.6;
   c.stroke();
 
   // riveted plate seams — the one detail that says Italian rather than welded
   c.fillStyle = 'rgba(0,0,0,0.45)';
-  semoRivets(c, -14, -5.6, -14, 8.4, 4.6);
-  semoRivets(c, 14, -5.6, 14, 8.4, 4.6);
-  semoRivets(c, -14.4, 9.5, 14.4, 9.5, 4.8);
+  itRivets(c, -14, -5.6, -14, 8.4, 4.6);
+  itRivets(c, 14, -5.6, 14, 8.4, 4.6);
+  itRivets(c, -14.4, 9.5, 14.4, 9.5, 4.8);
 
   // --- commander's two-piece roof hatch, set opposite the gun so the pair
   // reads as an asymmetric casemate rather than a hull with a turret on the
   // nose. Square, not round: the mantlet ball has to be the ONLY circle on the
   // vehicle or the two of them read as a pair of small turrets -------------
-  c.fillStyle = '#5a5740';
+  c.fillStyle = IT_HATCH;
   c.fillRect(4.4, -3.4, 8.6, 8.6);
-  c.strokeStyle = SEMO_EDGE; c.lineWidth = 1.1;
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1.1;
   c.strokeRect(4.4, -3.4, 8.6, 8.6);
   c.strokeStyle = 'rgba(0,0,0,0.42)'; c.lineWidth = 0.8;
   c.beginPath(); c.moveTo(8.7, -3.4); c.lineTo(8.7, 5.2); c.stroke();
   c.fillStyle = 'rgba(255,255,255,0.12)';
   c.fillRect(4.4, -3.4, 8.6, 1.3);
 
-  // --- markings. Both are drawn on a dark backing pass first: the cross sits
-  // on the lit nose slope, where plain white vanishes -------------------------
-  c.fillStyle = 'rgba(0,0,0,0.5)';
-  c.fillRect(-15.4, 0.6, 5.4, 4);
-  c.fillStyle = '#a83028';
-  c.fillRect(-15, 1, 4.6, 3.2);
-  for (const [w, col] of [[2.6, 'rgba(0,0,0,0.45)'], [1.1, 'rgba(238,238,226,0.9)']]) {
-    c.strokeStyle = col; c.lineWidth = w;
-    c.beginPath();
-    c.moveTo(9, 10.6); c.lineTo(9, 14.6);
-    c.moveTo(7, 12.6); c.lineTo(11, 12.6);
-    c.stroke();
-  }
+  // --- markings: squadron rectangle back on the flank, cross on the lit nose --
+  itMarkings(c, -15, 1, 9, 12.6);
 
   // --- 75/18: a ball mantlet seated in a square armored recess, hard over to
   // the driver's right. The recess is what stops the ball-plus-tube reading as
@@ -330,7 +387,7 @@ function paintSemoventeHull(c, a) {
   const gx = -7.5;
   c.fillStyle = SEMO_MANTLET;
   c.fillRect(gx - 6.2, 7.6, 12.4, 9);
-  c.strokeStyle = SEMO_EDGE; c.lineWidth = 1.2;
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1.2;
   c.strokeRect(gx - 6.2, 7.6, 12.4, 9);
   c.fillStyle = 'rgba(255,255,255,0.10)';
   c.fillRect(gx - 6.2, 7.6, 12.4, 1.5);
@@ -340,7 +397,7 @@ function paintSemoventeHull(c, a) {
   c.beginPath(); c.arc(gx, 12.4, 4.4, 0, 7); c.stroke();
   c.strokeStyle = 'rgba(255,255,255,0.18)'; c.lineWidth = 1.2;
   c.beginPath(); c.arc(gx, 12.4, 3, Math.PI * 1.12, Math.PI * 1.9); c.stroke();
-  c.fillStyle = SEMO_GUN;                               // stub tube
+  c.fillStyle = IT_GUN;                               // stub tube
   c.fillRect(gx - 2.9, 14, 5.8, 11.5);
   c.fillStyle = 'rgba(255,255,255,0.10)';
   c.fillRect(gx - 2.9, 14, 1.7, 11.5);
@@ -348,22 +405,453 @@ function paintSemoventeHull(c, a) {
   c.fillRect(gx - 3.6, 24.6, 7.2, 2.4);
 }
 
+/* ---- the M13/40 ----------------------------------------------------------
+
+   Same chassis as the Semovente, deliberately — `itChassisPath` and the same
+   running-gear numbers, because the two really were built on one hull and the
+   player is meant to see that. Everything the eye can use to tell them apart is
+   therefore above the tracks, and there are only three things doing that work:
+
+     - THE RING. The Semovente's rule is that nothing round goes at its hull
+       centre; this one answers it with two concentric circles there — a riveted
+       collar the turret sits down inside, plus the turret itself. A turret disc
+       alone was what the generic painter already gave it, and the ring is what
+       makes it read as a turret rather than as a disc pasted on a box: it is
+       still visible when the turret has traversed off the centreline, and it is
+       the one feature that survives at 1×.
+     - THE HULL MG, a square mount with two thin whiskers overhanging the nose,
+       set on the driver's right — the mirror of where the Semovente's gun sits,
+       so the two vehicles are asymmetric in OPPOSITE directions. Square and not
+       a ball: the turret and its ring have to be the only circles here, or a
+       third disc on the nose reads as a second small turret.
+     - THE CAMO RUNS THE OTHER WAY. Three long blotches down the length against
+       the Semovente's two across the beam. Same green, same alpha; the pattern's
+       axis is doing the work, which is free at this size where a third colour
+       would just be mud.
+
+   Value ladder, darkest to lightest, and it is the same ladder as its cousin's
+   because that ladder is what says which end is the front: tracks and outline
+   near-black, engine deck dark olive, hull sand, front glacis lightest. What
+   differs is the DECK PATTERN — a square cross-louvred grille between twin
+   exhausts, against the Semovente's full-width louvres and one muffler. */
+const M13_DECK_Y = -7.4;                 // the engine-deck seam
+const M13_COLLAR_R = 12.4;
+// where the collar ring meets that seam. Derived, not typed in, so moving the
+// deck can't leave a hoop lying across the grille.
+const M13_COLLAR_A = Math.asin(-M13_DECK_Y / M13_COLLAR_R);
+
+// The turret's plan: a faceted box, narrow across the front plate and widest at
+// the shoulders. Issued rather than cached so the fill, the camo clip and the
+// outline can't drift apart.
+function m13TurretPath(c) {
+  c.beginPath();
+  c.moveTo(11.4, -4.7);
+  c.lineTo(11.4, 4.7);
+  c.lineTo(3, 9.6);
+  c.lineTo(-7.1, 7.8);
+  c.lineTo(-11.8, 0);
+  c.lineTo(-7.1, -7.8);
+  c.lineTo(3, -9.6);
+  c.closePath();
+}
+
+function paintM13Hull(c, a) {
+  itRunningGear(c, 23, 8, 16.5, 3.4);
+
+  itChassisPath(c);
+  c.fillStyle = a.t.color;
+  c.fill();
+
+  // disruptive blotches, clipped so they can't bleed onto the tracks, and laid
+  // LENGTHWISE (see the header) where the deck and the ring don't cover them
+  c.save();
+  itChassisPath(c);
+  c.clip();
+  c.fillStyle = IT_CAMO;
+  c.globalAlpha = 0.32;
+  c.beginPath(); c.ellipse(-13, 2, 3.6, 8.4, 0.12, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(13.4, 0, 3.2, 7.6, -0.1, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(1, 13.4, 4.6, 2.4, 0, 0, 7); c.fill();
+  c.globalAlpha = 1;
+  c.restore();
+
+  // --- engine deck aft, with the grille between two exhausts -----------------
+  c.fillStyle = IT_DECK;
+  c.fillRect(-16, -16, 32, 16 + M13_DECK_Y);
+  c.fillStyle = '#413f2c';
+  c.fillRect(-7, -14.8, 14, 6.4);                // the grille panel
+  c.strokeStyle = 'rgba(0,0,0,0.45)'; c.lineWidth = 0.8;
+  for (let lx = -5.4; lx <= 5.4; lx += 2.7) {
+    c.beginPath(); c.moveTo(lx, -14.4); c.lineTo(lx, -9); c.stroke();
+  }
+  c.beginPath(); c.moveTo(-7, -11.6); c.lineTo(7, -11.6); c.stroke();
+  for (const ex of [-14.4, 11]) {                // twin exhausts, one per flank
+    c.fillStyle = '#3b3928';
+    c.fillRect(ex, -14.4, 3.4, 6);
+    c.fillStyle = 'rgba(126,78,42,0.5)';
+    c.fillRect(ex, -14.4, 3.4, 1.8);
+  }
+
+  // --- light: deck seam, then the lit glacis ---------------------------------
+  c.fillStyle = 'rgba(255,255,255,0.12)';
+  c.fillRect(-16, M13_DECK_Y, 32, 2);
+  c.fillStyle = 'rgba(0,0,0,0.22)';
+  c.fillRect(-16, M13_DECK_Y, 32, 0.9);
+  c.fillStyle = 'rgba(255,255,255,0.15)';
+  c.beginPath();
+  c.moveTo(-16, 9.5); c.lineTo(16, 9.5); c.lineTo(11, 16); c.lineTo(-11, 16);
+  c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,0.3)'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(-15.6, 9.5); c.lineTo(15.6, 9.5); c.stroke();
+
+  itChassisPath(c);
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1.6;
+  c.stroke();
+
+  // riveted seams: both flanks, the glacis step, and a ring of them round the
+  // turret collar — this is the riveted one of the pair, so it gets the most
+  c.fillStyle = 'rgba(0,0,0,0.45)';
+  itRivets(c, -14, -5.6, -14, 8.4, 4.6);
+  itRivets(c, 14, -5.6, 14, 8.4, 4.6);
+  itRivets(c, -14.4, 9.5, 14.4, 9.5, 4.8);
+
+  // --- the turret ring, scribed into the deck --------------------------------
+  // A HAIRLINE and its rivets, nothing more. This started as a raised collar — a
+  // light 3-unit band with a dark outer edge — and the M13/40's ring is nearly
+  // the full width of the hull, so there was no room for a band that the turret
+  // did not cover: what showed was two thick crescents either side of the turret
+  // shoulders, reading as a moustache painted on the deck rather than as a ring.
+  // The turret is made to read as RAISED by its own contact shadow instead (see
+  // paintM13Turret); all this has to do is put a seam where the deck ends.
+  // It stops where the engine-deck seam crosses it (M13_COLLAR_A, derived) — the
+  // deck plate is behind the ring on the real vehicle, and a full circle here
+  // would lay a hoop straight over the grille.
+  const cr = M13_COLLAR_R, ca = M13_COLLAR_A;
+  c.strokeStyle = 'rgba(0,0,0,0.34)'; c.lineWidth = 1.1;
+  c.beginPath(); c.arc(0, 0, cr, -ca, Math.PI + ca); c.stroke();
+  c.fillStyle = 'rgba(0,0,0,0.4)';
+  for (let i = 0; i <= 8; i++) {
+    const ang = -ca + (Math.PI + ca * 2) * i / 8;
+    c.beginPath();
+    c.arc(Math.cos(ang) * cr, Math.sin(ang) * cr, 0.6, 0, 7);
+    c.fill();
+  }
+
+  // --- markings: squadron rectangle on the left flank, cross on the glacis ---
+  itMarkings(c, -15.2, 2, -8, 12.6);
+
+  // --- the driver's plate: a visor slit left of centre, twin Breda right.
+  // Both are deliberately SMALL. The first pass gave the mount a 7.6 box and
+  // 5.4-long tubes overhanging the nose, and at that size it read as a second
+  // gun competing with the turret's — the hull MG is meant to be a detail that
+  // says which side the driver sits on, not a weapon the eye has to resolve.
+  c.fillStyle = '#2c2b22';
+  c.fillRect(-5.6, 11.7, 5.2, 1.8);                   // visor slit
+  c.fillStyle = 'rgba(255,255,255,0.10)';
+  c.fillRect(-5.6, 11.7, 5.2, 0.6);
+  c.fillStyle = SEMO_MANTLET;                          // the MG mount box
+  c.fillRect(5, 10.2, 6.4, 5.4);
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1.1;
+  c.strokeRect(5, 10.2, 6.4, 5.4);
+  c.fillStyle = 'rgba(255,255,255,0.10)';
+  c.fillRect(5, 10.2, 6.4, 1.2);
+  c.fillStyle = IT_GUN;                                // two short tubes
+  c.fillRect(6.4, 14.8, 1.3, 3.2);
+  c.fillRect(8.8, 14.8, 1.3, 3.2);
+}
+
+/* The 47/32 turret. Not a disc: a faceted riveted box, narrow across the front
+   plate and widest at the shoulders, which is the shape the real one has and
+   also the one thing that reads as "not the German tank" when it has traversed.
+   The barrel is the other half of that — LONG and THIN (22 units by 3 against
+   the generic medium's 24 by 5) and with no muzzle brake at all, where every
+   German and US gun on the field ends in a brake block. Canonical bearing:
+   barrel along +x; the blit applies a.turret. */
+function paintM13Turret(c, a) {
+  // barrel first, so the mantlet laps over its root
+  c.fillStyle = IT_GUN;
+  c.fillRect(11, -1.5, 23, 3);
+  c.fillStyle = 'rgba(255,255,255,0.10)';
+  c.fillRect(11, -1.5, 23, 0.9);
+  c.fillStyle = '#1d1d17';                       // plain collar, NOT a brake
+  c.fillRect(32.6, -2.1, 1.8, 4.2);
+  c.fillStyle = IT_GUN;                          // coaxial Breda beside it
+  c.fillRect(10, 3.2, 8.4, 1.5);
+
+  // A contact shadow first — the same outline, 12% bigger, in soft black. This is
+  // what makes the turret sit ON the hull rather than in it, and it is a HALO
+  // rather than an offset drop shadow on purpose: the sprite is blitted at the
+  // turret's own bearing, so an offset shadow would swing round the vehicle as
+  // the gun traversed and light the tank from a different side every second.
+  c.save();
+  c.scale(1.12, 1.12);
+  m13TurretPath(c);
+  c.fillStyle = 'rgba(0,0,0,0.3)';
+  c.fill();
+  c.restore();
+
+  // faceted body. Its value has to clear the hull's by a real margin — at the
+  // hull's own sand it vanished and left the outline drawing the whole turret.
+  m13TurretPath(c);
+  c.fillStyle = '#98925f';
+  c.fill();
+  c.save();
+  m13TurretPath(c);
+  c.clip();
+  c.fillStyle = IT_CAMO;                         // one blotch, to tie it to the hull
+  c.globalAlpha = 0.32;
+  c.beginPath(); c.ellipse(-3.4, 3.8, 6.4, 3.4, 0.2, 0, 7); c.fill();
+  c.globalAlpha = 1;
+  c.fillStyle = 'rgba(255,255,255,0.14)';        // lit shoulder
+  c.fillRect(-13, -10, 26, 3.2);
+  c.fillStyle = 'rgba(0,0,0,0.16)';              // shaded skirt
+  c.fillRect(-13, 7.2, 26, 3.4);
+  c.restore();
+  m13TurretPath(c);
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1.5;
+  c.stroke();
+
+  // mantlet: dark, and the only thing overlapping the front plate
+  c.fillStyle = SEMO_MANTLET;
+  c.fillRect(8.4, -3.5, 5.4, 7);
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1;
+  c.strokeRect(8.4, -3.5, 5.4, 7);
+
+  // rivets round the front plate and the two rear facets
+  c.fillStyle = 'rgba(0,0,0,0.45)';
+  itRivets(c, 2.4, -8.2, 2.4, 8.2, 4.1);
+  itRivets(c, -6.7, -6.6, -10.4, 0, 3.6);
+  itRivets(c, -6.7, 6.6, -10.4, 0, 3.6);
+
+  // commander's hatch — the only circle up here, and offset, so the turret has
+  // a left and a right at a glance
+  c.fillStyle = IT_HATCH;
+  c.beginPath(); c.arc(-4, -3.5, 3.2, 0, 7); c.fill();
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1;
+  c.beginPath(); c.arc(-4, -3.5, 3.2, 0, 7); c.stroke();
+  c.strokeStyle = 'rgba(0,0,0,0.4)'; c.lineWidth = 0.8;
+  c.beginPath(); c.moveTo(-6.8, -4.8); c.lineTo(-1.2, -4.8); c.stroke();
+
+  // rear stowage bin, so the back of the turret is unmistakably the back. Kept
+  // LIGHTER than the engine deck it usually sits over: at the deck's own value it
+  // dissolved into the grille and the turret lost its back.
+  c.fillStyle = '#6d6849';
+  c.fillRect(-14.4, -4.2, 3.4, 8.4);
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1;
+  c.strokeRect(-14.4, -4.2, 3.4, 8.4);
+  c.strokeStyle = 'rgba(0,0,0,0.4)'; c.lineWidth = 0.7;
+  for (const sy of [-1.4, 1.4]) {
+    c.beginPath(); c.moveTo(-14.4, sy); c.lineTo(-11, sy); c.stroke();
+  }
+}
+
+/* ---- the L3 Lf tankette ---------------------------------------------------
+
+   The flame tankette, and the one Italian vehicle that is NOT on the medium
+   chassis: two thirds the length of the other two and 33 units across against
+   their 49, which is most of the job on its own — but only if the player can see
+   that it is a different vehicle rather than the same vehicle further away, and
+   scale alone can never say that. So it gets the two things neither cousin has:
+
+     - IT TOWS A TRAILER. Nothing else in the game tows anything, and the towed
+       500-litre armoured fuel bowser is what the real L3 Lf *is* — the flame gun
+       is fed from behind because the tankette is too small to carry the fuel.
+       Two wheels, a drawbar and a pair of hoses running forward over the engine
+       deck to the projector, so the silhouette is a small box with a tail: an
+       outline no other actor on the field has, at any range. It rides at the
+       REAR, which for an enemy is up-screen, so it trails the way a tow should,
+       and it is what the HP bar in drawTank has to dodge (see there).
+     - NO TURRET AND NO GUN. The projector on the ring is a squat box and a short
+       tapered nozzle — dark, stubby, and reaching out to just about the 18 units
+       where drawFlameStream starts its spray, so the flame leaves the nozzle
+       instead of the middle of the hull. Nothing round anywhere on the vehicle.
+
+   Value ladder as with the other two, but with one extra step it needs because
+   it is small: tracks near-black, engine deck dark olive at the REAR, hull sand,
+   and then the raised crew box — the L3's real defining shape, a stepped body
+   with the fighting compartment sitting proud of the deck — lighter again, with
+   the front plate lightest. Four values in 25 units of length is what stops it
+   reading as a plain little rectangle. One camo blotch, not two: at this size a
+   second one is just a darker vehicle. */
+const L3_TRAILER = '#54513a';
+// how far aft the trailer's centre rides. Read by drawTank too, for its shadow.
+const L3_TOW_S = 21.7;
+
+// the tankette's plan: a short box, nose corners cut like its cousins' so the
+// family read survives, but proportionally much narrower
+function l3BodyPath(c) {
+  c.beginPath();
+  c.moveTo(-10, -12.5);
+  c.lineTo(10, -12.5);
+  c.lineTo(10, 8);
+  c.lineTo(6.5, 12.5);
+  c.lineTo(-6.5, 12.5);
+  c.lineTo(-10, 8);
+  c.closePath();
+}
+
+function paintL3Hull(c, a) {
+  itRunningGear(c, 15, 6, 12.5, 3);
+
+  // --- the towed fuel bowser. Drawn first, and it sits clear of the body, so
+  // nothing here overlaps the vehicle itself.
+  // It is deliberately NARROWER than the hull and short. The first pass had it
+  // 14 wide against the hull's 20 with a full-width red band across it, and the
+  // trailer then read as the vehicle and the tankette as its cab — a tow has to
+  // be plainly smaller than the thing towing it, and the band has to be a hazard
+  // marking rather than the brightest thing on the field piece.
+  c.fillStyle = '#2b2a22';                        // drawbar
+  c.fillRect(-1.2, -16.4, 2.4, 5);
+  for (const wx of [-6.8, 4.8]) {                // two small road wheels
+    c.fillStyle = '#26261e';
+    c.beginPath(); c.ellipse(wx + 1, -21.4, 1.7, 2.8, 0, 0, 7); c.fill();
+    c.fillStyle = 'rgba(150,146,128,0.22)';
+    c.fillRect(wx, -22.9, 2, 0.8);
+  }
+  c.fillStyle = L3_TRAILER;
+  c.fillRect(-5.6, -26.2, 11.2, 9.8);
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1.2;
+  c.strokeRect(-5.6, -26.2, 11.2, 9.8);
+  c.fillStyle = 'rgba(255,255,255,0.12)';        // lit top of the bowser
+  c.fillRect(-5.6, -26.2, 11.2, 1.5);
+  c.fillStyle = 'rgba(0,0,0,0.4)';               // hazard band, on a dark backing
+  c.fillRect(-5.6, -22.4, 11.2, 2.2);
+  c.fillStyle = 'rgba(150,52,42,0.75)';
+  c.fillRect(-5.6, -22, 11.2, 1.4);
+  c.fillStyle = 'rgba(0,0,0,0.45)';
+  itRivets(c, -4.2, -25, -4.2, -17.6, 3.7);
+  itRivets(c, 4.2, -25, 4.2, -17.6, 3.7);
+
+  // --- hull ------------------------------------------------------------------
+  l3BodyPath(c);
+  c.fillStyle = a.t.color;
+  c.fill();
+
+  c.save();
+  l3BodyPath(c);
+  c.clip();
+  c.fillStyle = IT_CAMO;
+  c.globalAlpha = 0.32;
+  c.beginPath(); c.ellipse(-6.4, 0, 4.2, 6.4, 0.3, 0, 7); c.fill();
+  c.globalAlpha = 1;
+  c.restore();
+
+  // --- engine deck aft. Plain: no louvres. On a body this small the three lines
+  // the Semovente's deck carries turn the whole aft half into hatching, and the
+  // deck's job here is to be the dark value at the back, not a panel of detail.
+  c.fillStyle = IT_DECK;
+  c.fillRect(-10, -12.5, 20, 6.4);
+  c.fillStyle = '#3b3928';                       // muffler down the left flank
+  c.fillRect(-9, -11.6, 2.6, 4.2);
+  c.fillStyle = 'rgba(126,78,42,0.5)';
+  c.fillRect(-9, -11.6, 2.6, 1.4);
+
+  // --- the raised crew compartment: the L3's own shape, and the third value
+  // step. Drawn as a STEP and not as a box — a lighter plate, a lit edge along
+  // its aft face and a shadow cast back onto the deck, with NO outline. Outlined,
+  // it became a box inside the hull box, and since the projector mount covers its
+  // middle all that was left of it was a pale rectangular frame round the mount.
+  // A step has no far edge to draw, so nothing can frame anything.
+  c.fillStyle = '#8f8a61';
+  c.fillRect(-7.4, -4.4, 14.8, 13.2);
+  c.fillStyle = 'rgba(255,255,255,0.14)';        // lit edge, aft
+  c.fillRect(-7.4, -4.4, 14.8, 1.6);
+  c.fillStyle = 'rgba(0,0,0,0.26)';              // its shadow onto the deck
+  c.fillRect(-7.4, -6.1, 14.8, 1.7);
+  // the crew hatch, hard over to the driver's side: the projector mount covers
+  // the middle of the step at every bearing, so anything here has to live at the
+  // edge or it is only ever half visible
+  c.fillStyle = IT_HATCH;
+  c.fillRect(-7, -2.4, 4, 4.4);
+  c.strokeStyle = 'rgba(0,0,0,0.42)'; c.lineWidth = 0.9;
+  c.strokeRect(-7, -2.4, 4, 4.4);
+
+  // --- the fuel hoses: bowser to projector, over the deck and the crew box.
+  // They live on the HULL and not on the rotating projector sprite, so they stay
+  // plugged into the bowser whichever way the nozzle is pointing --------------
+  c.strokeStyle = '#2e2c24'; c.lineWidth = 1.1;
+  for (const hx of [-1.6, 1.2]) {
+    c.beginPath();
+    c.moveTo(hx, -16);
+    c.quadraticCurveTo(hx + 1.8, -9, hx + 1.4, 0.4);
+    c.stroke();
+  }
+
+  l3BodyPath(c);
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1.6;
+  c.stroke();
+
+  // --- markings: the cross alone, three quarters size. There is no clear plate
+  // left for the squadron rectangle once the crew box is on, and two markings on
+  // a vehicle this size stop reading as markings.
+  itMarkings(c, null, 0, -5.4, 10.4, 0.75);
+}
+
+/* The flame projector on the tankette's ring. Read against paintM13Turret and
+   the generic turret this is a deliberate NEGATIVE of a gun: no disc, no long
+   tube, no muzzle brake — a squat armoured box and a tapered nozzle that stops
+   at 18, which is the originDist drawFlameStream sprays from, so the fire starts
+   at the nozzle mouth. The scorched collar at the tip is the only warm colour on
+   any of the three vehicles, and it is what names the thing before it fires.
+   Canonical bearing: nozzle along +x; the blit applies a.turret. */
+function paintL3Projector(c, a) {
+  c.fillStyle = SEMO_MANTLET;                    // the mount box on the ring
+  c.fillRect(-3.6, -3.4, 8, 6.8);
+  c.strokeStyle = IT_EDGE; c.lineWidth = 1.1;
+  c.strokeRect(-3.6, -3.4, 8, 6.8);
+  c.fillStyle = 'rgba(255,255,255,0.12)';
+  c.fillRect(-3.6, -3.4, 8, 1.3);
+  c.fillStyle = 'rgba(0,0,0,0.4)';               // the two fuel unions, aft
+  c.fillRect(-2.9, -1.8, 1.8, 3.6);
+
+  c.fillStyle = IT_GUN;                          // tapered nozzle
+  c.beginPath();
+  c.moveTo(4.2, -2.6);
+  c.lineTo(15.4, -1.5);
+  c.lineTo(15.4, 1.5);
+  c.lineTo(4.2, 2.6);
+  c.closePath();
+  c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.10)';
+  c.fillRect(4.2, -2.6, 11.2, 0.8);
+  c.fillStyle = '#241f18';                       // scorched muzzle collar
+  c.fillRect(15.2, -2.2, 2.6, 4.4);
+  c.fillStyle = 'rgba(150,70,26,0.5)';
+  c.fillRect(16.4, -2.2, 1.4, 4.4);
+}
+
 function drawTank(a) {
   const us = (a.nation || a.side) === 'us';
   const c = ctx;
   const heavy = !!a.t.heavy;
-  // shadow (screen-fixed)
+  // The tankette is the one tank whose footprint isn't the house medium's: two
+  // thirds the length, and a towed trailer out behind it. So it gets its own
+  // shadow and its own HP bar geometry — a 44-wide bar over a 33-wide vehicle
+  // reads as belonging to something else, and at the medium's 26 the bar would
+  // sit ON the trailer, which is up-screen of the hull for an enemy.
+  const tow = a.type === 'il3';
+  const hullRot = vehicleHullAngle(a) - vehicleHomeFace(a);
+  // shadow (screen-fixed, hence outside the rotated blit)
   c.save();
   c.translate(a.x, a.y);
   c.fillStyle = 'rgba(0,0,0,0.3)';
-  c.beginPath(); c.ellipse(0, 4, heavy ? 30 : 26, heavy ? 21 : 18, 0, 0, 7); c.fill();
+  c.beginPath();
+  c.ellipse(0, 4, heavy ? 30 : tow ? 19 : 26, heavy ? 21 : tow ? 15 : 18, 0, 0, 7);
+  if (tow) {
+    // a second patch under the tow, placed through the hull's own rotation so it
+    // tracks the trailer. One path and ONE fill: two overlapping fills at this
+    // alpha leave a visibly darker crescent between the vehicle and its trailer.
+    const tx = L3_TOW_S * Math.sin(hullRot), ty = 4 - L3_TOW_S * Math.cos(hullRot);
+    c.moveTo(tx + 9.5, ty);
+    c.ellipse(tx, ty, 9.5, 8, 0, 0, 7);
+  }
+  c.fill();
   c.restore();
   // hull, then turret — each a rigid rotation about the centre
-  const hullRot = vehicleHullAngle(a) - vehicleHomeFace(a);
   blitSprite(c, tankHullSprite(a), a.x, a.y, hullRot, 1);
   if (!a.t.casemate) blitSprite(c, tankTurretSprite(a), a.x, a.y, a.turret, 1);
 
-  drawActorHpBar(a, 26, 44, 4, us ? '#7ec850' : '#c0562e');
+  drawActorHpBar(a, tow ? 34 : 26, tow ? 32 : 44, 4, us ? '#7ec850' : '#c0562e');
 
   // crew veterancy chevrons
   if (us) drawRankChevrons(a, 30);

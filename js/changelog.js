@@ -4,6 +4,16 @@
 const CHANGELOG = [
   {
     date: '2026-07-29',
+    title: 'Italian Armour Redrawn',
+    changes: [
+      'The three Regio Esercito vehicles are drawn from scratch, one silhouette each. Until now the tankette and the M13/40 were the same shape at two sizes — and they are the armour you meet on the same desert, in the same paint, often in the same wave, doing three completely different jobs to your line.',
+      'The L3 Lf TOWS ITS FUEL. The flame tankette drags an armoured bowser on two wheels with a pair of hoses running forward to the projector, which is where the fire it hoses your trench with actually comes from. Nothing else on the field tows anything, so it is the one vehicle you can name from the far end of the map.',
+      'The M13/40 is the one with the TURRET, and now looks it: a riveted faceted turret seated in a scribed ring, a commander\'s hatch off to one side, a stowage bin on the back, and a long thin 47mm with no muzzle brake — a different gun from anything the Germans or your own Shermans carry. Its hull machine gun sits on the driver\'s right, opposite where the Semovente carries its howitzer.',
+      'The Semovente keeps its stub 75 hard over to one side and gains nothing round anywhere — it is still the one that aims by turning the whole tank. Riveted seams, mudguards and the sand-and-green disruptive scheme are common to all three, because they are one army.',
+    ],
+  },
+  {
+    date: '2026-07-29',
     title: 'High Explosive Toned Down',
     changes: [
       'HIGH EXPLOSIVE now widens the Sherman\'s cannon burst by half instead of doubling it. Blast is area, not width — doubling the radius was four times the ground covered, and half again is a little over twice. It is still a considerably bigger hole than the standard round.',

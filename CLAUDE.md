@@ -495,29 +495,66 @@ was smaller (~0.2 medics/wave, matching the officer's rate). Art is
 silhouettes via the `IT_ART` map, so a new type that looks like an existing one
 costs one line. `TEST.works()` and `TEST.state().it` are the inspection surface.
 
-The **Semovente 75/18** (`isemo`) is the one vehicle with its own hull painter,
-`paintSemoventeHull` (`js/render-vehicles.js`), dispatched off `a.type` at the top
-of `paintTankHull`. It has one because the shared `casemate` branch it used to run
-through **laid its superstructure and gun along +x while the hull under it is drawn
-facing +y** — so a casemate drove downfield with its gun aimed permanently at 3
-o'clock. That branch has since been rotated onto the hull's axis, so `estug` (the
-only other casemate) is correct on it now and this painter is kept for its ART, not
-as a workaround. Nothing else changed:
-`casemate: true` still means "no turret sprite, gun baked into the hull", so the
-export surface is one PNG (`tank_isemo_hull`, no `_turret`) and a pack ships one
-image. The consequence is that the drawn gun follows the HULL while the sim aims
-with `a.turret` — the two agree in the ordinary case (both point downfield) and
-the shell's muzzle flash is placed at 26 units along `a.turret`, which is where
-this barrel ends. Three things carry the read at ~48×34px, and the first pass got
-each of them wrong: it is a **VALUE ladder** (tracks and outline near-black,
-engine deck dark olive, casemate roof lightest, nose slope lighter still) rather
-than a pile of features — bogies, a loader's hatch, a periscope, a roof Breda and
-a three-tone camo all read as a crate with corner brackets and came out. The gun
-is **dark**; drawn in light grey it reads as a turret at any distance, which is
-the one thing a casemate must not do. And the mantlet ball is the **only circle**
-on the vehicle — the commander's hatch is square for that reason alone, since two
-discs of a size read as two small turrets. Verify with `TEST.spriteRoundtrip(
-'tank_isemo_hull')`.
+**All three Italian vehicles have their OWN painters**, dispatched off `a.type`
+through the `HULL_PAINTERS` / `TURRET_PAINTERS` maps at the top of
+`paintTankHull`/`paintTankTurret` (`js/render-vehicles.js`) — so a fourth Italian
+tank must be given one rather than left on the generic branch, which no longer
+carries any Italian art at all (its `nation === 'it'` insignia branches were dead
+once the third painter landed and were removed). The reason all three needed one
+is the reason to keep them: every other tank in the game IS the generic painter —
+one rectangle, one turret disc, one braked barrel — so `il3` and `im13` were
+*literally the same drawing at two scales*, and they are the only armour that
+turns up on the same desert biome in the same sand-and-green scheme, often in the
+same wave. What is shared is the chassis grammar and it lives in four helpers
+(`itRunningGear`, `itRivets`, `itMarkings`, `itChassisPath`); what differs is the
+furniture on top, and each vehicle gets ONE silhouette idea:
+- `isemo` — no turret disc anywhere, one short fat dark gun hard off-centre.
+- `im13` — the same chassis (`itChassisPath` and the same running-gear numbers,
+  deliberately: they were one hull), answering the Semovente's "nothing round at
+  the hull centre" with a turret plus a ring scribed round it, and a long thin
+  47/32 with **no muzzle brake** where every German and US gun ends in a block.
+- `il3` — **tows a trailer**. Nothing else in the game tows anything, and the
+  bowser is what the flame variant is; it is also the only tank whose footprint
+  isn't the house medium's, so `drawTank` carries a `tow` branch for its smaller
+  shadow (plus a second patch under the trailer) and its own HP-bar geometry — at
+  the medium's `dy` the bar lands ON the trailer, which is up-screen of an enemy.
+`casemate: true` still means "no turret sprite, gun baked into the hull", so
+`isemo` exports one PNG (`tank_isemo_hull`, no `_turret`) and a pack ships one
+image; the shared `casemate` branch it used to run through has since been rotated
+onto the hull's axis, so `estug` is correct on it and this is art, not a
+workaround. The consequence is that a casemate's drawn gun follows the HULL while
+the sim aims with `a.turret` — they agree in the ordinary case (both point
+downfield) and the muzzle flash sits 26 units along `a.turret`, where that barrel
+ends. `il3` is deliberately NOT a casemate for the same reason inverted: its
+"turret" sprite is the flame projector, so the nozzle mouth tracks `e.turret` and
+ends at 18, which is `drawFlameStream`'s `originDist`.
+Five things carry the read at this size, each learned by getting it wrong:
+- It is a **VALUE ladder**, not a pile of features (tracks and outline
+  near-black, engine deck dark olive, hull sand, front plate lightest — plus the
+  tankette's raised crew step, a fourth value it needs because it is small). The
+  Semovente's first pass had bogies, a loader's hatch, a periscope, a roof Breda
+  and three-tone camo, and read as a crate with corner brackets.
+- **Every tube is dark.** In light grey a gun reads as a turret at any distance,
+  which is the one thing a casemate must not do.
+- **Count the circles.** One vehicle's circles have to mean one thing: the
+  Semovente's mantlet ball is its only one (hence a square cupola), and the
+  M13/40's are the turret and its ring, concentric, which is why its hull MG is a
+  square mount and not a ball.
+- **A raised thing needs a shadow, not an outline.** The M13/40's turret at the
+  hull's own value vanished and left its outline drawing the whole turret; it
+  reads as raised now off a 12% contact HALO (a halo and not an offset drop
+  shadow, because the sprite is blitted at the gun's bearing and an offset would
+  swing the light round the tank as it traversed). The tankette's crew
+  compartment is a STEP for the same reason — outlined, it was a box inside the
+  hull box, and since the projector covers its middle all that showed was a pale
+  frame round the mount.
+- **Nothing may out-shout the vehicle.** The tankette's bowser started 14 wide
+  against a 20-wide hull with a full-width red band and read as the vehicle, with
+  the tankette as its cab; a tow must be plainly smaller than what tows it, and
+  the band is a hazard marking, not the brightest thing on the field piece.
+Verify with `TEST.spriteRoundtrip('tank_il3_hull' | 'tank_il3_turret' |
+'tank_im13_hull' | 'tank_im13_turret' | 'tank_isemo_hull')` — all five land at
+`meanChannelDiff` ≤ 0.18, and the trailer and the 47/32 both fit the 92-unit box.
 
 The **Treno Armato** (`itrain`) is the Italian wave-100 boss — an armored war
 train (`spawnItalianBoss`, hooked in `spawnSpecialWave` beside the other three,

@@ -527,10 +527,12 @@ function drawDefenseRangeIndicator(key, x, y, tier = 0) {
     ctx.beginPath(); ctx.arc(x, y, 44, 0, 7); ctx.stroke();
     ctx.setLineDash([]);
   } else if (key === 'wire') {
+    // the belt lies across the enemy's advance: narrow in depth (x), long
+    // laterally (y) — matches inWireBand's WIRE_BAND_DEPTH/WIRE_BAND_LAT
     ctx.strokeStyle = 'rgba(220,190,90,0.5)';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 4]);
-    ctx.strokeRect(x - 40, y - 14, 80, 28);
+    ctx.strokeRect(x - 14, y - 40, 28, 80);
     ctx.setLineDash([]);
   } else if (key === 'watchtower') {
     // Forward Observer draws the tower's second, much wider footprint: the

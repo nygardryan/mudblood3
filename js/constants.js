@@ -263,15 +263,15 @@ const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points
 // ---- German final boss (eboss, "Der Schlächter"). He cycles: advance down a
 // lane firing six revolver shots, fall back to the backline, refit his plate
 // and call in two reinforcement plays, then come again down a DIFFERENT lane.
-// The rally point must sit ON-field (y > 0) — every US targeting scan skips
-// staged enemies at y < 0 — and, more importantly, inside the reach of the
+// The rally point must sit ON-field (x > 0) — every US targeting scan skips
+// staged enemies at x < 0 — and, more importantly, inside the reach of the
 // player's indirect fire, because shelling the refit is the whole counterplay.
 // It sat at 54 first, which LOOKED right and was useless: a mortar (range 348)
 // placed anywhere sane is ~446px away from there, so nothing could touch him
 // and the fight had no punish window at all. A mortar (range 348) staked at the
-// back of the deploy zone sits at y~558, so the rally point has to be at least
+// back of the deploy zone sits at x~558, so the rally point has to be at least
 // 210 for a shell to reach it — 200 was still 10px short and measured zero
-// damage taken during rally. 220 gives margin: any mortar up to y=568 can
+// damage taken during rally. 220 gives margin: any mortar up to x=568 can
 // range him, and he's still pulled 250px back off his engage line.
 const BOSS_WAVE_INTERVAL = 100;      // arrives at wave 100, 200, 300...
 const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance

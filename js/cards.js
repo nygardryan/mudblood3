@@ -203,17 +203,17 @@ function healBreachesBetweenWaves() {
 // - It shells a random enemy ON THE FIELD, and that is three conditions, not one.
 //   A wave stages off the enemy edge at negative x, so an unfiltered pick would
 //   drop most fire missions on ground the player can't see, against men who
-//   haven't arrived. But `y > 0` alone is NOT "on the field" — it is one term of
+//   haven't arrived. But `x > 0` alone is NOT "on the field" — it is one term of
 //   inTheFight (js/helpers.js), and this scan is hand-rolled rather than routed
 //   through targeting.js, so it went without the others until that predicate was
 //   extracted. The two it was missing are why the helper exists: `entering` (the
-//   Yamato rolls in from a FLANK, so her y is on-field while her x is hundreds of
-//   pixels off the edge — measured x -170 on a 540-wide field, all ELEVEN of her
-//   actors admitted here and none by any other scan), and `chute > 0` (a
-//   paradropped stick hangs at an on-field y for seconds before it lands —
-//   measured 3 admitted here, 0 anywhere else). Both are untouchable: damageEnemy
-//   returns early on each, so a mission called onto one spent the proc to shell
-//   empty ground the player mostly cannot even see.
+//   Yamato rolls in from a FLANK, so her x is on-field while her y is hundreds of
+//   pixels off the top or bottom edge — measured y -170 on a 540-tall field, all
+//   ELEVEN of her actors admitted here and none by any other scan), and
+//   `chute > 0` (a paradropped stick hangs at an on-field x for seconds before it
+//   lands — measured 3 admitted here, 0 anywhere else). Both are untouchable:
+//   damageEnemy returns early on each, so a mission called onto one spent the
+//   proc to shell empty ground the player mostly cannot even see.
 //   Called before launchWave, the pool is exactly the previous wave's survivors.
 // - The salvo is the toolbar MORTAR STRIKE's WEIGHT — 6 rounds, the same 42
 //   radius and 90 damage, and it credits nobody, exactly like the bought strike.

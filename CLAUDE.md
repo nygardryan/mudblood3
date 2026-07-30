@@ -2,16 +2,17 @@
 
 WW2 squad-defense game, landscape-first: enemies stage LEFT of the field
 (`x < 0`) and march down-field at +x onto the player's trench at `DEPLOY_X`
-(587); a breach is `x > W`. `x` is the DEPTH axis, `y` the lateral; the field
+(502); a breach is `x > W`. `x` is the DEPTH axis, `y` the lateral; the field
 is `W=880 x H=460` — wide on purpose, so the landscape flip actually fills a
 widescreen phone or a desktop monitor instead of pillarboxing one; see the
 comment on `W`/`H` in constants.js for why the extra depth was originally
-pure backfield. `DEPLOY_X`/`FORWARD_X` (587/293) since moved out from their
-first landscape values (380/207) so the field reads as three even thirds —
-enemy approach, no-man's-land, deploy zone — instead of a dominant deploy
-zone; see the comment on `DEPLOY_X` in constants.js for the rationale and
-for why every boss/weapon-range calibration below moved with it by the same
-+207. Screen-relative visuals (particles, fake-Z arcs, floating
+pure backfield. `DEPLOY_X`/`FORWARD_X` (502/251) have since moved twice from
+their first landscape values (380/207) — first out to even thirds, then the
+deploy zone widened again on purpose to ~43% of the field (up from an even
+33%), taking the other 10 points evenly off the enemy-approach and
+no-man's-land zones; see the comment on `DEPLOY_X` in constants.js for the
+rationale and for why every boss/weapon-range calibration below moves with
+it each time. Screen-relative visuals (particles, fake-Z arcs, floating
 text, shadows at +y, HP bars at -y) still treat screen-up as up — never axis-swap
 those. Plain HTML5 Canvas + vanilla JS, **no build step, no
 package.json, no test framework**. Scripts in `js/` share one global scope and
@@ -428,20 +429,20 @@ failure: `IT_WORK_MAX_X`, `IT_WORK_CAP`, `IT_BUILDS_PER_MAN`, and per-wave decay
 in `decayItalianWorks`.
 
 `IT_WORK_MAX_X` is the **depth wall**, and it is `DEPLOY_X - IT_WORK_DEPLOY_MARGIN`
-(557) — the creep runs *through* `FORWARD_X` and stops just short of the player's
+(472) — the creep runs *through* `FORWARD_X` and stops just short of the player's
 trench, so a long run ends with the Regio Esercito dug in on his doorstep. What the
 wall guards is only the player's **build pocket**: `forEachEmplacement` walks
 `G.itWorks`, so a work inside the pocket is ground he can no longer put a bunker on.
-At 557 the deepest work bottoms out at 572 and his shallowest defense (`placementMinX`'s
-`DEPLOY_X + 12`) tops out at 587 — 15px clear with no box overlap anywhere, and every
+At 472 the deepest work bottoms out at 487 and his shallowest defense (`placementMinX`'s
+`DEPLOY_X + 12`) tops out at 502 — 15px clear with no box overlap anywhere, and every
 sampled spot behind his line still buildable (this 15px is a property of `IT_WORK_DEPLOY_MARGIN`
 and the two box half-widths alone, so it holds for any `DEPLOY_X` — verified unchanged
-when `DEPLOY_X` moved 380->587 for the even-thirds rebalance, see the note on it in
-constants.js). Below ~27 of margin the two start denying each other ground. The rate
-limit is not the wall but the walk: `IT_FRONT_X_START` (64, unmoved — it's anchored near
-the enemy's own edge, not the deploy line) is now ~493 short of the wall rather than
-~286, so the creep takes noticeably more waves to reach it than the wave-11 figure
-measured before the rebalance; carpet the forward zone in mines and it takes even
+across both zone rebalances so far, see the note on `DEPLOY_X` in constants.js). Below
+~27 of margin the two start denying each other ground. The rate limit is not the wall
+but the walk: `IT_FRONT_X_START` (64, unmoved — it's anchored near the enemy's own
+edge, not the deploy line) is now ~408 short of the wall, so the creep takes
+noticeably more waves to reach it than the wave-11 figure measured against the
+original 620-wide field; carpet the forward zone in mines and it takes even
 longer while the belt is consumed getting there.
 
 That mine interaction is why `buildSiteClear` tests **box vs box** (plus
@@ -773,7 +774,7 @@ Four things about it that are load-bearing:
 - **It deliberately does NOT carry `tank`.** At ×0.04 vs small arms, 3000 HP is
   ~937 seconds against a rifle line and 3.4 shells for an AT battery —
   simultaneously impossible and trivial, one answer, no decision. It is hard to
-  REACH instead: standing at x 299–335 it sits outside rifleman (154), gunner
+  REACH instead: standing at x 214–250 it sits outside rifleman (154), gunner
   (179), grenadier (231) and bazooka (243) range, so the artillery answer falls
   out of geometry for free while a player who walks men up to `FORWARD_X` can
   close and trade. If it dies too fast the lever is `AW_STAND_X_MIN`, never an

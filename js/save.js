@@ -36,7 +36,9 @@ const RUN_SAVE_KEY = 'twRunSave';
 // zone rebalance — a v3 save's defense line would resume sitting in the
 // middle of the new no-man's-land instead of the deploy zone, so v3 blobs
 // discard the same way.
-const RUN_SAVE_VERSION = 4;
+// v5: DEPLOY_X/FORWARD_X moved again, to 502/251, widening the deploy zone
+// to ~43% of the field — same reasoning as v4, discard the same way.
+const RUN_SAVE_VERSION = 5;
 
 // undefined = not read yet, null = no (or discarded) save, object = parsed blob.
 // The menu reads this cache — never re-parses the full blob per refresh.

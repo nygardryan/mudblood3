@@ -70,10 +70,11 @@ function resetViewCam(mode) {
     viewCam.x = 0;
     viewCam.y = 0;
   } else {
-    // landscape phones (the game's home orientation) run wider than the
-    // field's own 880:460, so default to COVER — fills the screen edge to
-    // edge, cropping the lateral sliver that overflows (pan/edge-auto-pan/the
-    // view-strip already exist for exactly this). Portrait is the opposite
+    // landscape phones (the game's home orientation) default to COVER — fills
+    // the screen edge to edge. The field's 880:406 is cut to 19.5:9 so on most
+    // phones cover crops little or nothing; anything that does overflow is
+    // pannable (pan/edge-auto-pan/the view-strip exist for exactly this).
+    // Portrait is the opposite
     // shape: cover there would crop the field down to a sliver, so it stays
     // on CONTAIN (whole field, letterboxed) until the player rotates.
     viewCam.zoom = portraitMobile() ? containZoom() : coverZoom();

@@ -3,10 +3,11 @@
 WW2 squad-defense game, landscape-first: enemies stage LEFT of the field
 (`x < 0`) and march down-field at +x onto the player's trench at `DEPLOY_X`
 (502); a breach is `x > W`. `x` is the DEPTH axis, `y` the lateral; the field
-is `W=880 x H=460` — wide on purpose, so the landscape flip actually fills a
-widescreen phone or a desktop monitor instead of pillarboxing one; see the
-comment on `W`/`H` in constants.js for why the extra depth was originally
-pure backfield. `DEPLOY_X`/`FORWARD_X` (502/251) have since moved twice from
+is `W=880 x H=406` — cut to exactly 19.5:9 so the mobile cover-zoom default
+fills a modern phone with little or no lateral crop (it shipped at H=460,
+sized for the old contain/letterbox default, and cover then cropped ~12% of
+the lateral axis); see the comment on `W`/`H` in constants.js for why the fix
+was an H cut and not a W stretch, and for the desktop letterbox trade. `DEPLOY_X`/`FORWARD_X` (502/251) have since moved twice from
 their first landscape values (380/207) — first out to even thirds, then the
 deploy zone widened again on purpose to ~43% of the field (up from an even
 33%), taking the other 10 points evenly off the enemy-approach and

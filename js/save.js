@@ -38,7 +38,10 @@ const RUN_SAVE_KEY = 'twRunSave';
 // discard the same way.
 // v5: DEPLOY_X/FORWARD_X moved again, to 502/251, widening the deploy zone
 // to ~43% of the field — same reasoning as v4, discard the same way.
-const RUN_SAVE_VERSION = 5;
+// v6: H shrank from 460 to 406 (the cover-zoom phone-ratio fit — see the W/H
+// comment in constants.js). Saved lateral positions up to 460 would resume
+// off the bottom of the new field, so v5 blobs discard the same way.
+const RUN_SAVE_VERSION = 6;
 
 // undefined = not read yet, null = no (or discarded) save, object = parsed blob.
 // The menu reads this cache — never re-parses the full blob per refresh.

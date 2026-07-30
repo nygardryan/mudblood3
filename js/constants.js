@@ -4,11 +4,19 @@
 
 // The field went from a near-square 620x540 to a much wider 880x460 so the
 // landscape flip actually pays for itself on a widescreen phone or a desktop
-// monitor instead of pillarboxing one. Mobile is what sets the ceiling: much
-// wider than this and a phone screen shorter/rounder than ~1.9:1 (the ratio
-// here) starts showing MORE letterbox on the sides than it saves, which is the
-// opposite of the point.
-const W = 880, H = 460;        // W is the DEPTH axis (enemies march +x), H the lateral
+// monitor instead of pillarboxing one. 460 was picked while CONTAIN (letterbox)
+// was still the mobile default and old ~1.9:1 phones set the ceiling; once the
+// camera moved to COVER (fill and crop), that 1.91 ratio meant every modern
+// phone (19.5:9–20:9) cropped ~12% of the lateral axis and forced up/down
+// panning just to see the whole trench line. H is now 406 = 880 ÷ (19.5/9), so
+// a 19.5:9 phone shows the entire field pixel-exact at cover and a 20:9 one
+// crops ~2%. Kept as an H cut rather than a W stretch on purpose: every depth
+// calibration (DEPLOY_X and the whole boss/weapon geometry below) stays put,
+// and formations rescale themselves through ly(). The cost is a slightly
+// deeper desktop letterbox (a 16:9 monitor shows ~10% top/bottom bars instead
+// of ~4%), accepted because desktop already letterboxed and phones are the
+// edge-to-edge target.
+const W = 880, H = 406;        // W is the DEPTH axis (enemies march +x), H the lateral
 // formations below were authored against the original 900px-wide (lateral) field;
 // ly() rescales an offset-from-center so they keep their proportions on the
 // current lateral axis (screen-vertical now that the field runs left to right)

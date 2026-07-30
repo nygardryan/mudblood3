@@ -24,8 +24,8 @@
 // over, and still an exact power-of-two downscale to the 1:1 desktop blit.
 const EXPORT_SS = 4;
 
-// …except for the ground plates, which are a whole 880×460 field rather than a
-// 48-unit man. At EXPORT_SS one biome is a 3520×1840 sheet of noise, four times
+// …except for the ground plates, which are a whole 880×406 field rather than a
+// 48-unit man. At EXPORT_SS one biome is a 3520×1624 sheet of noise, four times
 // over, and the export encodes and blank-checks every pixel of it. Two is still
 // more resolution than either blit will ever show — the desktop ground is 1:1
 // and the mobile one caps at 4 device px per unit against a bitmap already

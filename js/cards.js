@@ -81,13 +81,15 @@ const SHELLSHOCK_DURATION = 1;   // seconds an enemy is stunned per hit
 
 function maybeShellShock(e, from) {
   if (e.dead || !from || from.side !== 'us' || from.type !== 'mortarman') return;
-  // the boss never reads his stun timer (dispatch order in updateEnemy), so
-  // skip the daze outright — otherwise the floating text would be a lie. Same
-  // for the Yamato and her parts: nothing ticks a part's stun down, so a daze
-  // set here would latch on forever while the battery kept firing anyway.
-  if (e.t.germanBoss || e.t.japBoss || e.t.shipPart) return;
-  if (e.t.hordeBoss || e.t.bossPart) return;   // ditto the Progenitor and its sacs
-  if (e.t.itaBoss || e.t.trainPart) return;    // and the train — nothing ticks a wagon's stun down
+  // No boss ever reads its stun timer — every one of them dispatches ABOVE the
+  // stun block in updateEnemy, and nothing ticks a part's timer down at all. So
+  // skip the daze outright: a stun set here would latch on forever, unread,
+  // while the battery kept firing, and the floating text would be a lie.
+  // The Alien Walker belongs here for exactly that reason and no other — it is
+  // none of the four faction bosses and killing it ends nothing, but it
+  // dispatches up there WITH them. Its `boss` flag can't carry the test, since
+  // the faction bosses' own parts don't have one.
+  if (isFinalBoss(e.t) || isBossPart(e.t) || e.t.awalker) return;
   if (!(G.cardsOwned && G.cardsOwned.has('shellshocked'))) return;
   e.stun = Math.max(e.stun || 0, SHELLSHOCK_DURATION);
   G.texts.push({ x: e.x, y: e.y - 24, text: 'SHELL SHOCKED', ttl: 1.2 });
@@ -121,16 +123,22 @@ function slopedArmorSoftens(u, by) {
 }
 
 // Heavy Shells / High Explosive: two unique cards, one for the mortarman and one
-// for the Sherman, both doubling the blast radius of the round the unit lobs.
+// for the Sherman, both widening the blast radius of the round the unit lobs.
 // The shell's damage is untouched — but explode()'s falloff is linear only down
-// to 30% at the rim, so twice the radius is four times the ground covered AND
-// roughly twice the damage to everything standing at the old edge. Flag-only,
-// like Cluster Rounds: the mortar fire block and the tank cannon block in
+// to 30% at the rim, so the area grows with the SQUARE of the multiplier (the
+// mortar's ×2 is 4× the ground covered, the tank's ×1.5 is 2.25×) and everything
+// standing at the old rim takes proportionally more. Flag-only, like Cluster
+// Rounds: the mortar fire block and the tank cannon block in
 // update-friendlies.js read G.cardsOwned through unitBlastMult() and scale the
 // r they hand to scheduleShell. explode() itself is unchanged — every visual it
 // draws (crater, flash, shockwave ring, fire and smoke spread) already derives
 // from that r.
+//
+// The two are separate constants on purpose: the mortarman lobs into open
+// ground at range, while the Sherman fires flat at whatever it is aimed at with
+// friendlies alongside it, so its burst is deliberately the smaller of the two.
 const BIG_BLAST_MULT = 2;
+const HE_BLAST_MULT = 1.5;
 
 // blast-radius multiplier for the shell this unit is about to fire. US only:
 // both fire blocks are shared with every enemy mortar team and every German,
@@ -139,7 +147,7 @@ const BIG_BLAST_MULT = 2;
 function unitBlastMult(u) {
   if (!u || u.side !== 'us' || !G.cardsOwned) return 1;
   if (u.type === 'mortarman' && G.cardsOwned.has('heavyshells')) return BIG_BLAST_MULT;
-  if (u.type === 'sherman' && G.cardsOwned.has('heshells')) return BIG_BLAST_MULT;
+  if (u.type === 'sherman' && G.cardsOwned.has('heshells')) return HE_BLAST_MULT;
   return 1;
 }
 
@@ -192,10 +200,21 @@ function healBreachesBetweenWaves() {
 //   who never shoots at anything, and this is the one card that gives him an
 //   offensive job; without the check it would be an HQ card wearing his chip,
 //   paying out on a field with no officer on it.
-// - It shells a random enemy ON THE FIELD (`y > 0`). A wave stages above the top
-//   edge at negative y, so an unfiltered pick would drop most fire missions on
-//   ground the player can't see, against men who haven't arrived. Called before
-//   launchWave, the pool is exactly the previous wave's survivors.
+// - It shells a random enemy ON THE FIELD, and that is three conditions, not one.
+//   A wave stages above the top edge at negative y, so an unfiltered pick would
+//   drop most fire missions on ground the player can't see, against men who
+//   haven't arrived. But `y > 0` alone is NOT "on the field" — it is one term of
+//   inTheFight (js/helpers.js), and this scan is hand-rolled rather than routed
+//   through targeting.js, so it went without the others until that predicate was
+//   extracted. The two it was missing are why the helper exists: `entering` (the
+//   Yamato rolls in from a FLANK, so her y is on-field while her x is hundreds of
+//   pixels off the edge — measured x -170 on a 540-wide field, all ELEVEN of her
+//   actors admitted here and none by any other scan), and `chute > 0` (a
+//   paradropped stick hangs at an on-field y for seconds before it lands —
+//   measured 3 admitted here, 0 anywhere else). Both are untouchable: damageEnemy
+//   returns early on each, so a mission called onto one spent the proc to shell
+//   empty ground the player mostly cannot even see.
+//   Called before launchWave, the pool is exactly the previous wave's survivors.
 // - The salvo is the toolbar MORTAR STRIKE's WEIGHT — 6 rounds, the same 42
 //   radius and 90 damage, and it credits nobody, exactly like the bought strike.
 //   What it does NOT inherit is that strike's pattern, and the difference is the
@@ -224,7 +243,7 @@ function maybeOfficerFireMission() {
   if (!(G.cardsOwned && G.cardsOwned.has('firemission'))) return;
   const officers = G.units.filter(u => !u.dead && u.type === 'officer');
   if (!officers.length) return;
-  const targets = G.enemies.filter(e => !e.dead && e.y > 0);
+  const targets = G.enemies.filter(inTheFight);
   if (!targets.length) return;
   if (Math.random() >= FIRE_MISSION_CHANCE) return;
   const caller = pick(officers);
@@ -347,25 +366,43 @@ for (const p of PLACEABLES) if (p.kind === 'unit') PLACEABLE_COST_BY_TYPE[p.key]
 const PASSENGER_INFANTRY = ['rifleman', 'gunner', 'grenadier', 'shotgunner',
   'bazooka', 'mortarman', 'sniper', 'medic', 'engineer', 'officer', 'flamer'];
 
-function rollPassengerType() {
+function rollPassengerType(pool) {
+  if (!pool.length) return null;
   let total = 0;
-  const weights = PASSENGER_INFANTRY.map(k => {
+  const weights = pool.map(k => {
     const w = 1 / PLACEABLE_COST_BY_TYPE[k];
     total += w;
     return w;
   });
   let r = Math.random() * total;
-  for (let i = 0; i < PASSENGER_INFANTRY.length; i++) {
+  for (let i = 0; i < pool.length; i++) {
     r -= weights[i];
-    if (r <= 0) return PASSENGER_INFANTRY[i];
+    if (r <= 0) return pool[i];
   }
-  return PASSENGER_INFANTRY[0];
+  return pool[0];
+}
+
+// The officer cap is a RULE, not a price, and this is the one seat in the game
+// that doesn't pay a price. Every purchase path enforces it — place(), the
+// mobile toolbar, TEST.buy, and the toolbar's own greyed-out chip — but a
+// passenger is pushed straight into G.units, so before this the card was a way
+// to field an eleventh officer, and then a twelfth. Measured: a field already
+// holding the full 10 took 22 more from 400 jeeps.
+//
+// Dropped from the POOL rather than rerolled after the fact, so the remaining
+// types renormalize and a jeep bought at the cap still carries someone. The
+// officer is the priciest type on the list and so the rarest seat anyway
+// (weights run 1/cost), which is why this went unnoticed.
+function passengerPool() {
+  if (officerCount() < officerLimit()) return PASSENGER_INFANTRY;
+  return PASSENGER_INFANTRY.filter(k => k !== 'officer');
 }
 
 function maybeSpawnPassenger(jeep) {
   if (!G.cardsOwned || !G.cardsOwned.has('passenger')) return;
   if (jeep.type !== 'jeep') return;
-  const type = rollPassengerType();
+  const type = rollPassengerType(passengerPool());
+  if (!type) return;
   // drop the passenger just behind the jeep so he doesn't spawn on the .50 cal
   const u = makeUnit(type, jeep.x + rand(-22, 22), jeep.y + rand(18, 34));
   G.units.push(u);
@@ -393,33 +430,16 @@ function fireJeepBazooka(u, dt) {
   u.jbazCd -= dt;
   if (u.jbazCd > 0) return;
   const rk = JEEP_BAZOOKA;
-  const rr = unitRange(u, rk.range) * fogMult();
-  // tanks first, then soft vehicles, infantry only when nothing's on wheels —
-  // and never so close the blast catches the jeep itself
-  const safeR2 = (rk.r + 20) * (rk.r + 20);
-  const safe = e => dist2(u, e) > safeR2;
-  const rt = tieredEnemyTarget(u, rr, [
-    e => e.t.tank && safe(e),
-    e => (e.t.vehicle || e.t.bike) && safe(e),
-    safe,
-  ]);
-  if (!rt || friendlyNearPoint(rt.x, rt.y, 40, u)) return;
-  // a veteran jeep crew reloads the tube faster and walks its shots in
-  u.jbazCd = rand(rk.cdMin, rk.cdMax) * (1 - u.rank * 0.08);
+  // same pick and same launch as the man on foot (js/update-friendlies.js) —
+  // all that differs is where the rider keeps his bearing, since the tube tracks
+  // independently of the .50's swing, and that he has no camo nest to give away
+  const rt = rocketTarget(u, rk, unitRange(u, rk.range) * fogMult());
+  if (!rt) return;
+  // a veteran jeep crew reloads the tube faster
+  u.jbazCd = rand(rk.cdMin, rk.cdMax) * rankCdMult(u);
   u.jbazFace = Math.atan2(rt.y - u.y, rt.x - u.x);
   u.jbazFlash = 0.08;
-  SFX.rocket();
-  const d = dist(u, rt);
-  let scatter = 8 + d * 0.11;
-  if (rt.t.tank) scatter *= 0.45;
-  scatter = Math.max(6, scatter * (1 - u.rank * 0.08));
-  const tx = rt.x + rand(-scatter, scatter), ty = rt.y + rand(-scatter, scatter);
-  G.rockets.push({
-    sx: u.x, sy: u.y, x: u.x, y: u.y, tx, ty,
-    t: 0, dur: Math.max(dist(u, { x: tx, y: ty }) / rk.speed, 0.15),
-    r: rk.r, dmg: rk.dmg * (1 + u.rank * 0.04), by: u,
-    kind: 'rocket',
-  });
+  launchRocket(u, rk, rt);
 }
 
 // Armor Piercing: a unique gunner card. His BAR loads an AP belt that chews
@@ -547,12 +567,26 @@ function headshotKills(shooter, target) {
   const t = target.t;
   if (t.tank || t.apc || t.vehicle || t.bike || t.v2 || t.gunEmplacement) return false;
   // and never a boss or one of its child part actors — a 40% instant kill on a
-  // battery or a pus module would end every wave-100 fight in a magazine. Same
-  // exclusion list as maybeShellShock above, kept in the same shape so a fifth
-  // faction's boss gets added to both.
-  if (t.germanBoss || t.japBoss || t.ship || t.shipPart) return false;
-  if (t.hordeBoss || t.bossPart) return false;
-  if (t.itaBoss || t.trainPart) return false;
+  // battery or a pus module would end every wave-100 fight in a magazine.
+  //
+  // `boss` carries the parent half, and it is deliberately NOT the per-faction
+  // flag list maybeShellShock above uses. Naming the four faction bosses and the
+  // Alien Walker catches every actor that arrives at wave 100 or 666 — and
+  // silently lets the round through on the ABOMINATION, a mid-run zombie whose
+  // whole design is "enormous HP standing in for armor" and which this card's
+  // own text ("bosses are unaffected") already promises to spare.
+  // Measured before this line: 775 procs in 2000 rolls on a zabom, against 0 on
+  // the Progenitor beside it. It is boss:true like the other five, so one flag
+  // covers all of them and a fifth faction's boss for free. canisterHittable
+  // reaches for `e.type === 'zabom'` by name instead only because it must ALSO
+  // reject things that are not bosses at all.
+  //
+  // The two lists therefore diverge on purpose, and must: a daze on the
+  // Abomination is a real effect that its own dispatch reads, so adding `boss`
+  // to maybeShellShock would delete a working card rather than fix one.
+  if (t.boss) return false;
+  // the child part actors, which carry no `boss` of their own
+  if (isBossPart(t)) return false;
   return Math.random() < HEADSHOT_CHANCE[shooter.type];
 }
 
@@ -593,6 +627,85 @@ function dummyRicochet(d, dmg, from, kind) {
   // the kill in recapEnemyKilled's existing '_indirect' bucket, which is what a
   // bullet nobody aimed is. The kill count and the TP bounty still land.
   damageEnemy(from, dmg, null, 'bullet');
+}
+
+// Ambush: the camo nest's own card, and the only one in the game that pays a
+// man for NOT having fired. A round loosed while the enemy still cannot see him
+// lands for double; markCamoFired then reveals him and the bonus is gone until
+// the nest hides him again. Flag-only, like Ricochet above — fireShot and
+// fireShotgun read G.cardsOwned through takeAmbushShot.
+//
+// DIRECT FIRE ONLY, and that is a balance rule rather than a plumbing one.
+// isCamouflaged is the entire precondition, so the nest's own reveal timer is
+// also the card's rate limit: 3s standard, 1.5s fortified, 0.5s hardened. A man
+// in a firefight is exposed the whole time and only ever ambushes out of a lull,
+// which is the loop the card is for. Every heavy tube cycles SLOWER than any of
+// those windows (7-14s), so a grenade, rocket or mortar shell would qualify on
+// every single shot and the card would read as a flat +100% damage for three
+// unit types. Flame is worse still: flameSpray calls markCamoFired every tick,
+// so its "first shot" is one 1/60s slice of burn.
+const AMBUSH_DMG_MULT = 2;
+
+// Fires the ambush if this man is shooting from concealment: reports whether the
+// round is doubled and throws the floating text, since the proc condition is
+// otherwise invisible to the player. NOT a pure predicate, and the name says so.
+// It must be called BEFORE markCamoFired — that is the call that breaks the
+// concealment this tests. isCamouflaged covers side, unit type, the exposure
+// timer and a live nest in one, so a Sherman parked on a nest is never hidden
+// and never ambushes.
+function takeAmbushShot(u) {
+  if (!(G.cardsOwned && G.cardsOwned.has('ambush'))) return false;
+  if (!isCamouflaged(u)) return false;
+  G.texts.push({ x: u.x, y: u.y - 20, text: 'AMBUSH', ttl: 1.2 });
+  return true;
+}
+
+// Forward Observer: a spotter works from the top of every watch tower, and the
+// men in the sector below him pick targets through smoke that would otherwise
+// have them firing blind. The tower's SECOND footprint, and deliberately a much
+// wider one than WATCHTOWER_AURA — the aura is who is close enough to shoot
+// further off the tower's height, this is how much ground the man up it can
+// SEE. One radius per fortification tier, like BUNKER_COVER_R, so an engineer
+// widens the sector rather than only hardening the ladder he climbs.
+//
+// Sized against a rifle: 130 is about a rifleman's own reach, so one tower
+// covers roughly one sector of the line and never the field. That bound is the
+// point — the smokescreen event has to keep working everywhere else, or a
+// 10 TP tower switches an entire mechanic off.
+const WATCHTOWER_SPOT_R = [130, 155, 180];
+
+// true when this shooter is being spotted from a tower and so sees through
+// smoke. Read by smokeBlocksLOS on the OBSERVER only, so it can never hand an
+// enemy vision of a man standing under the tower.
+//
+// The 0.4s G.buffFrame cache the officer aura and Cannibalize use, and it is
+// tested FIRST — ahead of even the cards check. This is the one card helper
+// read per candidate PAIR rather than per shot, so a bare Set lookup at the top
+// measured 0.15us on every one of them (0.9 of 6.7ms across a 40v150 board);
+// behind the cache the repeat cost is one property compare and the lookup runs
+// at most once per actor per 0.4s. Enemies get stamped too, which is the point
+// — they are the `a` argument on half the calls in targeting.js. Same staleness
+// deal as isCamouflaged's nest lookup: a man who walks over the sector line is
+// spotted (or not) up to a beat late. The tower's own death is NOT deferred
+// that way, since hp is tested live below.
+function spotterSeesThrough(u) {
+  if (!u) return false;
+  const bf = G.buffFrame || 0;
+  if (u._spotFrame === bf) return u._spotted;
+  u._spotFrame = bf;
+  u._spotted = false;
+  if (u.side !== 'us' || !G.watchtowers.length) return false;
+  // the tower's other benefits stop at the infantry (coverBlock,
+  // watchtowerRangeMult); its sector does too, or armour and the staked guns
+  // would still be shooting through smoke off a platform they never climbed
+  if (isVehicleOrGun(u)) return false;
+  if (!(G.cardsOwned && G.cardsOwned.has('forwardobserver'))) return false;
+  for (const wt of G.watchtowers) {
+    if (wt.hp <= 0) continue;
+    const r = WATCHTOWER_SPOT_R[emplacementTier(wt)];
+    if (dist2(wt, u) < r * r) { u._spotted = true; break; }
+  }
+  return u._spotted;
 }
 
 // an instant reload is worth whatever the cooldown it erases is worth:
@@ -772,10 +885,10 @@ const CARD_UNIQUES = {
     hooks: {},
   },
   // flag-only, like Sloped Armor: the tank cannon block in updateTankCombat
-  // reads G.cardsOwned via unitBlastMult and doubles the r it hands the shell
+  // reads G.cardsOwned via unitBlastMult and widens the r it hands the shell
   heshells: {
     unit: 'sherman', name: 'High Explosive', cost: 13, weight: 5,
-    desc: `The 75mm loads HE: every cannon shell bursts across ${BIG_BLAST_MULT}x the radius. The tank fires it at whatever it is aimed at, with no regard for how close your own men are standing.`,
+    desc: `The 75mm loads HE: every cannon shell bursts across ${HE_BLAST_MULT}x the radius. The tank fires it at whatever it is aimed at, with no regard for how close your own men are standing.`,
     hooks: {},
   },
   // flag-only: maybeSpawnPassenger (called from input.js placement) reads
@@ -993,6 +1106,22 @@ const CARD_UNIQUES = {
     desc: 'Barbed wire is strung with razor tape — enemy infantry dragging through it have a chance to take light cuts every moment they struggle.',
     hooks: {},
   },
+  // the fourth emplacement card, and the camo nest's own. Flag-only like the
+  // three above it: fireShot and fireShotgun read G.cardsOwned through
+  // takeAmbushShot, which is also where the scope of the bonus is argued.
+  ambush: {
+    unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Ambush', cost: 9, weight: 3,
+    desc: `A man who opens fire out of a camo nest while the enemy still cannot see him hits for ${AMBUSH_DMG_MULT}x damage. The shot gives his position away, so the bonus only comes back once the nest hides him again — ${CAMONEST_REVEAL}s after his last shot, ${CAMONEST_REVEAL_FORTIFIED}s fortified, ${CAMONEST_REVEAL_HARDENED}s hardened. Aimed fire and buckshot only: grenades, rockets, mortar shells and flame break cover without the ambush.`,
+    hooks: {},
+  },
+  // the fifth emplacement card, and the watch tower's own. Flag-only like the
+  // rest: smokeBlocksLOS (js/smoke.js) reads G.cardsOwned through
+  // spotterSeesThrough, so every target pick in the game honours it at once.
+  forwardobserver: {
+    unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Forward Observer', cost: 11, weight: 4,
+    desc: `A spotter works the top of every WATCH TOWER and calls targets for the sector below him: your infantry within ${WATCHTOWER_SPOT_R[0]} of a tower pick targets straight through smoke instead of standing blind in it — riflemen, machine guns and the mortar crew alike. Fortifying the tower widens the sector it watches to ${WATCHTOWER_SPOT_R[1]}, hardening it to ${WATCHTOWER_SPOT_R[2]}. Not armour and not the staked guns: a buttoned-up crew and a gunner at his own sights never climbed the ladder. It sees for your side only — the smoke still hides your men from them, and a tower that falls takes its sector's eyes with it.`,
+    hooks: {},
+  },
   // flag-only, like Rifled Slugs: updateAAGun reads G.cardsOwned directly to
   // decide it may engage ground infantry, and drawUnitWeaponRange paints the
   // close-range wedge red to mark the depression zone
@@ -1077,6 +1206,19 @@ const CARDS = {};
     CARDS[id] = { id, name: c.name, unitType: c.unit, label: c.label, unique: true, desc: c.desc, cost: c.cost, weight: c.weight, hooks: c.hooks };
   }
 }
+
+// the command ceiling: the summed weight of the whole catalog, which is what a
+// plan holding literally every card would occupy. A point past it can never be
+// spent on anything, so it is where buyCommandCapacity stops selling.
+//
+// It is also a SAFETY RAIL, and that is the reason it is enforced on load and
+// not only at the till. Three sites walk the capacity one step at a time — the
+// upgrade price (a loop from BASE_COMMAND_CAP), the segmented budget bar (one
+// DOM node per point), and the plan shed in loadEndlessCards — so a capacity
+// that arrives absurd from a corrupted or hand-edited save doesn't render
+// wrong, it hangs the tab on the menu with no way back out. Derived rather than
+// written down so it can't drift as cards are added.
+const MAX_COMMAND_CAP = Object.keys(CARDS).reduce((sum, id) => sum + CARDS[id].weight, 0);
 
 // Standard Issue: at spawn, a support unit with the card for its type trades
 // its sidearm for the rifleman's M1 weapon profile. The shared UNIT_TYPES
@@ -1179,7 +1321,7 @@ function loadEndlessCards() {
   const offer = Array.isArray(data.offer) ? data.offer : [];
   data.offer = offer.filter(id => CARDS[id] && !data.owned.includes(id));
   data.capacity = Number.isFinite(data.capacity)
-    ? Math.max(BASE_COMMAND_CAP, Math.floor(data.capacity)) : BASE_COMMAND_CAP;
+    ? clamp(Math.floor(data.capacity), BASE_COMMAND_CAP, MAX_COMMAND_CAP) : BASE_COMMAND_CAP;
   data.activePlan = Number.isInteger(data.activePlan)
     ? clamp(data.activePlan, 0, PLAN_SLOTS - 1) : 0;
   // reroll price is always a power-of-two multiple of the base; a missing or
@@ -1230,6 +1372,16 @@ function saveEndlessCards(data) {
   localStorage.setItem(ENDLESS_CARDS_KEY, JSON.stringify(data));
 }
 
+// how many cards are neither owned nor already on display — the deck the shop
+// still has left to draw from. Both medal sinks that PROMISE a new card gate on
+// this: a reroll that can't turn a single slot over, and a slot that would open
+// onto SOLD OUT, are purchases of nothing, and a completionist would otherwise
+// pay for them (and double the reroll price) with the deck empty.
+function undrawnCardCount(data) {
+  const taken = new Set([...data.owned, ...data.offer]);
+  return Object.keys(CARDS).filter(id => !taken.has(id)).length;
+}
+
 // a random card the player neither owns nor is currently being offered
 function drawUnofferedCard(data) {
   const taken = new Set([...data.owned, ...data.offer]);
@@ -1265,6 +1417,7 @@ function commandUpgradeCost(capacity) {
 
 function buyCommandCapacity() {
   const data = loadEndlessCards();
+  if (data.capacity >= MAX_COMMAND_CAP) return false;
   const cost = commandUpgradeCost(data.capacity);
   if (cost > data.medals) return false;
   data.medals -= cost;
@@ -1284,6 +1437,9 @@ function buyShopSlot() {
   const data = loadEndlessCards();
   const cost = shopSlotUpgradeCost(data.shopSlots);
   if (cost === null || cost > data.medals) return false;
+  // a slot with nothing to put in it is a SOLD OUT placeholder bought at full
+  // price, and the deck never refills — nothing un-owns a card
+  if (!undrawnCardCount(data)) return false;
   data.medals -= cost;
   data.shopSlots += 1;
   // stock the freshly opened slot so it isn't a "SOLD OUT" placeholder
@@ -1294,11 +1450,15 @@ function buyShopSlot() {
 }
 
 // draw a fresh shop offer for medals; each reroll costs twice the last
-// (2, 4, 8, ...), and the new cards avoid both the collection and the ones
+// (1, 2, 4, ...), and the new cards avoid both the collection and the ones
 // currently on display so a reroll always turns the slots over
 function rerollShop() {
   const data = loadEndlessCards();
   if (data.rerollCost > data.medals) return false;
+  // with every remaining card already on display there is nothing a reroll can
+  // turn over: it would charge the medals, double its own price, and hand back
+  // the same row (or, with the deck fully collected, an empty one)
+  if (!undrawnCardCount(data)) return false;
   data.medals -= data.rerollCost;
   const avoid = new Set([...data.owned, ...data.offer]);
   data.offer = [];
@@ -1356,8 +1516,10 @@ function equippedEndlessCards() {
 // Built once in newGame(); null when no cards are equipped or outside endless.
 // `accMult` is a scalar the shot roll multiplies by; every other key is a list
 // of hook fns. A card supplies accMult as a plain number in its hooks object.
-function buildCardHooks() {
-  const owned = equippedEndlessCards();
+// `ownedList` lets a resumed run rebuild hooks from ITS OWN saved card list
+// (js/save.js) — every other caller omits it and reads the live loadout
+function buildCardHooks(ownedList) {
+  const owned = ownedList || equippedEndlessCards();
   if (!owned.length) return null;
   const table = {};
   for (const id of owned) {
@@ -1372,10 +1534,15 @@ function buildCardHooks() {
   return table;
 }
 
-// medals only accrue where the leaderboard counts: real endless runs on
-// easy/medium/hard. Sandbox and testing (unlimited TP) and the tutorial pay
-// nothing, so wave-jumping can't farm the shop.
+// medals only accrue where the leaderboard counts: real endless runs. Sandbox
+// and testing (unlimited TP) and the tutorial pay nothing, so wave-jumping can't
+// farm the shop. Also the gate on the rung unlock (js/flow.js) and on recording
+// a score (updateGameOverLeaderboard) — one definition of "this run counted".
 function medalsEligible() {
+  // ATTRACT: the menu demo (js/attract.js) drives a real endless run, so it
+  // would otherwise bank medals, earn rungs and take leaderboard scores while
+  // nobody is playing. One term, because this predicate is all three gates.
+  if (attractRunning()) return false;
   return G && G.level.id === 'endless' && G.difficulty && !G.difficulty.sandbox;
 }
 
@@ -1398,7 +1565,7 @@ function awardWaveMedals() {
 
 // ---- card shop UI
 
-let cardShopReturnScreen = 'endless-select';
+let cardShopReturnScreen = 'intro';
 // 'shop' = the full card shop reached from the menu; 'loadout' = the same screen
 // opened when an endless run starts, stripped to just the battle plans (no
 // purchasing) with a DEPLOY button that launches the run
@@ -1417,7 +1584,7 @@ function openCardShop(fromScreen) {
   cardShopMode = 'shop';
   pendingLoadoutDiff = null;
   collectionFilter = null;
-  cardShopReturnScreen = fromScreen || 'endless-select';
+  cardShopReturnScreen = fromScreen || 'intro';
   el(cardShopReturnScreen).classList.add('hidden');
   applyCardShopMode();
   buildCardShopUI();
@@ -1427,7 +1594,20 @@ function openCardShop(fromScreen) {
 // starting an endless run first drops the player onto the card shop with the
 // buying half hidden, so they can pick and swap a battle plan before deploying.
 // With an empty collection there's nothing to arrange, so skip straight in.
-function openEndlessLoadout(difficultyId) {
+// `fromScreen` is the menu screen this was launched from and the one BACK
+// returns to. It is 'intro' for the PLAY slab, but the sandbox and testing
+// buttons moved into Settings when the menu was unified — and those swap
+// #settings out, not #intro, so hard-coding the front page here left the
+// settings panel sitting on top of the card shop.
+function openEndlessLoadout(difficultyId, fromScreen) {
+  const from = fromScreen || 'intro';
+  // every menu-driven endless start funnels through here — one gate covers the
+  // deploy button and the sandbox/testing buttons. Confirming the abandon prompt
+  // clears the slot and re-enters, so the gate passes the second time.
+  if (hasRunSave()) {
+    openAbandonConfirm(difficultyId, from);
+    return;
+  }
   if (!loadEndlessCards().owned.length) {
     startGame('endless', difficultyId);
     return;
@@ -1435,8 +1615,8 @@ function openEndlessLoadout(difficultyId) {
   cardShopMode = 'loadout';
   pendingLoadoutDiff = difficultyId;
   collectionFilter = null;
-  cardShopReturnScreen = 'endless-select';
-  el('endless-select').classList.add('hidden');
+  cardShopReturnScreen = from;
+  el(from).classList.add('hidden');
   applyCardShopMode();
   buildCardShopUI();
   el('card-shop').classList.remove('hidden');
@@ -1453,6 +1633,10 @@ function deployEndlessLoadout() {
 function closeCardShop() {
   el('card-shop').classList.add('hidden');
   el(cardShopReturnScreen).classList.remove('hidden');
+  // the menu prints the banked medal count on its CARDS chip, and this screen is
+  // where that number is spent — so coming back from it is the one transition
+  // that can return to a stale front page
+  if (cardShopReturnScreen === 'intro') refreshFrontMenu();
   // coming back to the endgame ceremony, resync its offer/banked with anything
   // bought or rerolled inside the full shop
   if (cardShopReturnScreen === 'endless-endgame') {
@@ -1515,7 +1699,7 @@ function buildCardShopUI() {
       '<div class="cs-card__foot">' +
         '<span class="cs-cmd"><span class="cs-cmd__lab">COMMAND</span>' +
           '<span class="cs-pips">' + commandPips(card.weight) + '</span></span>' +
-        '<span class="cs-cost">' + card.cost + '<span class="cs-cost__u">' + (afford ? 'RB' : 'NEED') + '</span></span>' +
+        '<span class="cs-cost">' + card.cost + '<span class="cs-cost__u">' + (afford ? 'MED' : 'NEED') + '</span></span>' +
       '</div>';
     btn.addEventListener('click', () => {
       if (buyCard(card.id)) {
@@ -1525,16 +1709,22 @@ function buildCardShopUI() {
     });
     row.appendChild(btn);
   }
+  // both medal sinks below sell a card the shop hasn't shown yet, so both go
+  // dead when the deck runs out — and SAY so, or they read as a broken button
+  const undrawn = undrawnCardCount(data);
   const reroll = el('card-shop-reroll');
   if (reroll) {
-    reroll.textContent = 'REROLL — ' + medalLabel(data.rerollCost);
-    reroll.disabled = data.rerollCost > data.medals;
+    reroll.textContent = undrawn ? 'REROLL — ' + medalLabel(data.rerollCost) : 'REROLL — DECK EMPTY';
+    reroll.disabled = !undrawn || data.rerollCost > data.medals;
   }
   const slotBtn = el('card-shop-slot');
   if (slotBtn) {
     const slotCost = shopSlotUpgradeCost(data.shopSlots);
     if (slotCost === null) {
       slotBtn.textContent = 'CARD SLOTS — MAX (6)';
+      slotBtn.disabled = true;
+    } else if (!undrawn) {
+      slotBtn.textContent = '+1 CARD SLOT — DECK EMPTY';
       slotBtn.disabled = true;
     } else {
       slotBtn.textContent = '+1 CARD SLOT — ' + medalLabel(slotCost);
@@ -1576,9 +1766,14 @@ function buildBattlePlanUI() {
     segs.appendChild(seg);
   }
   const upBtn = el('plan-upgrade');
-  const upCost = commandUpgradeCost(data.capacity);
-  upBtn.textContent = `+1 COMMAND — ${medalLabel(upCost)}`;
-  upBtn.disabled = upCost > data.medals;
+  if (data.capacity >= MAX_COMMAND_CAP) {
+    upBtn.textContent = `COMMAND — MAX (${MAX_COMMAND_CAP})`;
+    upBtn.disabled = true;
+  } else {
+    const upCost = commandUpgradeCost(data.capacity);
+    upBtn.textContent = `+1 COMMAND — ${medalLabel(upCost)}`;
+    upBtn.disabled = upCost > data.medals;
+  }
   const grid = el('plan-collection');
   const filterRow = el('plan-filter');
   grid.replaceChildren();
@@ -1649,6 +1844,94 @@ function buildBattlePlanUI() {
   }
 }
 
+// ---- mid-run loadout sheet (#loadout-view): what you brought, read-only
+//
+// The loadout is picked before the run and then goes invisible — several cards
+// are pure flags with no tell on the field, and a long run outlives the player's
+// memory of a 100+ card catalog. This is the reference sheet for that.
+//
+// It reads G.cardsOwned, never the saved plan: the Set built in newGame() is
+// what the run is actually running, and it's the same thing every gameplay site
+// checks. Read-only on purpose — G.cardHooks is built once at newGame(), so
+// swapping here would mean rebuilding it mid-fight AND would let a player
+// re-spec against the wave standing in front of them.
+
+function buildLoadoutView() {
+  // a card id with no catalog entry can't be rendered or weighed; loadEndlessCards
+  // already drops those, so this only catches a hand-set Set (TEST, console)
+  const ids = (G && G.cardsOwned ? [...G.cardsOwned] : []).filter(id => CARDS[id]);
+  const data = loadEndlessCards();
+  const used = planCommandUsed(ids);
+
+  el('lv-sub').textContent = PLAN_NAMES[data.activePlan] + ' · ' +
+    ids.length + (ids.length === 1 ? ' CARD' : ' CARDS') + ' IN THE FIELD';
+  el('lv-command').textContent = used + ' / ' + data.capacity;
+
+  // the shop's segmented meter. Cells are max(used, capacity) so the bar can
+  // never show fewer than it lights — capacity is read from the save and the
+  // run's own cards are the truth if the two ever disagree.
+  const segs = el('lv-segs');
+  segs.replaceChildren();
+  for (let s = 0; s < Math.max(used, data.capacity); s++) {
+    const seg = document.createElement('span');
+    seg.className = 'cs-seg' + (s < used ? ' cs-seg--fill' : '');
+    segs.appendChild(seg);
+  }
+
+  const rows = el('lv-rows');
+  rows.replaceChildren();
+  if (!ids.length) {
+    const none = document.createElement('div');
+    none.className = 'lv-row lv-row--empty';
+    none.textContent = 'NO CARDS DEPLOYED THIS RUN.';
+    rows.appendChild(none);
+    return;
+  }
+  for (const id of ids) {
+    const card = CARDS[id];
+    // a DIV, not a button: nothing here is clickable, so it shouldn't take focus
+    // — and a div sidesteps `.overlay button`, which repaints every overlay
+    // button gold and would have to be outranked selector by selector
+    const row = document.createElement('div');
+    row.className = 'lv-row' + (card.unique ? ' lv-row--unique' : '');
+    row.innerHTML =
+      '<div class="lv-row__copy">' +
+        '<div class="lv-row__line">' +
+          '<span class="lv-row__name">' + card.name.toUpperCase() + '</span>' +
+          '<span class="cs-chip">' + cardUnitLabel(card) + '</span>' +
+        '</div>' +
+        '<div class="lv-row__desc">' + card.desc + '</div>' +
+      '</div>' +
+      '<div class="lv-row__cmd">' +
+        '<span class="cs-pips">' + commandPips(card.weight) + '</span>' +
+        '<span class="lv-row__w">' + card.weight + ' CMD</span>' +
+      '</div>';
+    rows.appendChild(row);
+  }
+}
+
+// un-hide BEFORE building, same reasoning as openCodexOverlay (js/codex.js): a
+// card that throws while the overlay is still hidden leaves the player staring
+// at the field with no ✕ and nothing for Escape to claim
+function openLoadoutView() {
+  el('pause').classList.add('hidden');
+  el('loadout-view').classList.remove('hidden');
+  buildLoadoutView();
+  SFX.click();
+}
+
+// pause is the only way in, so there's no returnTo token to keep
+function closeLoadoutView() {
+  if (el('loadout-view').classList.contains('hidden')) return;
+  el('loadout-view').classList.add('hidden');
+  el('pause').classList.remove('hidden');
+  SFX.click();
+}
+
+function loadoutViewOpen() {
+  return !el('loadout-view').classList.contains('hidden');
+}
+
 // ---- endless endgame: the "Spotlight Locker" medal ceremony (design 2b)
 
 // count the hero medal number up from zero for a bit of ceremony
@@ -1678,7 +1961,7 @@ function buildEndgameCard(card, medals) {
       '<span class="ee-card__unit">' + cardUnitLabel(card) + '</span>' +
       '<span class="ee-card__rar ' + (card.unique ? 'ee-card__rar--uni">UNIQUE' : 'ee-card__rar--std">STANDARD') + '</span>' +
       '<span class="ee-card__cost' + (afford ? '' : ' ee-card__cost--need') + '">' + card.cost +
-        '<u>' + (afford ? 'RB' : 'NEED') + '</u></span>' +
+        '<u>' + (afford ? 'MED' : 'NEED') + '</u></span>' +
     '</div>' +
     '<div class="ee-card__name">' + card.name.toUpperCase() + '</div>' +
     '<div class="ee-card__desc">' + card.desc + '</div>' +

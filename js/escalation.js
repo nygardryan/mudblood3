@@ -6,8 +6,9 @@
 // Escalation 0 is the old EASY tier untouched, and the rung is unlocked one at a
 // time by putting the wave-100 boss down (see unlockEscalation, called from
 // bossVictory in js/flow.js). The old MEDIUM/HARD tiers left the menu when this
-// shipped — they survive in ENDLESS_DIFFICULTIES only for TEST.start and the
-// banked leaderboard boards.
+// shipped — they survive in ENDLESS_DIFFICULTIES only for TEST.start. The
+// leaderboards followed later: they are keyed on the RUNG now, one board each
+// (js/leaderboards.js), because the rung is what a difficulty is here.
 //
 // The whole ladder is expressed as ONE flat object of scalars (see
 // defaultEscMods): every hook site in the sim reads a `G.esc.*` field and
@@ -202,14 +203,6 @@ function runPostureLabel() {
 // medals and shop width), normalized in loadEndlessCards — no version bump,
 // because an additive field is exactly what that normalizer already backfills.
 
-function escalationSelected() {
-  return loadEndlessCards().escalation;
-}
-
-function escalationUnlocked() {
-  return loadEndlessCards().escUnlocked;
-}
-
 function setEscalationLevel(n) {
   const data = loadEndlessCards();
   data.escalation = clamp(Math.floor(n), 0, data.escUnlocked);
@@ -231,12 +224,21 @@ function unlockEscalation(n) {
 
 
 // ---------------------------------------------------------------------------
-// UI. The menu is three surfaces: a RUNG STRIP (every earned rung one tap away,
-// so dropping from IX back to II isn't seven arrow presses), a READOUT that
-// pairs the selected rung with what it PAYS, and a full-screen DOSSIER holding
-// all ten modifiers. The ten `ee-card`s that used to sit under the stepper moved
-// into that dossier: at rung X they pushed the deploy button a screen and a half
-// down a panel whose whole job is to start a run.
+// UI. Two surfaces now that the menu is one screen: the PLAY SLAB on the front
+// page — a single welded control with EASIER / HARDER recessed into its ends and
+// the rung it deploys at printed inside it — and the full-screen DOSSIER holding
+// all ten modifiers.
+//
+// The eleven-chip RUNG STRIP moved INTO the dossier, and the dossier's rows
+// became selectable with it. The strip has to live somewhere: the slab's arrows
+// walk one rung at a time, so dropping from IX back to II is seven presses
+// without it, and that is exactly the move a player stuck on a rung makes. What
+// the front page gives up by not carrying it is a row of eleven chips competing
+// with the one control the screen exists for — which is the whole point of the
+// redesign. So the dossier stopped being purely informational: it is the place
+// you go to READ the ladder, and reading it is when you decide where to stand on
+// it. Selection is still one write path (pickEscalation), and the strip and the
+// rows are two spellings of the same tap.
 
 // 'on' (this run has it) | 'idle' (earned, above the current pick) | 'locked'
 function escStateFor(level, sel, unlocked) {
@@ -245,18 +247,34 @@ function escStateFor(level, sel, unlocked) {
 
 // the eleven chips, '—' plus I..X. A locked chip is drawn inert rather than
 // omitted: the SHAPE of the ladder is the whole reason to climb it.
-function buildEscRungs(sel, unlocked) {
-  const row = el('esc-rungs');
-  row.innerHTML = '';
+// `hostId` because the leaderboard screen builds the same strip over its own
+// boards (js/leaderboards.js has its own copy — it selects a BOARD, not a rung).
+//
+// A strip that is already standing is REPAINTED, never rebuilt — the same rule
+// refreshEscDossierStates() follows for the rows below, and for the same reason
+// one step further in: every repaint here is triggered BY a tap on one of these
+// chips, so an innerHTML rebuild throws away the element that is mid-activation.
+// The visible cost is keyboard focus, which falls back to <body> when the
+// focused node leaves the document, so Tab restarts from the top of the page and
+// the strip can't be walked with the keyboard at all. Only the state class, the
+// disabled flag and the tooltip can differ between two paints; the label, the
+// aria-label and the handler's captured rung index cannot, so the nodes are
+// reusable exactly as they stand.
+function buildEscRungs(sel, unlocked, hostId) {
+  const row = el(hostId || 'esc-dossier-rungs');
+  if (!row) return;
+  const standing = row.children.length === ESC_MAX + 1;
+  if (!standing) row.innerHTML = '';
   for (let i = 0; i <= ESC_MAX; i++) {
     const state = escStateFor(i, sel, unlocked);
-    const chip = document.createElement('button');
-    chip.type = 'button';
+    const chip = standing ? row.children[i] : document.createElement('button');
     chip.className = 'esc-rung esc-rung--' + state;
-    chip.textContent = ESC_ROMAN[i];
     chip.disabled = state === 'locked';
     chip.title = i === 0 ? 'No modifiers'
       : state === 'locked' ? 'Locked' : ESCALATIONS[i - 1].name;
+    if (standing) continue;
+    chip.type = 'button';
+    chip.textContent = ESC_ROMAN[i];
     chip.setAttribute('aria-label', (i === 0 ? 'No escalation' : 'Escalation ' + ESC_ROMAN[i]) +
       ' — ' + escMultLabel(i) + ' medals');
     chip.addEventListener('click', () => pickEscalation(i));
@@ -264,85 +282,83 @@ function buildEscRungs(sel, unlocked) {
   }
 }
 
-// the single card under the readout: the modifier the current rung just added.
-// One card rather than the full stack, because the stack is what the dossier is.
-function buildEscNewest(sel) {
-  const host = el('esc-newest');
-  const mod = sel > 0 ? ESCALATIONS[sel - 1] : null;
-  host.classList.toggle('esc-newest--on', !!mod);
-  host.innerHTML =
-    '<div class="esc-newest__top">' +
-      '<span class="esc-newest__cat">' + (mod ? mod.cat : 'BASELINE') + '</span>' +
-      (mod ? '<span class="esc-newest__live">ACTIVE</span>' : '') +
-      '<span class="esc-newest__lvl">' + (mod ? ESC_ROMAN[mod.level] : '—') + '</span>' +
-    '</div>' +
-    '<div class="esc-newest__name">' + (mod ? mod.name : 'CLEAN SECTOR') + '</div>' +
-    '<div class="esc-newest__desc">' + (mod ? mod.desc :
-      'Nothing stacked against you — and nothing extra in the pay packet. Every rung ' +
-      'you take adds one permanent modifier, and banks more medals for it.') + '</div>';
-}
-
-// rebuild the whole escalation block from the save. Called when #endless-select
-// opens and after every pick.
+// rebuild the front page's escalation half from the save. Called from
+// returnToMenu and on page load (the menu is the first thing up), and after
+// every pick.
 function buildEscalationUI() {
-  const block = el('esc-block');
-  if (!block) return;
+  const slab = el('esc-deploy');
+  if (!slab) return;
   const data = loadEndlessCards();
   const level = data.escalation, unlocked = data.escUnlocked;
+  const mod = level > 0 ? ESCALATIONS[level - 1] : null;
 
+  // what PLAY deploys at, printed inside the button
   el('esc-level').textContent = level > 0 ? 'ESCALATION ' + ESC_ROMAN[level] : 'NO ESCALATION';
-  el('esc-count').textContent = level > 0
-    ? level + ' MODIFIER' + (level === 1 ? '' : 'S') + ' IN EFFECT'
-    : 'NO MODIFIERS';
-  // #esc-foe is not written here: the rung never picks the enemy, so its line is
-  // the same at every rung and lives in the HTML as static copy.
-  el('esc-mult').textContent = escMultLabel(level);
-  el('esc-earned').textContent = 'EARNED: ' + ESC_ROMAN[unlocked];
-  el('esc-topmult').textContent = escMultLabel(ESC_MAX) + ' MEDALS';
-  el('esc-sel').textContent = level;
+  el('esc-mult').textContent = escMultLabel(level) + ' MEDALS';
   el('esc-prev').disabled = level <= 0;
   el('esc-next').disabled = level >= unlocked;
 
-  // one line carrying the whole climb: what the next rung is, or what it costs
-  // to earn it, and what either pays
-  const next = level < ESC_MAX ? ESCALATIONS[level] : null;
-  const earned = level < unlocked;
-  const line = el('esc-nextline');
-  line.classList.toggle('esc-nextline--live', !!(next && earned));
-  line.textContent = !next
-    ? 'TOP OF THE LADDER · ' + escMultLabel(ESC_MAX) + ' MEDALS'
-    : earned
-      ? 'NEXT ▸ ' + ESC_ROMAN[next.level] + ' · ' + next.name + ' · ' + escMultLabel(next.level) + ' MEDALS'
-      // rung 0 has no numeral to name, so it drops the "ON —" that would read
-      // as a typo to the one player who most needs this line: a new one
-      : 'LOCKED ▸ PUT THE BOSS DOWN' + (level > 0 ? ' ON ' + ESC_ROMAN[level] : '') +
-        ' TO EARN ' + ESC_ROMAN[next.level] + ' · ' + escMultLabel(next.level) + ' MEDALS';
-
-  buildEscRungs(level, unlocked);
-  buildEscNewest(level);
+  // the status line: the modifier this rung just added, then how far up the
+  // ladder you have actually earned. One card's worth of copy on one line —
+  // the other nine are what the dossier is for.
+  el('esc-newest-name').textContent = mod ? mod.name : 'CLEAN SECTOR';
+  el('esc-newest-desc').textContent = mod ? mod.desc.toLowerCase()
+    : 'nothing stacked against you, and nothing extra in the pay packet.';
+  el('esc-earned').textContent = 'EARNED ' + (unlocked > 0 ? ESC_ROMAN[unlocked] : '—') +
+    ' / ' + ESC_ROMAN[ESC_MAX];
 }
 
 // ---------------------------------------------------------------------------
-// the dossier: all ten modifiers as one scrollable list. Rows are informational,
-// not a second way to pick — the strip and the arrows own selection. Tapping a
-// row expands the `long` briefing, the same detail gesture the shop cards use.
+// the dossier: the rung strip, then all ten modifiers as one scrollable list.
+// Rows both EXPAND the `long` briefing (the same detail gesture the shop cards
+// use) and SELECT their rung, which is why the side of an unselected row reads
+// `SET ▸` rather than `AVAILABLE` — a label that describes a fact, on a control
+// that performs an action, is how a player learns the row is inert.
+
+// the header line under THE LADDER. It carries what the front page's status line
+// hasn't room for: the whole climb, either the next rung you can take or what it
+// costs to earn it, and the standing note that the ladder never picks your enemy.
+function escDossierSubText(sel, unlocked) {
+  const next = sel < ESC_MAX ? ESCALATIONS[sel] : null;
+  const climb = !next
+    ? 'TOP OF THE LADDER'
+    : sel < unlocked
+      ? 'NEXT ▸ ' + ESC_ROMAN[next.level] + ' · ' + next.name
+      // rung 0 has no numeral to name, so it drops the "ON —" that would read
+      // as a typo to the one player who most needs this line: a new one
+      : 'LOCKED ▸ PUT THE BOSS DOWN' + (sel > 0 ? ' ON ' + ESC_ROMAN[sel] : '') +
+        ' TO EARN ' + ESC_ROMAN[next.level];
+  return ESC_MAX + ' RUNGS · ' + sel + ' IN EFFECT · ' +
+    (unlocked > 0 ? ESC_ROMAN[unlocked] + ' EARNED' : 'NONE EARNED') + ' · ' +
+    escMultLabel(sel) + ' MEDALS\n' + climb + ' · ENEMY: ROLLED AT RANDOM';
+}
+
+// what the side of a row says. The rung you are set to is IN EFFECT; anything
+// below it is in effect too but tapping DROPS you to it, and saying so is the
+// whole reason a IX→II move is one tap here.
+function escRowStateLabel(level, sel, state) {
+  if (state === 'locked') return 'LOCKED';
+  if (level === sel) return 'IN EFFECT';
+  return state === 'on' ? 'IN EFFECT · SET ▸' : 'SET ▸';
+}
 
 function buildEscDossier() {
   const data = loadEndlessCards();
   const sel = data.escalation, unlocked = data.escUnlocked;
-  el('esc-dossier-sub').textContent = ESC_MAX + ' RUNGS · ' + sel + ' IN EFFECT · ' +
-    (unlocked > 0 ? ESC_ROMAN[unlocked] + ' EARNED' : 'NONE EARNED') + ' · ' +
-    escMultLabel(sel) + ' MEDALS';
+  el('esc-dossier-sub').textContent = escDossierSubText(sel, unlocked);
+  buildEscRungs(sel, unlocked, 'esc-dossier-rungs');
 
   const host = el('esc-dossier-rows');
   host.innerHTML = '';
   for (const mod of ESCALATIONS) {
     const state = escStateFor(mod.level, sel, unlocked);
     const locked = state === 'locked';
-    // a locked row has no briefing to expand, so it is not a button at all
+    // a locked row has no briefing to expand and no rung to set, so it is not a
+    // button at all
     const row = document.createElement(locked ? 'div' : 'button');
     if (!locked) row.type = 'button';
     row.className = 'escd-row escd-row--' + state;
+    row.dataset.rung = String(mod.level);
     row.innerHTML =
       '<span class="escd-row__num">' + ESC_ROMAN[mod.level] + '</span>' +
       '<span class="escd-row__copy">' +
@@ -361,22 +377,41 @@ function buildEscDossier() {
           '<span class="escd-row__full">' + mod.long + '</span>') +
       '</span>' +
       '<span class="escd-row__side">' +
-        '<span class="escd-row__state">' +
-          (state === 'on' ? 'IN EFFECT' : locked ? 'LOCKED' : 'AVAILABLE') + '</span>' +
+        '<span class="escd-row__state">' + escRowStateLabel(mod.level, sel, state) + '</span>' +
         '<span class="escd-row__mult">' + escMultLabel(mod.level) + ' MEDALS</span>' +
       '</span>';
     if (!locked) {
       const chev = row.querySelector('.escd-row__chev');
       row.addEventListener('click', () => {
         chev.textContent = row.classList.toggle('escd-row--open') ? '▴ hide' : '▾ detail';
+        pickEscalation(mod.level);
       });
     }
     host.appendChild(row);
   }
 }
 
-// the dossier LAYERS over #endless-select rather than swapping it out (the way
-// the card shop and the leaderboards do) — it is a reference sheet you consult
+// A pick made from inside the dossier REPAINTS it rather than rebuilding it.
+// Rebuilding would innerHTML the rows out from under the finger that just tapped
+// one — the briefing the same tap opened would vanish, and every other expanded
+// row would collapse. Nothing here changes the SHAPE of the list (a rung can't
+// be earned from this screen), so only the state classes and labels can differ.
+function refreshEscDossierStates() {
+  const data = loadEndlessCards();
+  const sel = data.escalation, unlocked = data.escUnlocked;
+  el('esc-dossier-sub').textContent = escDossierSubText(sel, unlocked);
+  buildEscRungs(sel, unlocked, 'esc-dossier-rungs');
+  for (const row of el('esc-dossier-rows').children) {
+    const level = Number(row.dataset.rung);
+    const state = escStateFor(level, sel, unlocked);
+    row.className = 'escd-row escd-row--' + state +
+      (row.classList.contains('escd-row--open') ? ' escd-row--open' : '');
+    row.querySelector('.escd-row__state').textContent = escRowStateLabel(level, sel, state);
+  }
+}
+
+// the dossier LAYERS over the menu rather than swapping it out (the way the card
+// shop and the leaderboards do) — it is a reference sheet you consult
 // mid-decision, and the menu staying put underneath is what makes it read that
 // way rather than as a place you navigated to.
 function openEscalationDossier() {
@@ -397,10 +432,11 @@ function escDossierOpen() {
 
 // ---------------------------------------------------------------------------
 
-// the one write path for the selection: both the strip and the arrows land
-// here, so the clamp and the rebuild live in one place. The dossier needs no
-// refresh from here — it covers the whole stage while it's up, so no chip or
-// arrow is reachable behind it, and it rebuilds on every open.
+// the one write path for the selection: the slab's arrows, the dossier's strip
+// and its rows all land here, so the clamp and the rebuild live in one place.
+// The menu underneath is repainted even though the dossier covers it, because
+// closing the dossier is not a refresh — and the dossier is repainted (never
+// rebuilt) whenever it is the thing that made the pick.
 function pickEscalation(n) {
   const data = loadEndlessCards();
   const next = clamp(Math.floor(n), 0, data.escUnlocked);
@@ -408,6 +444,7 @@ function pickEscalation(n) {
   setEscalationLevel(next);
   SFX.click();
   buildEscalationUI();
+  if (escDossierOpen()) refreshEscDossierStates();
 }
 
 function stepEscalation(delta) {

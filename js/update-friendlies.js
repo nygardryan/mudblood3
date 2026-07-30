@@ -24,9 +24,9 @@ function unitBuffs(u) {
   if (ob) { b.rofMult *= ob.rofMult; b.accBonus += ob.accBonus; }
   b.rofMult *= ammoCrateRofMult(u);
   if (u.rank > 0) {
-    b.rofMult *= 1 - u.rank * 0.08;
-    b.accBonus += u.rank * 0.08;
-    b.dmgMult *= 1 + u.rank * 0.04;
+    b.rofMult *= 1 - u.rank * RANK_ROF_RATE;
+    b.accBonus += u.rank * RANK_ACC_RATE;
+    b.dmgMult *= 1 + u.rank * RANK_DMG_RATE;
   }
   // Cannibalize: +10% fire rate (lower rofMult = faster cycling) per
   // repairable object in the engineer's radius
@@ -41,7 +41,7 @@ function unitBuffs(u) {
 
 // veterans hustle: each rank moves 4% quicker, so a MSG covers ground 24% faster
 function unitSpeed(u) {
-  let mult = 1 + (u.rank || 0) * 0.04;
+  let mult = 1 + (u.rank || 0) * RANK_SPD_RATE;
   // Double Time: shotgunner/flamer/medic/engineer close ground 30% faster
   if (u.side === 'us' && G.cardsOwned && G.cardsOwned.has('doubletime_' + u.type)) mult *= 1.3;
   return u.t.speed * mult;
@@ -62,8 +62,7 @@ function ammoCrateRofMult(u) {
   let mult = 1;
   for (const ac of G.ammoCrates) {
     if (ac.hp > 0 && dist2(ac, u) < AMMOCRATE_AURA * AMMOCRATE_AURA) {
-      const acMult = ac.up2 ? AMMOCRATE_ROF_MULT_HARDENED
-        : ac.up ? AMMOCRATE_ROF_MULT_UPGRADED : AMMOCRATE_ROF_MULT;
+      const acMult = AMMOCRATE_ROF_MULT_TIERS[emplacementTier(ac)];
       if (acMult < mult) mult = acMult;
     }
   }
@@ -72,27 +71,32 @@ function ammoCrateRofMult(u) {
 
 // a watch tower's raised vantage extends the sightline of nearby riflemen —
 // but a mortar crew fires indirect and blind, so the tower does nothing for them.
-// crews buttoned up in a vehicle or tank don't get the spotter's call either —
-// only the ammo crate (a resupply) helps armor. an engineer-fortified tower
-// (t.up) sees further and boosts the effect further.
+// crews buttoned up in a vehicle or tank don't get the spotter's call either,
+// nor does a gun crew staked to its trails (the AT and AA guns aim down their
+// own sights, not the tower's) — only the ammo crate (a resupply) helps armor.
+// an engineer-fortified tower (t.up) sees further and boosts the effect further.
 // The Italian half of the same idea: a man up one of THEIR watch towers sees
 // just as far. Read straight off his garrison link, so it costs nothing — the
 // player-side version below has to scan every tower on the field.
 function italianTowerRangeMult(u) {
-  if (!u.garrisoned || u.t.mortar || u.t.tank || u.t.vehicle) return 1;
+  if (!u.garrisoned || u.t.mortar || isVehicleOrGun(u)) return 1;
   const w = u.garrison;
   if (!w || w.kind !== 'watchtower' || w.hp <= 0) return 1;
-  return IT_WORK_KINDS.watchtower.rangeMult[w.up2 ? 2 : w.up ? 1 : 0];
+  return IT_WORK_KINDS.watchtower.rangeMult[emplacementTier(w)];
 }
 
 function watchtowerRangeMult(u) {
   if (u.side !== 'us') return italianTowerRangeMult(u);
-  if (u.t.mortar || u.t.tank || u.t.vehicle || !G.watchtowers.length) return 1;
+  if (u.t.mortar || isVehicleOrGun(u) || !G.watchtowers.length) return 1;
   let mult = 1;
   for (const wt of G.watchtowers) {
+    // a tower that has just been knocked down spots for nobody. compactDefenses
+    // only sweeps hp <= 0 out at the END of update(), so without this the wreck
+    // keeps extending everyone's reach for the rest of the frame it died in —
+    // the same guard coverBlock and spotterSeesThrough already carry.
+    if (wt.hp <= 0) continue;
     if (dist2(wt, u) < WATCHTOWER_AURA * WATCHTOWER_AURA) {
-      const wtMult = wt.up2 ? WATCHTOWER_RANGE_MULT_HARDENED
-        : wt.up ? WATCHTOWER_RANGE_MULT_UPGRADED : WATCHTOWER_RANGE_MULT;
+      const wtMult = WATCHTOWER_RANGE_MULT_TIERS[emplacementTier(wt)];
       if (wtMult > mult) mult = wtMult;
     }
   }
@@ -147,6 +151,44 @@ function unitRangeMult(u) {
 
 function unitRange(u, base) {
   return base * unitRangeMult(u);
+}
+
+// ---- rocket launchers ----
+// TWO firers put a rocket in the air off the same rules: the bazooka man below,
+// and the jeep's bazooka rider (fireJeepBazooka, js/cards.js), which was a
+// line-for-line copy of both halves. They are split into a PICK and a LAUNCH
+// rather than one call because that is exactly where the two differ — the rider
+// stores his bearing and flash on his own fields so the .50 can keep swinging
+// independently, and only the man on foot gives away a camo nest by firing.
+
+// Tanks first, then soft vehicles, infantry only when there is nothing on
+// wheels; never inside his own blast, and never over his own men. One pass.
+function rocketTarget(u, rk, range) {
+  const safeR2 = (rk.r + 20) * (rk.r + 20);
+  const safe = e => dist2(u, e) > safeR2;
+  const rt = tieredEnemyTarget(u, range, [
+    e => e.t.tank && safe(e),
+    e => (e.t.vehicle || e.t.bike) && safe(e),
+    safe,
+  ]);
+  return rt && !friendlyNearPoint(rt.x, rt.y, 40, u) ? rt : null;
+}
+
+// Rockets scatter badly with distance; a tank is a big, slow target, and a
+// veteran crew walks its shots in.
+function launchRocket(u, rk, rt) {
+  SFX.rocket();
+  const d = dist(u, rt);
+  let scatter = 8 + d * 0.11;
+  if (rt.t.tank) scatter *= 0.45;
+  scatter = Math.max(6, scatter * rankScatterMult(u));
+  const tx = rt.x + rand(-scatter, scatter), ty = rt.y + rand(-scatter, scatter);
+  G.rockets.push({
+    sx: u.x, sy: u.y, x: u.x, y: u.y, tx, ty,
+    t: 0, dur: Math.max(dist(u, { x: tx, y: ty }) / rk.speed, 0.15),
+    r: rk.r, dmg: rk.dmg * (1 + u.rank * 0.04), by: u,
+    kind: 'rocket',
+  });
 }
 
 function updateUnit(u, dt) {
@@ -309,8 +351,14 @@ function updateUnit(u, dt) {
     // quick reflexes: a live German stick grenade landed close enough to
     // scoop up and heave back before the fuse runs out. Grenades already
     // caught, or thrown by a friendly (kind 'frag'), are never eligible.
+    //
+    // Keyed on the KIND, never on `by` being empty. Every grenade on the field
+    // now carries its thrower — it has to, or explode() can't tell a German
+    // stick from a friendly frag and the Escalation damage modifier silently
+    // skips it — so "no firer" stopped meaning "enemy" the moment that was
+    // fixed, and this loop would have started catching its own grenadier's frags.
     for (const g of G.grenades) {
-      if (g.by || g.caught || !g.landed || g.fuse < 0.6) continue;
+      if (g.kind !== 'stick' || g.caught || !g.landed || g.fuse < 0.6) continue;
       const gdx = g.tx - u.x, gdy = g.ty - u.y;
       if (gdx * gdx + gdy * gdy > GRENADE_CATCH_RANGE * GRENADE_CATCH_RANGE) continue;
       g.caught = true;
@@ -337,10 +385,10 @@ function updateUnit(u, dt) {
       if (gt && !friendlyNearPoint(gt.x, gt.y, 55, u)) {
         // grenades are a rare, heavy punch — the carbine does the daily work.
         // Veterans throw more often, tighter and harder.
-        u.grenCd = rand(9.6, 13.9) * (1 - u.rank * 0.08);
+        u.grenCd = rand(9.6, 13.9) * rankCdMult(u);
         u.grenThrowT = 0.35;
         markCamoFired(u);
-        const sc = 12 * (1 - u.rank * 0.08);
+        const sc = 12 * rankScatterMult(u);
         G.grenades.push({
           x: u.x, y: u.y,
           tx: gt.x + rand(-sc, sc), ty: gt.y + rand(-sc, sc),
@@ -356,34 +404,13 @@ function updateUnit(u, dt) {
     u.rocketCd -= dt;
     if (u.rocketCd <= 0) {
       const rk = u.t.rocket;
-      const rr = unitRange(u, rk.range) * fogMult();
-      // tanks first, then soft vehicles, infantry only when there is nothing
-      // on wheels; never inside his own blast — one pass over the enemies
-      const safeR2 = (rk.r + 20) * (rk.r + 20);
-      const safe = e => dist2(u, e) > safeR2;
-      const rt = tieredEnemyTarget(u, rr, [
-        e => e.t.tank && safe(e),
-        e => (e.t.vehicle || e.t.bike) && safe(e),
-        safe,
-      ]);
-      if (rt && !friendlyNearPoint(rt.x, rt.y, 40, u)) {
-        // a veteran crew reloads faster and walks his shots in
-        u.rocketCd = rand(rk.cdMin, rk.cdMax) * (1 - u.rank * 0.08);
+      const rt = rocketTarget(u, rk, unitRange(u, rk.range) * fogMult());
+      if (rt) {
+        // a veteran crew reloads faster
+        u.rocketCd = rand(rk.cdMin, rk.cdMax) * rankCdMult(u);
         u.face = Math.atan2(rt.y - u.y, rt.x - u.x);
         markCamoFired(u);
-        SFX.rocket();
-        // rockets scatter badly with distance; a tank is a big, slow target
-        const d = dist(u, rt);
-        let scatter = 8 + d * 0.11;
-        if (rt.t.tank) scatter *= 0.45;
-        scatter = Math.max(6, scatter * (1 - u.rank * 0.08));
-        const tx = rt.x + rand(-scatter, scatter), ty = rt.y + rand(-scatter, scatter);
-        G.rockets.push({
-          sx: u.x, sy: u.y, x: u.x, y: u.y, tx, ty,
-          t: 0, dur: Math.max(dist(u, { x: tx, y: ty }) / rk.speed, 0.15),
-          r: rk.r, dmg: rk.dmg * (1 + u.rank * 0.04), by: u,
-          kind: 'rocket',
-        });
+        launchRocket(u, rk, rt);
       }
     }
   }
@@ -403,7 +430,7 @@ function updateUnit(u, dt) {
       if (!target) target = firstEnemyInRange(u, mr, inRange);
       if (target && !friendlyNearPoint(target.x, target.y, 55 * blastMult, u)) {
         // veteran crews drop rounds faster, tighter and heavier
-        u.mortCd = rand(mt.cdMin, mt.cdMax) * (1 - u.rank * 0.08);
+        u.mortCd = rand(mt.cdMin, mt.cdMax) * rankCdMult(u);
         u.face = Math.atan2(target.y - u.y, target.x - u.x);
         u.mortarFireT = 0.18;
         markCamoFired(u);
@@ -411,7 +438,7 @@ function updateUnit(u, dt) {
         // Cluster Rounds: a stick of shells rushed down the tube, each rolling
         // its own aim against the card's widened scatter and landing in sequence
         const cluster = u.side === 'us' && G.cardsOwned && G.cardsOwned.has('clusterrounds');
-        const sc = mt.scatter * (1 - u.rank * 0.08) * (cluster ? CLUSTER_ROUNDS_SCATTER_MULT : 1);
+        const sc = mt.scatter * rankScatterMult(u) * (cluster ? CLUSTER_ROUNDS_SCATTER_MULT : 1);
         const shells = cluster ? Math.floor(rand(CLUSTER_ROUNDS_SHELLS_MIN, CLUSTER_ROUNDS_SHELLS_MAX + 1)) : 1;
         for (let i = 0; i < shells; i++) {
           // the `big` flag rides the card: explode() scales its crater, flash
@@ -617,7 +644,7 @@ function updateATGun(u, dt) {
   const spec = u.t.atgun;
   const range = unitRange(u, u.t.range) * fogMult();
   const HOME = -Math.PI / 2;   // staked facing the German end of the field
-  const arc = spec.arc + (u.rank || 0) * 0.05236;  // +3° per rank
+  const arc = emplacementArc(u);
   const inCone = e => inFireCone(u, e, HOME, arc);
   // Canister Shot: the band is a FRACTION of the reach resolved just above, so
   // rank, a watch tower and Rangefinders stretch it with everything else.
@@ -667,7 +694,7 @@ function updateATGun(u, dt) {
 
   if (canister) {
     fireCanister(u, cRange);
-    u.cd = u.t.rof * CANISTER_RELOAD * (1 - u.rank * 0.08) * rand(0.85, 1.15);
+    u.cd = u.t.rof * CANISTER_RELOAD * rankCdMult(u) * rand(0.85, 1.15);
     return;
   }
 
@@ -687,14 +714,14 @@ function updateATGun(u, dt) {
   }
   // AP shells drift at range; armor is a forgiving target but this isn't a laser
   const d = dist(u, target);
-  let scatter = (24 + d * 0.11) * (1 - u.rank * 0.08);
+  let scatter = (24 + d * 0.11) * rankScatterMult(u);
   if (target.t.tank) scatter *= 0.80;
   else scatter *= 0.90;
   scatter = Math.max(11, scatter * 0.8 * (spec.scatterMult || 1));
   scheduleShell(
     target.x + rand(-scatter, scatter), target.y + rand(-scatter, scatter),
     0.45, spec.r, spec.shellDmg * (1 + u.rank * 0.06), false, u);
-  u.cd = u.t.rof * (1 - u.rank * 0.08) * rand(0.85, 1.15);
+  u.cd = u.t.rof * rankCdMult(u) * rand(0.85, 1.15);
 }
 
 // ---- 40mm anti-aircraft gun: the same staked mount as the 57mm, but the
@@ -708,7 +735,7 @@ function updateAAGun(u, dt) {
   const spec = u.t.aagun;
   const range = unitRange(u, u.t.range) * fogMult();
   const HOME = -Math.PI / 2;   // staked facing north, where the raids come from
-  const arc = spec.arc + (u.rank || 0) * 0.05236;  // +3° per rank, same as the AT gun
+  const arc = emplacementArc(u);
   const inRange = t => dist(u, t) <= range && inFireCone(u, t, HOME, arc);
 
   u.cd -= dt;
@@ -754,7 +781,7 @@ function updateAAGun(u, dt) {
 
   if (ground) fireFlakGround(u, target, best);
   else fireFlakBurst(u, target, spec, best);
-  u.cd = u.t.rof * (1 - (u.rank || 0) * 0.08) * rand(0.85, 1.15);
+  u.cd = u.t.rof * rankCdMult(u) * rand(0.85, 1.15);
 }
 
 // Level the Barrels: a leveled 40mm round is a direct-fire HE shell, not a
@@ -774,7 +801,7 @@ function fireFlakGround(u, target, d) {
     });
   }
   // barrel-flat fire is tight but not perfect; a slow-walking man barely leads
-  const scatter = Math.max(6, (10 + d * 0.05) * (1 - (u.rank || 0) * 0.08));
+  const scatter = Math.max(6, (10 + d * 0.05) * rankScatterMult(u));
   const lead = 0.15;
   scheduleShell(
     target.x + (target.vx || 0) * lead + rand(-scatter, scatter),
@@ -793,7 +820,7 @@ function fireFlakBurst(u, target, spec, d) {
   const flight = Math.max(0.12, d / spec.shellSpeed);
   const tvx = target.vx || 0, tvy = target.vy || 0;
   // gunnery error grows with range and tightens with rank, but never vanishes
-  const scatter = Math.max(9, (spec.scatter + d * 0.06) * (1 - (u.rank || 0) * 0.08));
+  const scatter = Math.max(9, (spec.scatter + d * 0.06) * rankScatterMult(u));
 
   G.flak.push({
     x: target.x + tvx * flight + rand(-scatter, scatter),
@@ -940,7 +967,7 @@ function tankTargets(a) {
 // one fixed beat between the two weapons: whatever just fired, the crew needs
 // two seconds before the other one speaks. A veteran Sherman crew shaves it.
 function tankReload(a) {
-  return TANK_SWAP_RELOAD * (1 - (a.rank || 0) * 0.08);
+  return TANK_SWAP_RELOAD * rankCdMult(a);
 }
 
 function updateTankCombat(a, dt) {
@@ -1030,7 +1057,7 @@ function updateTankCombat(a, dt) {
     });
     const d = dist(a, target);
     // a veteran gunner lays shells on the mark and hits harder
-    const scatter = Math.max(18, 16 + d * 0.055) * (1 - (a.rank || 0) * 0.08);
+    const scatter = Math.max(18, 16 + d * 0.055) * rankScatterMult(a);
     // High Explosive widens the burst — and unlike the mortarman, a tank has no
     // hold-fire check at all, so the wider splash lands on your own line too.
     // 1 for every enemy tank, which shares this block.

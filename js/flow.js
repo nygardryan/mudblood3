@@ -35,12 +35,52 @@ function freezeField() {
 // underneath the next one.
 const FULL_SCREEN_OVERLAYS = [
   'pause', 'boss-victory', 'gameover', 'endless-endgame', 'recap', 'codex',
-  'changelog', 'settings', 'endless-select', 'esc-dossier', 'leaderboard-select',
-  'card-shop', 'tutorial-select',
+  'changelog', 'settings', 'esc-dossier', 'leaderboard-select',
+  'card-shop', 'tutorial-select', 'loadout-view', 'abandon-confirm',
 ];
 
 function hideOverlays() {
   for (const id of FULL_SCREEN_OVERLAYS) el(id).classList.add('hidden');
+}
+
+// Screens reached FROM the pause menu, which they swap out rather than layer
+// over. `paused` stays true underneath them, so the Escape ladder's plain
+// `if (paused) resumeGame()` would restart the fight behind a screen that is
+// still on top of it — the player ends up steering a live game they can't see.
+// Each of these has to claim Escape first and hand back to PAUSE.
+//
+// Written as a list because it kept being got wrong one screen at a time: the
+// codex has had this bug since it was reachable from pause, settings has had it
+// since it was, and the loadout sheet would have shipped with it. A fourth is
+// one row here, not another guard to remember.
+//
+// The entries are WRAPPED rather than bare references on purpose. These scripts
+// share one global scope with no build step, so a bare reference is resolved
+// while this file is still evaluating — and a name that isn't there yet (a typo,
+// a reordered <script>, a file that failed to load) throws at that point and
+// abandons the REST of flow.js. Everything below stays uninitialized while the
+// hoisted function declarations keep working, so the game runs and then dies
+// later somewhere unrelated: the first symptom of getting this wrong was the
+// boss-victory screen failing on BOSS_COPY, 100 lines further down. Wrapped,
+// the lookup happens when Escape is pressed and can't take the file with it.
+const PAUSE_SUBSCREENS = [
+  { open: () => codexOpen(), close: () => closeCodex() },
+  { open: () => settingsOpen(), close: () => closeSettings() },
+  { open: () => loadoutViewOpen(), close: () => closeLoadoutView() },
+];
+
+// close whichever pause sub-screen is up; true if one was. Also correct from the
+// main menu, where these are reached from #intro and `paused` is false — they
+// return to whichever screen opened them either way.
+function closePauseSubscreen() {
+  for (const s of PAUSE_SUBSCREENS) {
+    if (s.open()) { s.close(); return true; }
+  }
+  return false;
+}
+
+function bossVictoryOpen() {
+  return !el('boss-victory').classList.contains('hidden');
 }
 
 // leaving a run: no field, no pointer state, nothing half-issued
@@ -58,6 +98,12 @@ function clearRunState() {
 function pauseGame() {
   if (!running || !G || G.over || paused) return;
   freezeField();
+  // G.cardsOwned is null outside endless, so tutorials have no loadout to show
+  el('pause-loadout-btn').classList.toggle('hidden', !(G && G.cardsOwned));
+  // only endless runs can be saved — tutorials never see the button (js/save.js)
+  const saveBtn = el('pause-save-btn');
+  saveBtn.textContent = 'SAVE AND EXIT';   // clear a stale SAVE FAILED label
+  saveBtn.classList.toggle('hidden', !saveableRun());
   el('pause').classList.remove('hidden');
   refreshHUD();
 }
@@ -135,6 +181,10 @@ function bossNotDoneCopy() {
 // (full recap flow, marked victorious) or fight on, in which case the run
 // continues and the boss returns at the next hundredth wave
 function bossVictory() {
+  // ATTRACT: the menu demo runs the real sim, so it can reach a wave-100 boss.
+  // It must never freeze the board under an overlay the player didn't ask for,
+  // and the rung unlock below is already excluded by medalsEligible().
+  if (attractRunning()) return;
   if (!running || !G || G.over) return;
   // Escalation X wants him down twice. Below the quota the run does NOT pause
   // and no overlay opens — a banner, and the field keeps moving.
@@ -180,22 +230,54 @@ function bossEndRun() {
 
 function returnToMenu() {
   clearRunState();
+  clearField();   // the menu layers over the stage — don't leave a board behind it
   hideOverlays();
+  refreshMenu();
   el('intro').classList.remove('hidden');
   hideTutorialMsg();
+  clearBanner();
   syncMobileViewUI();
   syncMobileChrome();
+  startAttract();   // ATTRACT: the menu's live background (js/attract.js)
 }
 
-function openEndlessSelect() {
-  el('intro').classList.add('hidden');
-  buildEscalationUI();   // rebuild from the save: a boss kill may have unlocked a rung
-  el('endless-select').classList.remove('hidden');
+// Everything on the front page that is read from storage rather than written in
+// the HTML. One call, because the menu is now ONE screen and all of it is stale
+// the moment a run ends: a boss kill may have unlocked a rung, the run may have
+// banked medals, and the save slot may have been created or consumed. Called
+// from returnToMenu and once at bootstrap (js/main.js).
+function refreshMenu() {
+  refreshContinueUI();   // the RESUME card tracks the save slot (js/save.js)
+  buildEscalationUI();   // the PLAY slab and its status line (js/escalation.js)
+  refreshFrontMenu();
 }
 
-function closeEndlessSelect() {
-  el('endless-select').classList.add('hidden');
-  el('intro').classList.remove('hidden');
+// The medal count and the first-launch shape. Medals are shown ONCE, on the
+// CARDS chip — the count belongs on the thing you spend it in, and it was
+// previously printed on two screens that disagreed while the shop was open.
+//
+// On a truly fresh save there is nothing to resume, nothing banked and no run on
+// any board, so the RESUME slot is empty and TUTORIAL is a chip among four
+// others — the one thing a new player should do is the least prominent thing on
+// screen. So it is PROMOTED into the empty slot instead. The test is all three
+// signals and not just the save slot, because clearing a save is something a
+// returning player does constantly and being handed the tutorial again for it
+// would read as the game forgetting them.
+function refreshFrontMenu() {
+  const medals = loadEndlessCards().medals;
+  el('menu-medals').textContent = medals;
+  const firstLaunch = !hasRunSave() && medals === 0 && bestWaveEver() === 0;
+  el('start-tutorial').classList.toggle('fm-chip--promoted', firstLaunch);
+  // in the chip row it rides with the others; promoted it sits in the deploy
+  // stack, which is where the DOM already has it — so the flag only has to move
+  // it back down when there is nothing to promote it over
+  const chips = el('fm-chips-row');
+  const stack = el('fm-deploy-stack');
+  const home = firstLaunch ? stack : chips;
+  if (el('start-tutorial').parentElement !== home) {
+    if (firstLaunch) home.insertBefore(el('start-tutorial'), el('fm-play-slab'));
+    else home.appendChild(el('start-tutorial'));
+  }
 }
 
 // the tutorial lessons, in order — beat each to unlock the next
@@ -292,8 +374,10 @@ function finishTutorial() {
 // the completion screen's button: drop straight back into the lesson picker
 function backToTutorialSelect() {
   clearRunState();
+  clearField();
   el('tutorial-complete').classList.add('hidden');
   hideTutorialMsg();
+  clearBanner();
   syncToolbarVisibility();
   syncMobileChrome();
   openTutorialSelect();
@@ -311,6 +395,15 @@ function startGame(levelId, difficultyId) {
     const hero = G.tutorial.rifle || G.tutorial.gunner || G.tutorial.bunker;
     if (hero) tutSetCam(2.6, hero.x, hero.y, true);
   } else resetViewCam(level.mode);
+  enterField(level, difficulty);
+}
+
+// Everything a run needs on the way IN that isn't the game state itself:
+// loop flags, toolbar, overlays, tipbar, HUD. Shared by startGame (above, after
+// newGame) and continueRun (js/save.js, after a save is deserialized into G) —
+// one path, so the resume flow can never drift from the start flow.
+function enterField(level, difficulty) {
+  stopAttract();   // ATTRACT: the one door into a real run (js/attract.js)
   placing = null;
   mobileToolbarMinimized = false;
   running = true;
@@ -326,6 +419,7 @@ function startGame(levelId, difficultyId) {
   el('intro').classList.add('hidden');
   hideOverlays();
   hideTutorialMsg();   // clear any queued messages from a previous run
+  clearBanner();       // and the previous run's last alert, still frozen on screen
   if (G.tutorial) tutEnterStep(G.tutorial.step);   // enter each script's opening step
   syncMobileViewUI();
   syncMobileChrome();

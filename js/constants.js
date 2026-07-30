@@ -21,21 +21,49 @@ const WATCHTOWER_AURA = 22;
 // would quote a different reach than the one that stops rounds.
 const BUNKER_COVER_R = [30, 34, 38];
 const SANDBAG_COVER_R = [26, 30, 33];
+// ...and the other two halves of a cover roll, on the same tier index: the odds
+// the wall eats the round, and the hp that costs the wall. Tables rather than
+// the nested ternaries these were, so the whole per-tier story of a wall reads
+// in one place — and so the one deliberate flat spot stays VISIBLE: a bunker
+// chips the same 1 hp fortified or hardened, where sandbags keep improving.
+const BUNKER_COVER_DODGE = [0.75, 0.85, 0.92];
+const BUNKER_COVER_CHIP = [2, 1, 1];
+const SANDBAG_COVER_DODGE = [0.5, 0.65, 0.78];
+const SANDBAG_COVER_CHIP = [4, 3, 2];
+// barbed wire, on the same tier index: what crossing a band does to a man's
+// speed, and what it costs the band per second. Heavier wire grips harder AND
+// wears slower. The band itself is a box rather than a radius — a strand is a
+// long thin thing — and inWireBand (js/update-enemies.js) is the ONLY test for
+// it: the foot drag, the hound's leap check and the two vehicle paths all go
+// through it. A vehicle catches the strand slightly sooner than a man does,
+// being longer than it is wide, which is the whole of the difference between
+// the two half-heights.
+const WIRE_BAND_X = 40, WIRE_BAND_Y = 14, WIRE_BAND_Y_VEHICLE = 16;
+const WIRE_DRAG = [0.126, 0.0525, 0.021];
+const WIRE_WEAR = [5, 3, 2];
+// the decoy's odds an attacker sees through the ruse on a direct hit
+const DUMMY_SEE_THROUGH = [0.40, 0.30, 0.20];
+// the decoy's odds an attacker never registers it as a target at all, by tier —
+// rolled once per (enemy, decoy) pair the first time it would win his pick.
+// The gate BEFORE DUMMY_SEE_THROUGH: that one costs him a shot to break, this
+// one costs him nothing, so a wave no longer arrives uniformly fooled.
+const DUMMY_IGNORE_CHANCE = [0.50, 0.35, 0.25];
 const RANKUP_RADIUS = 140;  // testing-mode-only field-promotion ability
 const PURGE_RADIUS = 150;   // testing-mode-only kill-everything ability
-const WATCHTOWER_RANGE_MULT = 1.25;
-const WATCHTOWER_RANGE_MULT_UPGRADED = 1.35;
-const WATCHTOWER_RANGE_MULT_HARDENED = 1.5;    // second-tier fortification (Hardened Works)
+// how far a tower stretches the reach of the men under it, by tier — the third
+// being the Hardened Works card's second-tier fortification
+const WATCHTOWER_RANGE_MULT_TIERS = [1.25, 1.35, 1.5];
 const AMMOCRATE_AURA = 60;                      // radius that shares out its ammunition
 // lower rofMult = faster cycling: nearby soldiers fire and reload quicker.
 // a fresh crate is +10%, an engineer-fortified one +20%, a hardened one +30%.
-const AMMOCRATE_ROF_MULT = 0.9;
-const AMMOCRATE_ROF_MULT_UPGRADED = 0.8;
-const AMMOCRATE_ROF_MULT_HARDENED = 0.7;       // second-tier fortification (Hardened Works)
+const AMMOCRATE_ROF_MULT_TIERS = [0.9, 0.8, 0.7];
 const CAMONEST_ZONE = 30;               // same footprint as a bunker's cover radius
 const CAMONEST_REVEAL = 3;              // seconds targetable after a shot, unfortified
 const CAMONEST_REVEAL_FORTIFIED = 1.5;
 const CAMONEST_REVEAL_HARDENED = 0.5;   // second-tier fortification (Hardened Works)
+const CAMONEST_REVEAL_TIERS = [
+  CAMONEST_REVEAL, CAMONEST_REVEAL_FORTIFIED, CAMONEST_REVEAL_HARDENED,
+];
 const CAMONEST_EXPLOSIVE_MULT = 1.2;    // weak to explosives — no reduction like a bunker's concrete
 const GRENADE_CATCH_RANGE = 34;         // how close a grenadier must be to a landed enemy grenade to heave it back
 const V2_ROCKET_ARC = 130;              // cruise altitude of the V2 warhead between boost and terminal dive
@@ -292,8 +320,8 @@ const YAM_SPR_W = 320, YAM_SPR_H = 104;   // hull bitmap footprint; makeSprite c
 // boss because her turrets and tubs soak damage he doesn't have. (11000 with a
 // 44-damage shell overshot the other way — she died in 70-110s losing every gun.)
 const YAM_HULL_HP = 14000;
-const YAM_TURRET_HP = 1400;          // per battery — killing one silences three guns
-const YAM_MG_HP = 320;               // per mount; jymg is NOT `tank`, so rifles work on it
+const YAM_TURRET_HP = 2800;          // per battery — killing one silences three guns
+const YAM_MG_HP = 640;               // per mount; jymg is NOT `tank`, so rifles work on it
 // Her pool ticked into phases, purely to drive the plate her batteries and tubs
 // wear (see bossPartDamageMult) — unlike the train's and the mass's, a break here
 // fires no ability, so the poll in updateYamato has nothing but the phase in it.
@@ -333,6 +361,18 @@ const YAM_Y_MIN = 160, YAM_Y_MAX = 240;
 // has to pull back as she angles — DEPLOY_Y is 380, so the line is never in reach.
 const YAM_SAFE_Y = 300;
 const YAM_X_MARGIN = 140;            // hull-centre clamp; keeps every section on screen
+// The ROLL-IN. She used to be dropped fully formed at mid-field, which reads as a
+// 300px battleship materialising out of nothing. She now drives on from a random
+// flank, staged off the edge by YAM_ENTRY_X and running to YAM_X_MARGIN — the
+// margin her patrol already respects, so the arrival hands straight over to
+// nextYamatoLeg with nothing new to clamp. She is INERT for the whole run (see the
+// `entering` early-out in updateYamato): no guns, no landing party, untargetable
+// and undamageable. So this is a telegraph rather than a movement mode, and its
+// length is purely a pacing choice — ~8s, long enough to reposition against.
+const YAM_ENTRY_X = YAM_LEN / 2 + 30;   // 180 — her centre starts this far off the edge
+const YAM_ENTRY_SPEED = 42;             // roll-in speed; 3x the patrol, still a ship
+const YAM_ENTRY_EASE = 110;             // decel to YAM_SPEED over the last of the run,
+                                        // so the hand-off to 14 isn't a visible jolt
 // Steepest diagonal leg. Note this caps the leg's TARGET heading, not the heading
 // she passes through: reversing 0 -> pi eases through pi/2, where she is bow-on,
 // cos(heading) is ~0 and NEITHER broadside bears. That is correct and it is the
@@ -880,6 +920,14 @@ Object.assign(ENEMY_TYPES, {
     rof: 0.85, burst: 1, burstGap: 0, reward: 2,
     color: '#5a5238', gun: 0, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.30, hound: true,
+    // The leap (houndPounce, js/update-enemies.js): it closes the last stretch in
+    // one bound instead of running it. Purely a gap-closer — it lands in bite
+    // range and the ordinary reach/cooldown bite takes it from there. Keyed on
+    // `pounce` rather than `hound` on purpose: `hound` is the renderer's
+    // quadruped switch, and the two shouldn't be welded together.
+    // range/min: the distance window it will launch from. dur: flight seconds.
+    // lift: peak of the render-only arc, px. cdMin/cdMax: recharge.
+    pounce: { range: 66, min: 30, dur: 0.34, lift: 13, cdMin: 2.5, cdMax: 4.0 },
   },
   zbrute: {
     // a swollen, muscle-bound corpse: high HP, slow, and it hits like a truck.
@@ -1582,7 +1630,7 @@ const ENEMY_INFO = {
   zshambler: 'A slow, relentless walking corpse. No weapon — it claws its way to your line and bites. Its bite can infect; an infected man who dies rises against you. Cheap and endless.',
   zrunner: 'A fresh corpse still fast on its feet. Sprints the field and lunges — low HP, but it closes before you can thin the pack. Its bite spreads the infection.',
   zcrawler: 'Half a body dragging itself along the dirt. Small, quick, and it swarms. A weak bite, but there are always more of them, and every bite can infect.',
-  zhound: 'An infected war dog. Blazing fast and almost no mass, with a savage bite that takes hold easily. Shoot the pack before it reaches the wire.',
+  zhound: 'An infected war dog. Blazing fast and almost no mass, with a savage bite that takes hold easily. It POUNCES the last few yards, clearing open ground in one bound — but wire it cannot leap, so it drags through like the rest of the dead. Shoot the pack before it reaches the wire.',
   zbrute: 'A swollen, muscle-bound corpse. High HP, slow, and it hits like a truck — a heavy bite with a strong chance to infect. Soaks a lot of lead.',
   zspitter: 'The horde\'s one ranged threat. Hangs back and lobs a glob of corrosive bile that bursts on impact — area damage plus a high chance to infect everyone in the splash. Blind up close.',
   zbloater: 'A gas-swollen corpse that bursts when it dies or reaches you, venting a cloud of infectious rot: area damage and a high infect chance to all caught in it. A walking mine — kill it at range.',
@@ -1671,6 +1719,43 @@ const RANKS = [
   { name: 'MSG', kills: 27 },
 ];
 
+const MAX_RANK = RANKS.length - 1;   // MSG — the top of the ladder
+
+// The universal per-rank gains every ranked soldier gets, applied in unitBuffs
+// and unitSpeed (js/update-friendlies.js). Named because the codex quotes them
+// straight back to the player, and the veterancy panel now DERIVES its rows
+// from these rather than restating them by hand — which is exactly what had
+// already gone wrong. Its "Rate of fire" row advertised +48% at max rank when
+// the real gain is ~+92%, because a cycle-time curve is not its own reciprocal:
+// the interval shrinks to 1 - 0.08*6 = 0.52, so the RATE goes up 1/0.52 = 1.92x.
+// Five other rows in the same table describing this very same curve had it
+// right ("nearly 2x as fast"), which is how the error was visible at all.
+const RANK_ROF_RATE = 0.08;   // weapon cycle time shrinks 8%/rank (lower = faster)
+const RANK_ACC_RATE = 0.08;   // flat accuracy added per rank
+const RANK_DMG_RATE = 0.04;   // damage multiplier per rank
+const RANK_SPD_RATE = 0.04;   // movement speed multiplier per rank
+
+// The three curves above cover a man whose shooting goes through unitBuffs.
+// These are for the weapons that don't: anything that sets its own cooldown
+// (grenades, rockets, mortars, the tank's main gun) or throws a pattern rather
+// than a bullet. Applied via rankCdMult / rankScatterMult / rankSpreadMult /
+// emplacementArc in js/helpers.js.
+//
+// RANK_SCATTER_RATE and RANK_SPREAD_RATE are deliberately their OWN constants
+// rather than more uses of RANK_ROF_RATE, even though all three read 0.08
+// today. They are different promises: how fast a man works his weapon, how
+// tightly he walks shells onto a point, and how a shotgun patterns. Folding
+// them together would make a reload tuning pass silently retighten every
+// mortar and every buckshot cone in the game — and the value agreeing right
+// now is exactly what would hide it.
+const RANK_SCATTER_RATE = 0.08;   // shell/rocket scatter shrinks per rank
+const RANK_SPREAD_RATE = 0.08;    // buckshot pattern tightens per rank
+// ...but never past 40% of the type's nominal spread. A shotgun that grouped
+// like a rifle would stop being a shotgun, so the floor is a design limit
+// rather than a safety clamp.
+const RANK_SPREAD_FLOOR = 0.4;
+const RANK_ARC_RATE = 0.05236;    // +3 degrees of traverse per rank, in radians
+
 const PLACEABLES = [
   { key: 'rifleman', label: 'RIFLEMAN', cost: 3, kind: 'unit', hotkey: '1',
     desc: 'M1 Garand rifleman. Cheap and reliable. Ranking up makes him shoot faster, straighter, and harder.' },
@@ -1706,18 +1791,18 @@ const PLACEABLES = [
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
   { key: 'sandbags', label: 'SANDBAGS', cost: 4, kind: 'defense', hotkey: '8',
     desc: 'Cover. Soldiers behind it dodge half of incoming fire.' },
-  { key: 'dummy', label: 'DUMMY', cost: 5, kind: 'defense', hotkey: 'D',
-    desc: 'Straw decoy. Enemies waste fire on it, but each hit they may see the ruse and move on (40%). Fortify for a helmet, harden for body armor — a better disguise holds their attention longer (30%/20%) and each tier adds another decoy\'s worth of HP.' },
+  { key: 'dummy', label: 'DUMMY', cost: 8, kind: 'defense', hotkey: 'D',
+    desc: 'Straw decoy. Half the enemy never falls for it at all (50%); the rest waste fire on it, but each hit they may see the ruse and move on (40%). Fortify for a helmet, harden for body armor — a better disguise both takes in more of them (35%/25% ignore it) and holds their attention longer (30%/20%), and each tier adds another decoy\'s worth of HP.' },
   { key: 'bunker', label: 'BUNKER', cost: 15, kind: 'defense', hotkey: 'K',
     desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },
   { key: 'watchtower', label: 'WATCH TOWER', cost: 10, kind: 'defense', hotkey: 'W',
-    desc: 'Wooden lookout. +25% range for nearby soldiers (+35% fortified). Mortars ignore it. Frail.' },
+    desc: 'Wooden lookout. +25% range for nearby soldiers (+35% fortified). Mortars, guns and vehicles ignore it. Frail.' },
   { key: 'camonest', label: 'CAMO NEST', cost: 4, kind: 'defense', hotkey: 'C',
     desc: 'Concealed position. Hidden until firing; exposed 3 s after last shot (1.5 s fortified). No dodge bonus. Weak to explosives.' },
   { key: 'ammocrate', label: 'AMMO CRATE', cost: 8, kind: 'defense', hotkey: 'X',
     desc: 'Ammunition cache. Nearby soldiers fire and reload 10% faster (+20% fortified, +30% hardened). Frail.' },
   { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
-    desc: 'Cluster of 3 anti-personnel mines. Hurts tanks too. Germans can\'t see them.' },
+    desc: 'Cluster of 5 anti-personnel mines. Hurts tanks too. The enemy can\'t see them.' },
   { key: 'mortar', label: 'MORTAR STRIKE', cost: 5, kind: 'support', hotkey: '0',
     desc: '6 mortar shells on target. DANGER CLOSE — friendly fire is real.' },
   { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 12, kind: 'support', hotkey: 'A',
@@ -1835,7 +1920,7 @@ const TESTING_ZOMBIE_PLACEABLES = [
   { key: 'zcrawler', label: 'CRAWLER', cost: 3, kind: 'egerman', hotkey: '',
     desc: 'Half a body dragging along the dirt. Small, quick, swarms.' },
   { key: 'zhound', label: 'HOUND', cost: 4, kind: 'egerman', hotkey: '',
-    desc: 'Infected war dog. Blazing fast, tiny HP, a bite that takes hold easily.' },
+    desc: 'Infected war dog. Blazing fast, tiny HP, pounces the last few yards.' },
   { key: 'zbrute', label: 'BRUTE', cost: 12, kind: 'egerman', hotkey: '',
     desc: 'Swollen bruiser. High HP, slow, heavy bite with a strong infect chance.' },
   { key: 'zspitter', label: 'SPITTER', cost: 10, kind: 'egerman', hotkey: '',

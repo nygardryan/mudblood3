@@ -176,13 +176,18 @@ function newGame(level, difficulty) {
     corpses: [],     // fallen soldiers, cleared away after CORPSE_TTL
     gibs: [],        // detached body parts mid-flight, then settled on the ground
     groundMarks: [], // blood stains and blast craters, fade after GROUND_MARK_TTL
+    // wreck/rubble stamps baked into groundCanvas, logged so a saved run can
+    // replay them (js/save.js). NB a field added to this literal needs a look
+    // at js/save.js — and possibly a RUN_SAVE_VERSION bump.
+    groundStamps: [],
 
     spawnTimer: 6,
     tpTrickle: TP_TRICKLE_INTERVAL + esc.trickleAdd,
     officerTick: (level.id === 'endless' && equippedEndlessCards().includes('rushorder')) ? 15 : 30,
     eventTimer: rand(40, 60) * esc.eventIntervalMult,
     fog: 0,
-    wind: rollWind(),    // smoke rides this; it veers a little every wave (js/smoke.js)
+    fogAge: 0,           // seconds the bank has been up — the renderer's roll-in clock (js/fog.js)
+    wind: rollWind(),    // smoke AND fog ride this; it veers a little every wave (js/smoke.js)
     banner: null,
     selected: [],
     focusTarget: null,   // an enemy the player clicked: troops in range prefer it

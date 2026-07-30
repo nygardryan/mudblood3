@@ -71,18 +71,11 @@ function enemyAtWorld(x, y) {
   if (!G) return null;
   let best = null, bd = Infinity;
   for (const e of G.enemies) {
-    if (e.dead || e.y < 0 || e.chute > 0) continue;
-    // the Yamato's hitboxes sit 62px apart, so a 26px tank radius would leave an
-    // 8px dead band at every midpoint and clicks would fall THROUGH her hull
-    const base = e.t.shipPart || e.t.ship ? 34
-               : e.t.hordeBoss ? 30 : e.t.bossPart ? 12
-               // a gun post sits 22px off the wagon's centreline, so it gets a
-               // tight radius or it would swallow every click meant for the wagon
-               : e.t.trainMg ? 10 : e.t.itaBoss || e.t.trainPart ? 26
-               : e.t.tank ? 26 : e.t.apc ? 22 : e.t.vehicle || e.t.bike ? 20
-               : e.t.v2 ? 24 : 14;
+    if (!inTheFight(e)) continue;
+    // the same radii the inspector hovers and rings with (js/helpers.js), grown
+    // for a fingertip — so what the player can point at is what he can tap
     const d = dist(e, { x, y });
-    if (d < touchHitRadius(base) && d < bd) { bd = d; best = e; }
+    if (d < touchHitRadius(actorHitRadius(e)) && d < bd) { bd = d; best = e; }
   }
   return best;
 }
@@ -490,7 +483,7 @@ canvas.addEventListener('pointerdown', e => {
   }
 
   if (mobileViewActive() && isPlaying()) {
-    beginViewPan(e.clientX, e.clientY, mouse.x, mouse.y);
+    // view panning moved to two-finger gestures; single-finger drag starts marquee
   }
 
   if (!isPlaying()) return;
@@ -509,17 +502,17 @@ canvas.addEventListener('pointerdown', e => {
     longPressFoe = nearestHostile(mouse.x, mouse.y, LONGPRESS_SNAP_R);
     longPressTimer = setTimeout(() => {
       if (placing) return;
+      // don't interfere with an active drag marquee
+      if (drag?.active) return;
       if (longPressFoe && !longPressFoe.dead) {
         touchInspect = longPressFoe;   // pin its info panel (touch has no hover)
         longPressing = true;           // release is a hold, not a tap
         drag = null;                   // suppress the marquee box
-        clearViewPan();
         mobileVibrate(10);
         return;
       }
       G.selected = [];
       longPressing = true;
-      clearViewPan();
       syncSelectionMobile();
       mobileVibrate(10);
     }, 3000);
@@ -555,7 +548,8 @@ canvas.addEventListener('pointermove', e => {
   }
 
   if (viewPan && mobileViewActive() && activePointers.size === 1) {
-    // long-pressing → skip view pan, let drag marquee work instead
+    // view panning is now two-finger only; this block only runs if beginViewPan
+    // was called from a different path (e.g. placing while dragging)
     if (!longPressing) {
       if (!viewPan.active) {
         const moved = Math.hypot(e.clientX - viewPan.clientX0, e.clientY - viewPan.clientY0);
@@ -727,6 +721,54 @@ canvas.addEventListener('pointerleave', e => {
   }
 });
 
+// how much elbow room a man needs where he ends up. Only ever used to keep
+// march destinations apart — the sim itself has no collision, so two orders that
+// resolve to the same point put two sprites on one spot for good.
+function moveSpaceRadius(u) {
+  return u.t.tank ? 22 : u.t.vehicle ? 16 : u.t.gunEmplacement ? 12 : 11;
+}
+
+// Nearest spot to (px,py) that is on the field AND clear of everything already
+// standing there. Both stacking bugs are the same bug: an ideal slot that isn't
+// a legal resting place used to be CLAMPED, and a clamp collapses — order a
+// squad onto the edge of the forward line and every slot past the boundary
+// lands on the identical boundary point, while a slot that happens to sit on a
+// man who isn't marching with the group has never been checked at all. So the
+// slot is redirected instead: spiral out until something fits.
+function clearMoveSlot(px, py, selfR, taken, blockers, minY, toward) {
+  const p = { x: 0, y: 0 };
+  const fits = (cx, cy) => {
+    if (cx < 16 || cx > W - 16 || cy < minY || cy > H - 14) return false;
+    p.x = cx; p.y = cy;
+    const own = selfR * 2;
+    for (const s of taken) if (dist2(p, s) < own * own) return false;
+    for (const b of blockers) {
+      const rr = selfR + b.r;
+      if (dist2(p, b) < rr * rr) return false;
+    }
+    return true;
+  };
+  if (fits(px, py)) return { x: px, y: py };
+  const step = Math.max(8, selfR * 1.1);
+  for (let ring = 1; ring <= 12; ring++) {
+    const rad = ring * step;
+    const n = 8 + ring * 4;
+    let best = null, bd = Infinity;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const cx = px + Math.cos(a) * rad, cy = py + Math.sin(a) * rad;
+      if (!fits(cx, cy)) continue;
+      // every candidate on a ring is the same distance from the ideal slot, so
+      // break the tie toward the order's own centre and keep the group tight
+      p.x = cx; p.y = cy;
+      const d = dist2(p, toward);
+      if (d < bd) { bd = d; best = { x: cx, y: cy }; }
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
 // spread a group order into a tight grid around the target so men don't stack
 function issueMoveOrder(units, x, y) {
   units = units.filter(u => !u.t.fixed);   // staked guns don't take march orders
@@ -749,10 +791,32 @@ function issueMoveOrder(units, x, y) {
     const row = Math.floor(i / cols);
     const inRow = (row === rows - 1) ? units.length - row * cols : cols;
     const col = i % cols;
-    slots.push(clampDest(
-      x + (col - (inRow - 1) / 2) * spacing,
-      y + (row - (rows - 1) / 2) * spacing,
-    ));
+    slots.push({
+      x: x + (col - (inRow - 1) / 2) * spacing,
+      y: y + (row - (rows - 1) / 2) * spacing,
+    });
+  }
+  // Everyone NOT marching with this group is ground the group can't have. A man
+  // already under orders is read at his destination, not where he happens to be
+  // standing — that's where he'll be when this group arrives.
+  const marching = new Set(units);
+  const blockers = [];
+  for (const u of commandRoster()) {
+    if (u.dead || marching.has(u)) continue;
+    const at = u.moveTo || u;
+    blockers.push({ x: at.x, y: at.y, r: moveSpaceRadius(u) });
+  }
+  // resolve the slots nearest the click first, so the ones that have to give
+  // ground are the ones already out on the edge of the formation
+  const centre = { x, y };
+  const order = slots.map((s, i) => i).sort((a, b) => dist2(slots[a], centre) - dist2(slots[b], centre));
+  const taken = [];
+  for (const i of order) {
+    const fixed = clearMoveSlot(slots[i].x, slots[i].y, spacing / 2, taken, blockers, minY, centre);
+    // nowhere within reach fits (a genuinely packed field): fall back to the old
+    // clamp rather than leaving a man with no order at all
+    slots[i] = fixed || clampDest(slots[i].x, slots[i].y);
+    taken.push(slots[i]);
   }
   // hand each slot to the nearest remaining man so paths don't cross
   const pool = units.slice();
@@ -790,6 +854,18 @@ document.addEventListener('keydown', e => {
     // the escalation dossier is the only overlay here that layers over another
     // one, so it gets first claim on Escape
     if (escDossierOpen()) { closeEscalationDossier(); return; }
+    // the abandon-save prompt swaps out the screen that launched it; Escape means BACK,
+    // never fall-through (the paused branch below would resume a hidden fight)
+    if (abandonConfirmOpen()) { closeAbandonConfirm(); return; }
+    // codex / settings / loadout — see PAUSE_SUBSCREENS (js/flow.js). They swap
+    // #pause out but leave `paused` true, so they have to be closed here or the
+    // line below resumes the fight behind a screen that's still on top of it.
+    if (closePauseSubscreen()) return;
+    // The boss-victory screen freezes the field to ask a FORCED question (FIGHT
+    // ON / END RUN). Escape must not answer it for the player, and must not fall
+    // through to resume — that leaves the run going under a modal they never
+    // dismissed, and a second Escape then stacks #pause on top of it.
+    if (bossVictoryOpen()) return;
     if (paused) { resumeGame(); return; }
     if (placing) { clearPlacing(); return; }
     if (G && G.focusTarget) { G.focusTarget = null; return; }
@@ -799,6 +875,12 @@ document.addEventListener('keydown', e => {
     clearPlacing(); drag = null; if (G) G.selected = [];
     return;
   }
+  // give up the rest of a tutorial box's read time (WCAG 2.2 SC 2.2.1). Space and
+  // Enter are safe here: no placeable hotkey is either, and dismiss is a no-op
+  // outside a running tutorial script.
+  if (e.key === ' ' || e.key === 'Enter') {
+    if (dismissTutorialMsg()) { e.preventDefault(); return; }
+  }
   if (isSandbox() && isPlaying()) {
     if (e.key === ']') { jumpSandboxWave(e.shiftKey ? 5 : e.ctrlKey ? 10 : 1); return; }
   }
@@ -806,6 +888,15 @@ document.addEventListener('keydown', e => {
   const p = activePlaceables().find(pl => pl.hotkey === k);
   if (p) selectPlaceable(p);
 });
+
+// the tutorial box itself is the click target for skipping its read time
+{
+  const tutBox = el('tutorial-msg');
+  if (tutBox) {
+    tutBox.addEventListener('mousedown', e => { e.stopPropagation(); });
+    tutBox.addEventListener('click', e => { e.stopPropagation(); dismissTutorialMsg(); });
+  }
+}
 
 for (const btn of document.querySelectorAll('[data-wave-skip]')) {
   btn.addEventListener('click', () => jumpSandboxWave(Number(btn.dataset.waveSkip)));

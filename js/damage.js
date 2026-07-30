@@ -453,6 +453,7 @@ function drawCorpse(cp) {
 }
 
 function stampWreck(e) {
+  logGroundStamp('wreck', e.x, e.y);
   gctx.save();
   gctx.translate(e.x, e.y);
   gctx.fillStyle = '#2e2c26';
@@ -463,6 +464,7 @@ function stampWreck(e) {
 }
 
 function stampSandbagRubble(s) {
+  logGroundStamp('sandbag', s.x, s.y);
   gctx.fillStyle = 'rgba(120,105,70,0.5)';
   gctx.beginPath();
   gctx.ellipse(s.x, s.y, 20, 9, 0, 0, 7);
@@ -471,6 +473,7 @@ function stampSandbagRubble(s) {
 
 // a shot-apart scarecrow leaves a scatter of straw and a snapped post
 function stampDummyRubble(d) {
+  logGroundStamp('dummy', d.x, d.y);
   gctx.strokeStyle = 'rgba(94,74,44,0.6)';
   gctx.lineWidth = 2;
   gctx.beginPath(); gctx.moveTo(d.x - 4, d.y + 4); gctx.lineTo(d.x + 3, d.y - 6); gctx.stroke();
@@ -487,6 +490,7 @@ function stampDummyRubble(d) {
 // above, and what matters is that the ground stays marked so the player can see
 // where the enemy line used to run.
 function stampItalianWorkRubble(w) {
+  logGroundStamp('itwork', w.x, w.y, { kind: w.kind });
   const box = IT_WORK_KINDS[w.kind].box;
   gctx.fillStyle = w.kind === 'bunker' ? 'rgba(96,94,86,0.55)' : 'rgba(104,98,74,0.5)';
   gctx.beginPath();
@@ -502,6 +506,7 @@ function stampItalianWorkRubble(w) {
 }
 
 function stampBunkerRubble(b) {
+  logGroundStamp('bunker', b.x, b.y);
   // shattered concrete slab plus scattered chunks
   gctx.fillStyle = 'rgba(105,102,92,0.6)';
   gctx.beginPath();
@@ -516,6 +521,7 @@ function stampBunkerRubble(b) {
 }
 
 function stampWatchtowerRubble(t) {
+  logGroundStamp('watchtower', t.x, t.y);
   // splintered timber frame collapsed in a heap
   gctx.fillStyle = 'rgba(80,66,44,0.55)';
   gctx.beginPath();
@@ -533,6 +539,7 @@ function stampWatchtowerRubble(t) {
 }
 
 function stampCamoNestRubble(cn) {
+  logGroundStamp('camonest', cn.x, cn.y);
   // scorched brush and torn netting
   gctx.fillStyle = 'rgba(45,42,30,0.55)';
   gctx.beginPath();
@@ -547,6 +554,7 @@ function stampCamoNestRubble(cn) {
 }
 
 function stampAmmoCrateRubble(t) {
+  logGroundStamp('ammocrate', t.x, t.y);
   // shattered crates and scattered boards
   gctx.fillStyle = 'rgba(70,58,34,0.5)';
   gctx.beginPath();
@@ -569,6 +577,10 @@ function stampAmmoCrateRubble(t) {
 // (40% per hit he wises up); a fortified one wearing a helmet, or a hardened
 // one in body armor, sells the disguise longer (30% / 20%). Once he's wise he
 // permanently ignores THIS decoy and moves on to a real target.
+// This is the SECOND gate. The first is dummyFools (js/targeting.js), which
+// rolls once, for free, before a man ever aims: half of them never register a
+// plain decoy at all. Only the ones it fooled reach this function — the two
+// compose, and both record the result in the same dummyBlind Set.
 function damageDummy(d, dmg, from, kind) {
   d.hp -= dmg;
   for (let i = 0; i < 3; i++) {
@@ -586,7 +598,7 @@ function damageDummy(d, dmg, from, kind) {
   dummyRicochet(d, dmg, from, kind);
   // only an attributed direct attack from an enemy can see through the ruse
   if (from && from.t) {
-    const seeThrough = d.up2 ? 0.20 : d.up ? 0.30 : 0.40;
+    const seeThrough = DUMMY_SEE_THROUGH[emplacementTier(d)];
     if (Math.random() < seeThrough) {
       (from.dummyBlind || (from.dummyBlind = new Set())).add(d.id);
     }
@@ -785,8 +797,32 @@ function partPlate(parent, segments, resist) {
   return Math.max(0, 1 - resist * intact);
 }
 
+// All a child actor's death does differently from its siblings': what the notice
+// says and what it leaves behind. Everything else about the three — TP, credit,
+// no kill count, no recap, no corpse, dropped from the selection — is shared, in
+// damageEnemy below. The pod VENTS rather than explodes: the sac is full of the
+// same infectious bile it was spitting, so bursting one at close range costs the
+// man who did it. A wagon leaves a coupled hulk (syncTrainParts repositions dead
+// parts on purpose), which is why its blast is the tub's and not the engine's.
+const PART_DEATH = {
+  ship: { text: 'KNOCKED OUT', burst: e => explode(e.x, e.y, 30, 40, false) },
+  train: { text: 'KNOCKED OUT', burst: e => explode(e.x, e.y, 30, 40, false) },
+  pod: {
+    text: 'POD BURST', color: '#b6e88a',
+    burst: e => {
+      const sp = e.t.spit;
+      if (sp) bileBurst(e.x, e.y, sp.r * 0.8, sp.dmg * 0.8, sp.infect, e);
+    },
+  },
+};
+
 function damageEnemy(e, dmg, from, kind) {
   if (e.chute > 0) return; // untouchable while the canopy is up
+  // and likewise the Yamato's roll-in, hull and parts alike. The targeting gate
+  // already stops anyone aiming at her; this catches the side-blind paths that
+  // never aim at all — explode's splash reaching a belt section just off the edge.
+  // Above the belt redirect below, or a hit on a jyhull would route straight past it.
+  if (e.entering) return;
   // The Yamato's armor belt is five actors on ONE pool: a hit anywhere along it
   // is a hit on the ship. Doing this here rather than per-weapon means bullets,
   // blast, flame and melee all route correctly for free. Keyed on the type flag
@@ -835,46 +871,19 @@ function damageEnemy(e, dmg, from, kind) {
   }
   if (e.hp <= 0 && !e.dead) {
     e.dead = true;
-    // A gun tub or a battery going quiet pays TP and credits the shooter, but it
-    // is not a man: it never touches the kill count or the recap, leaves no
-    // corpse, and takes an early return rather than a clause in the vehicle
-    // chain below so that chain never has to be re-audited for it.
-    if (e.t.shipPart) {
+    // A gun tub going quiet, a pus module bursting and a wagon knocked out are
+    // all the SAME kind of event, and were three copies of it: TP and credit to
+    // the shooter, but it is not a man — no kill count, no recap, no corpse. One
+    // early return, so the vehicle chain below never has to be re-audited for
+    // any of the three, and a fourth multi-actor boss is one row in PART_DEATH.
+    if (isBossPart(e.t)) {
       earnTP(e.t.reward);
       creditKill(from);
-      G.texts.push({ x: e.x, y: e.y - 20, text: 'KNOCKED OUT', ttl: 1.4 });
-      explode(e.x, e.y, 30, 40, false);
-      const spi = G.selected.indexOf(e);
-      if (spi !== -1) G.selected.splice(spi, 1);
-      return;
-    }
-    // A pus module bursting is the same kind of event as a gun tub going quiet:
-    // it pays TP and credits the shooter, but it is not a man — no kill count, no
-    // recap, no corpse. Early return for the same reason, so the vehicle chain
-    // below never has to be re-audited for it. It vents rather than explodes: the
-    // sac is full of the same infectious bile it was spitting, so bursting one at
-    // close range costs the man who did it.
-    if (e.t.bossPart) {
-      earnTP(e.t.reward);
-      creditKill(from);
-      G.texts.push({ x: e.x, y: e.y - 20, text: 'POD BURST', ttl: 1.4, color: '#b6e88a' });
-      const sp = e.t.spit;
-      if (sp) bileBurst(e.x, e.y, sp.r * 0.8, sp.dmg * 0.8, sp.infect, e);
-      const bpi = G.selected.indexOf(e);
-      if (bpi !== -1) G.selected.splice(bpi, 1);
-      return;
-    }
-    // A wagon knocked out is the same kind of event as a gun tub going quiet:
-    // TP and credit, but no kill count, no recap, no corpse. Early return for
-    // the same reason as the other two part flags. The hulk stays coupled and
-    // rides on — syncTrainParts repositions dead parts on purpose.
-    if (e.t.trainPart) {
-      earnTP(e.t.reward);
-      creditKill(from);
-      G.texts.push({ x: e.x, y: e.y - 20, text: 'KNOCKED OUT', ttl: 1.4 });
-      explode(e.x, e.y, 30, 40, false);
-      const tpi = G.selected.indexOf(e);
-      if (tpi !== -1) G.selected.splice(tpi, 1);
+      const d = PART_DEATH[e.t.shipPart ? 'ship' : e.t.bossPart ? 'pod' : 'train'];
+      G.texts.push({ x: e.x, y: e.y - 20, text: d.text, ttl: 1.4, color: d.color });
+      d.burst(e);
+      const pi = G.selected.indexOf(e);
+      if (pi !== -1) G.selected.splice(pi, 1);
       return;
     }
     G.kills++;
@@ -885,8 +894,13 @@ function damageEnemy(e, dmg, from, kind) {
       // she goes up all along her length. The parts are killed DIRECTLY and the
       // secondaries go through the shell queue rather than calling explode here:
       // explode -> damageEnemy -> this block -> explode would recurse.
-      for (let i = 0; i < e.parts.length; i++) {
-        const p = e.parts[i];
+      // `|| []` for the same reason the mass's pods carry it: parts are built by
+      // initYamato on her first tick, so a hull killed before she has ever been
+      // updated has no list at all — TEST.deploy('jyamato') followed straight by
+      // damage is exactly that, and it used to throw here and abort the death.
+      const shipParts = e.parts || [];
+      for (let i = 0; i < shipParts.length; i++) {
+        const p = shipParts[i];
         if (p.dead) continue;
         p.dead = true;
         scheduleShell(p.x, p.y, 0.12 + i * 0.16, 55, 60, true, null);
@@ -905,20 +919,30 @@ function damageEnemy(e, dmg, from, kind) {
         if (sp) bileBurst(p.x, p.y, sp.r * 0.8, sp.dmg * 0.8, sp.infect, e);
       }
       bloodSplat(e.x, e.y, 30);
-      addGroundMark({ type: 'blood', x: e.x, y: e.y, r: 46, rot1: rand(0, 3), rot2: rand(0, 3) });
+      addGroundMark({ type: 'crater', x: e.x, y: e.y, r: 46, rot1: rand(0, 3), rot2: rand(0, 3) });
       explode(e.x, e.y, 50, 40, true);
     } else if (e.t.itaBoss) {
       // the engine dies and the whole consist goes up along the rails. Parts are
       // killed DIRECTLY and the secondaries go through the shell queue — the
       // same recursion reasoning as the ship. Each wagon leaves its own wreck
       // decal, so a burnt train stays stamped on the field where it stopped.
-      for (let i = 0; i < e.parts.length; i++) {
-        const p = e.parts[i];
+      // `|| []` for the ship's reason: initWarTrain builds the consist lazily on
+      // the first tick, so an engine killed before it has ever been updated has
+      // no parts list — TEST.deploy('itrain') and immediate damage hit exactly
+      // that, and the throw took bossVictory() down with it.
+      const trainParts = e.parts || [];
+      for (let i = 0; i < trainParts.length; i++) {
+        const p = trainParts[i];
+        // wreck decals for the armored wagons only — four crew posts would just
+        // stamp one overlapping blob over the gun wagon's own. Stamped for the
+        // ALREADY-dead ones too, above the skip: a wagon knocked out earlier is
+        // drawn as a coupled hulk only while the consist is drawn at all, and
+        // drawWarTrainPass drops the whole train the moment the engine dies — so
+        // without this the stripped-consist death above would leave nothing on
+        // the field but one engine wreck. They owe a decal, not a second blast.
+        if (p.t.tank) stampWreck(p);
         if (p.dead) continue;
         p.dead = true;
-        // wreck decals for the armored wagons only — four crew posts would just
-        // stamp one overlapping blob over the gun wagon's own
-        if (p.t.tank) stampWreck(p);
         scheduleShell(p.x, p.y, 0.14 + i * 0.16, 45, 55, true, null);
       }
       stampWreck(e);
@@ -960,7 +984,7 @@ function damageEnemy(e, dmg, from, kind) {
     if (si !== -1) G.selected.splice(si, 1);
     // the boss falling is a victory: freeze the field and offer the choice
     // to take the win or fight on (flow.js)
-    if (e.t.germanBoss || e.t.japBoss || e.t.hordeBoss || e.t.itaBoss) bossVictory();
+    if (isFinalBoss(e.t)) bossVictory();
   }
   if (dmg >= 3) tryGoProne(e, 0.65);
   // Shell Shocked: a surviving enemy hit by a mortarman is dazed for a beat

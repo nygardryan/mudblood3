@@ -42,22 +42,10 @@ function hostileRoster() {
   return G.enemies;
 }
 
-// same click targets selection uses — vehicles and tanks are bigger
-function actorHitRadius(a) {
-  // 34 for the Yamato: her hitboxes are 62px apart, and 26 would leave gaps
-  // between them that the hover would fall straight through
-  if (a.t.shipPart || a.t.ship) return 34;
-  // the Progenitor's mass is ~26px of body; its sacs are small and ring it, so
-  // they get a tight radius or they'd swallow every click meant for the core
-  if (a.t.hordeBoss) return 30;
-  if (a.t.bossPart) return 12;
-  // gun posts tight (they ride 22px off the wagon centreline), wagons tank-sized
-  if (a.t.trainMg) return 10;
-  if (a.t.itaBoss || a.t.trainPart) return 26;
-  // the walker is tank-sized across the hull and stands on legs well clear of it
-  if (a.t.awalker) return 30;
-  return a.t.tank ? 26 : a.t.vehicle ? 20 : a.t.gunEmplacement ? 18 : 14;
-}
+// actorHitRadius (js/helpers.js) is the shared table — the mouse hover, the
+// mobile long-press and the focus-fire tap all pick with the same radii, so a
+// Sherman is as easy to point at as a Panzer and the ring the hover draws is
+// the ring the tap honours.
 
 // nearest hostile whose hit radius covers a world point, or null. Shared by the
 // mouse hover and the mobile long-press inspector.
@@ -159,10 +147,6 @@ function emplacementDesc(w) {
   return p ? p.desc : '';
 }
 
-function emplacementTier(o) {
-  return o.up2 ? 2 : o.up ? 1 : 0;
-}
-
 // What the piece is worth right now. The player's own pieces read their per-tier
 // numbers straight off the codex's FORT_TIERS table (js/codex.js) so the hover
 // and the codex page can never quote different figures; the HP row there is
@@ -239,12 +223,22 @@ function hoverStats(a, own = false) {
     parts.push(RANKS[a.rank].name.toUpperCase());
     parts.push(`${a.xp} ${a.type === 'medic' || a.type === 'engineer' ? 'XP' : 'KILLS'}`);
   }
+  // The medic's dmg/range are the ONLY weapon numbers on a type that the actor
+  // can contradict: he musters unarmed and never opens fire (the `!u.armed`
+  // early-out in updateUnit), and only the Standard Issue card hands him the
+  // rifle. This panel describes one man, not a catalogue entry, so a medic with
+  // no weapon was reading "8 DMG · 94 RNG" directly under "Carries no weapon"
+  // — and beside a sprite drawn with empty hands, since drawSoldier keys the
+  // same flag. Placement ghosts have no `armed` yet, so ask the card too: that
+  // is what riflemanSwapActive exists for, and the preview range ring already
+  // uses it for exactly this reason.
+  const unarmedMedic = a.type === 'medic' && !a.armed && !riflemanSwapActive('medic');
   // Flame Tank reads as a flamethrower, not a cannon: no shell, shorter reach
   const flameTank = t.tank ? tankFlame(a) : null;
   if (flameTank) parts.push('FLAME');
   else if (t.shellDmg) parts.push(`${t.shellDmg} SHELL`);
-  else if (t.dmg > 0) parts.push(`${t.dmg} DMG`);
-  if (t.range > 0) parts.push(`${Math.round(flameTank ? flameTank.range : t.range)} RNG`);
+  else if (t.dmg > 0 && !unarmedMedic) parts.push(`${t.dmg} DMG`);
+  if (t.range > 0 && !unarmedMedic) parts.push(`${Math.round(flameTank ? flameTank.range : t.range)} RNG`);
   if (t.flame) parts.push('FLAME');
   if (t.grenade) parts.push('GRENADES');
   if (t.rocket) parts.push('ROCKET');
@@ -260,6 +254,7 @@ function hoverStats(a, own = false) {
   // Keyed on the mult rather than the part flags, so a fifth boss needs nothing here.
   const plate = Math.round((1 - bossPartDamageMult(a)) * 100);
   if (plate > 0) parts.push(`${plate}% RESIST`);
+  if (t.pounce) parts.push('POUNCE');
   if (t.aura) parts.push('AURA');
   if (t.fixed) parts.push('IMMOBILE');
   // reward is the bounty an attacker collects for killing this unit — only
@@ -351,13 +346,23 @@ function drawInfoPanel(a, own = false) {
   x = clamp(x, 4, Math.max(4, canvas.width - m.panelW - 4));
   const y = clamp(py - h / 2, 4, Math.max(4, canvas.height - h - 4));
 
-  // near-opaque: at 0.30 the battlefield read straight through the panel and the
-  // text looked as washed out as the ground behind it
-  ctx.fillStyle = 'rgba(16,16,10,0.94)';
+  // the PANEL is see-through, the TEXT is not — the panel covers the fight it's
+  // describing, so the ground has to read through it, but at 0.30 (tried once)
+  // the letters looked as washed out as the ground behind them. They weren't:
+  // every fill below is opaque and globalAlpha is 1. What washes out is
+  // CONTRAST, so the fix is the drop shadow on the glyphs rather than a darker
+  // box — it darkens only the pixels immediately around each stroke, which is
+  // the only place the show-through actually costs legibility.
+  ctx.fillStyle = 'rgba(16,16,10,0.30)';
   ctx.fillRect(x, y, m.panelW, h);
   ctx.strokeStyle = '#4a4836';
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, m.panelW - 1, h - 1);
+
+  // shadow applies to fillText only from here down; the border above is drawn
+  // clean, and ctx.restore() clears it
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur = 3;
 
   let ty = y + m.pad;
   ctx.font = m.titleFont;

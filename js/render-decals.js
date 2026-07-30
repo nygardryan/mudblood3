@@ -68,7 +68,7 @@ function clearDecalCanvas(cv, c) {
 
 // Size both canvases to the current display density. Returns true when they were
 // (re)made, i.e. the front is blank and owes a full stamp. Mirrors the `ss` guard
-// clearSpriteCache() and drawCorpse's re-bake use: mobile zoom changes the density
+// sprite() and drawCorpse's re-bake use: mobile zoom changes the density
 // mid-run, and a bitmap baked at the old one would resample forever.
 function ensureDecalCanvases() {
   const ss = groundRenderScale();

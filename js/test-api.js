@@ -50,6 +50,9 @@ const TEST = {
         'setTP(n) / addTP(n)': 'set or add tactical points, for scripting test scenarios',
         'autoplay(opts?)': 'autonomous endless player: spends TP on a scaling build every `every`s and steps for `seconds`. opts {seconds=120, every=15, plan?}. Returns {over, waves, log, final}',
         'reset()': 'stop the game and return to the main menu',
+        'save()': 'write the single-slot run save (endless only) — throws if there is no saveable run. Returns {ok, meta}',
+        'continue()': 'resume the saved run (a corrupt save is discarded silently). Returns {ok, resumed, hadSave, state}',
+        'hasSave()': 'whether a valid run save exists (parses and version-checks the slot)',
         'sprites()': 'sprite-pack loader state: {enabled, state, listed, count, loaded[]}. `state` is none when no pack is installed in assets/sprites/',
         'exportSprites(opts?)': 'render every drawable to a transparent PNG. opts {download=true} — pass {download:false} to render and report without a file. Returns {ok, count, bytes, ids, blank, errors}',
         'spriteRoundtrip(id)': 'bake one sprite, encode it as PNG, load it back and diff against the procedural draw. Returns {litPixels, meanChannelDiff, ...} — a large diff means a wrong anchor or a clipped box',
@@ -129,6 +132,13 @@ const TEST = {
         charge: +G.itCharge.toFixed(2),
         avantiCd: +G.itAvantiCd.toFixed(1),
         charging: G.enemies.filter(e => !e.dead && e.t.faction === 'it' && e.chargeT > 0).length,
+      },
+      // The Horde: hounds currently in the air, and how many of your own men are
+      // carrying the infection — the two things about this faction that a count
+      // of enemies can't tell you.
+      zo: {
+        pouncing: G.enemies.filter(e => !e.dead && e.pounceT > 0).length,
+        infected: G.units.filter(u => !u.dead && u.infected > 0).length,
       },
     };
   },
@@ -507,8 +517,33 @@ const TEST = {
 
   reset() {
     if (running || G) returnToMenu();
+    // ATTRACT: returnToMenu stands the menu's demo up (js/attract.js), which
+    // would leave state() reporting a game nobody started. The harness wants a
+    // genuinely blank stage.
+    stopAttract();
     G = null;
     return { ok: true, at: 'main menu' };
+  },
+
+  // ---- single-slot run save (js/save.js) ----
+  save() {
+    if (!saveableRun()) {
+      throw new Error('no saveable run — save needs a running, un-ended endless game');
+    }
+    if (!writeRunSave()) throw new Error('run save write failed (see console)');
+    return { ok: true, meta: readRunSave().meta };
+  },
+
+  continue() {
+    const had = hasRunSave();
+    continueRun();
+    // continueRun discards a bad save silently; report which way it went
+    return { ok: true, resumed: !!(had && running && G && !G.over),
+      hadSave: had, state: G && running ? this.state() : null };
+  },
+
+  hasSave() {
+    return hasRunSave();
   },
 
   sprites() {

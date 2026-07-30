@@ -31,7 +31,6 @@ const YAM_STEEL_DK = '#38381f';
 // sat within a few points of the field's own olive and a 300px silhouette went
 // half-camouflaged. A boss has to pop off the ground.
 const YAM_DECK = '#5c5a33';
-const YAM_DECK_DK = '#464526';
 const YAM_TREAD = '#22231d';
 const YAM_HINOMARU = '#b42a2a';
 const YAM_BRASS = '#d4be50';
@@ -320,6 +319,10 @@ function drawYamato(a) {
 // shares — this one was the pattern for it.
 function drawYamatoOverlays(a) {
   const c = ctx;
+  // nothing while she rolls in: drawBossHpBar centres on a.x with no screen clamp,
+  // so a 200px bar and its caption would hang off the edge with her. The ship
+  // herself still draws in full — the bar arriving is the fight starting.
+  if (a.entering) return;
   // ticks on the YAM_SEGMENTS boundaries, as on the mass and the train: each one
   // the fill retreats past sheds a third of the plate off her guns, and a player
   // who can't see the next one coming can't tell why they suddenly bite.

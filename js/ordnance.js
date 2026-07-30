@@ -383,12 +383,18 @@ function dropBombStick(p, victim) {
   const aimX = victim.x + rand(-100, 100);
   const aimY = victim.y + rand(-100, 100);
   const spacing = rand(30, 42);
+  // The synthetic firer detonateKamikaze builds, for exactly the same reason: the
+  // ESCALATION damage modifier keys on from.side, and a bomb scheduled with a
+  // bare null arrives at damageUnit as an unattributed {x,y} — so an air raid was
+  // the one enemy attack in the game that rung IV did not touch. One object for
+  // the whole stick; nothing downstream reads more than the side.
+  const from = { x: p.x, y: p.y, side: 'de' };
 
   for (let i = 0; i < count; i++) {
     const bx = clamp(aimX + fx * (i - (count - 1) / 2) * spacing + rand(-35, 35), 14, W - 14);
     const by = clamp(aimY + fy * (i - (count - 1) / 2) * spacing + rand(-35, 35), 14, H - 14);
     // release-to-impact, staggered so the stick walks rather than landing flat
-    const sh = scheduleShell(bx, by, rand(1.15, 1.45) + i * 0.14, p.bombR, p.bombDmg, p.bombBig, null, 'bomb');
+    const sh = scheduleShell(bx, by, rand(1.15, 1.45) + i * 0.14, p.bombR, p.bombDmg, p.bombBig, from, 'bomb');
     // where it left the bay, so the renderer can arc it down onto the marker
     // from behind the bomber rather than dropping it straight out of the sky
     sh.sx = p.x - fx * 26; sh.sy = p.y - fy * 26;

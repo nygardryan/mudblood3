@@ -10,7 +10,32 @@ function inView(x, y, m) {
   return !cullOn || (x >= cullX0 - m && x <= cullX1 + m && y >= cullY0 - m && y <= cullY1 + m);
 }
 
+// Wipe the board to black. The last frame of a finished run sits on the canvas
+// until something else draws over it — and a menu screen is layered ON the
+// stage, so a run's corpses and craters used to read faintly through the panel.
+// Called when we leave a run for a menu (returnToMenu / backToTutorialSelect);
+// the in-run overlays (pause, recap, gameover) deliberately do NOT call it,
+// since seeing the field behind them is the point.
+//
+// It latches, because a wipe alone doesn't hold: G survives the run, so any
+// later `viewDirty` (a window resize, a sprite pack finishing its load) would
+// repaint the board under the menu — and on mobile `fitLayout` resizes the
+// backing store, which blanks it to TRANSPARENT rather than black. The frame
+// loop re-runs this instead of `draw()` while the flag is up; `draw()` drops it,
+// so the next run's first frame clears it with nothing to remember.
+let fieldBlank = false;
+
+function clearField() {
+  fieldBlank = true;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+}
+
 function draw() {
+  fieldBlank = false;
   hoverActor = findHoverActor();
   ctx.save();
   if (G.shake > 0.05) ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));
@@ -164,9 +189,10 @@ function draw() {
   drawAlienWalkerPass();
 
   for (const e of G.enemies) {
-    if (e.t.ship || e.t.shipPart) continue;   // drawn whole, by drawYamatoPass above
-    if (e.t.hordeBoss || e.t.bossPart) continue;   // ditto, by drawProgenitorPass
-    if (e.t.itaBoss || e.t.trainPart) continue;    // ditto, by drawWarTrainPass
+    // the three multi-actor bosses are drawn WHOLE by their own passes above,
+    // parts and all. The German boss is deliberately not among them — he paints
+    // through drawSoldier as the oversized man he is.
+    if (isMultiActorBoss(e.t)) continue;
     // ditto, by drawAlienWalkerPass — it carries no tank/vehicle/apc flag, so
     // without this it would fall through to drawSoldier and paint as a man
     if (e.t.awalker) continue;
@@ -180,10 +206,15 @@ function draw() {
     else drawSoldier(e);
   }
 
-  // focus-fire reticle: a spinning red bracket over the marked enemy
-  if (G.focusTarget && !G.focusTarget.dead && G.focusTarget.y >= 0) {
+  // focus-fire reticle: a spinning red bracket over the marked enemy. Sized off
+  // actorHitRadius on the inspector's own -2 inset (js/helpers.js), so the bracket
+  // sits just inside the radius the tap that set it picked with. It was the FOURTH
+  // copy of that table and the only one nothing had unified — a bare tank/vehicle
+  // ternary that knew about no boss, so a mark on the Yamato's hull or on the Alien
+  // Walker drew a 12px bracket the tap would have picked at 34 and 30.
+  if (inTheFight(G.focusTarget)) {
     const f = G.focusTarget;
-    const r = (f.t.tank || f.t.apc) ? 22 : f.t.vehicle || f.t.v2 ? 18 : 12;
+    const r = actorHitRadius(f) - 2;
     const spin = G.time * 1.8;
     ctx.save();
     ctx.translate(f.x, f.y);
@@ -401,12 +432,9 @@ function draw() {
     }
   }
 
-  // fog overlay
-  if (G.fog > 0) {
-    const a = clamp(G.fog / 4, 0, 1) * 0.35;
-    ctx.fillStyle = `rgba(190,195,185,${a})`;
-    ctx.fillRect(0, 0, W, H);
-  }
+  // the fog bank, over the whole ground scene like the smokescreen above it —
+  // it's what's stealing everyone's sight of each other (js/fog.js)
+  drawFog();
 
   drawTutorialHighlights();
   drawMoveDestinations();

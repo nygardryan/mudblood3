@@ -178,7 +178,12 @@ function openSettings(from) {
   else el('intro').classList.add('hidden');
 }
 
+function settingsOpen() {
+  return !el('settings').classList.contains('hidden');
+}
+
 function closeSettings() {
+  if (!settingsOpen()) return;
   el('settings').classList.add('hidden');
   if (settingsReturnTo === 'pause') el('pause').classList.remove('hidden');
   else el('intro').classList.remove('hidden');

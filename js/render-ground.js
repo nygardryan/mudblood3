@@ -197,6 +197,9 @@ function refreshGroundArt(force) {
     && next.trench === groundArt.trench) return;
   if (!force && G.time > 0) return;
   paintGround(G.level);
+  // the stamp log (js/save.js) means a forced repaint no longer costs the run
+  // its wrecks — replay them onto the fresh bitmap
+  replayGroundStamps(G.groundStamps || []);
 }
 
 // ── biome detail passes ─────────────────────────────────────────────────────

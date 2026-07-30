@@ -161,7 +161,7 @@ function spriteDefs() {
   /* every enemy army ------------------------------------------------------ */
   for (const key of Object.keys(ENEMY_TYPES)) {
     const t = ENEMY_TYPES[key];
-    if (t.shipPart || t.bossPart || t.trainPart) continue;   // handled with their parent below
+    if (isBossPart(t)) continue;                             // handled with their parent below
     if (t.ship || t.hordeBoss || t.itaBoss || t.awalker) continue;
     if (t.tank) { tankDefs(key, 'de'); continue; }
     if (t.vehicle && !t.apc && !t.bike) { jeepDefs(key, 'de'); continue; }

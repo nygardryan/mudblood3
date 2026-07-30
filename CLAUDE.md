@@ -120,8 +120,40 @@ Their art lives in `js/render-japanese.js` (`paintJapaneseSoldier`).
 
 The **Yamato** (`jyamato`) is the Japanese wave-100 boss — a land battleship on
 treads, arriving every 100th JP wave (`spawnJapaneseBoss`, hooked in
-`spawnSpecialWave` beside the German one). She is the **first of two multi-hitbox
-actors** (the Progenitor below is the other), and that is the thing to understand
+`spawnSpecialWave` beside the German one). Alone among the bosses she is staged off
+the **SIDE** rather than above the top edge, and **rolls in** from a random flank to
+`YAM_X_MARGIN` (`yamatoRollIn`), inert and untouchable until she gets there — no
+guns, no landing party, no clamps, via one early-out in `updateYamato`. She has to
+be, because the staging strip is held off the field by a `y < 0` test in every scan
+and a 300px hull lying broadside-on does not fit in it. `entering` (stamped on the
+hull AND all ten parts, cleared together on arrival) is what stands in for that
+gate — **nothing anywhere in this game gates on `x`**, so without it her stern
+would be shootable while off-screen.
+
+That term now lives in **`inTheFight(a)`** (`js/helpers.js`), the one predicate for
+"alive and actually on the field": `dead`, `y < 0` (staging strip), `chute > 0`
+(canopy still up) and `entering`. It was extracted because the rule had GROWN
+twice and each addition — `chute` for paradrops, `entering` for her — cost a hand
+sweep of the sixteen sites that spelled it out across targeting/shooting/input/
+update/cards, and one of them (`maybeOfficerFireMission`) was still carrying only
+two of the four terms in a stale form. A fifth term should be one edit. Verified
+identical to the expressions it replaced over all 180 combinations of those four
+fields. The **three faction rosters** (`isJapaneseInfantry`, `isItalianFoot`,
+`isZombie` in `js/update-enemies.js`) were the last hand-rolled copies, and had
+drifted apart exactly as predicted: `isItalianFoot` folded `chute` IN while the
+other two left it out and made their one caller append `|| o.chute > 0` by hand,
+and none of the three carried `y < 0`, so all three reached into the staging
+strip. Measured to wave 24: staging men counted in 20% of sampled seconds, worst
+7 of 13, flipping `italianForce`'s `IT_AVANTI_PRESSURE_FORCE` gate in 7 of them —
+so the AVANTI clock accelerated on a force that had not arrived. They take
+`inTheFight` now; keep the `!t.tank`/`!t.fixed` terms, which are theirs.
+`damageEnemy` keeps its own early-outs on `entering`/`chute` — that is the
+backstop, not the gate, and the scans still have to hold: an actor admitted to a
+scan it cannot hurt burns the pick (the Alien Walker's once-per-sweep `Set` is
+where that bites). Sites that invert the rule on purpose keep their own
+predicates: AA fire hunts `chute > 0` because that is exactly what it shoots, and
+`explode`'s blast passes UNDER a descending stick. She is the **first of
+two multi-hitbox actors** (the Progenitor below is the other), and that is the thing to understand
 before touching her: every other
 actor here is a bare `(x,y)` point — there is no `r`/`w`/`h` field anywhere in
 `UNIT_TYPES`/`ENEMY_TYPES`, and the size ternaries in input/inspector/mines are
@@ -193,6 +225,36 @@ interleaved A/B: ~23% → ~7% of the pack down at any moment; per flinch roll,
 - `zabom` (Abomination) — `boss:true`: enormous HP standing in for armor; its bite
   sweeps every defender at reach and near-certainly infects. Rare, late.
 - `zhound` — `hound:true`: a quadruped, drawn by its own `paintZombieHound` branch.
+  It also carries the game's only `pounce` spec, a leap that closes the last
+  stretch in one bound (`houndPounce`, a pre-step inside `updateZombie` in the
+  `updateGarrison` shape). Three things about it are the design, not detail.
+  **It stays a GROUND actor for the whole flight** — `x`/`y` interpolate along
+  the ground and the height is `pounceArc`, a render-only scalar the painter
+  subtracts from y, exactly how the Spitter's bile glob fakes one. There is no z
+  on any actor here, and the one airborne state that does exist, `chute > 0`, is
+  ~15 guards scattered through targeting, shooting, damage and update; staying
+  grounded keeps the hound shootable, minable and inspectable mid-leap for
+  nothing. A pounce is a burst of speed, not an invulnerability window.
+  **Wire GROUNDS it** (`wireOnLeap`, beside `pursuePoint`): the drag clause in
+  `pursuePoint` is the only thing barbed wire does to a melee zombie, so a leap
+  that hurdled a band would quietly retire wire and the Razor Wire card against
+  the fastest thing the Horde fields. The test samples the leap line with the
+  *same* band predicate the drag uses — the two agreeing about where a band is
+  matters more than a tidier slab test. Measured: on open ground it launches at
+  60px and lands at 13, inside the 15 bite reach; with a band on the line it
+  never leaves the dirt and takes the ×0.126 drag as before.
+  It is a **pure gap-closer** — nothing lands on touchdown, so the ordinary
+  reach/cooldown bite takes over on the next frame with no impact code anywhere
+  (measured balance-neutral, n=8/side interleaved: every delta inside 1 sd).
+  Two holes it fell into first, both about state that outlives a frame: the
+  committed flight is stepped ABOVE `updateZombie`'s target check, or a hound
+  whose man dies mid-leap falls to `advance()` and walks on frozen at full arc
+  forever; and `abortPounce` collapses it in `updateEnemy`'s stun and prone
+  blocks, which return above every dispatch and would otherwise leave it hanging
+  in the air. `soldierCacheable` gets `pounceT` (the sprite cache keys on facing
+  with no slot for a pose), and `paintZombieHound` stays PURE — every airborne
+  term is scaled by `arc / lift`, so an actor that has never leapt bakes
+  pixel-identically for the codex portrait and the exporter (verified 0 diff).
 `deploy` spawns any of them (they're in `TESTING_ZOMBIE_PLACEABLES`); wave spawning
 routes through `zomWaveComposition` and `ZOM_SPECIAL_WAVES` when
 `G.enemyFaction === 'zo'`, and the paradrop event becomes "the dead rise behind you"
@@ -217,8 +279,10 @@ that — see the shared `bossPartDamageMult` rule below the train.
 
 Flags are split rather than reusing hers: **`hordeBoss`** = "killing this ends the
 fight" (mirror of `germanBoss`/`japBoss`; read in `damageEnemy`'s `bossVictory()`
-call), **`bossPart`** = the child-actor flag (the `shipPart` equivalent, kept
-separate so her nine touchpoints keep meaning what their comments say). Pods also
+call; now read via `isFinalBoss`), **`bossPart`** = the child-actor flag (the
+`shipPart` equivalent, kept separate so her nine touchpoints keep meaning what
+their comments say — the sites that want all three ask `isBossPart` /
+`isMultiActorBoss` instead; see the shared-predicate note below the train). Pods also
 carry `fixed` (prone exemption + keeps them out of `isZombie`, so a Screamer can't
 rouse a sac) and deliberately carry **no `zombie` flag** — that would route them to
 `updateZombie` before dispatch reached `updateProgenitor`, and it is what the +15%
@@ -278,6 +342,40 @@ vice versa. And the pot emits by DISTANCE (`smokeEmitInterval` keeps puffs
 band — otherwise a fast wind stretches the plume into a dotted line and troops
 shoot clean through the gaps (measured 15% of the plume body before this). Air paths are deliberately NOT blocked: bombers and AA pick
 targets with their own scans, since smoke screens the ground, not the sky.
+
+**FOG is the other half of the weather** (`js/fog.js`), and unlike smoke it is
+purely a look plus one scalar: `fogMult()` (`js/shooting.js`) cuts every
+acquisition range to 60% while `G.fog` runs, and there is no per-puff geometry
+and nothing to block. The renderer is three tiling cloud layers composed on
+their own buffer and blitted once — they DRIFT on `G.wind`, the same vector the
+smokescreen rides, at different fractions of it and sheared a few degrees off
+it so they churn against each other rather than sliding as one; and the bank is
+near-solid at the top of the field thinning to `FOG_DEPTH_NEAR` over the
+player's own trench, so the ground he is shooting at dissolves while the men he
+is commanding stay legible. It does **not** sweep in across the field — that
+shipped first, with the front rolling down out of the enemy's treeline, and was
+cut deliberately; it fades up in place over `FOG_FADE_IN`. Four things are
+load-bearing:
+- **`G.fogAge` counts UP beside the countdown**, and is why there is a new save
+  scalar. `G.fog` alone cannot tell a bank that has just arrived from one about
+  to lift, and the two `nebel`/`infiltrate` special waves stack more fog onto a
+  screen already standing (`Math.max`), so any "how long has it been up" figure
+  derived from the countdown would jump under them and re-run the fade-in on a
+  settled bank. An age doesn't. It also means a run saved under fog resumes
+  mid-bank rather than fading in again.
+- **The layer is composed at `FOG_LAYER_DIV` of field resolution.** The six
+  full-field fills that build it are the whole cost of the effect: +26.6 ms a
+  frame at 1:1 under software rasterization, +1.0 ms at a quarter, and the two
+  are indistinguishable side by side because there is nothing on the layer but
+  soft gradients. Nothing else in the renderer may copy this.
+- **The wisp tiles are cut against the wind, not rotated per frame.** The wind
+  only turns between waves, so a bank bakes once and stands, and every frame is
+  an axis-aligned fill per layer instead of one covering the field's diagonal.
+  The stretch along the drift is most of what separates fog from a mottle — a
+  field of round blobs reads as camouflage, the same trap the biomes hit.
+- **The drift phase runs off the bank's own age, never `G.time`.** A speed
+  factor (the settling gust) applied to a `G.time` phase shifts the pattern by
+  the whole run's length the instant the factor changes.
 
 The **Regio Esercito** is the fourth endless foe (`faction:'it'` in `ENEMY_TYPES`,
 17 keys) and the only one that **builds**. It shipped once before and was cut for
@@ -397,27 +495,66 @@ was smaller (~0.2 medics/wave, matching the officer's rate). Art is
 silhouettes via the `IT_ART` map, so a new type that looks like an existing one
 costs one line. `TEST.works()` and `TEST.state().it` are the inspection surface.
 
-The **Semovente 75/18** (`isemo`) is the one vehicle with its own hull painter,
-`paintSemoventeHull` (`js/render-vehicles.js`), dispatched off `a.type` at the top
-of `paintTankHull`. It has one because the shared `casemate` branch it used to run
-through **lays its superstructure and gun along +x while the hull under it is drawn
-facing +y** — so a casemate drove downfield with its gun aimed permanently at 3
-o'clock. `estug` is still on that branch and still has it. Nothing else changed:
-`casemate: true` still means "no turret sprite, gun baked into the hull", so the
-export surface is one PNG (`tank_isemo_hull`, no `_turret`) and a pack ships one
-image. The consequence is that the drawn gun follows the HULL while the sim aims
-with `a.turret` — the two agree in the ordinary case (both point downfield) and
-the shell's muzzle flash is placed at 26 units along `a.turret`, which is where
-this barrel ends. Three things carry the read at ~48×34px, and the first pass got
-each of them wrong: it is a **VALUE ladder** (tracks and outline near-black,
-engine deck dark olive, casemate roof lightest, nose slope lighter still) rather
-than a pile of features — bogies, a loader's hatch, a periscope, a roof Breda and
-a three-tone camo all read as a crate with corner brackets and came out. The gun
-is **dark**; drawn in light grey it reads as a turret at any distance, which is
-the one thing a casemate must not do. And the mantlet ball is the **only circle**
-on the vehicle — the commander's hatch is square for that reason alone, since two
-discs of a size read as two small turrets. Verify with `TEST.spriteRoundtrip(
-'tank_isemo_hull')`.
+**All three Italian vehicles have their OWN painters**, dispatched off `a.type`
+through the `HULL_PAINTERS` / `TURRET_PAINTERS` maps at the top of
+`paintTankHull`/`paintTankTurret` (`js/render-vehicles.js`) — so a fourth Italian
+tank must be given one rather than left on the generic branch, which no longer
+carries any Italian art at all (its `nation === 'it'` insignia branches were dead
+once the third painter landed and were removed). The reason all three needed one
+is the reason to keep them: every other tank in the game IS the generic painter —
+one rectangle, one turret disc, one braked barrel — so `il3` and `im13` were
+*literally the same drawing at two scales*, and they are the only armour that
+turns up on the same desert biome in the same sand-and-green scheme, often in the
+same wave. What is shared is the chassis grammar and it lives in four helpers
+(`itRunningGear`, `itRivets`, `itMarkings`, `itChassisPath`); what differs is the
+furniture on top, and each vehicle gets ONE silhouette idea:
+- `isemo` — no turret disc anywhere, one short fat dark gun hard off-centre.
+- `im13` — the same chassis (`itChassisPath` and the same running-gear numbers,
+  deliberately: they were one hull), answering the Semovente's "nothing round at
+  the hull centre" with a turret plus a ring scribed round it, and a long thin
+  47/32 with **no muzzle brake** where every German and US gun ends in a block.
+- `il3` — **tows a trailer**. Nothing else in the game tows anything, and the
+  bowser is what the flame variant is; it is also the only tank whose footprint
+  isn't the house medium's, so `drawTank` carries a `tow` branch for its smaller
+  shadow (plus a second patch under the trailer) and its own HP-bar geometry — at
+  the medium's `dy` the bar lands ON the trailer, which is up-screen of an enemy.
+`casemate: true` still means "no turret sprite, gun baked into the hull", so
+`isemo` exports one PNG (`tank_isemo_hull`, no `_turret`) and a pack ships one
+image; the shared `casemate` branch it used to run through has since been rotated
+onto the hull's axis, so `estug` is correct on it and this is art, not a
+workaround. The consequence is that a casemate's drawn gun follows the HULL while
+the sim aims with `a.turret` — they agree in the ordinary case (both point
+downfield) and the muzzle flash sits 26 units along `a.turret`, where that barrel
+ends. `il3` is deliberately NOT a casemate for the same reason inverted: its
+"turret" sprite is the flame projector, so the nozzle mouth tracks `e.turret` and
+ends at 18, which is `drawFlameStream`'s `originDist`.
+Five things carry the read at this size, each learned by getting it wrong:
+- It is a **VALUE ladder**, not a pile of features (tracks and outline
+  near-black, engine deck dark olive, hull sand, front plate lightest — plus the
+  tankette's raised crew step, a fourth value it needs because it is small). The
+  Semovente's first pass had bogies, a loader's hatch, a periscope, a roof Breda
+  and three-tone camo, and read as a crate with corner brackets.
+- **Every tube is dark.** In light grey a gun reads as a turret at any distance,
+  which is the one thing a casemate must not do.
+- **Count the circles.** One vehicle's circles have to mean one thing: the
+  Semovente's mantlet ball is its only one (hence a square cupola), and the
+  M13/40's are the turret and its ring, concentric, which is why its hull MG is a
+  square mount and not a ball.
+- **A raised thing needs a shadow, not an outline.** The M13/40's turret at the
+  hull's own value vanished and left its outline drawing the whole turret; it
+  reads as raised now off a 12% contact HALO (a halo and not an offset drop
+  shadow, because the sprite is blitted at the gun's bearing and an offset would
+  swing the light round the tank as it traversed). The tankette's crew
+  compartment is a STEP for the same reason — outlined, it was a box inside the
+  hull box, and since the projector covers its middle all that showed was a pale
+  frame round the mount.
+- **Nothing may out-shout the vehicle.** The tankette's bowser started 14 wide
+  against a 20-wide hull with a full-width red band and read as the vehicle, with
+  the tankette as its cab; a tow must be plainly smaller than what tows it, and
+  the band is a hazard marking, not the brightest thing on the field piece.
+Verify with `TEST.spriteRoundtrip('tank_il3_hull' | 'tank_il3_turret' |
+'tank_im13_hull' | 'tank_im13_turret' | 'tank_isemo_hull')` — all five land at
+`meanChannelDiff` ≤ 0.18, and the trailer and the 47/32 both fit the 92-unit box.
 
 The **Treno Armato** (`itrain`) is the Italian wave-100 boss — an armored war
 train (`spawnItalianBoss`, hooked in `spawnSpecialWave` beside the other three,
@@ -436,7 +573,18 @@ arms have a job; the flatcar itself is scenery, not an actor), and one `itarty`
 howitzer wagon on the tail. No shared pool
 anywhere → no de-dupe clause in `explode`/`flameSpray`, and adding one would be
 a bug. No damage control: dead wagons stay COUPLED as hulks (`syncTrainParts`
-repositions dead parts on purpose, unlike hers). One pool ticked into
+repositions dead parts on purpose, unlike hers). It is also the one boss with a
+**second way to die**: strip every wagon and the engine dies with them, polled at
+the top of `updateWarTrain` (the phase poll's reasoning — every damage source
+reaches it for free) and routed back through `damageEnemy` so the ordinary boss
+death path runs, `bossVictory()` included. That is a stall-breaker, not a
+shortcut: the wagons are PLATED by the engine's health, so stripping all eight at
+phase 0 costs ~55k against its 26k pool, and it only pays for a player who has
+already broken segments the ordinary way. Its one knock-on is the wreck stamps —
+the death cascade in `damage.js` now stamps armored wagons ABOVE its `p.dead`
+skip, because `drawWarTrainPass` drops the whole consist the instant the engine
+dies and wagons killed earlier would otherwise leave nothing but an engine wreck.
+One pool ticked into
 `TRAIN_SEGMENTS` (3) phases, polled with a `while` in `updateWarTrain`; each
 break runs `trainSoundsCharge`, which arms the SAME `G.itCharge` signed clock
 the ambient AVANTI runs (telegraph included) rather than firing a charge of its
@@ -516,6 +664,61 @@ free. Five things about it, four of which are the reason it is written this way:
   HP bar grew the tick marks the other two already had. A break that changes how
   hard her guns are to kill and shows the player nothing is just a difficulty spike
   with no tell.
+
+**The three part flags stay separate; the questions ASKED of them are shared.**
+`shipPart`/`bossPart`/`trainPart` are deliberately not one flag — a site that
+genuinely cares about one boss has to be able to say so, which is what keeps her
+nine touchpoints meaning what their comments say. But most sites care about the
+CATEGORY, and were spelling all three out — four parallel lists to keep in step,
+and a fourth such boss would have had to find every one of them. So
+`js/helpers.js` carries the predicates:
+- **`isBossPart(t)`** — any of the three child flags. The armor-vest skip in
+  `waves.js`, the shell-shock skip and a card guard in `cards.js`, the part-death
+  branch in `damage.js`, the exporter's "handled with their parent" skip, and the
+  codex roster filter.
+- **`isFinalBoss(t)`** — "killing this ends the fight": the four faction-boss
+  flags `damageEnemy` keys `bossVictory()` on. A fifth faction boss is one row.
+- **`isMultiActorBoss(t)`** — parent AND children, for the two sites that handle
+  a boss WHOLE: the standard-draw skip in `render.js` (each has its own pass) and
+  the breach loop in `update.js` (one regressed clamp must not breach eleven, six
+  or nine times in a frame). Der Schlächter and the Alien Walker are outside it on
+  purpose — a single actor each, drawn and breached by the ordinary paths.
+
+The Alien Walker is in **neither** of the last two despite `boss:true`, which it
+buys only for the `armorEnemy` skip and the prone/suppression exemptions.
+
+Three more shared reads live beside them, each extracted after the duplicate
+copies had already drifted:
+- **`actorHitRadius(a)`** — how close a click, tap or hover has to land, and (at
+  `-2`) the ring the inspector draws. There were two tables, and the walker was
+  the tell: the hover ring drew at 28px while the focus-fire tap still wanted 14,
+  so the player aimed inside a ring the tap couldn't see. Order matters — `apc`
+  before `vehicle`, and the boss flags above everything, since parts carry `tank`.
+- **`emplacementTier(o)`** — `up2 ? 2 : up ? 1 : 0`, the index into every per-tier
+  table. Those tables are now tables rather than nested ternaries
+  (`BUNKER_COVER_DODGE`/`BUNKER_COVER_CHIP`, `SANDBAG_COVER_DODGE`/
+  `SANDBAG_COVER_CHIP`, `WIRE_DRAG`/`WIRE_WEAR`,
+  `WATCHTOWER_RANGE_MULT_TIERS`, `AMMOCRATE_ROF_MULT_TIERS`,
+  `CAMONEST_REVEAL_TIERS`, `DUMMY_SEE_THROUGH`), so a wall's whole per-tier story
+  reads in one place — and the deliberate flat spots stay visible (a bunker chips
+  the same 1 hp fortified or hardened, where sandbags keep improving).
+- **the veterancy curves** — `rankCdMult`, `rankScatterMult`, `rankSpreadMult`,
+  `emplacementArc`, off `RANK_ROF_RATE`/`RANK_SCATTER_RATE`/`RANK_SPREAD_RATE`/
+  `RANK_ARC_RATE`. These cover the weapons that skip `unitBuffs` and set their own
+  numbers. Two exist for a sharper reason than tidiness: `drawUnitWeaponRange`
+  (`js/targeting.js`) drew the traverse cone and the buckshot cone from its own
+  copies of the formulas `updateATGun`/`updateAAGun`/`fireShotgun` fire by, so a
+  tuning pass could leave the drawn cone describing a gun the player doesn't have.
+  The rates are kept as four constants even though three read 0.08 today — they
+  are different promises, and folding them together would let a reload tuning pass
+  silently retighten every mortar and every buckshot cone in the game.
+
+The codex's veterancy panel now **derives** its percentages from those rates
+rather than restating them, which is what had already gone wrong: a cycle-time
+curve is not its own reciprocal, so the "Rate of fire" row advertised +48% at max
+rank where the real gain is ≈1.9× (the interval shrinks to `1 - 0.08*6 = 0.52`).
+Five other rows describing the very same curve had it right, which is the only
+reason the error was visible.
 
 The **Alien Walker** (`awalker`) is the easter egg that ends a run that won't end
 — a striding tripod that walks out of the treeline at wave 666 and sweeps a laser
@@ -641,8 +844,24 @@ The only modes are **endless** and the three **tutorial** lessons
 There are no attacker/campaign modes — your men always live in `G.units`, the foe
 in `G.enemies`. Endless difficulty is `easy` plus the ESCALATION ladder below;
 `sandbox`/`testing` are the unlimited-TP tiers. **`medium` and `hard` still exist
-in `ENDLESS_DIFFICULTIES` but left the menu** — keep them, `TEST.start` and the
-banked leaderboard boards are keyed on those ids.
+in `ENDLESS_DIFFICULTIES` but left the menu** — keep them, `TEST.start` is keyed
+on those ids.
+
+The **LEADERBOARDS are keyed on the RUNG**, one board per rung (`js/leaderboards.js`,
+`endlessLeaderboard` v2, top 10 each). The three difficulty boards were a relic: two
+of the tabs recorded a run nobody could start any more, while every real run landed
+on the third. A board holds one rung, so entries inside it compare on **wave alone**
+(the old esc-then-wave comparator is gone) and no rung is printed on a row — the
+header names the board. Recording is gated on `medalsEligible()` reused verbatim,
+the same test the rung unlock and the medal payout use. The v1 blob **migrates
+rather than being discarded**: every entry re-homes onto the board its own `esc`
+field names, medium/hard ones included — those tiers were harder than the rung they
+land on, so the migration UNDER-credits them and can never invent a score a rung
+didn't earn. The picker is the escalation menu's own rung strip (shared `.esc-rung`
+styling; `#leaderboard-strip` declares its own `esc` container so the `cqi` units
+measure the strip and not the window). An unearned rung is inert **unless its board
+holds entries** — `TEST.escalation()` and the migration can both bank a score on a
+rung this save no longer counts as earned, and a record must stay readable.
 
 **ESCALATION** (`js/escalation.js`) is the endless difficulty ladder: ten rungs,
 each ADDING one permanent modifier on top of every rung below it, unlocked one at
@@ -701,32 +920,89 @@ can't be farmed for rungs in sandbox. Drive it with `TEST.escalation(n)`, which
 unlocks as well as selects, because the real unlock costs a wave-100 boss kill
 per rung.
 
-The menu (`#esc-block` in `index.html`) is three surfaces: a **rung strip** of
-eleven chips (every earned rung one tap away), a **readout** pairing the rung
-with what it PAYS, and `#esc-dossier`, holding all ten modifiers — the ten
-`ee-card`s that used to sit under the stepper moved in there because at rung X
-they pushed the deploy button a screen and a half down a panel whose only job is
-to start a run. `pickEscalation` is the single write path for the selection
-(strip and both arrows).
+**THE MENU IS ONE SCREEN** (`#intro`). There is no `#endless-select` — it was
+deleted, along with the ENDLESS mode card that reached it. A game with one mode
+does not need a mode picker, so the front page IS the deploy screen: the title
+marquee owns the top, `.fm-deploy` owns the bottom, and nothing competes. The
+word "endless" appears nowhere in the UI; the wave counter is the only progress
+language. `#intro` is also the return screen for every secondary menu, so
+`cardShopReturnScreen` / `leaderboardReturnScreen` and the abandon prompt all
+name it.
 
-**`#esc-block` is always on screen and its PLAY button IS the deploy control for
-endless** — that is why there is no TAKE THE LINE mode card any more and
-`OTHER MODES` is just sandbox/testing. At rung 0 the block reads as a clean
-sector with the ladder locked ahead of it, which is the teaser. Rung 0 has no
-numeral, so any copy naming the rung you must beat has to drop the `ON —`
-(`buildEscalationUI`'s next-line and the dossier's locked rows both branch on
-it). Unlike the card shop and the leaderboards, the dossier **layers over**
-`#endless-select` rather than swapping it out (z-index 11 over 10, own scrim, own
-fade) — it's a reference sheet you consult mid-decision. It closes on ✕, on a
-backdrop click (`e.target` check, so a row click still expands), and on Escape,
-which it claims first in `js/input.js`'s handler via `escDossierOpen()`.
+`#esc-deploy` is the **welded slab** — ONE control with `#esc-prev` / `#esc-next`
+(EASIER / HARDER) recessed into its ends, sharing its orange body and its single
+drop-shadow. Broken into three separate chips the arrows read as their own
+destinations; welded, they read as adjusting the thing they sit inside. The rung
+it will deploy at is printed INSIDE the button (`#esc-level` + `#esc-mult`), so
+the control states what it does. Under it, `.fm-status` is one line: the modifier
+this rung just added, how far up the ladder you have earned, and the way into all
+ten. Under that, the footer chips — CARDS (carrying the **only** medal count in
+the game's UI, because the count belongs on the thing you spend it in),
+LEADERBOARDS, CODEX, SETTINGS, and TUTORIAL. **SANDBOX, TESTING and CHANGELOG
+moved into Settings** under a DEV TOOLS heading: sitting next to the only real
+mode was making them read as modes. `openEndlessLoadout`/`openAbandonConfirm`
+therefore take a `fromScreen` — the two dev buttons swap `#settings` out, not
+`#intro`.
 
-Two CSS notes: everything in the panel measures in `cqi` off a container
-declared on `#endless-select .mm`, because an overlay lives inside the scaled
-`#stage` and `vw`/`@media` there read the WINDOW, not the ~576px the panel gets
-(same trap the After-Action Report documents); and every selector for a
-`<button>` is prefixed `#endless-select` / `#esc-dossier` to outrank
-`.overlay button`, which repaints every overlay button gold.
+`refreshMenu()` (`js/flow.js`) rebuilds everything the front page reads from
+storage — the save slot, the rung, the medal count — and is called from
+`returnToMenu` and once at boot. It owns the **first-launch promotion**: on a
+save with no run, no medals and `bestWaveEver() === 0`, TUTORIAL is moved out of
+the chip row into the empty RESUME slot. All three signals, not just the save
+slot, because clearing a save is something a returning player does constantly.
+
+**The rung strip moved INTO `#esc-dossier`, and the dossier's rows became
+selectable with it.** The slab's arrows walk one rung, so a IX→II drop is seven
+presses without a strip — and that is exactly the move a player stuck on a rung
+makes. What the front page gains by not carrying eleven chips is the whole point
+of the redesign, so the strip lives where you go to READ the ladder, since
+reading it is when you decide where to stand on it. A row's side says `SET ▸`
+rather than `AVAILABLE` for that reason. `pickEscalation` is still the single
+write path (arrows, strip and rows), and it **repaints** the dossier
+(`refreshEscDossierStates`) rather than rebuilding it — a rebuild would
+`innerHTML` the rows out from under the finger that just tapped one, collapsing
+the briefing the same tap opened. Nothing on that screen can change the SHAPE of
+the list, so only classes and labels can differ. Rung 0 has no numeral, so any
+copy naming the rung you must beat drops the `ON —` (`escDossierSubText` and the
+dossier's locked rows both branch on it). Unlike the card shop and the
+leaderboards, the dossier **layers over** the menu rather than swapping it out
+(z-index 11 over 10, own scrim, own fade). It closes on ✕, on a backdrop click
+(`e.target` check, so a row click still selects), and on Escape, which it claims
+first in `js/input.js`'s handler via `escDossierOpen()`.
+
+Three CSS notes. Everything measures in `cqi` off a container declared on
+`#intro .fm`, because an overlay lives inside the scaled `#stage` and
+`vw`/`@media` there read the WINDOW, not the ~600px the panel gets (same trap the
+After-Action Report documents) — there are no breakpoints on this screen at all,
+just clamps between a phone value and a desktop one. Every selector for a
+`<button>` is prefixed `#intro` / `#esc-dossier` to outrank `.overlay button`,
+which repaints every overlay button gold. And this sheet has **no generic
+`.hidden` rule** — every hide is spelled out per element, which is why
+`#intro .fm-resume.hidden` exists: the card it replaced never had one, so
+`refreshContinueUI` had been adding a class that did nothing and CONTINUE sat on
+the menu offering a saved run that did not exist.
+
+**ATTRACT MODE** (`js/attract.js`) is the live demo behind the menu, which is why
+`#intro` is the one menu screen that is NOT opaque (`.fm-scrim` carries the
+gradient instead). It drives the real sim — same `update()`, same `draw()`, same
+waves — but **deliberately never sets `running`**, so `isPlaying()` stays false
+and the HUD, toolbar, tipbar, speed/pause buttons, canvas handlers and hotkeys
+all stay inert with no guards of their own. The frame loop runs it instead of the
+`playing` branch; that is the only place `running` is worked around. The run
+chrome still had to be hidden, because it sits *below* the overlay layer and now
+shows THROUGH it — one `#stage:has(> #intro:not(.hidden))` rule in the CSS.
+
+Its containment is the part to preserve: the demo is a real endless run and will
+bank medals, unlock rungs, take leaderboard scores and reach `endRun`, which
+**deletes the player's single-slot save**. Three guards, two of which are one
+predicate — `medalsEligible()` returns false (already the gate on all three of
+medals, the rung unlock and score recording), `endRun` early-outs into
+`restartAttract()` ABOVE its `clearRunSave()`, and `bossVictory` early-outs.
+Nothing in `attract.js` writes localStorage, and that is the invariant. Verified
+over 1500 sim-seconds to wave 63 with three collapses: medals, `escUnlocked`, the
+save slot and every board byte-identical, and no overlay ever shown. It is built
+to be **removable** — six `// ATTRACT` call sites and the removal recipe are in
+the file's header comment.
 
 **The GROUND DECAL LAYER** (`js/render-decals.js`) is why the frame no longer grows
 with the run. `G.groundMarks` is uncapped, accrues ~30 marks/s in a sustained fight
@@ -762,7 +1038,7 @@ Three things hold it together:
 The pass walks a **snapshot** of `G.groundMarks`, not the live array: `updateDecals()`
 runs at the end of `update()` *after* compaction, which splices expired marks out
 mid-pass, and walking a shifting array by index would skip marks. The layer carries
-the same `ss` density stamp `clearSpriteCache()` and `drawCorpse` use, and rebuilds
+the same `ss` density stamp `sprite()` and `drawCorpse` use, and rebuilds
 SYNCHRONOUSLY on a density change (mobile zoom) rather than progressively, so a pinch
 never shows a half-built field. It is also the one thing in the renderer holding BAKED
 pixels rather than redrawing, so it cannot notice art changing under it — `SPRITES`
@@ -825,6 +1101,44 @@ exporter asking for the same filename: a kind that has one look (a mine, the cam
 ground layer) must not be looked up under three tier names. Verify with
 `TEST.spriteRoundtrip(id)` — it bakes, encodes, reloads and diffs; single-digit
 `meanChannelDiff` is resampling, tens mean a wrong anchor or a clipped box.
+
+**The RUN SAVE** (`js/save.js`) is the single-slot save/continue: SAVE AND EXIT on the
+pause menu (endless only — `pauseGame` hides it for tutorials, which also carry live
+actor refs in `G.tutorial` that must never reach a save), CONTINUE on the main menu
+(`refreshContinueUI` toggles the card off `readRunSave()`). It is a **whitelist
+serializer, never `JSON.stringify(G)`**: the boss parent/part links are true cycles
+(stringify throws), every actor's `t` is a shared type record, and the Sets
+(`cardsOwned`, `dummyBlind`, `awHit`, `recap.usedNames`) plus a corpse's baked
+`_sprite` all round-trip as poison. Cross-refs are saved as indices into a **union
+list** (`G.enemies` in order, then dead boss parts that survive only in a parent's
+`parts`/`pods`) and re-linked on load with object identity restored — `e.parts[n]`
+IS `G.enemies[m]` again. `SAVE_STRIP` is an explicit list, NOT an underscore rule:
+`e._burst` (the bloater's died-once guard) is load-bearing and rides. Projectile `by`
+survives as a ref or a `{side,x,y,type}` stub because ESCALATION rung IV keys on
+`by.side`. Corruption stance mirrors `loadEndlessCards`: parse under try/catch,
+blanket-discard on version mismatch (`RUN_SAVE_VERSION`), and `deserializeRun` builds
+into a local `g` and THROWS on any structural failure (unknown type key, out-of-range
+index, orphaned or duplicated `isBossPart`, malformed `itWorks` row — those are indexed
+by garrison links, so they're strict, not filtered) — `G` is assigned only after every
+check passes, and a discarded save just means no CONTINUE card, silently. **The
+strict/tolerant split is the thing to get right, and it was wrong once:** `reqArr` fails
+on any state-bearing field that isn't an array and on a missing `scalars` block, because
+the tolerant `arr()`/`num()` defaults meant `run.enemies = {}` resumed a wave-40 board
+with no enemies and a deleted `scalars` resumed it at wave 0 — *worse* outcomes than
+ditching, which is the whole promise. `serializeRun` always writes every one of those
+fields, so requiring them is free. Tolerance is only for genuinely optional per-actor
+data (card ids, stamp records, `dummySeen`/`dummyBlind`). The slot is deleted in
+`endRun` (guarded on `G.level.id === 'endless'`, so a tutorial death spares an
+endless save) and by the `#abandon-confirm` prompt gating `openEndlessLoadout` — the
+one choke point for every menu-driven endless start. The resume path reuses
+`enterField` (extracted from `startGame`'s tail — keep them one path) and runs
+`paintGround → replayGroundStamps → resetDecals` in newGame's order. Baked wreck art
+survives via `G.groundStamps`: all 13 `stamp*` writers log `{k,x,y}` through
+`logGroundStamp` (capped 1000; a `replayingStamps` guard stops replay re-logging),
+which also lets `refreshGroundArt`'s forced repaint keep the run's history now. **A
+field added to the `newGame` literal or a new actor ref needs a look at js/save.js**
+— and possibly a version bump, which is the escape hatch. Drive it with
+`TEST.save()` / `TEST.continue()` / `TEST.hasSave()`.
 
 Useful internals when TEST isn't enough: game state is the global `G`
 (`js/state.js:105` for its shape), `update(dt)` steps the sim, `draw()`

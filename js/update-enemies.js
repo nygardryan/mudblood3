@@ -84,6 +84,7 @@ function updateEnemy(e, dt) {
   // overrides prone recovery so the daze runs its full second first
   if (e.stun > 0) {
     e.stun -= dt;
+    abortPounce(e);   // swatted out of the air: drop where you are
     return;
   }
 
@@ -95,6 +96,7 @@ function updateEnemy(e, dt) {
       e.prone = 0;
       e.proneCd = rand(4, 6);
     } else {
+      abortPounce(e);
       return; // pinned: no shooting, no advancing
     }
   }
@@ -142,16 +144,8 @@ function updateEnemy(e, dt) {
         e.moveTo = null;
       } else {
         e.face = Math.atan2(e.moveTo.y - e.y, e.moveTo.x - e.x);
-        let speed = e.t.speed * (buffed ? 1.25 : 1);
         // barbed wire drags commandos just like everyone else
-        for (const wr of G.wires) {
-          if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-            speed *= wr.up ? 0.05 : 0.12;
-            wr.hp -= (wr.up ? 3 : 5) * dt;
-            wireBite(e, dt);
-            break;
-          }
-        }
+        const speed = wireDrag(e, e.t.speed * (buffed ? 1.25 : 1), dt);
         e.x = clamp(e.x + Math.cos(e.face) * speed * dt, 14, W - 14);
         e.y = clamp(e.y + Math.sin(e.face) * speed * dt, 14, H - 14);
         return;
@@ -212,7 +206,7 @@ function updateEnemy(e, dt) {
       G.grenades.push({
         x: e.x, y: e.y,
         tx: gt.x + rand(-14, 14), ty: gt.y + rand(-14, 14),
-        t: 0, dur: 1.0, sx: e.x, sy: e.y,
+        t: 0, dur: 1.0, sx: e.x, sy: e.y, by: e,
         kind: 'stick',
       });
     }
@@ -375,19 +369,46 @@ function rollEnemyPushUrge(e, target, dt, command) {
   }
 }
 
-function advance(e, dt, buffed) {
-  e.wobble += dt * 3;
-  // a banzai-command surge drives men forward 40% faster until it wears off
-  let speed = e.t.speed * (buffed ? 1.25 : 1) * (e.chargeT > 0 ? 1.4 : 1);
-  // barbed wire drag; fortified wire grips harder and wears slower, hardened more still
+// ---- barbed wire ----
+// FOUR movement paths cross wire — advance(), pursuePoint(), the player-ordered
+// walk in updateEnemy() and the hound's leap test — and every one of them has to
+// agree about where a band is and what crossing it costs. They didn't: the
+// ordered-move copy was written before the hardened tier existed and never
+// picked it up, so a commandeered trooper walked through up2 wire at the
+// FORTIFIED rate (0.0525 instead of 0.021, tearing 3 hp/s out of it instead of
+// 2) — a 2.5x hole in the top wire upgrade, in a path nothing else touches. One
+// band predicate and one table per tier (WIRE_DRAG / WIRE_WEAR / WIRE_BAND_*,
+// js/constants.js, beside the cover tables), so a fifth caller can't drift again.
+//
+// The two vehicle paths (updateBike, driveEnemyVehicle) come through here too,
+// passing WIRE_BAND_Y_VEHICLE: they catch the strand a little sooner than a man
+// does. They do NOT come through wireDrag below — a vehicle carries its own drag
+// and its own wear (a motorcycle's ride simply ends), and nothing bites a crew.
+function inWireBand(wr, x, y, halfY) {
+  return Math.abs(x - wr.x) < WIRE_BAND_X
+    && Math.abs(y - wr.y) < (halfY || WIRE_BAND_Y);
+}
+
+// Drag `speed` through the first live band the man is standing in, wearing the
+// strand down and letting it bite him. Returns the dragged speed.
+function wireDrag(e, speed, dt) {
   for (const wr of G.wires) {
-    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-      speed *= wr.up2 ? 0.02 : wr.up ? 0.05 : 0.12;
-      wr.hp -= (wr.up2 ? 2 : wr.up ? 3 : 5) * dt;
+    if (wr.hp > 0 && inWireBand(wr, e.x, e.y)) {
+      const tier = emplacementTier(wr);
+      speed *= WIRE_DRAG[tier];
+      wr.hp -= WIRE_WEAR[tier] * dt;
       wireBite(e, dt);
       break;
     }
   }
+  return speed;
+}
+
+function advance(e, dt, buffed) {
+  e.wobble += dt * 3;
+  // a banzai-command surge drives men forward 40% faster until it wears off
+  let speed = e.t.speed * (buffed ? 1.25 : 1) * (e.chargeT > 0 ? 1.4 : 1);
+  speed = wireDrag(e, speed, dt);
   e.face = Math.PI / 2 + Math.sin(e.wobble) * 0.25;
   e.x += Math.cos(e.face) * speed * dt * 0.4;
   e.y += Math.sin(e.face) * speed * dt;
@@ -401,16 +422,30 @@ function advance(e, dt, buffed) {
 // charger makes a beeline instead of the shuffling zig-zag of a line trooper.
 function pursuePoint(e, tx, ty, speed, dt) {
   e.face = Math.atan2(ty - e.y, tx - e.x);
-  for (const wr of G.wires) {
-    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 14) {
-      speed *= wr.up2 ? 0.02 : wr.up ? 0.05 : 0.12;
-      wr.hp -= (wr.up2 ? 2 : wr.up ? 3 : 5) * dt;
-      wireBite(e, dt);
-      break;
-    }
-  }
+  speed = wireDrag(e, speed, dt);
   e.x = clamp(e.x + Math.cos(e.face) * speed * dt, 14, W - 14);
   e.y += Math.sin(e.face) * speed * dt;   // no top clamp — a charger can breach
+}
+
+// Would a leap from (x0,y0) to (x1,y1) cross a live wire band? The hound's pounce
+// is the only movement in the game that could skip the drag clause above, and the
+// drag is the ONLY thing barbed wire does to a melee zombie — so wire has to stop
+// the leap outright or the Razor Wire card quietly stops mattering against the
+// fastest thing the Horde fields. Sampled along the segment with the SAME band
+// predicate the drag uses, rather than a proper slab test: a leap is ~110px at
+// most, so this is a dozen cheap tests against a handful of wires, and the two
+// checks agreeing exactly about where a band is matters more here than elegance.
+function wireOnLeap(x0, y0, x1, y1) {
+  const steps = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 8));
+  for (const wr of G.wires) {
+    if (wr.hp <= 0) continue;
+    for (let i = 0; i <= steps; i++) {
+      const f = i / steps;
+      const sx = x0 + (x1 - x0) * f, sy = y0 + (y1 - y0) * f;
+      if (inWireBand(wr, sx, sy)) return true;
+    }
+  }
+  return false;
 }
 
 // occasional battle-cry, throttled per man so a whole wave doesn't shriek at once
@@ -480,8 +515,12 @@ function detonateLunge(e) {
   explode(e.x, e.y, lu.r, lu.dmg, true, by);
 }
 
+// Everyone a banzai order applies to. See isItalianFoot below for why all three
+// faction rosters take inTheFight rather than a bare `!dead`: an officer who has
+// only just crossed the top edge is within BANZAI_CMD_RADIUS of the men still
+// staging behind him, and their chargeT burns down before they arrive.
 function isJapaneseInfantry(e) {
-  return !e.dead && e.t.faction === 'jp' && !e.t.tank && !e.t.fixed;
+  return inTheFight(e) && e.t.faction === 'jp' && !e.t.tank && !e.t.fixed;
 }
 
 // ---- Regio Esercito: the dig ----------------------------------------------
@@ -821,10 +860,23 @@ function updateItalianMedic(e, dt, buffed) {
 
 // ---- Regio Esercito: AVANTI SAVOIA -----------------------------------------
 
-// Everyone the order applies to: foot troops of the faction, wherever they are.
+// Everyone the order applies to: foot troops of the faction who are ON the field.
 // Armour drives its own fight, and `fixed` things can't charge by definition.
+//
+// This and its two sister rosters (isJapaneseInfantry, isZombie) are the last
+// hand-rolled copies of inTheFight (js/helpers.js), and they had drifted from
+// each other in the way that predicate exists to stop: this one folded `chute`
+// IN, while both of the others left it out and made their one caller append
+// `|| o.chute > 0` by hand. None of the three carried `y < 0`, so all three
+// reached into the staging strip above the top edge. Measured over ~360 sampled
+// seconds to wave 24, no player interference beyond a gunner line: staging men
+// were counted in 20% of seconds, worst 7 of 13 — and in 7 of those seconds they
+// flipped the answer to italianForce's IT_AVANTI_PRESSURE_FORCE gate, so the
+// AVANTI clock accelerated on a force that had not arrived. The Horde's was
+// visible the same way (a Screamer's frenzy reaching zombies still off-field, 5
+// times), and the Japanese one admitted 14 descending paratroopers.
 function isItalianFoot(e) {
-  return !e.dead && e.t.faction === 'it' && !e.t.tank && !e.t.fixed && !(e.chute > 0);
+  return inTheFight(e) && e.t.faction === 'it' && !e.t.tank && !e.t.fixed;
 }
 
 // one pass for both numbers the trigger needs
@@ -979,7 +1031,7 @@ function japBanzaiCommand(e, dt) {
   let roused = 0;
   const r2 = BANZAI_CMD_RADIUS * BANZAI_CMD_RADIUS;
   for (const o of G.enemies) {
-    if (o === e || !isJapaneseInfantry(o) || o.chute > 0) continue;
+    if (o === e || !isJapaneseInfantry(o)) continue;   // chute: the roster's own gate
     if (dist2(e, o) > r2) continue;
     o.chargeT = rand(2.2, 3.6);
     o.pushT = Math.max(o.pushT || 0, o.chargeT);
@@ -1153,7 +1205,16 @@ function bossReinforce(call) {
 function initYamato(e) {
   e.yamInit = true;
   e.phase = 0;                  // health segments broken so far (0..YAM_SEGMENTS-1)
-  e.heading = pick([0, Math.PI]);        // broadside-on from the off
+  // A hull spawned outside the patrol margin is ROLLING IN, and which side it was
+  // spawned on is the whole of the entry state — so the wave hook and a bare
+  // TEST.deploy('jyamato', 0.05, 0.32) run one identical code path, the way the
+  // Progenitor's and the train's lazy init already do. Heading is the entry
+  // direction while she comes on, so she arrives flat and broadside-on with
+  // nothing to turn; spawned inside the margin she just picks a side as before.
+  const off = e.x < YAM_X_MARGIN ? 1 : e.x > W - YAM_X_MARGIN ? -1 : 0;
+  e.entering = off !== 0;
+  e.entryDir = off;
+  e.heading = off ? (off > 0 ? 0 : Math.PI) : pick([0, Math.PI]);  // broadside-on from the off
   e.legT = rand(YAM_LEG_MIN, YAM_LEG_MAX);
   e.wantHeading = e.heading;
   e.landCd = rand(YAM_LAND_CD_MIN, YAM_LAND_CD_MAX);
@@ -1166,6 +1227,9 @@ function initYamato(e) {
     p.shipOf = e;
     p.fireT = 0;
     p.tur = e.heading;
+    // the gate is stamped on the parts too: every scan reads the actor it is
+    // looking at, and ten of the eleven hitboxes are parts
+    p.entering = e.entering;
     e.parts.push(p);
     G.enemies.push(p);
     return p;
@@ -1175,7 +1239,14 @@ function initYamato(e) {
   e.turrets = YAM_TURRET_S.map(s => addPart('jyturret', s, 0));
   e.mounts = [];
   for (const s of YAM_MG_S) {
-    for (const b of [-YAM_MG_B, YAM_MG_B]) e.mounts.push(addPart('jymg', s, b));
+    for (const b of [-YAM_MG_B, YAM_MG_B]) {
+      const p = addPart('jymg', s, b);
+      // lay the tub on its own beam up front. updateYamatoMount normally does this
+      // on the first tick, but it doesn't run during the roll-in, and the renderer
+      // blits at `p.face || 0` — so she'd come on with every tub stowed fore-and-aft.
+      p.face = e.heading + Math.sign(b) * Math.PI / 2;
+      e.mounts.push(p);
+    }
   }
   syncYamatoParts(e);
 }
@@ -1284,6 +1355,28 @@ function nextYamatoLeg(e) {
   e.wantHeading = base + tilt;
 }
 
+// The arrival. She drives straight along her beam from off the edge to the patrol
+// margin, at a fixed heading and y — there is no turn, so neither clamp in
+// updateYamato has anything to do and both are skipped along with everything else
+// (see the early-out there). She is inert and untouchable the whole way: the
+// `entering` flag on her and every part is what keeps her out of the targeting
+// scans, which gate on y < 0 and have no notion of x at all.
+function yamatoRollIn(e, dt) {
+  const goal = e.entryDir > 0 ? YAM_X_MARGIN : W - YAM_X_MARGIN;
+  const left = Math.abs(goal - e.x);
+  const speed = YAM_SPEED + (YAM_ENTRY_SPEED - YAM_SPEED) * clamp(left / YAM_ENTRY_EASE, 0, 1);
+  e.x += e.entryDir * speed * dt;
+  if (e.entryDir > 0 ? e.x >= goal : e.x <= goal) {
+    e.x = goal;
+    e.entering = false;
+    for (const p of e.parts) p.entering = false;
+    // she lands ON the margin, so nextYamatoLeg reads nearEdge and turns her
+    // inward — she can never be handed a leg that walks straight back off
+    nextYamatoLeg(e);
+  }
+  syncYamatoParts(e);
+}
+
 // Her signature play, and the fight's whole economy: the ramps come down and
 // naval infantry pour out along both flanks. Killing escorts is what pays for the
 // artillery that actually kills her — small arms can't touch the belt, so without
@@ -1325,6 +1418,10 @@ function yamatoDamageControl(e) {
 
 function updateYamato(e, dt) {
   if (!e.yamInit) initYamato(e);
+  // Still rolling in. This one return is what keeps the whole fight out of the
+  // arrival — the phase poll, both ability clocks, the leg logic, both clamps and
+  // both gun loops. Symmetric with her being untargetable: she can't shoot either.
+  if (e.entering) { yamatoRollIn(e, dt); return; }
 
   // ONE HP pool ticked into YAM_SEGMENTS phases — the mass's and the train's poll,
   // verbatim, and here for one reason only: the phase is the plate her batteries
@@ -1361,7 +1458,9 @@ function updateYamato(e, dt) {
   // to y=364. The effect is that she can only push to YAM_Y_MAX while lying flat
   // and has to pull back as she angles. The x clamp keeps every part on screen:
   // targeting scans reject y < 0 but never x, so a bow off the edge would be
-  // shootable and invisible.
+  // shootable and invisible. The roll-in is exempt from that clamp — it drives her
+  // from off the edge to this very margin — and the reason it can be is that the
+  // `entering` flag closes exactly the hole this clamp otherwise guards.
   const yReach = Math.abs(Math.sin(e.heading)) * Math.max(...YAM_BELT_S.map(Math.abs))
     + Math.abs(Math.cos(e.heading)) * YAM_MG_B;
   e.x = clamp(e.x, YAM_X_MARGIN, W - YAM_X_MARGIN);
@@ -1606,6 +1705,24 @@ function trainCrush(e, dt) {
 function updateWarTrain(e, dt) {
   if (!e.trainInit) initWarTrain(e);
 
+  // A STRIPPED CONSIST is a dead boss. Once every wagon is a hulk the engine has
+  // no guns, no boxcar and nothing left to be but a locomotive, so working the
+  // consist off it is a second way to win the fight — and, more importantly, the
+  // reason it can't stall: with the parked train's whole armament burnt out
+  // neither side can reach the other. It is not a shortcut. The wagons are PLATED
+  // by the engine's own health (bossPartDamageMult), so stripping all eight at
+  // phase 0 costs ~55k against the engine's 26k pool; it only pays off for a
+  // player who has already broken segments off the engine the ordinary way.
+  //
+  // Polled here rather than hooked into the part-death branch in damage.js, on the
+  // phase poll's reasoning below: every damage source (shells, blast, the crush,
+  // a TEST kill) reaches it for free. Routed back through damageEnemy so the whole
+  // boss death path runs — TP, recap, the wrecks along the rails and bossVictory().
+  if (e.parts.length && e.parts.every(p => p.dead)) {
+    damageEnemy(e, e.hp, null, null);
+    return;
+  }
+
   // ONE HP pool drawn as TRAIN_SEGMENTS bars — the Progenitor's poll, verbatim:
   // polled here rather than hooked into damageEnemy so it's robust to every
   // damage source, and a WHILE because one big hit can empty two segments and
@@ -1662,8 +1779,10 @@ function updateWarTrain(e, dt) {
 
 // ---- The Horde: bite & infection, spitters, bloaters, the screamer's frenzy ----
 
+// The Horde's roster, on the same rule as the other two (see isItalianFoot).
+// No `tank` term: the dead field no armour, so there is nothing to reject.
 function isZombie(e) {
-  return !e.dead && e.t.faction === 'zo' && !e.t.fixed;
+  return inTheFight(e) && e.t.faction === 'zo' && !e.t.fixed;
 }
 
 // plant the infection in a defender: he rots on a countdown and, if a medic
@@ -1738,11 +1857,19 @@ const ZOMBIE_REACH = 15;
 function updateZombie(e, dt, buffed, command) {
   zombieGroan(e, dt);
   if (e.t.frenzyCmd) zombieFrenzyCommand(e, dt);   // the screamer drives the pack
+  // A leap already in the air is COMMITTED and needs no target to finish, so it
+  // has to be stepped above the checks below — a hound whose man died mid-flight
+  // would otherwise fall to advance() and walk on frozen at full arc, never
+  // landing and never re-entering the sprite cache.
+  if (e.pounceT > 0) { houndPounce(e, dt, null, 0); return; }
   if (command) { if (e.moveTo) advance(e, dt, buffed); return; }
   const target = primaryUnitTarget(e, 4000);
   if (!target) { advance(e, dt, buffed); return; }
   const reach = ZOMBIE_REACH + (e.t.boss ? 16 : e.t.big ? 8 : 0)
     + (target.t.tank || target.t.vehicle ? 9 : 0);
+  // the hound leaps the last stretch instead of running it — a pre-step, so a
+  // grounded one falls straight through to the pursuit below
+  if (e.t.pounce && houndPounce(e, dt, target, reach)) return;
   if (dist(e, target) > reach) {
     const speed = e.t.speed * (buffed ? 1.2 : 1) * (e.chargeT > 0 ? 1.35 : 1);
     pursuePoint(e, target.x, target.y, speed, dt);
@@ -1765,6 +1892,79 @@ function updateZombie(e, dt, buffed, command) {
       zombieBite(e, target);
     }
   }
+}
+
+// Stun and prone return from the TOP of updateEnemy, above every dispatch, so a
+// hound caught mid-leap would otherwise hang in the air until the daze wore off.
+// Collapsing the arc there is all it takes — x/y are valid ground coords at every
+// point of the lerp, so it just drops where it is. Called from those two blocks
+// rather than edited into the shared tryGoProne/maybeShellShock setters, which
+// have no business knowing what a pounce is.
+function abortPounce(e) {
+  if (e.pounceT > 0) { e.pounceT = 0; e.pounceArc = 0; }
+}
+
+// The Infected Hound's leap: it closes the last stretch of ground in one bound
+// instead of running it. Shaped as a PRE-STEP like updateGarrison/updateArdito —
+// it returns true only while the leap owns the frame, so a hound on cooldown or
+// out of the distance window falls straight through to the ordinary pursuit.
+// `target` is only read to DECIDE a leap, so the mid-flight call site above
+// passes null: once launched, the arc is committed to a fixed landing point.
+//
+// It is purely a gap-closer. The landing point is chosen just inside bite reach,
+// so touchdown needs no impact code of its own: the next frame the ordinary
+// reach/cooldown bite above takes over with no special case anywhere.
+//
+// x/y stay on the GROUND for the whole flight — the height is `pounceArc`, a
+// render-only scalar the painter subtracts from y, exactly the way the Spitter's
+// bile glob (the only other arc in the game) fakes one. There is no z anywhere in
+// this engine, and the single airborne state that does exist, `chute > 0`, is
+// ~15 guards scattered through targeting, shooting, damage and update. Staying a
+// ground actor keeps the hound shootable, minable, wire-able and inspectable
+// mid-leap for nothing. A pounce is a burst of speed, not an invulnerability
+// window — which is also why nothing here touches its HP or armor.
+function houndPounce(e, dt, target, reach) {
+  const p = e.t.pounce;
+  // `!(x > 0)` rather than `x <= 0`: pounceT is undefined until the first leap
+  // (the fields are seeded lazily), and `undefined <= 0` is false — which would
+  // send a fresh hound straight into the flight maths and NaN its position.
+  if (!(e.pounceT > 0)) {
+    // grounded: recharge. Seeded lazily on first read, the way the spitter's
+    // spitCd is, so makeEnemy doesn't grow a field every enemy in the game
+    // would then carry.
+    e.pounceCd = (e.pounceCd == null ? rand(p.cdMin, p.cdMax) : e.pounceCd) - dt;
+    if (e.pounceCd > 0) return false;
+    const d = dist(e, target);
+    if (d < p.min || d > p.range) return false;
+    const a = Math.atan2(target.y - e.y, target.x - e.x);
+    const hop = Math.max(0, d - Math.max(0, reach - 2));   // stop just inside reach
+    const tx = clamp(e.x + Math.cos(a) * hop, 14, W - 14);
+    const ty = e.y + Math.sin(a) * hop;
+    // wire on the line — or a hound already snagged in a band — grounds the leap
+    if (wireOnLeap(e.x, e.y, tx, ty)) return false;
+    e.psx = e.x; e.psy = e.y;
+    e.ptx = tx; e.pty = ty;
+    // the duration is COPIED rather than read off the spec each frame, so retuning
+    // p.dur from the console mid-flight can't renormalize a leap already underway
+    e.pounceDur = p.dur;
+    e.pounceT = p.dur;
+    e.face = a;
+    // and then FALL THROUGH: the leap moves on the frame it launches, not the one
+    // after. Returning here instead costs a stationary frame at full arc 0, which
+    // reads as the dog hitching before it jumps.
+  }
+  // in the air: ride the stored launch → landing line
+  e.pounceT -= dt;
+  const f = clamp(1 - e.pounceT / e.pounceDur, 0, 1);
+  e.x = e.psx + (e.ptx - e.psx) * f;
+  e.y = e.psy + (e.pty - e.psy) * f;
+  e.pounceArc = Math.sin(f * Math.PI) * p.lift;
+  if (e.pounceT <= 0) {
+    e.pounceT = 0;
+    e.pounceArc = 0;
+    e.pounceCd = rand(p.cdMin, p.cdMax);
+  }
+  return true;
 }
 
 // one maul: instant, no projectile. Bypasses body/flak armor like any melee, does
@@ -1820,7 +2020,7 @@ function fireBile(e, target, sp) {
 // bile lands: a corrosive splash that burns everyone nearby (bypassing armor, like
 // acid) and carries the infection through the spray to survivors.
 function bileBurst(x, y, r, dmg, infect, by) {
-  addGroundMark({ type: 'blood', x, y, r: r * 0.7, rot1: rand(0, 3), rot2: rand(0, 3) });
+  addGroundMark({ type: 'crater', x, y, r: r * 0.7, rot1: rand(0, 3), rot2: rand(0, 3) });
   for (let i = 0; i < 16; i++) {
     const ang = rand(0, Math.PI * 2), sp = rand(20, 90);
     G.particles.push({
@@ -1877,7 +2077,7 @@ function zombieFrenzyCommand(e, dt) {
   let roused = 0;
   const r2 = FRENZY_CMD_RADIUS * FRENZY_CMD_RADIUS;
   for (const o of G.enemies) {
-    if (o === e || !isZombie(o) || o.chute > 0) continue;
+    if (o === e || !isZombie(o)) continue;              // chute: the roster's own gate
     if (dist2(e, o) > r2) continue;
     o.chargeT = rand(2.4, 3.8);
     o.pushT = Math.max(o.pushT || 0, o.chargeT);
@@ -2041,7 +2241,7 @@ function progenitorResurrection(e) {
     z.reanimated = true;
     G.enemies.push(z);
     risen++;
-    addGroundMark({ type: 'blood', x: cp.x, y: cp.y, r: 9, rot1: rand(0, 3), rot2: rand(0, 3) });
+    addGroundMark({ type: 'crater', x: cp.x, y: cp.y, r: 9, rot1: rand(0, 3), rot2: rand(0, 3) });
     for (let i = 0; i < 6; i++) {
       G.particles.push({
         x: cp.x + rand(-5, 5), y: cp.y + rand(-5, 5), vx: rand(-24, 24), vy: rand(-50, -12),
@@ -2138,7 +2338,7 @@ function updateBike(e, dt) {
   // barbed wire ends the ride on the spot
   let hitWire = false;
   for (const wr of G.wires) {
-    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
+    if (wr.hp > 0 && inWireBand(wr, e.x, e.y, WIRE_BAND_Y_VEHICLE)) {
       hitWire = true;
       wr.hp -= 30;
       break;
@@ -2173,11 +2373,13 @@ function updateEnemyJeep(e, dt) {
   driveEnemyVehicle(e, dt, 0.08, 8, true);
 }
 
-function driveEnemyVehicle(e, dt, wireDrag, wireDmg, wobble) {
+// NB: `wireMult`, not `wireDrag` — that name belongs to the shared foot-drag
+// helper above, and a parameter shadowing it here would read as a call to it.
+function driveEnemyVehicle(e, dt, wireMult, wireDmg, wobble) {
   let speed = e.t.speed;
   for (const wr of G.wires) {
-    if (wr.hp > 0 && Math.abs(e.x - wr.x) < 40 && Math.abs(e.y - wr.y) < 16) {
-      speed *= wireDrag;
+    if (wr.hp > 0 && inWireBand(wr, e.x, e.y, WIRE_BAND_Y_VEHICLE)) {
+      speed *= wireMult;
       wr.hp -= wireDmg * dt;
       break;
     }
@@ -2239,6 +2441,7 @@ function dismountBike(e) {
 // mirrors the live drawBike silhouette (bike left, sidecar right, nose +y)
 // but drained of colour — dull olive when abandoned, charred when destroyed.
 function stampBike(e, wrecked) {
+  logGroundStamp('bike', e.x, e.y, { wrecked: !!wrecked });
   const g = gctx;
   g.save();
   g.translate(e.x, e.y);
@@ -2402,9 +2605,24 @@ function awBeamTick(e) {
   // walker B would overwrite A's stamp and A would charge the same man twice
   // inside one sweep. It also works unchanged for sandbags, wire and works,
   // none of which have a spare field to thread a lifecycle through.
+  //
+  // Everything is its own key EXCEPT the Yamato's armor belt, which is five
+  // actors — four sections plus the hull core, which is the amidships hitbox —
+  // sharing ONE HP pool. damageEnemy redirects a section into the ship, so
+  // keying them one apiece charges that pool once per section the lance crosses:
+  // measured 1600 off a single sweep where 800 was correct, with only the core
+  // and one section aligned, and up to 5x broadside-on. Keying the whole belt on
+  // the ship is what makes it one THING for the sweep, which is the promise the
+  // Set exists to keep. Same shared-pool reasoning as explode()'s belt hold-back
+  // and flameSpray's floor — and, like both of those, it is the pool and not the
+  // parts that earns the clause: her turrets and gun tubs, the Progenitor's sacs
+  // and the train's wagons all own their HP and stay keyed one apiece, so a lance
+  // that crosses two batteries is meant to hurt twice.
+  const key = (o) => (o.t && o.t.hullSection && o.shipOf) || o;
   const cut = (o) => {
-    if (hit.has(o) || !awInWedge(e, o.x, o.y)) return false;
-    hit.add(o);
+    const k = key(o);
+    if (hit.has(k) || !awInWedge(e, o.x, o.y)) return false;
+    hit.add(k);
     return true;
   };
 
@@ -2420,8 +2638,13 @@ function awBeamTick(e) {
   // Regio Esercito with equal indifference. Other walkers are the one
   // exemption — two spawned together would delete each other before either
   // finished a sweep and the mechanic would never land in front of the player.
+  // inTheFight matters here beyond the usual reason: damageEnemy early-returns
+  // on `entering` and `chute`, so admitting one SPENDS the once-per-sweep slot
+  // on an actor the lance cannot hurt — sweep a rolling-in Yamato or a stick
+  // still under silk and they are keyed into `hit` for nothing, then arrive or
+  // land immune to the rest of that sweep.
   for (const en of G.enemies) {
-    if (en.dead || en.t.awalker) continue;
+    if (!inTheFight(en) || en.t.awalker) continue;
     if (cut(en)) { damageEnemy(en, AW_SWEEP_DMG, e); awSlag(en.x, en.y); }
   }
 

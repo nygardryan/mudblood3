@@ -4,6 +4,7 @@
 'use strict';
 
 function stampATGunWreck(a) {
+  logGroundStamp('atgun', a.x, a.y);
   gctx.save();
   gctx.translate(a.x, a.y);
   gctx.rotate(rand(-0.6, 0.6));
@@ -27,6 +28,7 @@ function stampATGunWreck(a) {
 // burnt-out crawler: scorched hull between the tracks — one thrown clear —
 // with the launch rail blown off its turntable and folded across the wreck
 function stampV2Wreck(a) {
+  logGroundStamp('v2', a.x, a.y);
   gctx.save();
   gctx.translate(a.x, a.y);
   gctx.rotate(rand(-0.25, 0.25));

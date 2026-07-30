@@ -3,6 +3,52 @@
 // Add a new object to the TOP of this array whenever you ship changes.
 const CHANGELOG = [
   {
+    date: '2026-07-29',
+    title: 'Italian Armour Redrawn',
+    changes: [
+      'The three Regio Esercito vehicles are drawn from scratch, one silhouette each. Until now the tankette and the M13/40 were the same shape at two sizes — and they are the armour you meet on the same desert, in the same paint, often in the same wave, doing three completely different jobs to your line.',
+      'The L3 Lf TOWS ITS FUEL. The flame tankette drags an armoured bowser on two wheels with a pair of hoses running forward to the projector, which is where the fire it hoses your trench with actually comes from. Nothing else on the field tows anything, so it is the one vehicle you can name from the far end of the map.',
+      'The M13/40 is the one with the TURRET, and now looks it: a riveted faceted turret seated in a scribed ring, a commander\'s hatch off to one side, a stowage bin on the back, and a long thin 47mm with no muzzle brake — a different gun from anything the Germans or your own Shermans carry. Its hull machine gun sits on the driver\'s right, opposite where the Semovente carries its howitzer.',
+      'The Semovente keeps its stub 75 hard over to one side and gains nothing round anywhere — it is still the one that aims by turning the whole tank. Riveted seams, mudguards and the sand-and-green disruptive scheme are common to all three, because they are one army.',
+    ],
+  },
+  {
+    date: '2026-07-29',
+    title: 'High Explosive Toned Down',
+    changes: [
+      'HIGH EXPLOSIVE now widens the Sherman\'s cannon burst by half instead of doubling it. Blast is area, not width — doubling the radius was four times the ground covered, and half again is a little over twice. It is still a considerably bigger hole than the standard round.',
+      'The mortarman\'s HEAVY SHELLS is untouched at twice the radius. He lobs into open ground at range and holds fire when your own men are near the impact point; the tank fires flat at whatever it is aimed at and has never checked. The two cards no longer pretend that is the same shell.',
+    ],
+  },
+  {
+    date: '2026-07-28',
+    title: 'New Card: Forward Observer',
+    changes: [
+      'New unique EMPLACEMENTS card — FORWARD OBSERVER. A spotter works the top of every WATCH TOWER, and your men in the sector below him pick their targets straight through smoke.',
+      'Smoke has always been something that happened to you. A canister goes up, the men either side of it stop being able to see anything, and there was nothing you could buy that answered it. Now there is, and it is a piece you can already build.',
+      'The sector is the tower\'s second footprint and a far wider one than the range aura — about as far as a rifleman shoots, so one tower covers a stretch of your line and never the whole field. Smoke somewhere else is still smoke. An engineer widens the sector when he fortifies the tower, and widens it again when he hardens it.',
+      'Every man on his feet under it sees: rifles, machine guns and the mortar crew. Not your armour and not the staked guns — the tower has never done anything for a buttoned-up crew, and a gunner stood at his own sights is not taking a call from a ladder he never climbed. It works one way only — the smoke goes on hiding your men from the enemy — and it dies with the tower, which is a frail thing that the enemy was already shelling first.',
+    ],
+  },
+  {
+    date: '2026-07-28',
+    title: 'New Card: Ambush',
+    changes: [
+      'New unique EMPLACEMENTS card — AMBUSH. A man who opens fire out of a CAMO NEST while the enemy still cannot see him hits for double damage.',
+      'It is the first card that pays you for holding fire. The nest has always hidden your men until they shot; now the shot they were hiding to take is worth twice as much, and the moment it goes out they are visible again like they always were.',
+      'That makes the reveal timer the card\'s rhythm. Three seconds after his last shot the nest takes him back, and the next round out of it is another ambush — so a man in a running firefight never gets it, and a man picking his moment gets it every time. An engineer shortens the wait to a second and a half, and a hardened nest to half a second.',
+      'Aimed fire and buckshot only. Grenades, rockets, mortar shells and flame give the position away without the bonus — a tube crew reloads slower than the nest can hide them, so every shell they fired would have been an ambush and the card would just have been more damage.',
+    ],
+  },
+  {
+    date: '2026-07-28',
+    title: 'See Through The Info Panel',
+    changes: [
+      'The info panel is see-through again. It opens on top of the fight it is describing, and a solid box meant that pointing at a man to read him hid whatever was about to happen to him.',
+      'The writing in it is not transparent — the panel got lighter, the text did not. It sits on its own shadow now, so a stat line stays just as sharp over a crater or a knot of troops as it did over the old solid backing.',
+    ],
+  },
+  {
     date: '2026-07-28',
     title: 'Kamikaze',
     changes: [
@@ -381,16 +427,23 @@ function renderChangelog() {
   }).join('');
 }
 
-function openChangelog() {
+// reached from Settings (DEV TOOLS) rather than the front page — it is a thing
+// you consult, not a thing you launch. It swaps whatever opened it out, so it
+// has to put that screen back rather than assume the menu, the same shape
+// openSettings/openCodex already use.
+let changelogReturnTo = 'settings';
+
+function openChangelog(from) {
+  changelogReturnTo = from || 'settings';
   renderChangelog();
   el('changelog').classList.remove('hidden');
-  el('intro').classList.add('hidden');
+  el(changelogReturnTo).classList.add('hidden');
 }
 
 function closeChangelog() {
   el('changelog').classList.add('hidden');
-  el('intro').classList.remove('hidden');
+  el(changelogReturnTo).classList.remove('hidden');
 }
 
-el('changelog-btn').addEventListener('click', openChangelog);
+el('changelog-btn').addEventListener('click', () => openChangelog('settings'));
 el('changelog-back-btn').addEventListener('click', closeChangelog);

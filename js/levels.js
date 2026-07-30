@@ -44,8 +44,8 @@ const LEVELS = {
     startTP: 25,
     setup(G) {
       // you start with two riflemen already dug in
-      G.units.push(makeUnit('rifleman', lx(-70), 470));
-      G.units.push(makeUnit('rifleman', lx(70), 470));
+      G.units.push(makeUnit('rifleman', 470, ly(-70)));
+      G.units.push(makeUnit('rifleman', 470, ly(70)));
     },
   },
 

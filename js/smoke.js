@@ -36,8 +36,8 @@ function normalizeAngle(a) {
 function triggerSmokescreen() {
   showBanner('SMOKE ROUND — SCREEN GOING UP');
   SFX.event();
-  const x = rand(70, W - 70);
-  const y = rand(H * 0.22, H * 0.78);
+  const x = rand(W * 0.22, W * 0.78);
+  const y = rand(70, H - 70);
   const s = scheduleShell(x, y, SMOKE_ROUND_FLIGHT, 0, 0, false, null, 'smoke');
   const life = rand(SMOKE_DUR_MIN, SMOKE_DUR_MAX);
   s.burn = Math.max(4, life - SMOKE_PUFF_TTL);

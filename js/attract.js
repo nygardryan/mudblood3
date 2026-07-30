@@ -84,31 +84,31 @@ function attractWishlist() {
   const push = (key, x, y) => list.push({ key, x: x + rand(-14, 14), y: y + rand(-10, 10) });
 
   // a line of riflemen first, then the automatics that hold it
-  push('rifleman', lx(-90), 470);
-  push('rifleman', lx(90), 470);
-  push('sandbags', lx(-70), 430);
-  push('sandbags', lx(70), 430);
-  if (w >= 2) push('gunner', lx(0), 462);
-  if (w >= 3) push('rifleman', lx(0), 486);
-  if (w >= 4) push('medic', lx(-30), 500);
-  if (w >= 5) push('wire', lx(-60), FORWARD_Y + 60);
-  if (w >= 5) push('wire', lx(60), FORWARD_Y + 60);
-  if (w >= 6) push('gunner', lx(-110), 462);
-  if (w >= 7) push('mine', lx(0), FORWARD_Y + 40);
-  if (w >= 8) push('officer', lx(20), 505);
-  if (w >= 9) push('bunker', lx(-40), 420);
-  if (w >= 11) push('grenadier', lx(40), 470);
-  if (w >= 13) push('bazooka', lx(-20), 478);
-  if (w >= 15) push('watchtower', lx(110), 430);
-  if (w >= 17) push('mortarman', lx(70), 500);
-  if (w >= 20) push('sherman', lx(0), 440);
-  if (w >= 24) push('atgun', lx(-120), 440);
+  push('rifleman', 470, ly(-90));
+  push('rifleman', 470, ly(90));
+  push('sandbags', 430, ly(-70));
+  push('sandbags', 430, ly(70));
+  if (w >= 2) push('gunner', 462, ly(0));
+  if (w >= 3) push('rifleman', 486, ly(0));
+  if (w >= 4) push('medic', 500, ly(-30));
+  if (w >= 5) push('wire', FORWARD_X + 60, ly(-60));
+  if (w >= 5) push('wire', FORWARD_X + 60, ly(60));
+  if (w >= 6) push('gunner', 462, ly(-110));
+  if (w >= 7) push('mine', FORWARD_X + 40, ly(0));
+  if (w >= 8) push('officer', 505, ly(20));
+  if (w >= 9) push('bunker', 420, ly(-40));
+  if (w >= 11) push('grenadier', 470, ly(40));
+  if (w >= 13) push('bazooka', 478, ly(-20));
+  if (w >= 15) push('watchtower', 430, ly(110));
+  if (w >= 17) push('mortarman', 500, ly(70));
+  if (w >= 20) push('sherman', 440, ly(0));
+  if (w >= 24) push('atgun', 440, ly(-120));
   // past the scripted opening it just keeps reinforcing — the demo is a
   // background, so it never has to win
   if (w >= 26) {
-    push('rifleman', lx(rand(-130, 130)), 470);
-    push('sandbags', lx(rand(-120, 120)), 428);
-    if (w % 3 === 0) push('gunner', lx(rand(-110, 110)), 460);
+    push('rifleman', 470, ly(rand(-130, 130)));
+    push('sandbags', 428, ly(rand(-120, 120)));
+    if (w % 3 === 0) push('gunner', 460, ly(rand(-110, 110)));
   }
   return list;
 }

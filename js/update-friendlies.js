@@ -643,7 +643,7 @@ function updateEngineer(u, dt) {
 function updateATGun(u, dt) {
   const spec = u.t.atgun;
   const range = unitRange(u, u.t.range) * fogMult();
-  const HOME = -Math.PI / 2;   // staked facing the German end of the field
+  const HOME = Math.PI;   // staked facing the German end of the field (-x)
   const arc = emplacementArc(u);
   const inCone = e => inFireCone(u, e, HOME, arc);
   // Canister Shot: the band is a FRACTION of the reach resolved just above, so
@@ -734,7 +734,7 @@ function updateATGun(u, dt) {
 function updateAAGun(u, dt) {
   const spec = u.t.aagun;
   const range = unitRange(u, u.t.range) * fogMult();
-  const HOME = -Math.PI / 2;   // staked facing north, where the raids come from
+  const HOME = Math.PI;   // staked facing the enemy end (-x), where the raids come from
   const arc = emplacementArc(u);
   const inRange = t => dist(u, t) <= range && inFireCone(u, t, HOME, arc);
 
@@ -1031,7 +1031,7 @@ function updateTankCombat(a, dt) {
 
   if (!aim) {
     // park the turret facing the enemy side of the field
-    const home = a.side === 'us' ? -Math.PI / 2 : Math.PI / 2;
+    const home = a.side === 'us' ? Math.PI : 0;
     a.turret += clamp(angleDiff(home, a.turret), -TURRET_HOME * dt, TURRET_HOME * dt);
     return;
   }

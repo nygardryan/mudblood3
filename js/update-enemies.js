@@ -381,12 +381,12 @@ function rollEnemyPushUrge(e, target, dt, command) {
 // js/constants.js, beside the cover tables), so a fifth caller can't drift again.
 //
 // The two vehicle paths (updateBike, driveEnemyVehicle) come through here too,
-// passing WIRE_BAND_Y_VEHICLE: they catch the strand a little sooner than a man
-// does. They do NOT come through wireDrag below — a vehicle carries its own drag
+// passing WIRE_BAND_DEPTH_VEHICLE: they catch the strand a little sooner than a
+// man does. They do NOT come through wireDrag below — a vehicle carries its own drag
 // and its own wear (a motorcycle's ride simply ends), and nothing bites a crew.
-function inWireBand(wr, x, y, halfY) {
-  return Math.abs(x - wr.x) < WIRE_BAND_X
-    && Math.abs(y - wr.y) < (halfY || WIRE_BAND_Y);
+function inWireBand(wr, x, y, halfDepth) {
+  return Math.abs(y - wr.y) < WIRE_BAND_LAT
+    && Math.abs(x - wr.x) < (halfDepth || WIRE_BAND_DEPTH);
 }
 
 // Drag `speed` through the first live band the man is standing in, wearing the
@@ -409,10 +409,10 @@ function advance(e, dt, buffed) {
   // a banzai-command surge drives men forward 40% faster until it wears off
   let speed = e.t.speed * (buffed ? 1.25 : 1) * (e.chargeT > 0 ? 1.4 : 1);
   speed = wireDrag(e, speed, dt);
-  e.face = Math.PI / 2 + Math.sin(e.wobble) * 0.25;
-  e.x += Math.cos(e.face) * speed * dt * 0.4;
-  e.y += Math.sin(e.face) * speed * dt;
-  e.x = clamp(e.x, 14, W - 14);
+  e.face = Math.sin(e.wobble) * 0.25;   // wobble about straight down-field (+x)
+  e.x += Math.cos(e.face) * speed * dt;
+  e.y += Math.sin(e.face) * speed * dt * 0.4;   // lateral drift damped to 40%
+  e.y = clamp(e.y, 14, H - 14);
 }
 
 // ---- Imperial Japanese Army: banzai chargers, lunge mines, banzai command ----
@@ -423,8 +423,8 @@ function advance(e, dt, buffed) {
 function pursuePoint(e, tx, ty, speed, dt) {
   e.face = Math.atan2(ty - e.y, tx - e.x);
   speed = wireDrag(e, speed, dt);
-  e.x = clamp(e.x + Math.cos(e.face) * speed * dt, 14, W - 14);
-  e.y += Math.sin(e.face) * speed * dt;   // no top clamp — a charger can breach
+  e.x += Math.cos(e.face) * speed * dt;   // no depth clamp — a charger can breach
+  e.y = clamp(e.y + Math.sin(e.face) * speed * dt, 14, H - 14);
 }
 
 // Would a leap from (x0,y0) to (x1,y1) cross a live wire band? The hound's pounce
@@ -456,7 +456,7 @@ function banzaiYell(e, dt) {
 
 // Banzai charger: no gun. Sprint at the nearest defender and cut him down with
 // the bayonet at arm's reach, then move on to the next man. With nothing left
-// to charge he keeps driving for the bottom edge like any other attacker.
+// to charge he keeps driving for the player's edge like any other attacker.
 const BANZAI_REACH = 15;
 function updateBanzai(e, dt, buffed, command) {
   banzaiYell(e, dt);
@@ -517,7 +517,7 @@ function detonateLunge(e) {
 
 // Everyone a banzai order applies to. See isItalianFoot below for why all three
 // faction rosters take inTheFight rather than a bare `!dead`: an officer who has
-// only just crossed the top edge is within BANZAI_CMD_RADIUS of the men still
+// only just crossed onto the field is within BANZAI_CMD_RADIUS of the men still
 // staging behind him, and their chargeT burns down before they arrive.
 function isJapaneseInfantry(e) {
   return inTheFight(e) && e.t.faction === 'jp' && !e.t.tank && !e.t.fixed;
@@ -529,10 +529,10 @@ function isJapaneseInfantry(e) {
 // officer-aura cache and for the same reason: this is whole-array work that
 // nothing needs at frame resolution.
 //
-// G.itFrontY is the deepest live work, and it is the ONLY thing siting new ones
+// G.itFrontX is the deepest live work, and it is the ONLY thing siting new ones
 // reads — which is what makes the line creep forward instead of sprawling. It
-// resets to IT_FRONT_Y_START when no works are left, so levelling the enemy line
-// genuinely pushes them back to the top of the field rather than letting them
+// resets to IT_FRONT_X_START when no works are left, so levelling the enemy line
+// genuinely pushes them back to their own treeline rather than letting them
 // resume at the depth they'd already won.
 function updateItalians(dt) {
   if (enemyFaction() !== 'it' && !G.itWorks.length) return;
@@ -542,12 +542,12 @@ function updateItalians(dt) {
   G.itTick -= dt;
   if (G.itTick > 0) return;
   G.itTick = IT_TICK;
-  let front = IT_FRONT_Y_START;
+  let front = IT_FRONT_X_START;
   for (const w of G.itWorks) {
     w.occ = 0;
-    if (w.hp > 0 && w.y > front) front = w.y;
+    if (w.hp > 0 && w.x > front) front = w.x;
   }
-  G.itFrontY = front;
+  G.itFrontX = front;
   // Occupancy is RECOUNTED here rather than tracked by hand, and the works hold a
   // count rather than a list of men. compactInPlace splices dead actors out the
   // frame they fall, so a stored crew array would leak dead refs immediately —
@@ -583,8 +583,8 @@ function decayItalianWorks() {
 // was cleared as a 40px disc and then staked as a 44x24 parapet.
 function pickBuildSite(e) {
   for (let i = 0; i < 5; i++) {
-    const y = clamp(G.itFrontY + rand(IT_CREEP_MIN, IT_CREEP_MAX), IT_WORK_MIN_Y, IT_WORK_MAX_Y);
-    const x = clamp(e.x + rand(-40, 40), 40, W - 40);
+    const x = clamp(G.itFrontX + rand(IT_CREEP_MIN, IT_CREEP_MAX), IT_WORK_MIN_X, IT_WORK_MAX_X);
+    const y = clamp(e.y + rand(-40, 40), 40, H - 40);
     const kind = pick(e.t.builder.kinds);
     if (buildSiteClear(x, y, kind)) return { x, y, kind };
   }
@@ -599,9 +599,9 @@ function buildSiteClear(x, y, kind) {
   // Italian works too, but those were just checked at the tighter spacing.
   //
   // BOX vs BOX, not a flat radius, and that only started to matter once the depth
-  // wall moved to DEPLOY_Y - IT_WORK_DEPLOY_MARGIN. The old rule rejected any site
+  // wall moved to DEPLOY_X - IT_WORK_DEPLOY_MARGIN. The old rule rejected any site
   // within IT_SITE_CLEAR of an emplacement's CENTRE, which was fine while the
-  // creep stopped at 182 — above FORWARD_Y the player has nothing to keep off of.
+  // creep stopped at 182 — short of FORWARD_X the player has nothing to keep off of.
   // The creep now runs down through the mine and wire belt, where a flat radius is
   // wrong in both directions: it lets a work be staked half-inside a bunker
   // (hw 28 > 40 - 22), and it lets a single 6px MINE deny an 80px-wide band of
@@ -699,7 +699,7 @@ function updateGuastatore(e, dt, buffed) {
     e.buildSite = null;
     G.texts.push({ x: w.x, y: w.y - 16, text: 'SCAVANDO!', ttl: 1.4 });
   }
-  e.face = Math.PI / 2;
+  e.face = 0;
   e.healTick = (e.healTick || 0) - dt;
   if (e.healTick > 0) return;
   e.healTick = 0.4;
@@ -767,8 +767,8 @@ function updateArdito(e, dt, buffed) {
   if (e.demoBackT > 0) {
     e.demoBackT -= dt;
     const ang = Math.atan2(e.y - e.demoAwayY, e.x - e.demoAwayX);
-    e.x = clamp(e.x + Math.cos(ang) * e.t.speed * dt, 14, W - 14);
-    e.y += Math.sin(ang) * e.t.speed * dt;
+    e.x += Math.cos(ang) * e.t.speed * dt;
+    e.y = clamp(e.y + Math.sin(ang) * e.t.speed * dt, 14, H - 14);
     e.face = ang;
     return true;
   }
@@ -867,8 +867,8 @@ function updateItalianMedic(e, dt, buffed) {
 // hand-rolled copies of inTheFight (js/helpers.js), and they had drifted from
 // each other in the way that predicate exists to stop: this one folded `chute`
 // IN, while both of the others left it out and made their one caller append
-// `|| o.chute > 0` by hand. None of the three carried `y < 0`, so all three
-// reached into the staging strip above the top edge. Measured over ~360 sampled
+// `|| o.chute > 0` by hand. None of the three carried the staging test, so all
+// three reached into the staging strip off the enemy edge. Measured over ~360 sampled
 // seconds to wave 24, no player interference beyond a gunner line: staging men
 // were counted in 20% of seconds, worst 7 of 13 — and in 7 of those seconds they
 // flipped the answer to italianForce's IT_AVANTI_PRESSURE_FORCE gate, so the
@@ -920,7 +920,7 @@ function updateAvanti(dt) {
   let rate = 1 + IT_AVANTI_OFFICER_URGE * Math.min(officers, 2);
   // ...and a big force that has dug as far forward as it is allowed to has
   // nothing left to do but come out.
-  if (G.itFrontY >= IT_WORK_MAX_Y - 6 && force >= IT_AVANTI_PRESSURE_FORCE) {
+  if (G.itFrontX >= IT_WORK_MAX_X - 6 && force >= IT_AVANTI_PRESSURE_FORCE) {
     rate += IT_AVANTI_PRESSURE_URGE;
   }
   G.itAvantiCd -= dt * rate;
@@ -960,12 +960,12 @@ function avantiCharge() {
 
 // ---- Regio Esercito: manning the works -------------------------------------
 
-// Where a man stands to man a work: on the NORTH face, so the work itself ends
-// up between him and the player's line. Slots fan out sideways so a bunker's
-// three men don't stack in one spot.
+// Where a man stands to man a work: on the up-field (-x) face, so the work itself
+// ends up between him and the player's line. Slots fan out laterally so a
+// bunker's three men don't stack in one spot.
 function garrisonPoint(w, slot) {
   const spread = (slot - (w.cap - 1) / 2) * GARRISON_SLOT_W;
-  return { x: clamp(w.x + spread, 14, W - 14), y: w.y - GARRISON_STANDOFF };
+  return { x: w.x - GARRISON_STANDOFF, y: clamp(w.y + spread, 14, H - 14) };
 }
 
 function releaseGarrison(e) {
@@ -975,7 +975,7 @@ function releaseGarrison(e) {
   e.garCd = rand(1.5, 3);
 }
 
-// Pick a work to move into. The `w.y < e.y - GARRISON_BACKSTEP` rejection is
+// Pick a work to move into. The `w.x < e.x - GARRISON_BACKSTEP` rejection is
 // load-bearing: without it men drift back up-field into the works behind them and
 // the whole force stops advancing. He'll duck back a little into cover, not retreat.
 function claimWork(e) {
@@ -983,7 +983,7 @@ function claimWork(e) {
   const prefer = e.t.garrisonPrefer;
   for (const w of G.itWorks) {
     if (w.hp <= 0 || w.occ >= w.cap) continue;
-    if (w.y < e.y - GARRISON_BACKSTEP) continue;
+    if (w.x < e.x - GARRISON_BACKSTEP) continue;
     // scores are squared distances, so the 0.6 preference weight is 0.36 here
     const score = dist2(e, w) * (prefer && w.kind === prefer ? 0.36 : 1);
     if (score < bestScore) { bestScore = score; best = w; }
@@ -1058,9 +1058,9 @@ function initGermanBoss(e) {
   // open in the lane nearest wherever he walked on
   e.lane = 0;
   for (let i = 1; i < BOSS_LANES.length; i++) {
-    if (Math.abs(BOSS_LANES[i] * W - e.x) < Math.abs(BOSS_LANES[e.lane] * W - e.x)) e.lane = i;
+    if (Math.abs(BOSS_LANES[i] * H - e.y) < Math.abs(BOSS_LANES[e.lane] * H - e.y)) e.lane = i;
   }
-  e.laneX = BOSS_LANES[e.lane] * W;
+  e.laneY = BOSS_LANES[e.lane] * H;
   e.loiterT = 0;
   e.bodyArmor = e.maxBodyArmor = BOSS_BODY_ARMOR * escArmorMult();
   e.flakArmor = e.maxFlakArmor = BOSS_FLAK_ARMOR * escArmorMult();
@@ -1072,7 +1072,7 @@ function nextBossLane(e) {
   const cands = [];
   for (let i = 0; i < BOSS_LANES.length; i++) if (Math.abs(i - e.lane) >= 2) cands.push(i);
   e.lane = pick(cands);
-  e.laneX = BOSS_LANES[e.lane] * W;
+  e.laneY = BOSS_LANES[e.lane] * H;
 }
 
 function updateGermanBoss(e, dt) {
@@ -1090,9 +1090,9 @@ function updateGermanBoss(e, dt) {
       // longer needs it (the revolver ignores the range falloff — see fireShot),
       // but closing is what puts him past the line's cover and prone dodges,
       // and it's the only reason he ever comes within reach of a bazooka.
-      if (dist2(e, target) > range * range * 0.3 && e.y < BOSS_SAFE_Y) {
+      if (dist2(e, target) > range * range * 0.3 && e.x < BOSS_SAFE_X) {
         pursuePoint(e, target.x, target.y, t.speed, dt);
-        e.y = Math.min(e.y, BOSS_SAFE_Y);
+        e.x = Math.min(e.x, BOSS_SAFE_X);
         e.face = Math.atan2(target.y - e.y, target.x - e.x);
       }
       if (e.cd <= 0 && e.shots > 0) {
@@ -1101,10 +1101,10 @@ function updateGermanBoss(e, dt) {
         e.cd = t.rof * rand(0.9, 1.1);
         if (e.shots <= 0) { e.bossState = 'retreat'; nextBossLane(e); }
       }
-    } else if (e.y < BOSS_ENGAGE_Y) {
-      pursuePoint(e, e.laneX, BOSS_ENGAGE_Y, t.speed, dt);
-      // pursuePoint has no bottom clamp (chargers breach) — the boss never does
-      e.y = Math.min(e.y, BOSS_SAFE_Y);
+    } else if (e.x < BOSS_ENGAGE_X) {
+      pursuePoint(e, BOSS_ENGAGE_X, e.laneY, t.speed, dt);
+      // pursuePoint has no depth clamp (chargers breach) — the boss never does
+      e.x = Math.min(e.x, BOSS_SAFE_X);
     } else {
       // at the engage line with rounds left and nothing visible (smoke, a dead
       // lane): give it a beat, then fall back anyway — he can't soft-lock
@@ -1121,11 +1121,11 @@ function updateGermanBoss(e, dt) {
   if (e.bossState === 'retreat') {
     // back turned, holding fire, headed for the NEXT lane's backline slot —
     // this walk is the punish window
-    pursuePoint(e, e.laneX, BOSS_BACKLINE_Y, t.speed * BOSS_RETREAT_SPEED_MULT, dt);
-    if (dist(e, { x: e.laneX, y: BOSS_BACKLINE_Y }) < 8) {
+    pursuePoint(e, BOSS_BACKLINE_X, e.laneY, t.speed * BOSS_RETREAT_SPEED_MULT, dt);
+    if (dist(e, { x: BOSS_BACKLINE_X, y: e.laneY }) < 8) {
       e.bossState = 'rally';
       e.rallyT = BOSS_RALLY_TIME;
-      e.face = Math.PI / 2;
+      e.face = 0;
       bossRefit(e);
       bossCallReinforcements();
     }
@@ -1167,12 +1167,12 @@ function bossReinforce(call) {
   if (call === 'vehicles') {
     showBanner('DER SCHLÄCHTER CALLS THE PANZER RESERVE!');
     SFX.event();
-    const cx = rand(180, W - 180);
+    const cy = rand(180, H - 180);
     const panzers = Math.max(1, Math.floor(m * tier / 4));
-    for (let i = 0; i < panzers; i++) spawnEnemyAt('panzer', cx + rand(-120, 120), -40 - i * 150);
+    for (let i = 0; i < panzers; i++) spawnEnemyAt('panzer', -40 - i * 150, cy + rand(-120, 120));
     const tracks = Math.max(1, Math.floor(m * tier / 5));
-    for (let i = 0; i < tracks; i++) spawnEnemyAt('ehalftrack', cx + rand(-160, 160), -110 - i * 130);
-    spawnEnemyAt('ejeep', cx + rand(-200, 200), -70);
+    for (let i = 0; i < tracks; i++) spawnEnemyAt('ehalftrack', -110 - i * 130, cy + rand(-160, 160));
+    spawnEnemyAt('ejeep', -70, cy + rand(-200, 200));
     return;
   }
   // humanwave — a field-wide line of shock infantry behind an officer
@@ -1180,11 +1180,11 @@ function bossReinforce(call) {
   SFX.event();
   const count = Math.floor(m * (6 + tier));
   for (let i = 0; i < count; i++) {
-    const x = (W / (count + 1)) * (i + 1) + rand(-25, 25);
+    const y = (H / (count + 1)) * (i + 1) + rand(-25, 25);
     const roll = Math.random();
-    spawnEnemyAt(roll < 0.5 ? 'esmg' : roll < 0.65 ? 'eflame' : 'erifle', x, rand(-90, -20));
+    spawnEnemyAt(roll < 0.5 ? 'esmg' : roll < 0.65 ? 'eflame' : 'erifle', rand(-90, -20), y);
   }
-  spawnEnemyAt('eoff', rand(120, W - 120), rand(-130, -90));
+  spawnEnemyAt('eoff', rand(-130, -90), rand(120, H - 120));
 }
 
 // ---- The Yamato: an Imperial land battleship -------------------------------
@@ -1207,14 +1207,15 @@ function initYamato(e) {
   e.phase = 0;                  // health segments broken so far (0..YAM_SEGMENTS-1)
   // A hull spawned outside the patrol margin is ROLLING IN, and which side it was
   // spawned on is the whole of the entry state — so the wave hook and a bare
-  // TEST.deploy('jyamato', 0.05, 0.32) run one identical code path, the way the
+  // TEST.deploy('jyamato', 0.32, 0.05) run one identical code path, the way the
   // Progenitor's and the train's lazy init already do. Heading is the entry
   // direction while she comes on, so she arrives flat and broadside-on with
   // nothing to turn; spawned inside the margin she just picks a side as before.
-  const off = e.x < YAM_X_MARGIN ? 1 : e.x > W - YAM_X_MARGIN ? -1 : 0;
+  const off = e.y < YAM_Y_MARGIN ? 1 : e.y > H - YAM_Y_MARGIN ? -1 : 0;
   e.entering = off !== 0;
   e.entryDir = off;
-  e.heading = off ? (off > 0 ? 0 : Math.PI) : pick([0, Math.PI]);  // broadside-on from the off
+  // keel runs LATERAL (along y), broadside facing the player's end (+x)
+  e.heading = off ? (off > 0 ? Math.PI / 2 : -Math.PI / 2) : pick([Math.PI / 2, -Math.PI / 2]);
   e.legT = rand(YAM_LEG_MIN, YAM_LEG_MAX);
   e.wantHeading = e.heading;
   e.landCd = rand(YAM_LAND_CD_MIN, YAM_LAND_CD_MAX);
@@ -1251,10 +1252,11 @@ function initYamato(e) {
   syncYamatoParts(e);
 }
 
-// which broadside faces the player. cos(heading) is held away from 0 by
-// YAM_LEG_ANGLE precisely so this sign is never ambiguous mid-leg.
+// which broadside faces the player (+x). The beam for positive bOff points along
+// heading + PI/2, whose x-component is -sin(heading); sin(heading) is held away
+// from 0 by YAM_LEG_ANGLE precisely so this sign is never ambiguous mid-leg.
 function yamatoPlayerSide(e) {
-  return Math.cos(e.heading) >= 0 ? 1 : -1;
+  return Math.sin(e.heading) <= 0 ? 1 : -1;
 }
 
 // the one place part positions are computed. Everything else — the AI, the
@@ -1339,35 +1341,38 @@ function updateYamatoMount(ship, p, dt) {
 function nextYamatoLeg(e) {
   e.legT = rand(YAM_LEG_MIN, YAM_LEG_MAX);
   // reverse if she's run out of room, otherwise usually hold course
-  const nearEdge = e.x < YAM_X_MARGIN + 30 || e.x > W - YAM_X_MARGIN - 30;
-  let base = Math.cos(e.heading) >= 0 ? 0 : Math.PI;
-  if (nearEdge) base = e.x < W / 2 ? 0 : Math.PI;
-  else if (Math.random() < 0.3) base = base === 0 ? Math.PI : 0;
+  const nearEdge = e.y < YAM_Y_MARGIN + 30 || e.y > H - YAM_Y_MARGIN - 30;
+  const UP = -Math.PI / 2, DOWN = Math.PI / 2;   // keel courses along the lateral axis
+  let base = Math.sin(e.heading) >= 0 ? DOWN : UP;
+  if (nearEdge) base = e.y < H / 2 ? DOWN : UP;
+  else if (Math.random() < 0.3) base = base === DOWN ? UP : DOWN;
   // a diagonal, biased toward whichever keeps her inside the patrol band
   let tilt = 0;
   if (Math.random() < 0.55) {
     tilt = rand(0.2, YAM_LEG_ANGLE);
-    const wantDown = e.y < (YAM_Y_MIN + YAM_Y_MAX) / 2;
-    // +y is toward the player; sin(heading) drives her y, and heading π flips it
-    if (!wantDown) tilt = -tilt;
-    if (base === Math.PI) tilt = -tilt;
+    const wantDeep = e.x < (YAM_X_MIN + YAM_X_MAX) / 2;
+    // +x is toward the player; cos(heading) drives her x, and on the DOWN course
+    // a positive tilt pulls x back — so the sign flips per course, as it did
+    // for the old lateral pair
+    if (!wantDeep) tilt = -tilt;
+    if (base === DOWN) tilt = -tilt;
   }
   e.wantHeading = base + tilt;
 }
 
-// The arrival. She drives straight along her beam from off the edge to the patrol
-// margin, at a fixed heading and y — there is no turn, so neither clamp in
-// updateYamato has anything to do and both are skipped along with everything else
-// (see the early-out there). She is inert and untouchable the whole way: the
-// `entering` flag on her and every part is what keeps her out of the targeting
-// scans, which gate on y < 0 and have no notion of x at all.
+// The arrival. She drives straight along her keel from off the top or bottom edge
+// to the patrol margin, at a fixed heading and x — there is no turn, so neither
+// clamp in updateYamato has anything to do and both are skipped along with
+// everything else (see the early-out there). She is inert and untouchable the
+// whole way: the `entering` flag on her and every part is what keeps her out of
+// the targeting scans, which gate on x < 0 and have no notion of y at all.
 function yamatoRollIn(e, dt) {
-  const goal = e.entryDir > 0 ? YAM_X_MARGIN : W - YAM_X_MARGIN;
-  const left = Math.abs(goal - e.x);
+  const goal = e.entryDir > 0 ? YAM_Y_MARGIN : H - YAM_Y_MARGIN;
+  const left = Math.abs(goal - e.y);
   const speed = YAM_SPEED + (YAM_ENTRY_SPEED - YAM_SPEED) * clamp(left / YAM_ENTRY_EASE, 0, 1);
-  e.x += e.entryDir * speed * dt;
-  if (e.entryDir > 0 ? e.x >= goal : e.x <= goal) {
-    e.x = goal;
+  e.y += e.entryDir * speed * dt;
+  if (e.entryDir > 0 ? e.y >= goal : e.y <= goal) {
+    e.y = goal;
     e.entering = false;
     for (const p of e.parts) p.entering = false;
     // she lands ON the margin, so nextYamatoLeg reads nearEdge and turns her
@@ -1393,8 +1398,8 @@ function yamatoLandingParty(e) {
     const b = (i % 2 ? 1 : -1) * rand(YAM_HALF_BEAM + 6, YAM_HALF_BEAM + 22);
     const x = e.x + ch * s - sh * b;
     const y = e.y + sh * s + ch * b;
-    // spawnEnemyAt clamps x and plates them like any other troops
-    spawnEnemyAt(pick(YAM_LAND_POOL), x, clamp(y, 20, YAM_SAFE_Y + 30));
+    // spawnEnemyAt clamps the lateral axis and plates them like any other troops
+    spawnEnemyAt(pick(YAM_LAND_POOL), clamp(x, 20, YAM_SAFE_X + 30), y);
   }
 }
 
@@ -1452,22 +1457,22 @@ function updateYamato(e, dt) {
   e.heading += clamp(angleDiff(e.wantHeading, e.heading), -YAM_TURN_RATE * dt, YAM_TURN_RATE * dt);
   e.x += Math.cos(e.heading) * YAM_SPEED * dt;
   e.y += Math.sin(e.heading) * YAM_SPEED * dt;
-  // She is a gun platform, not a breacher. YAM_SAFE_Y bounds every PART, so the
+  // She is a gun platform, not a breacher. YAM_SAFE_X bounds every PART, so the
   // centre clamp has to back off by however much of the hull's length is
   // currently pointing down-field — clamping the centre alone let her stern swing
-  // to y=364. The effect is that she can only push to YAM_Y_MAX while lying flat
-  // and has to pull back as she angles. The x clamp keeps every part on screen:
-  // targeting scans reject y < 0 but never x, so a bow off the edge would be
+  // to x=364. The effect is that she can only push to YAM_X_MAX while lying flat
+  // and has to pull back as she angles. The y clamp keeps every part on screen:
+  // targeting scans reject x < 0 but never y, so a bow off the edge would be
   // shootable and invisible. The roll-in is exempt from that clamp — it drives her
   // from off the edge to this very margin — and the reason it can be is that the
   // `entering` flag closes exactly the hole this clamp otherwise guards.
-  const yReach = Math.abs(Math.sin(e.heading)) * Math.max(...YAM_BELT_S.map(Math.abs))
-    + Math.abs(Math.cos(e.heading)) * YAM_MG_B;
-  e.x = clamp(e.x, YAM_X_MARGIN, W - YAM_X_MARGIN);
-  e.y = clamp(e.y, YAM_Y_MIN, Math.min(YAM_Y_MAX, YAM_SAFE_Y - yReach));
+  const xReach = Math.abs(Math.cos(e.heading)) * Math.max(...YAM_BELT_S.map(Math.abs))
+    + Math.abs(Math.sin(e.heading)) * YAM_MG_B;
+  e.y = clamp(e.y, YAM_Y_MARGIN, H - YAM_Y_MARGIN);
+  e.x = clamp(e.x, YAM_X_MIN, Math.min(YAM_X_MAX, YAM_SAFE_X - xReach));
   // turned around at the edge or pinned on the band, end the leg early so she
   // doesn't grind along a clamp for its full duration
-  if ((e.x <= YAM_X_MARGIN || e.x >= W - YAM_X_MARGIN) && e.legT > 0.5) e.legT = 0.5;
+  if ((e.y <= YAM_Y_MARGIN || e.y >= H - YAM_Y_MARGIN) && e.legT > 0.5) e.legT = 0.5;
 
   syncYamatoParts(e);
   for (const p of e.turrets) if (!p.dead) updateYamatoTurret(e, p, dt);
@@ -1482,17 +1487,17 @@ function updateYamato(e, dt) {
 function initWarTrain(e) {
   e.trainInit = true;
   e.phase = 0;                  // health segments broken so far (0..TRAIN_SEGMENTS-1)
-  e.laneX = clamp(e.x, TRAIN_LANE_MARGIN, W - TRAIN_LANE_MARGIN);
-  e.x = e.laneX;
-  e.face = Math.PI / 2;
+  e.laneY = clamp(e.y, TRAIN_LANE_MARGIN, H - TRAIN_LANE_MARGIN);
+  e.y = e.laneY;
+  e.face = 0;
   e.parts = [];
 
   const addPart = (type, sOff, bOff) => {
-    const p = makeEnemy(type, e.laneX + (bOff || 0), e.y + sOff, 'it');
+    const p = makeEnemy(type, e.x + sOff, e.laneY + (bOff || 0), 'it');
     p.sOff = sOff; p.bOff = bOff || 0;
     p.trainOf = e;
     p.fireT = 0;
-    p.tur = Math.PI / 2;
+    p.tur = 0;
     e.parts.push(p);
     // BOTH lists, always: e.parts is what drives and draws it, G.enemies is what
     // makes it shootable (same trap the pods document).
@@ -1508,7 +1513,7 @@ function initWarTrain(e) {
     for (const b of [-TRAIN_MG_B, TRAIN_MG_B]) e.mounts.push(addPart('itmg', s, b));
   }
   // the howitzer on the tail. makeEnemy seeds cd: rand(0.5, 1.5), which would have
-  // it fire the instant it clears the top edge — roll it a real reload instead.
+  // it fire the instant it clears the enemy edge — roll it a real reload instead.
   e.arty = addPart('itarty', TRAIN_ARTY_S, 0);
   e.arty.cd = rand(TRAIN_ARTY_CD_MIN, TRAIN_ARTY_CD_MAX);
   syncTrainParts(e);
@@ -1520,8 +1525,8 @@ function initWarTrain(e) {
 // the way down the rails — the renderer draws it from e.parts at this position.
 function syncTrainParts(e) {
   for (const p of e.parts) {
-    p.x = e.laneX + p.bOff;
-    p.y = e.y + p.sOff;
+    p.x = e.x + p.sOff;
+    p.y = e.laneY + p.bOff;
   }
 }
 
@@ -1532,7 +1537,7 @@ function syncTrainParts(e) {
 function updateTrainTurret(train, p, dt) {
   p.fireT = Math.max(0, p.fireT - dt);
   p.cd -= dt;
-  const down = Math.PI / 2;
+  const down = 0;   // straight down-field: toward the player at +x
   const range = unitRange(p, p.t.range) * fogMult();
   const target = tieredUnitTarget(p, range, [
     u => u.t.tank || u.t.gunEmplacement,       // armor and staked guns first
@@ -1572,7 +1577,7 @@ function updateTrainTurret(train, p, dt) {
 function updateTrainArty(train, p, dt) {
   p.fireT = Math.max(0, p.fireT - dt);
   p.cd -= dt;
-  const down = Math.PI / 2;
+  const down = 0;   // straight down-field: toward the player at +x
   const range = unitRange(p, p.t.range) * fogMult();
   const min2 = TRAIN_ARTY_MIN * TRAIN_ARTY_MIN;
   const far = u => dist2(p, u) > min2;
@@ -1606,7 +1611,7 @@ function updateTrainArty(train, p, dt) {
 // Driven through runWeapon rather than fireShot so it gets bursts AND
 // suppressArea pinning for free (the updateYamatoMount rule).
 function updateTrainMount(train, p, dt) {
-  const bearing = p.bOff > 0 ? 0 : Math.PI;
+  const bearing = p.bOff > 0 ? Math.PI / 2 : -Math.PI / 2;   // each post covers its own side of the track
   const range = unitRange(p, p.t.range) * fogMult();
   const target = nearestUnitInRange(p, range, u => inFireCone(p, u, bearing, YAM_MG_ARC));
   runWeapon(p, target, dt, null);
@@ -1629,9 +1634,9 @@ function trainDisembark(e, wag) {
   for (let i = 0; i < count; i++) {
     // spill out both doors, alternating sides of the track
     const side = i % 2 ? 1 : -1;
-    const x = wag.x + side * rand(18, 34);
-    const y = wag.y + rand(-16, 16);
-    spawnEnemyAt(pick(TRAIN_DROP_POOL), x, clamp(y, 20, H - 60));
+    const y = wag.y + side * rand(18, 34);
+    const x = wag.x + rand(-16, 16);
+    spawnEnemyAt(pick(TRAIN_DROP_POOL), clamp(x, 20, W - 60), y);
   }
 }
 
@@ -1675,15 +1680,15 @@ function trainSoundsCharge(e) {
 // cover on the way down.
 function trainCrush(e, dt) {
   const chew = (o) => {
-    if (Math.abs(o.x - e.laneX) > TRAIN_CRUSH_R) return;
+    if (Math.abs(o.y - e.laneY) > TRAIN_CRUSH_R) return;
     for (const p of e.parts) {
-      if (Math.abs(o.y - p.y) < TRAIN_CRUSH_R + 6) {
+      if (Math.abs(o.x - p.x) < TRAIN_CRUSH_R + 6) {
         o.hp -= TRAIN_CRUSH_DPS * dt;
         if (Math.random() < 0.15) buildSparks(o);
         return;
       }
     }
-    if (Math.abs(o.y - e.y) < TRAIN_CRUSH_R + 6) o.hp -= TRAIN_CRUSH_DPS * dt;
+    if (Math.abs(o.x - e.x) < TRAIN_CRUSH_R + 6) o.hp -= TRAIN_CRUSH_DPS * dt;
   };
   for (const s of G.sandbags) chew(s);
   for (const b of G.bunkers) chew(b);
@@ -1695,8 +1700,8 @@ function trainCrush(e, dt) {
   // it. Centred on the MIDPOINT of the consist and measured off TRAIN_TAIL_S, so
   // lengthening the train can't leave the tail rolling over uncut wire.
   for (const wr of G.wires) {
-    if (Math.abs(wr.x - e.laneX) < 35 + TRAIN_CRUSH_R
-        && Math.abs(wr.y - e.y - TRAIN_TAIL_S / 2) < -TRAIN_TAIL_S / 2 + 22) {
+    if (Math.abs(wr.y - e.laneY) < 35 + TRAIN_CRUSH_R
+        && Math.abs(wr.x - e.x - TRAIN_TAIL_S / 2) < -TRAIN_TAIL_S / 2 + 22) {
       wr.hp -= TRAIN_CRUSH_DPS * dt;
     }
   }
@@ -1734,32 +1739,32 @@ function updateWarTrain(e, dt) {
     trainSoundsCharge(e);
   }
 
-  // roll south down the lane until the buffer hits TRAIN_STOP_Y, then park.
+  // roll down the lane until the buffer hits TRAIN_STOP_X, then park.
   // The stop — not a clamp fighting an AI, an actual terminus — is why the
-  // breach loop in update.js skips the whole consist: parked at H-70 the engine
+  // breach loop in update.js skips the whole consist: parked at W-70 the engine
   // sits past nothing, but a regressed constant would end the run in one frame.
-  if (e.y < TRAIN_STOP_Y) {
-    e.y = Math.min(TRAIN_STOP_Y, e.y + TRAIN_SPEED * dt);
+  if (e.x < TRAIN_STOP_X) {
+    e.x = Math.min(TRAIN_STOP_X, e.x + TRAIN_SPEED * dt);
     trainCrush(e, dt);
-    // stack smoke while under way
+    // stack smoke while under way (the plume itself rises up-screen — screen-relative)
     if (Math.random() < 0.4) {
       const ttl = rand(0.8, 1.6);
       G.particles.push({
-        x: e.x + rand(-3, 3), y: e.y + 14, vx: rand(-8, 8), vy: rand(-34, -16),
+        x: e.x + 14, y: e.y + rand(-3, 3), vx: rand(-8, 8), vy: rand(-34, -16),
         ttl, maxTtl: ttl, grav: -12, size: rand(3, 6),
         kind: 'smoke', color: pick(['#3d362a', '#4e4536', '#2a2318']),
       });
     }
   }
-  e.x = e.laneX;
+  e.y = e.laneY;
   syncTrainParts(e);
 
   // the boxcar unloads on a cadence, but only once it's actually on the field —
-  // squads spawning above the top edge would just be a silent trickle
+  // squads spawning off the enemy edge would just be a silent trickle
   const wag = e.wagon;
   if (wag && !wag.dead) {
     if (wag.dropT > 0) wag.dropT -= dt;
-    if (wag.y > 30) {
+    if (wag.x > 30) {
       wag.dropCd -= dt;
       if (wag.dropCd <= 0) {
         wag.dropCd = rand(TRAIN_DROP_CD_MIN, TRAIN_DROP_CD_MAX);
@@ -1768,13 +1773,13 @@ function updateWarTrain(e, dt) {
     }
   }
 
-  // guns come alive as each wagon clears the top edge (targeting scans skip
-  // y < 0, so firing from staging would be shooting from behind glass)
-  for (const p of e.turrets) if (!p.dead && p.y > 10) updateTrainTurret(e, p, dt);
-  for (const p of e.mounts) if (!p.dead && p.y > 10) updateTrainMount(e, p, dt);
+  // guns come alive as each wagon clears the enemy edge (targeting scans skip
+  // x < 0, so firing from staging would be shooting from behind glass)
+  for (const p of e.turrets) if (!p.dead && p.x > 10) updateTrainTurret(e, p, dt);
+  for (const p of e.mounts) if (!p.dead && p.x > 10) updateTrainMount(e, p, dt);
   // the howitzer is on the tail, so it is the LAST gun to come into action —
   // roughly half way down the roll-in. The long gun arriving last is the tell.
-  if (e.arty && !e.arty.dead && e.arty.y > 10) updateTrainArty(e, e.arty, dt);
+  if (e.arty && !e.arty.dead && e.arty.x > 10) updateTrainArty(e, e.arty, dt);
 }
 
 // ---- The Horde: bite & infection, spitters, bloaters, the screamer's frenzy ----
@@ -1938,8 +1943,8 @@ function houndPounce(e, dt, target, reach) {
     if (d < p.min || d > p.range) return false;
     const a = Math.atan2(target.y - e.y, target.x - e.x);
     const hop = Math.max(0, d - Math.max(0, reach - 2));   // stop just inside reach
-    const tx = clamp(e.x + Math.cos(a) * hop, 14, W - 14);
-    const ty = e.y + Math.sin(a) * hop;
+    const tx = e.x + Math.cos(a) * hop;
+    const ty = clamp(e.y + Math.sin(a) * hop, 14, H - 14);
     // wire on the line — or a hound already snagged in a band — grounds the leap
     if (wireOnLeap(e.x, e.y, tx, ty)) return false;
     e.psx = e.x; e.psy = e.y;
@@ -2126,8 +2131,8 @@ function initProgenitor(e) {
 }
 
 // the single source of truth for pod positions. World-frame fan, NOT rotated by
-// e.face: every PROG_POD_ANGLES entry has sin > 0, so the sacs always sit on the
-// down-field side between the mass and the player's line, which is what makes
+// e.face: every PROG_POD_ANGLES entry has cos > 0, so the sacs always sit on the
+// down-field (+x) side between the mass and the player's line, which is what makes
 // raw-distance target scans pick them first (see the PROG_POD_R comment).
 function syncProgenitorPods(e) {
   for (const p of e.pods) {
@@ -2173,8 +2178,8 @@ function progenitorBirth(e) {
   SFX.scream();
   addShake(3);
   for (let i = 0; i < n; i++) {
-    spawnEnemyAt(pick(PROG_SPAWN_POOL), e.x + rand(-34, 34),
-      clamp(e.y + rand(-20, 26), 20, PROG_SAFE_Y));
+    spawnEnemyAt(pick(PROG_SPAWN_POOL), clamp(e.x + rand(-20, 26), 20, PROG_SAFE_X),
+      e.y + rand(-34, 34));
   }
   // afterbirth: a wet spray around the split
   for (let i = 0; i < 18; i++) {
@@ -2301,9 +2306,9 @@ function updateProgenitor(e, dt) {
     else zombieBite(e, target);
   }
 
-  // pursuePoint has no bottom clamp (chargers breach) — this thing never does
-  e.y = Math.min(e.y, PROG_SAFE_Y);
-  e.x = clamp(e.x, 20, W - 20);
+  // pursuePoint has no depth clamp (chargers breach) — this thing never does
+  e.x = Math.min(e.x, PROG_SAFE_X);
+  e.y = clamp(e.y, 20, H - 20);
 
   syncProgenitorPods(e);
   for (const p of e.pods) {
@@ -2315,10 +2320,10 @@ function updateTank(e, dt) {
   // grind forward, slower than infantry, ignores wire — and fires on the move.
   // A flame tankette is the exception: its weapon is point-blank, so it HALTS to
   // burn once a defender is inside flame reach instead of driving through the
-  // line and out the bottom. It rolls on again the moment nothing's in range.
+  // line and out the player's edge. It rolls on again the moment nothing's in range.
   if (e.t.tankFlame && flameTankHalts(e)) { updateTankCombat(e, dt); return; }
   const spd = e.t.speed * (e.t.heavy ? 0.85 : 1);
-  e.y += spd * dt;
+  e.x += spd * dt;
   updateTankCombat(e, dt);
 }
 
@@ -2338,7 +2343,7 @@ function updateBike(e, dt) {
   // barbed wire ends the ride on the spot
   let hitWire = false;
   for (const wr of G.wires) {
-    if (wr.hp > 0 && inWireBand(wr, e.x, e.y, WIRE_BAND_Y_VEHICLE)) {
+    if (wr.hp > 0 && inWireBand(wr, e.x, e.y, WIRE_BAND_DEPTH_VEHICLE)) {
       hitWire = true;
       wr.hp -= 30;
       break;
@@ -2347,13 +2352,13 @@ function updateBike(e, dt) {
 
   // dismount at rifle range of the defenders; if nobody contests the ride,
   // it keeps going deep into the backfield before dropping the crew
-  if (hitWire || nearestUnitInRange(e, 230 * fogMult()) || e.y > H - 60) {
+  if (hitWire || nearestUnitInRange(e, 230 * fogMult()) || e.x > W - 60) {
     dismountBike(e);
     return;
   }
 
-  e.x = clamp(e.x + Math.sin(e.y * 0.02) * 22 * dt, 20, W - 20);
-  e.y += e.t.speed * dt;
+  e.y = clamp(e.y + Math.sin(e.x * 0.02) * 22 * dt, 20, H - 20);
+  e.x += e.t.speed * dt;
 }
 
 // Kübelwagen: drives at the line, halts in HMG range and hoses the defenders
@@ -2378,15 +2383,15 @@ function updateEnemyJeep(e, dt) {
 function driveEnemyVehicle(e, dt, wireMult, wireDmg, wobble) {
   let speed = e.t.speed;
   for (const wr of G.wires) {
-    if (wr.hp > 0 && inWireBand(wr, e.x, e.y, WIRE_BAND_Y_VEHICLE)) {
+    if (wr.hp > 0 && inWireBand(wr, e.x, e.y, WIRE_BAND_DEPTH_VEHICLE)) {
       speed *= wireMult;
       wr.hp -= wireDmg * dt;
       break;
     }
   }
-  if (wobble) e.x = clamp(e.x + Math.sin(e.y * 0.015) * 12 * dt, 20, W - 20);
-  e.y += speed * dt;
-  e.face = Math.PI / 2;
+  if (wobble) e.y = clamp(e.y + Math.sin(e.x * 0.015) * 12 * dt, 20, H - 20);
+  e.x += speed * dt;
+  e.face = 0;
 }
 
 // Sd.Kfz. 251 halftrack: an armored bus for a full squad. At rifle distance
@@ -2400,7 +2405,7 @@ function updateHalftrack(e, dt) {
       e.unloaded = true;
       for (let i = 0; i < 6; i++) {
         const crew = makeEnemy(pick(BIKE_CREW_POOL),
-          clamp(e.x + rand(-28, 28), 14, W - 14), e.y + rand(-18, 14));
+          e.x + rand(-18, 14), clamp(e.y + rand(-28, 28), 14, H - 14));
         crew.cd = rand(0.4, 1.2);   // a beat to shake out into line
         G.enemies.push(crew);
       }
@@ -2431,7 +2436,7 @@ function dismountBike(e) {
   // two-man crew, each a random trooper type
   for (const off of [-13, 13]) {
     const crew = makeEnemy(pick(BIKE_CREW_POOL),
-      clamp(e.x + off, 14, W - 14), e.y + rand(-6, 6));
+      e.x + rand(-6, 6), clamp(e.y + off, 14, H - 14));
     crew.cd = rand(0.4, 1.0);   // a beat to shoulder their weapons
     G.enemies.push(crew);
   }
@@ -2515,7 +2520,7 @@ function stampBike(e, wrecked) {
 
 // ---- The Alien Walker: stride, telegraph, sweep ---------------------------
 // Tuning lives in the AW_ block in constants.js. The cycle: pace laterally in a
-// band across the top of the field, plant, telegraph an aiming line for
+// band across the enemy end of the field, plant, telegraph an aiming line for
 // AW_CHARGE_T, then swing a laser lance through AW_SWEEP_ARC over two seconds.
 // Anything the beam crosses eats AW_SWEEP_DMG exactly once — men, emplacements,
 // mines, and the enemy's own troops, because this thing is on nobody's side.
@@ -2528,10 +2533,10 @@ function stampBike(e, wrecked) {
 function initAlienWalker(e) {
   e.awPhase = 'idle';
   e.awT = rand(1.4, 2.6);        // it doesn't fire the instant it clears the edge
-  e.awFrom = e.awTo = e.awAng = e.awPrev = Math.PI / 2;
+  e.awFrom = e.awTo = e.awAng = e.awPrev = 0;   // aimed down-field (+x)
   e.awDir = 1;
   e.awHit = new Set();
-  e.awStandY = rand(AW_STAND_Y_MIN, AW_STAND_Y_MAX);
+  e.awStandX = rand(AW_STAND_X_MIN, AW_STAND_X_MAX);
   e.awLane = Math.random() < 0.5 ? 1 : -1;
   e.walkT = Math.random();       // so two of them never march in lockstep
 }
@@ -2545,11 +2550,11 @@ function initAlienWalker(e) {
 function awStep(e, dt) {
   if (e.awPhase !== 'idle') return 0;          // planted while charging and firing
   const x0 = e.x, y0 = e.y;
-  if (e.y < e.awStandY) {
-    e.y = Math.min(e.awStandY, e.y + AW_APPROACH_SPEED * dt);
+  if (e.x < e.awStandX) {
+    e.x = Math.min(e.awStandX, e.x + AW_APPROACH_SPEED * dt);
   } else {
-    if (e.x < 60 || e.x > W - 60) e.awLane = -e.awLane;
-    e.x += e.awLane * AW_PATROL_SPEED * dt;
+    if (e.y < 60 || e.y > H - 60) e.awLane = -e.awLane;
+    e.y += e.awLane * AW_PATROL_SPEED * dt;
   }
   return Math.hypot(e.x - x0, e.y - y0);
 }
@@ -2565,7 +2570,7 @@ function awBeginCharge(e) {
   let sx = 0, sy = 0, n = 0;
   for (const u of G.units) if (!u.dead) { sx += u.x; sy += u.y; n++; }
   forEachDefense(o => { if (o.hp > 0) { sx += o.x; sy += o.y; n++; } });
-  const centre = n ? Math.atan2(sy / n - e.y, sx / n - e.x) : Math.PI / 2;
+  const centre = n ? Math.atan2(sy / n - e.y, sx / n - e.x) : 0;
   e.awDir = Math.random() < 0.5 ? 1 : -1;
   e.awFrom = centre - e.awDir * AW_SWEEP_ARC / 2;
   e.awTo = centre + e.awDir * AW_SWEEP_ARC / 2;
@@ -2662,12 +2667,12 @@ function awBeamTick(e) {
 
   // Wire is a ~70px belt, not a point: a beam crossing the middle of a strand
   // has to cut it. Same reason trainCrush handles G.wires separately and
-  // purgeRadius widens its x test.
+  // purgeRadius widens its lateral test.
   for (const wr of G.wires) {
     if (wr.hp <= 0 || hit.has(wr)) continue;
-    if (!awInWedge(e, wr.x - AW_WIRE_HALFW, wr.y)
+    if (!awInWedge(e, wr.x, wr.y - AW_WIRE_HALFW)
       && !awInWedge(e, wr.x, wr.y)
-      && !awInWedge(e, wr.x + AW_WIRE_HALFW, wr.y)) continue;
+      && !awInWedge(e, wr.x, wr.y + AW_WIRE_HALFW)) continue;
     hit.add(wr);
     wr.hp -= AW_SWEEP_DMG;
     awSlag(wr.x, wr.y);
@@ -2726,6 +2731,6 @@ function updateAlienWalker(e, dt) {
   // e.face is deliberately never driven from the beam: the hull holds its
   // walking heading and the emitter tracks awAng on its own, or the whole body
   // pirouettes mid-sweep and the gait comes apart.
-  e.y = clamp(e.y, AW_STAND_Y_MIN, AW_STAND_Y_MAX);
-  e.x = clamp(e.x, 40, W - 40);
+  e.x = clamp(e.x, AW_STAND_X_MIN, AW_STAND_X_MAX);
+  e.y = clamp(e.y, 40, H - 40);
 }

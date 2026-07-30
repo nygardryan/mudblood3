@@ -240,17 +240,17 @@ function update(dt) {
     }
   }
 
-  // breaches: an enemy that reaches the bottom edge cracks the line
+  // breaches: an enemy that reaches the player's edge cracks the line
   for (const e of G.enemies) {
     // None of the three multi-actor bosses can get here: the Yamato is clamped
-    // to YAM_SAFE_Y, the Progenitor to PROG_SAFE_Y, and the Treno Armato PARKS
-    // at TRAIN_STOP_Y — reaching the bottom is its whole act, not a
+    // to YAM_SAFE_X, the Progenitor to PROG_SAFE_X, and the Treno Armato PARKS
+    // at TRAIN_STOP_X — reaching the player's edge is its whole act, not a
     // breakthrough. But this loop has no break, so a regressed clamp would
     // breach with EVERY actor of that boss in the same frame — eleven, six or
     // nine — blowing straight past breachLimit into an instant gameOver().
     // Cheap insurance against a one-line tuning mistake.
     if (isMultiActorBoss(e.t)) continue;
-    if (!e.dead && e.y > H + 10) {
+    if (!e.dead && e.x > W + 10) {
       e.dead = true; e.breached = true;
       G.breaches++;
       showBanner(factionAdjUpper() + ' BREAKTHROUGH! (' + G.breaches + '/' + G.level.breachLimit + ')');

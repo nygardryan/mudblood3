@@ -2,13 +2,14 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
-const W = 540, H = 620;
-// layouts below were authored against the original 900px-wide field; lx()
-// rescales an offset-from-center so those formations keep their proportions
+const W = 620, H = 540;        // W is the DEPTH axis (enemies march +x), H the lateral
+// formations below were authored against the original 900px-wide (lateral) field;
+// ly() rescales an offset-from-center so they keep their proportions on the
+// 540-unit lateral axis (screen-vertical now that the field runs left to right)
 const LAYOUT_REF_W = 900;
-function lx(off) { return W / 2 + off * (W / LAYOUT_REF_W); }
-const DEPLOY_Y = 380;          // your side of the field starts here
-const FORWARD_Y = H / 3;       // units may advance and mines/wire may be laid this far up
+function ly(off) { return H / 2 + off * (H / LAYOUT_REF_W); }
+const DEPLOY_X = 380;          // your side of the field starts here (deeper = closer to you)
+const FORWARD_X = W / 3;       // units may advance and mines/wire may be laid this far forward
 const MAX_BREACH = 8;
 const MAX_OFFICERS = 5;
 const MEDIC_RANGE = 95;
@@ -38,7 +39,7 @@ const SANDBAG_COVER_CHIP = [4, 3, 2];
 // through it. A vehicle catches the strand slightly sooner than a man does,
 // being longer than it is wide, which is the whole of the difference between
 // the two half-heights.
-const WIRE_BAND_X = 40, WIRE_BAND_Y = 14, WIRE_BAND_Y_VEHICLE = 16;
+const WIRE_BAND_LAT = 40, WIRE_BAND_DEPTH = 14, WIRE_BAND_DEPTH_VEHICLE = 16;
 const WIRE_DRAG = [0.126, 0.0525, 0.021];
 const WIRE_WEAR = [5, 3, 2];
 // the decoy's odds an attacker sees through the ruse on a direct hit
@@ -282,10 +283,10 @@ const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
 // kit while leaving real damage to spill through onto HP every cycle.
 const BOSS_BODY_ARMOR = 240;
 const BOSS_FLAK_ARMOR = 180;
-const BOSS_LANES = [0.12, 0.31, 0.5, 0.69, 0.88];  // × W — advance corridors
-const BOSS_ENGAGE_Y = H - 150;       // deepest he pushes hunting a target
-const BOSS_SAFE_Y = H - 80;          // hard clamp — the boss can never breach
-const BOSS_BACKLINE_Y = 220;         // rally point (see note above)
+const BOSS_LANES = [0.12, 0.31, 0.5, 0.69, 0.88];  // × H — lateral advance corridors
+const BOSS_ENGAGE_X = W - 150;       // deepest he pushes hunting a target
+const BOSS_SAFE_X = W - 80;          // hard clamp — the boss can never breach
+const BOSS_BACKLINE_X = 220;         // rally point (see note above)
 const BOSS_RETREAT_SPEED_MULT = 1.5; // he jogs back, doesn't stroll
 const BOSS_RALLY_TIME = 3.5;         // seconds standing at the backline
 const BOSS_LOITER_TIME = 4;          // shots left but no target: wait, then fall back
@@ -349,27 +350,27 @@ const YAM_MG_B = 30;                 // tubs read as sponsons overhanging the be
 const YAM_SPEED = 14;
 const YAM_TURN_RATE = 0.25;          // rad/s — a 180° reversal takes ~12s: the punish window
 // The band she patrols decides which of the player's weapons can reach her at
-// all. From the deploy line (y~392) to a hull at 240 is 152px, so bazooka (243),
-// Sherman (262) and mortarman (348) all engage. Lift the band above y~130 and
+// all. From the deploy line (x~392) to a hull at 240 is 152px, so bazooka (243),
+// Sherman (262) and mortarman (348) all engage. Lift the band above x~130 and
 // bazookas fall out entirely, leaving an AT-gun-and-artillery-only problem.
-const YAM_Y_MIN = 160, YAM_Y_MAX = 240;
+const YAM_X_MIN = 160, YAM_X_MAX = 240;
 // A bound on every PART, not on the hull centre — which is the distinction that
 // matters, because a part sits up to 124px along the keel and swings 95px of that
-// into y on a steep diagonal. Clamping the centre to 240 alone let her stern reach
-// y=364, 124px deeper than intended. updateYamato subtracts the current y-reach
-// from the centre clamp, so she can only push to YAM_Y_MAX while she's flat and
-// has to pull back as she angles — DEPLOY_Y is 380, so the line is never in reach.
-const YAM_SAFE_Y = 300;
-const YAM_X_MARGIN = 140;            // hull-centre clamp; keeps every section on screen
+// into x on a steep diagonal. Clamping the centre to 240 alone let her stern reach
+// x=364, 124px deeper than intended. updateYamato subtracts the current x-reach
+// from the centre clamp, so she can only push to YAM_X_MAX while she's flat and
+// has to pull back as she angles — DEPLOY_X is 380, so the line is never in reach.
+const YAM_SAFE_X = 300;
+const YAM_Y_MARGIN = 140;            // hull-centre clamp; keeps every section on screen
 // The ROLL-IN. She used to be dropped fully formed at mid-field, which reads as a
 // 300px battleship materialising out of nothing. She now drives on from a random
-// flank, staged off the edge by YAM_ENTRY_X and running to YAM_X_MARGIN — the
-// margin her patrol already respects, so the arrival hands straight over to
-// nextYamatoLeg with nothing new to clamp. She is INERT for the whole run (see the
-// `entering` early-out in updateYamato): no guns, no landing party, untargetable
-// and undamageable. So this is a telegraph rather than a movement mode, and its
-// length is purely a pacing choice — ~8s, long enough to reposition against.
-const YAM_ENTRY_X = YAM_LEN / 2 + 30;   // 180 — her centre starts this far off the edge
+// flank (top or bottom edge), staged off it by YAM_ENTRY_Y and running to
+// YAM_Y_MARGIN — the margin her patrol already respects, so the arrival hands
+// straight over to nextYamatoLeg with nothing new to clamp. She is INERT for the
+// whole run (see the `entering` early-out in updateYamato): no guns, no landing
+// party, untargetable and undamageable. So this is a telegraph rather than a
+// movement mode, and its length is purely a pacing choice — ~8s.
+const YAM_ENTRY_Y = YAM_LEN / 2 + 30;   // 180 — her centre starts this far off the edge
 const YAM_ENTRY_SPEED = 42;             // roll-in speed; 3x the patrol, still a ship
 const YAM_ENTRY_EASE = 110;             // decel to YAM_SPEED over the last of the run,
                                         // so the hand-off to 14 isn't a visible jolt
@@ -464,7 +465,7 @@ const PROG_SEGMENTS = 3;             // ONE pool; the phase boundaries are the b
 // Rifleman 42, medic 46, Sherman 14, the Abomination 9 — at 7 it is the slowest
 // thing on the field and repositioning is always an answer to it.
 const PROG_SPEED = 7;
-const PROG_SAFE_Y = H - 80;          // hard clamp, mirrors BOSS_SAFE_Y: it can never breach
+const PROG_SAFE_X = W - 80;          // hard clamp, mirrors BOSS_SAFE_X: it can never breach
 // NOTE: it deliberately carries NO blastResist. A 0.25 was tried and removed: the
 // brood screens the mass so completely that small arms almost never reach it (a
 // 20-man line fired for 55s and took it to 97.5%), which makes explosives the one
@@ -484,11 +485,11 @@ const PROG_DEVOUR_DMG = 99999;
 // Pus modules. PROG_POD_R is a MECHANIC, not decoration, for exactly the reason
 // YAM_MG_B is: every US target scan picks by RAW DISTANCE and nothing in the
 // engine can express "deprioritise this actor". The pods are fanned across the
-// DOWN-FIELD semicircle in world space (every angle has sin > 0) and deliberately
-// NOT rotated with the core's facing, so the two or three nearest a defender are
-// always closer than the core itself and small arms strip the pods before they
-// ever touch the mass. Set this to 0 and rifles shoot the core instead, and the
-// modules become undamageable decoration.
+// DOWN-FIELD semicircle in world space (every angle has cos > 0 — toward the
+// player's trench at +x) and deliberately NOT rotated with the core's facing, so
+// the two or three nearest a defender are always closer than the core itself and
+// small arms strip the pods before they ever touch the mass. Set this to 0 and
+// rifles shoot the core instead, and the modules become undamageable decoration.
 const PROG_POD_HP = 260;
 // 34, not 26: the sacs are ~7.5px across and five of them across a 130° arc are
 // exactly touching at 26, which reads as a bunch of grapes rather than five
@@ -496,7 +497,7 @@ const PROG_POD_HP = 260;
 // and a little nearer the player, which only sharpens the targeting behaviour
 // this offset exists for.
 const PROG_POD_R = 34;
-const PROG_POD_ANGLES = [0.14, 0.32, 0.5, 0.68, 0.86].map(a => a * Math.PI);
+const PROG_POD_ANGLES = [0.14, 0.32, 0.5, 0.68, 0.86].map(a => (a - 0.5) * Math.PI);
 // The sacs' plate per intact segment of the CORE (see bossPartDamageMult): 66%
 // while the mass is whole, none once it is on its last third. Note what this does
 // to the "TRUE pool" arithmetic in the PROG_HP comment above — five 260-HP sacs
@@ -1059,9 +1060,9 @@ for (const t of Object.values(ENEMY_TYPES)) {
 // player's side. A marksman in a hardened tower outranges most of the line, which
 // is what makes a tower worth shelling ahead of a bunker.
 const IT_WORK_KINDS = {
-  sandbags:   { label: 'Sandbag Parapet', hp: 430,  cap: 2, box: { hw: 22, hh: 12 },
+  sandbags:   { label: 'Sandbag Parapet', hp: 430,  cap: 2, box: { hw: 12, hh: 22 },
                 dodge: [0.50, 0.65, 0.78], chip: [4, 3, 2] },
-  bunker:     { label: 'Bunker',          hp: 1240, cap: 3, box: { hw: 28, hh: 13 },
+  bunker:     { label: 'Bunker',          hp: 1240, cap: 3, box: { hw: 13, hh: 28 },
                 dodge: [0.75, 0.85, 0.92], chip: [2, 1, 1] },
   watchtower: { label: 'Watch Tower',     hp: 340,  cap: 1, box: { hw: 15, hh: 15 },
                 dodge: [0.10, 0.10, 0.10], chip: [3, 3, 3],
@@ -1089,9 +1090,9 @@ const IT_AVANTI_OFFICER_URGE = 0.3;   // per officer, up to two — so at most x
 const IT_AVANTI_PRESSURE_URGE = 0.25; // dug out to the wall with a crowd behind it
 const IT_AVANTI_MIN_GAP = 20;     // true safety floor: should rarely be what binds
 
-const GARRISON_STANDOFF = 8;   // how far north of the work a man stands — the work
-                               // ends up between him and the player, which is the
-                               // whole point of standing there
+const GARRISON_STANDOFF = 8;   // how far up-field (-x) of the work a man stands — the
+                               // work ends up between him and the player, which is
+                               // the whole point of standing there
 const GARRISON_SLOT_W = 13;    // lateral spacing between men sharing one work
 const GARRISON_REACH = 5;      // close enough to count as manning it
 const GARRISON_BACKSTEP = 40;  // he'll step this far back into cover, no further:
@@ -1104,14 +1105,14 @@ const GARRISON_BACKSTEP = 40;  // he'll step this far back into cover, no furthe
 // the enemy line reaching the player's own build pocket, one sapper digging
 // forever, and a rear line of abandoned works never going away.
 const IT_WORK_CAP = 24;              // hard ceiling on works alive at once
-const IT_WORK_MIN_Y = 50;            // no closer to the top edge than this
+const IT_WORK_MIN_X = 50;            // no closer to the enemy's own edge than this
 const IT_WORK_DEPLOY_MARGIN = 30;    // ...and how far short of the deploy line it stops.
                                      // THE tuning lever for how far the creep gets: it is
                                      // the only thing standing between an Italian parapet
                                      // and the player's trench.
-const IT_WORK_MAX_Y = DEPLOY_Y - IT_WORK_DEPLOY_MARGIN;  // 350: the DEPTH WALL. The creep
+const IT_WORK_MAX_X = DEPLOY_X - IT_WORK_DEPLOY_MARGIN;  // 350: the DEPTH WALL. The creep
                                      // runs THROUGH the forward line and stops just short
-                                     // of DEPLOY_Y, so the Regio Esercito ends a long run
+                                     // of DEPLOY_X, so the Regio Esercito ends a long run
                                      // dug in on the player's doorstep — which is the whole
                                      // point of the only faction that takes GROUND.
                                      //
@@ -1119,13 +1120,13 @@ const IT_WORK_MAX_Y = DEPLOY_Y - IT_WORK_DEPLOY_MARGIN;  // 350: the DEPTH WALL.
                                      // POCKET, and only that: forEachEmplacement walks
                                      // G.itWorks, so a work inside the pocket is ground the
                                      // player can no longer put a bunker on. At 350 the
-                                     // tallest work (the tower, hh 15) bottoms out at 365
-                                     // and the shallowest player defense — placementMinY's
-                                     // DEPLOY_Y + 12, hh 12 — tops out at 380, so the two
+                                     // deepest work (the tower, hw 15) bottoms out at 365
+                                     // and the shallowest player defense — placementMinX's
+                                     // DEPLOY_X + 12, hw 12 — tops out at 380, so the two
                                      // can never overlap. Move the margin below ~27 and they
                                      // start denying each other ground at the trench lip.
                                      //
-                                     // The creep is ~8 steps from IT_FRONT_Y_START now
+                                     // The creep is ~8 steps from IT_FRONT_X_START now
                                      // rather than 3-4, and every one of them has to be dug
                                      // by a sapper who walked that far down the field under
                                      // fire. That is deliberately the rate limit: the front
@@ -1135,9 +1136,9 @@ const IT_WORK_MAX_Y = DEPLOY_Y - IT_WORK_DEPLOY_MARGIN;  // 350: the DEPTH WALL.
                                      // EASIER to answer — a parapet at 350 is inside
                                      // grenadier and bazooka reach from the deploy line,
                                      // where one at 182 was not.
-const IT_FRONT_Y_START = 64;         // where the first line goes up, and where the
+const IT_FRONT_X_START = 64;         // where the first line goes up, and where the
                                      // front resets to if the player levels every work
-const IT_CREEP_MIN = 26;             // how much further down each new work is sited
+const IT_CREEP_MIN = 26;             // how much further forward each new work is sited
 const IT_CREEP_MAX = 46;             // than the current deepest one — 3-4 steps to the wall
 const IT_WORK_SPACING = 46;          // minimum gap between two works
 const IT_SITE_CLEAR = 8;             // and the GAP a site keeps between its own box and the
@@ -1364,13 +1365,13 @@ const TRAIN_WAVE_INTERVAL = 100;     // arrives at wave 100, 200... (mirrors the
 const TRAIN_HP = 26000;              // the ENGINE pool — killing it ends the fight
 const TRAIN_SEGMENTS = 3;            // ONE pool, ticked into three; each break sounds the AVANTI
 const TRAIN_PART_RESIST = 0.33;      // the wagons' plate per intact segment — see bossPartDamageMult
-const TRAIN_SPEED = 9;               // px/s down the lane: ~70s from the top to the stop
-const TRAIN_STOP_Y = H - 70;         // "the bottom of the screen": it parks here, short of a breach
+const TRAIN_SPEED = 9;               // px/s down the lane: ~70s from the treeline to the stop
+const TRAIN_STOP_X = W - 70;         // "the player's end of the field": parks here, short of a breach
 const TRAIN_SPACING = 46;            // wagon-to-wagon centre distance along the rails
 const TRAIN_LANE_MARGIN = 110;       // lane-centre clamp keeps every wagon + MG post on screen
 // consist, engine first: engine / turret wagon / infantry wagon / gun wagon /
 // turret wagon / artillery wagon. sOff is NEGATIVE = further behind the engine
-// (north, away from the player), so the REAR of the train is the most negative.
+// (up-field at -x, away from the player), so the REAR of the train is the most negative.
 const TRAIN_TURRET_S = [-TRAIN_SPACING, -TRAIN_SPACING * 4];
 const TRAIN_WAGON_S = -TRAIN_SPACING * 2;
 const TRAIN_GUNWAGON_S = -TRAIN_SPACING * 3;
@@ -1395,7 +1396,7 @@ const TRAIN_WAGON_HP = 4200;         // the infantry wagon: kill it and the squa
 const TRAIN_MG_HP = 900;             // per post; itmg is NOT `tank`, so rifles work on it
 const TRAIN_TURRET_ROF = 9;
 const TRAIN_TURRET_TRACK = 0.35;     // rad/s traverse
-const TRAIN_TURRET_ARC = 2.0;        // wedge off straight down-field: can't fire back up its own train
+const TRAIN_TURRET_ARC = 2.0;        // wedge off straight down-field (+x): can't fire back up its own train
 const TRAIN_TURRET_FIRE_TOL = 0.14;
 const TRAIN_SHELL_DMG = 70;
 const TRAIN_SHELL_R = 40;
@@ -1504,17 +1505,17 @@ Object.assign(ENEMY_TYPES, {
 // The one tuning decision worth writing down: it deliberately does NOT carry
 // `tank`. At x0.04 vs small arms, 3000 HP would take a rifle line ~937 seconds
 // and a prepared AT battery 3.4 shells — simultaneously impossible and trivial,
-// one answer, no decision. Instead it is hard to REACH: standing at y 92..128
-// it sits 252-288px off DEPLOY_Y (380), outside rifleman (154), gunner (179),
+// one answer, no decision. Instead it is hard to REACH: standing at x 92..128
+// it sits 252-288px off DEPLOY_X (380), outside rifleman (154), gunner (179),
 // grenadier (231) and bazooka (243) range, so the artillery answer falls out of
 // geometry for free with the 3000 intact — while a player who walks his men up
-// to FORWARD_Y can close inside rifle range and trade, standing in the open
-// inside a beam that reaches past the bottom edge. If it dies too fast, push
-// AW_STAND_Y_MIN back (out of mortar range too), never add an armor multiplier.
+// to FORWARD_X can close inside rifle range and trade, standing in the open
+// inside a beam that reaches past the player's own edge. If it dies too fast, push
+// AW_STAND_X_MIN back (out of mortar range too), never add an armor multiplier.
 const AW_FIRST_WAVE = 666;
 const AW_HP = 3000;                  // 3x a Sherman (UNIT_TYPES.sherman.hp = 1000)
 const AW_SWEEP_DMG = 800;            // 80% of a Sherman, ONCE per actor per sweep
-const AW_BEAM_RANGE = Math.round(H * 0.85);   // 527 — "85% of the battlefield"
+const AW_BEAM_RANGE = Math.round(W * 0.85);   // 527 — "85% of the battlefield" (depth axis)
 const AW_SWEEP_T = 2.0;              // the two-second sweep
 const AW_SWEEP_ARC = 0.6;            // ~34deg, centred on the defenders' mass
 const AW_CHARGE_T = 1.4;             // telegraph: a thin aiming line, time to walk men clear
@@ -1531,7 +1532,7 @@ const AW_CD_MIN = 4.5, AW_CD_MAX = 7.0;
 const AW_BEAM_HALFW = 7;
 const AW_BEAM_MIN_R = 10;            // radius floor for that conversion
 const AW_WIRE_HALFW = 35;            // wire is a belt, not a point (mirrors purgeRadius)
-const AW_STAND_Y_MIN = 92, AW_STAND_Y_MAX = 128;  // its standing band; it never closes
+const AW_STAND_X_MIN = 92, AW_STAND_X_MAX = 128;  // its standing band; it never closes
 const AW_APPROACH_SPEED = 22, AW_PATROL_SPEED = 13;
 // The spawn roll: wave 666 is one, guaranteed. From 667 the chance climbs
 // linearly — linear because it's the only shape you can reason about three

@@ -27,7 +27,9 @@
 'use strict';
 
 const RUN_SAVE_KEY = 'twRunSave';
-const RUN_SAVE_VERSION = 1;
+// v2: the landscape flip — every saved coordinate's axes changed meaning
+// (x = depth, y = lateral), so v1 blobs are discarded wholesale on load.
+const RUN_SAVE_VERSION = 2;
 
 // undefined = not read yet, null = no (or discarded) save, object = parsed blob.
 // The menu reads this cache — never re-parses the full blob per refresh.
@@ -58,7 +60,7 @@ const SAVE_STRIP = new Set([
 const SAVE_SCALARS = {
   tp: 15, wave: 0, kills: 0, medalsEarned: 0, breaches: 0, time: 0,
   bossKills: 0, spawnTimer: 6, tpTrickle: TP_TRICKLE_INTERVAL, officerTick: 30,
-  eventTimer: 50, fog: 0, fogAge: 0, itFrontY: IT_FRONT_Y_START, itTick: 0, itCharge: 0,
+  eventTimer: 50, fog: 0, fogAge: 0, itFrontX: IT_FRONT_X_START, itTick: 0, itCharge: 0,
   itAvantiCd: 30, itLastAvanti: -999, buffFrame: 0,
 };
 

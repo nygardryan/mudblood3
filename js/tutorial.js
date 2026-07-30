@@ -11,10 +11,10 @@ function tutorialCamActive() {
 }
 
 function setupTutorial1(G) {
-  const rifle = makeUnit('rifleman', 300, 470);
+  const rifle = makeUnit('rifleman', 470, 300);
   rifle.xp = 1;   // one kill away from PFC: the scripted duel promotes him
   G.units.push(rifle);
-  usBunker(G, 150, 435);
+  usBunker(G, 435, 150);
   G.spawnTimer = 9999;   // no waves until the script hands off
   G.tutorial = {
     script: 't1',
@@ -36,11 +36,11 @@ function setupTutorial1(G) {
 // a medic behind. A flamethrower charges the center; the player wires the lane to
 // win the duel, then fortifies an open right flank against a fresh squad.
 function setupTutorial2(G) {
-  const BX = 150, BY = 435;
-  const rifle = makeUnit('rifleman', BX, BY + 2);
+  const BX = 435, BY = 150;   // BX is the bunker's depth (x), BY its lateral (y)
+  const rifle = makeUnit('rifleman', BX + 2, BY);
   rifle.rank = 1;                 // the PFC he earned in Lesson 1
   G.units.push(rifle);
-  const medic = makeUnit('medic', BX, BY + 62);   // dug in behind the bunker
+  const medic = makeUnit('medic', BX + 62, BY);   // dug in behind the bunker
   G.units.push(medic);
   usBunker(G, BX, BY);
   G.spawnTimer = 9999;            // no endless waves until the script hands off
@@ -62,10 +62,10 @@ function setupTutorial2(G) {
   tutSetCam(2.0, BX, BY, true);
 }
 
-// how many fighting men the player has posted on the right flank (x > 300)
+// how many fighting men the player has posted on the far flank (y > 300)
 function tutRightUnitCount() {
   if (!G) return 0;
-  return G.units.filter(u => !u.dead && u.x > 300).length;
+  return G.units.filter(u => !u.dead && u.y > 300).length;
 }
 
 // aim the tutorial camera at a world point; snap jumps there instantly,
@@ -237,7 +237,7 @@ function tutEnterStep(step) {
       setTutorialMsg('Click on a unit to select it.');
       break;
     case 'moveToBunker':
-      tutSetCam(1.5, 225, 450);
+      tutSetCam(1.5, 450, 225);
       setTutorialMsg('Now click the bunker to move him there — men in cover can block damage.');
       break;
     case 'fight':
@@ -294,7 +294,7 @@ function tutEnterStep2(T, step) {
       break;
     case 'spot':
       // reveal the threat: a flamethrower frozen at the top of the center lane
-      T.foe = makeEnemy('eflame', 150, 44);
+      T.foe = makeEnemy('eflame', 44, 150);
       T.foe.hp = T.foe.maxhp = 60;   // scripted duel: the wire + rifleman must win reliably
       T.foe.tutHold = true;
       G.enemies.push(T.foe);
@@ -306,7 +306,7 @@ function tutEnterStep2(T, step) {
       if (G.tp < 8) G.tp = 8;               // two wire, with a little to spare
       T.baseWires = G.wires.length;
       T.allowBuy = ['wire']; T.pulseCat = 'emplacements'; T.pulseKey = 'wire';
-      T.placeZone = { x0: 95, y0: 270, x1: 210, y1: 362 };
+      T.placeZone = { x0: 270, y0: 95, x1: 362, y1: 210 };
       T.ringTargets = [T.foe];
       tutSetCam(1.0, W / 2, H / 2);
       setTutorialMsg("Barbed wire bogs down a charge. Lay two lines across his path in the marked zone.");
@@ -318,31 +318,31 @@ function tutEnterStep2(T, step) {
     case 'flankwarn':
       // a fresh squad masses on the undefended right flank
       T.flankFoes = [
-        makeEnemy('erifle', 432, 205),
-        makeEnemy('erifle', 476, 195),
+        makeEnemy('erifle', 205, 432),
+        makeEnemy('erifle', 195, 476),
       ];
       // scripted assault: they mass close to the line and carry trimmed HP, so a
       // single BAR gunner clears them at a snappy tutorial pace — no long grind
       for (const e of T.flankFoes) { e.hp = e.maxhp = 45; e.tutHold = true; G.enemies.push(e); }
       T.ringTargets = T.flankFoes.slice();
-      tutSetCam(1.15, 410, 320);
-      tutMsg(T, "More of them — massing on your right flank, and you've got nothing over there!");
+      tutSetCam(1.15, 320, 410);
+      tutMsg(T, "More of them — massing on your lower flank, and you've got nothing over there!");
       break;
     case 'sandbag':
       if (G.tp < 10) G.tp = 10;             // two sandbags, with a little to spare
       T.baseBags = G.sandbags.length;
       T.allowBuy = ['sandbags']; T.pulseCat = 'emplacements'; T.pulseKey = 'sandbags';
-      T.placeZone = { x0: 345, y0: 408, x1: 508, y1: 532 };
+      T.placeZone = { x0: 408, y0: 345, x1: 532, y1: 508 };
       T.ringTargets = T.flankFoes.slice();
-      tutSetCam(1.2, 400, 430);
-      setTutorialMsg("Sandbags go up fast — men behind them dodge half the incoming fire. Cover the right.");
+      tutSetCam(1.2, 430, 400);
+      setTutorialMsg("Sandbags go up fast — men behind them dodge half the incoming fire. Cover that flank.");
       break;
     case 'buyunits':
       if (G.tp < 12) G.tp = 12;             // a couple of riflemen, or a gunner and a rifleman
       T.allowBuy = ['rifleman', 'gunner']; T.pulseCat = 'units'; T.pulseKey = 'rifleman';
-      T.placeZone = { x0: 330, y0: 404, x1: 516, y1: 544 };
+      T.placeZone = { x0: 404, y0: 330, x1: 544, y1: 516 };
       T.ringTargets = T.flankFoes.slice();
-      tutSetCam(1.2, 400, 430);
+      tutSetCam(1.2, 430, 400);
       setTutorialMsg("One man can't hold two fronts. Buy two riflemen and post them both behind that sandbag.");
       break;
     case 'flankcharge':
@@ -398,7 +398,7 @@ function updateTutorial2(dt, T) {
 // through his bunker (fire ignores cover). The player rebuilds a rifle line —
 // which a tank shrugs off (bullets don't hurt armor) — learns that explosives
 // punish armor, then fights a mixed infantry+armor push with the full toolbox.
-const TUT3_BX = 270, TUT3_BY = 455;   // the center bunker + gunner
+const TUT3_BX = 455, TUT3_BY = 270;   // the center bunker + gunner (BX depth, BY lateral)
 
 function setupTutorial3(G) {
   const gunner = makeUnit('gunner', TUT3_BX, TUT3_BY);
@@ -408,9 +408,9 @@ function setupTutorial3(G) {
   G.spawnTimer = 9999;             // no endless waves until the script hands off
   // the battle is already joined: a green infantry squad walking into his gun
   const squad = [
-    makeEnemy('erifle', TUT3_BX - 60, 268),
-    makeEnemy('erifle', TUT3_BX, 258),
-    makeEnemy('erifle', TUT3_BX + 60, 268),
+    makeEnemy('erifle', 268, TUT3_BY - 60),
+    makeEnemy('erifle', 258, TUT3_BY),
+    makeEnemy('erifle', 268, TUT3_BY + 60),
   ];
   for (const e of squad) { e.hp = e.maxhp = 24; G.enemies.push(e); }
   G.tutorial = {
@@ -439,7 +439,7 @@ function tut3HasBazooka() {
   return !!(G && G.units.some(u => u.type === 'bazooka' && !u.dead));
 }
 
-const TUT3_ZONE = { x0: 70, y0: 400, x1: 470, y1: 566 };
+const TUT3_ZONE = { x0: 400, y0: 70, x1: 566, y1: 470 };
 // the bazooka's own AP damage is left completely real — the lesson is that
 // explosives punch through armor. The tutorial tanks carry a little over half a
 // real Panzer's HP so a couple of real rockets finish them (they still shrug off
@@ -448,10 +448,10 @@ const TUT3_ZONE = { x0: 70, y0: 400, x1: 470, y1: 566 };
 // this line once they arrive: they menace and shell, but never breach.
 const TUT3_TANK_HP = 660;
 // hold the tank here once it arrives. Chosen so a bazooka placed at the back of
-// the build zone (y ~560) sits just outside the Panzer's 228px cannon reach but
+// the build zone (x ~560) sits just outside the Panzer's 228px cannon reach but
 // still inside the bazooka's 243px rocket range: the player can safely stand off
 // and answer armor with explosives, exactly the lesson we're teaching.
-const TUT3_TANK_HOLD_Y = 330;
+const TUT3_TANK_HOLD_X = 330;
 
 function tutEnterStep3(T, step) {
   switch (step) {
@@ -465,7 +465,7 @@ function tutEnterStep3(T, step) {
     case 'flame':
       // a flamethrower charges the gun; heavy HP so he survives the gunner's
       // fire long enough to close the distance and make his point
-      T.flame = makeEnemy('eflame', TUT3_BX, 40);
+      T.flame = makeEnemy('eflame', 40, TUT3_BY);
       T.flame.t = Object.assign({}, T.flame.t, { hp: 520 });
       T.flame.hp = T.flame.maxhp = 520;
       G.enemies.push(T.flame);
@@ -476,7 +476,7 @@ function tutEnterStep3(T, step) {
     case 'flameLesson':
       if (T.flame) { T.flame.dead = true; }   // his point is made; pull him off the field
       T.ringTargets = null;
-      tutSetCam(1.3, TUT3_BX, TUT3_BY - 30);
+      tutSetCam(1.3, TUT3_BX - 30, TUT3_BY);
       tutMsg(T, 'Bunkers and sandbags do not stop fire. Nothing does — flame melts men in cover.');
       break;
     case 'rebuild':
@@ -487,14 +487,14 @@ function tutEnterStep3(T, step) {
       // spotlight one man — the whole point is that any of them will do
       T.pulseCat = 'units'; T.pulseKey = null;
       T.placeZone = TUT3_ZONE;
-      tutSetCam(1.25, W / 2, 470);
+      tutSetCam(1.25, 470, H / 2);
       setTutorialMsg('Rebuild your line — spend your requisition on any men you choose. Post at least two.');
       break;
     case 'tank':
       // a Panzer rolls the center, shelling the men below it as it comes. A mild
       // speed bump keeps the approach watchable; it takes real bazooka rockets
       // (a couple) to kill — see TUT3_TANK_HP for why it isn't the full 1200.
-      T.tank = makeEnemy('panzer', TUT3_BX, 30);
+      T.tank = makeEnemy('panzer', 30, TUT3_BY);
       T.tank.t = Object.assign({}, T.tank.t, { hp: TUT3_TANK_HP, speed: 16 });
       T.tank.hp = T.tank.maxhp = TUT3_TANK_HP;
       G.enemies.push(T.tank);
@@ -525,13 +525,13 @@ function tutEnterStep3(T, step) {
     case 'mix': {
       G.tp = 60;
       T.mixFoes = [
-        makeEnemy('erifle', TUT3_BX - 100, 60),
-        makeEnemy('erifle', TUT3_BX - 40, 48),
-        makeEnemy('erifle', TUT3_BX + 40, 48),
-        makeEnemy('erifle', TUT3_BX + 100, 60),
+        makeEnemy('erifle', 60, TUT3_BY - 100),
+        makeEnemy('erifle', 48, TUT3_BY - 40),
+        makeEnemy('erifle', 48, TUT3_BY + 40),
+        makeEnemy('erifle', 60, TUT3_BY + 100),
       ];
       for (const e of T.mixFoes) { e.hp = e.maxhp = 30; e.tutHold = true; G.enemies.push(e); }
-      const tank = makeEnemy('panzer', TUT3_BX, 24);
+      const tank = makeEnemy('panzer', 24, TUT3_BY);
       tank.t = Object.assign({}, tank.t, { hp: TUT3_TANK_HP, speed: 16 });
       tank.hp = tank.maxhp = TUT3_TANK_HP;
       tank.tutHold = true;
@@ -565,10 +565,10 @@ function tutEnterStep3(T, step) {
 
 function updateTutorial3(dt, T) {
   // pin any live tutorial tank on the hold line: it still traverses and shells
-  // from there, but can never roll off the bottom and breach, so the player has
+  // from there, but can never roll through the line and breach, so the player has
   // all the time they need to bring explosives to bear (no HP nerf required)
   for (const e of G.enemies) {
-    if (!e.dead && e.t.tank && e.y > TUT3_TANK_HOLD_Y) e.y = TUT3_TANK_HOLD_Y;
+    if (!e.dead && e.t.tank && e.x > TUT3_TANK_HOLD_X) e.x = TUT3_TANK_HOLD_X;
   }
   switch (T.step) {
     case 'intro':
@@ -591,7 +591,7 @@ function updateTutorial3(dt, T) {
       if (tut3UnitCount() - T.baseUnits >= 2) tutEnterStep('tank');
       break;
     case 'tank':
-      if (T.tank && (T.tank.dead || T.tank.y > H / 2)) tutEnterStep('armorLesson');
+      if (T.tank && (T.tank.dead || T.tank.x > W / 2)) tutEnterStep('armorLesson');
       break;
     case 'armorLesson':
       if (T.tank && T.tank.dead) { tutEnterStep('mixIntro'); break; }
@@ -644,7 +644,7 @@ function updateTutorial(dt) {
       // spawn the enemy the instant the move-to-bunker order is issued, so he's
       // already closing in by the time our rifleman reaches cover — no dead air
       if (!T.foe && T.rifle.moveTo && dist(T.rifle.moveTo, T.bunker) < 40) {
-        T.foe = makeEnemy('erifle', 165, -30);
+        T.foe = makeEnemy('erifle', -30, 165);
         G.enemies.push(T.foe);
       }
       if (dist(T.rifle, T.bunker) < 26 && !T.rifle.moveTo) tutEnterStep('fight');

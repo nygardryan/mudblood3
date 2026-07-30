@@ -233,8 +233,9 @@ function healBreachesBetweenWaves() {
 // its banner must not be stomped. Over the officer, so it reads as HIS call.
 const FIRE_MISSION_CHANCE = 0.05;   // per wave, on top of a live officer
 const FIRE_MISSION_SHELLS = 6;
-const FIRE_MISSION_SPREAD_X = 38;   // observed fire, not a map square: about half
-const FIRE_MISSION_SPREAD_Y = 32;   // the toolbar strike's box
+const FIRE_MISSION_SPREAD_LAT = 38;   // observed fire, not a map square: about half
+const FIRE_MISSION_SPREAD_DEPTH = 32; // the toolbar strike's box — wider across the
+                                      // enemy's front (lateral) than along his advance
 const FIRE_MISSION_DELAY = 2.0;     // first round down
 const FIRE_MISSION_GAP = 0.55;      // and the rest inside three more seconds, so
                                     // a walking target is still in the pattern
@@ -249,8 +250,8 @@ function maybeOfficerFireMission() {
   const caller = pick(officers);
   const tgt = pick(targets);
   for (let i = 0; i < FIRE_MISSION_SHELLS; i++) {
-    scheduleShell(tgt.x + rand(-FIRE_MISSION_SPREAD_X, FIRE_MISSION_SPREAD_X),
-      tgt.y + rand(-FIRE_MISSION_SPREAD_Y, FIRE_MISSION_SPREAD_Y),
+    scheduleShell(tgt.x + rand(-FIRE_MISSION_SPREAD_DEPTH, FIRE_MISSION_SPREAD_DEPTH),
+      tgt.y + rand(-FIRE_MISSION_SPREAD_LAT, FIRE_MISSION_SPREAD_LAT),
       FIRE_MISSION_DELAY + i * FIRE_MISSION_GAP, 42, 90, false);
   }
   G.texts.push({ x: caller.x, y: caller.y - 22, text: 'FIRE MISSION — SHOT OUT', ttl: 2.6 });

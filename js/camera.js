@@ -70,9 +70,13 @@ function resetViewCam(mode) {
     viewCam.x = 0;
     viewCam.y = 0;
   } else {
-    // fit the whole field on screen, centred — clampCamera handles the
-    // letterbox centring for whichever axis the view overshoots
-    viewCam.zoom = containZoom();
+    // landscape phones (the game's home orientation) run wider than the
+    // field's own 880:460, so default to COVER — fills the screen edge to
+    // edge, cropping the lateral sliver that overflows (pan/edge-auto-pan/the
+    // view-strip already exist for exactly this). Portrait is the opposite
+    // shape: cover there would crop the field down to a sliver, so it stays
+    // on CONTAIN (whole field, letterboxed) until the player rotates.
+    viewCam.zoom = portraitMobile() ? containZoom() : coverZoom();
     const { viewW, viewH } = viewSize();
     viewCam.x = (W - viewW) / 2;
     viewCam.y = (H - viewH) / 2;

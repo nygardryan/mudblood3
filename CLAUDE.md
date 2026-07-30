@@ -3,7 +3,11 @@
 WW2 squad-defense game, landscape-first: enemies stage LEFT of the field
 (`x < 0`) and march down-field at +x onto the player's trench at `DEPLOY_X`
 (380); a breach is `x > W`. `x` is the DEPTH axis, `y` the lateral; the field
-is `W=620 x H=540`. Screen-relative visuals (particles, fake-Z arcs, floating
+is `W=880 x H=460` — wide on purpose, so the landscape flip actually fills a
+widescreen phone or a desktop monitor instead of pillarboxing one; see the
+comment on `W`/`H` in constants.js for why the extra depth is pure backfield
+(DEPLOY_X, FORWARD_X and every boss/weapon-range calibration are pinned to
+their old absolute values, not stretched). Screen-relative visuals (particles, fake-Z arcs, floating
 text, shadows at +y, HP bars at -y) still treat screen-up as up — never axis-swap
 those. Plain HTML5 Canvas + vanilla JS, **no build step, no
 package.json, no test framework**. Scripts in `js/` share one global scope and
@@ -819,8 +823,8 @@ needs combat to have happened), while flipping ART OFF/ON is a deliberate act wh
 point is to re-render and forces through. Either way the state compare runs FIRST, so a
 pack with no ground art in it — the common case — never reshuffles a procedural field
 or costs a wreck. The terrain plates are also the only defs the exporter renders at
-`EXPORT_TERRAIN_SS` (2) rather than `EXPORT_SS`: a 620×540 field at 4 px/unit is a
-2480×2160 sheet of noise, four times over. They're the only `random: true` defs too —
+`EXPORT_TERRAIN_SS` (2) rather than `EXPORT_SS`: an 880×460 field at 4 px/unit is a
+3520×1840 sheet of noise, four times over. They're the only `random: true` defs too —
 `spriteRoundtrip` flags rather than suppresses that, since its diff is meaningless
 against a pass that re-scatters its own mottle on every call.
 

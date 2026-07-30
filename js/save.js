@@ -29,7 +29,10 @@
 const RUN_SAVE_KEY = 'twRunSave';
 // v2: the landscape flip — every saved coordinate's axes changed meaning
 // (x = depth, y = lateral), so v1 blobs are discarded wholesale on load.
-const RUN_SAVE_VERSION = 2;
+// v3: the field grew from 620x540 to 880x460 — old positions (especially
+// lateral ones, now scaled against a shorter H) would resume into nonsense,
+// so v2 blobs discard the same way v1 does.
+const RUN_SAVE_VERSION = 3;
 
 // undefined = not read yet, null = no (or discarded) save, object = parsed blob.
 // The menu reads this cache — never re-parses the full blob per refresh.

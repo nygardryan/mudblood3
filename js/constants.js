@@ -2,14 +2,30 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
-const W = 620, H = 540;        // W is the DEPTH axis (enemies march +x), H the lateral
+// The field went from a near-square 620x540 to a much wider 880x460 so the
+// landscape flip actually pays for itself on a widescreen phone or a desktop
+// monitor instead of pillarboxing one. Mobile is what sets the ceiling: much
+// wider than this and a phone screen shorter/rounder than ~1.9:1 (the ratio
+// here) starts showing MORE letterbox on the sides than it saves, which is the
+// opposite of the point. The extra depth is spent entirely as backfield —
+// DEPLOY_X, FORWARD_X and every boss/weapon-range calibration below are still
+// the exact numbers they were against the old 620, so the front-line fight is
+// byte-for-byte the same fight, just with more room behind the trench to
+// spread support units into. Only the constants that are already `W - k` (the
+// bosses' rarely-hit outer safety clamps) grow with it, which is fine — they
+// exist to be a backstop past whatever's actually happening at the front.
+const W = 880, H = 460;        // W is the DEPTH axis (enemies march +x), H the lateral
 // formations below were authored against the original 900px-wide (lateral) field;
 // ly() rescales an offset-from-center so they keep their proportions on the
-// 540-unit lateral axis (screen-vertical now that the field runs left to right)
+// current lateral axis (screen-vertical now that the field runs left to right)
 const LAYOUT_REF_W = 900;
 function ly(off) { return H / 2 + off * (H / LAYOUT_REF_W); }
 const DEPLOY_X = 380;          // your side of the field starts here (deeper = closer to you)
-const FORWARD_X = W / 3;       // units may advance and mines/wire may be laid this far forward
+// Pinned rather than W/3: this is calibrated against DEPLOY_X (how far forward
+// of the trench mines/wire reach), not against the field's total depth, and it
+// must stay put while W grows so the front-line geometry doesn't stretch along
+// with the new backfield. 207 is the old W/3 (620/3) it was before pinning.
+const FORWARD_X = 207;
 const MAX_BREACH = 8;
 const MAX_OFFICERS = 5;
 const MEDIC_RANGE = 95;
@@ -272,7 +288,9 @@ const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points
 // back of the deploy zone sits at x~558, so the rally point has to be at least
 // 210 for a shell to reach it — 200 was still 10px short and measured zero
 // damage taken during rally. 220 gives margin: any mortar up to x=568 can
-// range him, and he's still pulled 250px back off his engage line.
+// range him, and he's still pulled well back off wherever he was actually
+// fighting (BOSS_ENGAGE_X is a rarely-hit outer fallback, not where he
+// typically engages — see the note on it below).
 const BOSS_WAVE_INTERVAL = 100;      // arrives at wave 100, 200, 300...
 const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
 // Plate refilled at every backline rally. These have to stay BELOW what a line
@@ -284,6 +302,11 @@ const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
 const BOSS_BODY_ARMOR = 240;
 const BOSS_FLAK_ARMOR = 180;
 const BOSS_LANES = [0.12, 0.31, 0.5, 0.69, 0.88];  // × H — lateral advance corridors
+// Both grow with W on purpose: they're the fallback he walks toward only when
+// NO target is visible at all, which in practice means he engages long before
+// reaching either one (player units sit near DEPLOY_X/FORWARD_X, both pinned
+// well short of here) — so a bigger field just gives him more empty road to
+// walk before giving up and retreating, not a deeper fight.
 const BOSS_ENGAGE_X = W - 150;       // deepest he pushes hunting a target
 const BOSS_SAFE_X = W - 80;          // hard clamp — the boss can never breach
 const BOSS_BACKLINE_X = 220;         // rally point (see note above)
@@ -1353,9 +1376,9 @@ Object.assign(ENEMY_TYPES, {
 
 // ---- The Treno Armato: the Regio Esercito's wave-100 boss ------------------
 // An armored war train that rolls straight down a rail lane out of the enemy
-// treeline and
-// PARKS at the bottom of the field — it never breaches, it just sits there as a
-// fortress inside your lines until it's killed. The third multi-actor boss: an
+// treeline and PARKS at the player's end of the field — it never breaches, it
+// just sits there as a fortress inside your lines until it's killed. The third
+// multi-actor boss: an
 // engine (the parent, and the boss's whole HP pool) plus eight wagon/crew part
 // actors, all real entries in G.enemies, repositioned each tick by
 // syncTrainParts. Unlike the Yamato's belt there is NO shared pool — every part
@@ -1367,7 +1390,13 @@ const TRAIN_HP = 26000;              // the ENGINE pool — killing it ends the 
 const TRAIN_SEGMENTS = 3;            // ONE pool, ticked into three; each break sounds the AVANTI
 const TRAIN_PART_RESIST = 0.33;      // the wagons' plate per intact segment — see bossPartDamageMult
 const TRAIN_SPEED = 9;               // px/s down the lane: ~70s from the treeline to the stop
-const TRAIN_STOP_X = W - 70;         // "the player's end of the field": parks here, short of a breach
+// Pinned rather than W - 70: this is calibrated against the deploy line (how
+// close the parked train sits to the player's actual trench, and hence how much
+// of its armament can reach back to it), not against the field's total depth —
+// letting it scale with W would park the train much deeper as the field grew,
+// putting it out of easy artillery reach for no reason. 550 is the old W - 70
+// (620 - 70) it was before pinning.
+const TRAIN_STOP_X = 550;
 const TRAIN_SPACING = 46;            // wagon-to-wagon centre distance along the rails
 const TRAIN_LANE_MARGIN = 110;       // lane-centre clamp keeps every wagon + MG post on screen
 // consist, engine first: engine / turret wagon / infantry wagon / gun wagon /
@@ -1516,7 +1545,7 @@ Object.assign(ENEMY_TYPES, {
 const AW_FIRST_WAVE = 666;
 const AW_HP = 3000;                  // 3x a Sherman (UNIT_TYPES.sherman.hp = 1000)
 const AW_SWEEP_DMG = 800;            // 80% of a Sherman, ONCE per actor per sweep
-const AW_BEAM_RANGE = Math.round(W * 0.85);   // 527 — "85% of the battlefield" (depth axis)
+const AW_BEAM_RANGE = Math.round(W * 0.85);   // "85% of the battlefield" (depth axis) — scales with W on purpose
 const AW_SWEEP_T = 2.0;              // the two-second sweep
 const AW_SWEEP_ARC = 0.6;            // ~34deg, centred on the defenders' mass
 const AW_CHARGE_T = 1.4;             // telegraph: a thin aiming line, time to walk men clear

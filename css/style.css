@@ -2957,7 +2957,10 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
   flex: 1 1 auto; min-width: 0; min-height: 0;
   display: flex; flex-direction: column; align-items: center;
   gap: clamp(5px, 1.2cqi, 9px);
-  padding: clamp(18px, 4.6cqi, 32px) clamp(8px, 2.6cqi, 22px);
+  /* vertical metrics are vh-capped: cqi reads the container's WIDTH, and a
+     landscape phone is wide but short — width-only clamps rendered the slab
+     at its desktop max on a 375px-tall screen */
+  padding: clamp(10px, 3.2vh, 22px) clamp(8px, 2.6cqi, 22px);
   background: transparent; border: 0; border-radius: 0; cursor: pointer;
   letter-spacing: normal; font-weight: normal;
   transition: background .12s ease;
@@ -2966,7 +2969,7 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
 #intro .fm-play:active { box-shadow: 0 3px 0 #7a4415; transform: translateY(3px); }
 .fm-play__word {
   font-family: 'Saira Stencil One', 'Barlow Condensed', sans-serif;
-  font-size: clamp(36px, 9cqi, 70px); line-height: .84;
+  font-size: min(clamp(32px, 8cqi, 56px), 11vh); line-height: .84;
   letter-spacing: clamp(2px, 1.1cqi, 9px); color: #17140f;
 }
 /* the rung is printed INSIDE the button, so the thing you press states the

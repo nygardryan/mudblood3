@@ -2,12 +2,16 @@
 
 WW2 squad-defense game, landscape-first: enemies stage LEFT of the field
 (`x < 0`) and march down-field at +x onto the player's trench at `DEPLOY_X`
-(380); a breach is `x > W`. `x` is the DEPTH axis, `y` the lateral; the field
+(587); a breach is `x > W`. `x` is the DEPTH axis, `y` the lateral; the field
 is `W=880 x H=460` — wide on purpose, so the landscape flip actually fills a
 widescreen phone or a desktop monitor instead of pillarboxing one; see the
-comment on `W`/`H` in constants.js for why the extra depth is pure backfield
-(DEPLOY_X, FORWARD_X and every boss/weapon-range calibration are pinned to
-their old absolute values, not stretched). Screen-relative visuals (particles, fake-Z arcs, floating
+comment on `W`/`H` in constants.js for why the extra depth was originally
+pure backfield. `DEPLOY_X`/`FORWARD_X` (587/293) since moved out from their
+first landscape values (380/207) so the field reads as three even thirds —
+enemy approach, no-man's-land, deploy zone — instead of a dominant deploy
+zone; see the comment on `DEPLOY_X` in constants.js for the rationale and
+for why every boss/weapon-range calibration below moved with it by the same
++207. Screen-relative visuals (particles, fake-Z arcs, floating
 text, shadows at +y, HP bars at -y) still treat screen-up as up — never axis-swap
 those. Plain HTML5 Canvas + vanilla JS, **no build step, no
 package.json, no test framework**. Scripts in `js/` share one global scope and
@@ -424,18 +428,21 @@ failure: `IT_WORK_MAX_X`, `IT_WORK_CAP`, `IT_BUILDS_PER_MAN`, and per-wave decay
 in `decayItalianWorks`.
 
 `IT_WORK_MAX_X` is the **depth wall**, and it is `DEPLOY_X - IT_WORK_DEPLOY_MARGIN`
-(350) — the creep runs *through* `FORWARD_X` and stops just short of the player's
+(557) — the creep runs *through* `FORWARD_X` and stops just short of the player's
 trench, so a long run ends with the Regio Esercito dug in on his doorstep. What the
 wall guards is only the player's **build pocket**: `forEachEmplacement` walks
 `G.itWorks`, so a work inside the pocket is ground he can no longer put a bunker on.
-At 350 the deepest work bottoms out at 365 and his shallowest defense (`placementMinX`'s
-`DEPLOY_X + 12`) tops out at 380 — measured 15px clear at wave 198 with no box overlap
-anywhere, and every sampled spot behind his line still buildable. Below ~27 of margin
-the two start denying each other ground. The rate limit is not the wall but the walk:
-~8 creep steps from `IT_FRONT_X_START`, each dug by a sapper who had to survive
-crossing that much field. Measured with no player interference, the front reaches the
-wall by wave 11 and plateaus at 7–14 works; carpet the forward zone in mines and it
-takes until wave 35 while the belt is consumed getting there.
+At 557 the deepest work bottoms out at 572 and his shallowest defense (`placementMinX`'s
+`DEPLOY_X + 12`) tops out at 587 — 15px clear with no box overlap anywhere, and every
+sampled spot behind his line still buildable (this 15px is a property of `IT_WORK_DEPLOY_MARGIN`
+and the two box half-widths alone, so it holds for any `DEPLOY_X` — verified unchanged
+when `DEPLOY_X` moved 380->587 for the even-thirds rebalance, see the note on it in
+constants.js). Below ~27 of margin the two start denying each other ground. The rate
+limit is not the wall but the walk: `IT_FRONT_X_START` (64, unmoved — it's anchored near
+the enemy's own edge, not the deploy line) is now ~493 short of the wall rather than
+~286, so the creep takes noticeably more waves to reach it than the wave-11 figure
+measured before the rebalance; carpet the forward zone in mines and it takes even
+longer while the belt is consumed getting there.
 
 That mine interaction is why `buildSiteClear` tests **box vs box** (plus
 `IT_SITE_CLEAR` as a gap) rather than the flat centre-radius it used while the wall sat
@@ -766,7 +773,7 @@ Four things about it that are load-bearing:
 - **It deliberately does NOT carry `tank`.** At ×0.04 vs small arms, 3000 HP is
   ~937 seconds against a rifle line and 3.4 shells for an AT battery —
   simultaneously impossible and trivial, one answer, no decision. It is hard to
-  REACH instead: standing at x 92–128 it sits outside rifleman (154), gunner
+  REACH instead: standing at x 299–335 it sits outside rifleman (154), gunner
   (179), grenadier (231) and bazooka (243) range, so the artillery answer falls
   out of geometry for free while a player who walks men up to `FORWARD_X` can
   close and trade. If it dies too fast the lever is `AW_STAND_X_MIN`, never an

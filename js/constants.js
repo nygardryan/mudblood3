@@ -7,25 +7,30 @@
 // monitor instead of pillarboxing one. Mobile is what sets the ceiling: much
 // wider than this and a phone screen shorter/rounder than ~1.9:1 (the ratio
 // here) starts showing MORE letterbox on the sides than it saves, which is the
-// opposite of the point. The extra depth is spent entirely as backfield —
-// DEPLOY_X, FORWARD_X and every boss/weapon-range calibration below are still
-// the exact numbers they were against the old 620, so the front-line fight is
-// byte-for-byte the same fight, just with more room behind the trench to
-// spread support units into. Only the constants that are already `W - k` (the
-// bosses' rarely-hit outer safety clamps) grow with it, which is fine — they
-// exist to be a backstop past whatever's actually happening at the front.
+// opposite of the point.
 const W = 880, H = 460;        // W is the DEPTH axis (enemies march +x), H the lateral
 // formations below were authored against the original 900px-wide (lateral) field;
 // ly() rescales an offset-from-center so they keep their proportions on the
 // current lateral axis (screen-vertical now that the field runs left to right)
 const LAYOUT_REF_W = 900;
 function ly(off) { return H / 2 + off * (H / LAYOUT_REF_W); }
-const DEPLOY_X = 380;          // your side of the field starts here (deeper = closer to you)
-// Pinned rather than W/3: this is calibrated against DEPLOY_X (how far forward
-// of the trench mines/wire reach), not against the field's total depth, and it
-// must stay put while W grows so the front-line geometry doesn't stretch along
-// with the new backfield. 207 is the old W/3 (620/3) it was before pinning.
-const FORWARD_X = 207;
+// DEPLOY_X and FORWARD_X split the field into three roughly even thirds — the
+// enemy's own approach (0..FORWARD_X), no-man's-land (FORWARD_X..DEPLOY_X, where
+// mines/wire/camo nests reach but nothing else can be placed or walked past),
+// and the player's deploy zone (DEPLOY_X..W). They first shipped at 207/380
+// (the old field's W/3 and a hand-picked trench depth) and were PINNED there
+// when W grew 620->880 so the front-line fight wouldn't stretch — but that pin
+// is exactly what put ~57% of the field in the deploy zone and left the other
+// two zones cramped into ~20% each. Moving them back out to even thirds means
+// every absolute distance calibrated off the deploy line (boss backlines, the
+// Yamato's patrol band, the war train's parking spot, the walker's stand zone)
+// had to move by the same +207 the line itself moved, so those fights measure
+// out identically to how they did at DEPLOY_X=380 — see the comment on each.
+// Weapon ranges themselves are untouched: how many volleys a rifleman gets
+// before contact is a front-line tuning question, independent of how much open
+// ground sits beyond FORWARD_X now that no-man's-land is wider.
+const DEPLOY_X = 587;          // your side of the field starts here (deeper = closer to you)
+const FORWARD_X = 293;
 const MAX_BREACH = 8;
 const MAX_OFFICERS = 5;
 const MEDIC_RANGE = 95;
@@ -285,12 +290,14 @@ const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points
 // It sat at 54 first, which LOOKED right and was useless: a mortar (range 348)
 // placed anywhere sane is ~446px away from there, so nothing could touch him
 // and the fight had no punish window at all. A mortar (range 348) staked at the
-// back of the deploy zone sits at x~558, so the rally point has to be at least
-// 210 for a shell to reach it — 200 was still 10px short and measured zero
-// damage taken during rally. 220 gives margin: any mortar up to x=568 can
+// back of the deploy zone sits at x~765, so the rally point has to be at least
+// 417 for a shell to reach it — 407 was still 10px short and measured zero
+// damage taken during rally. 427 gives margin: any mortar up to x=775 can
 // range him, and he's still pulled well back off wherever he was actually
 // fighting (BOSS_ENGAGE_X is a rarely-hit outer fallback, not where he
-// typically engages — see the note on it below).
+// typically engages — see the note on it below). Translated +207 alongside
+// DEPLOY_X's move to even thirds (see the note on it) — same mortar, same
+// margin, just measured off the new deploy line.
 const BOSS_WAVE_INTERVAL = 100;      // arrives at wave 100, 200, 300...
 const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
 // Plate refilled at every backline rally. These have to stay BELOW what a line
@@ -309,7 +316,7 @@ const BOSS_LANES = [0.12, 0.31, 0.5, 0.69, 0.88];  // × H — lateral advance c
 // walk before giving up and retreating, not a deeper fight.
 const BOSS_ENGAGE_X = W - 150;       // deepest he pushes hunting a target
 const BOSS_SAFE_X = W - 80;          // hard clamp — the boss can never breach
-const BOSS_BACKLINE_X = 220;         // rally point (see note above)
+const BOSS_BACKLINE_X = 427;         // rally point (see note above)
 const BOSS_RETREAT_SPEED_MULT = 1.5; // he jogs back, doesn't stroll
 const BOSS_RALLY_TIME = 3.5;         // seconds standing at the backline
 const BOSS_LOITER_TIME = 4;          // shots left but no target: wait, then fall back
@@ -373,17 +380,19 @@ const YAM_MG_B = 30;                 // tubs read as sponsons overhanging the be
 const YAM_SPEED = 14;
 const YAM_TURN_RATE = 0.25;          // rad/s — a 180° reversal takes ~12s: the punish window
 // The band she patrols decides which of the player's weapons can reach her at
-// all. From the deploy line (x~392) to a hull at 240 is 152px, so bazooka (243),
-// Sherman (262) and mortarman (348) all engage. Lift the band above x~130 and
+// all. From the deploy line (x~599) to a hull at 447 is 152px, so bazooka (243),
+// Sherman (262) and mortarman (348) all engage. Lift the band above x~337 and
 // bazookas fall out entirely, leaving an AT-gun-and-artillery-only problem.
-const YAM_X_MIN = 160, YAM_X_MAX = 240;
+// (Translated +207 alongside DEPLOY_X's move to even thirds — same weapons,
+// same margins, measured off the new deploy line.)
+const YAM_X_MIN = 367, YAM_X_MAX = 447;
 // A bound on every PART, not on the hull centre — which is the distinction that
 // matters, because a part sits up to 124px along the keel and swings 95px of that
-// into x on a steep diagonal. Clamping the centre to 240 alone let her stern reach
-// x=364, 124px deeper than intended. updateYamato subtracts the current x-reach
+// into x on a steep diagonal. Clamping the centre to 447 alone let her stern reach
+// x=571, 124px deeper than intended. updateYamato subtracts the current x-reach
 // from the centre clamp, so she can only push to YAM_X_MAX while she's flat and
-// has to pull back as she angles — DEPLOY_X is 380, so the line is never in reach.
-const YAM_SAFE_X = 300;
+// has to pull back as she angles — DEPLOY_X is 587, so the line is never in reach.
+const YAM_SAFE_X = 507;
 const YAM_Y_MARGIN = 140;            // hull-centre clamp; keeps every section on screen
 // The ROLL-IN. She used to be dropped fully formed at mid-field, which reads as a
 // 300px battleship materialising out of nothing. She now drives on from a random
@@ -1389,14 +1398,15 @@ const TRAIN_WAVE_INTERVAL = 100;     // arrives at wave 100, 200... (mirrors the
 const TRAIN_HP = 26000;              // the ENGINE pool — killing it ends the fight
 const TRAIN_SEGMENTS = 3;            // ONE pool, ticked into three; each break sounds the AVANTI
 const TRAIN_PART_RESIST = 0.33;      // the wagons' plate per intact segment — see bossPartDamageMult
-const TRAIN_SPEED = 9;               // px/s down the lane: ~70s from the treeline to the stop
+const TRAIN_SPEED = 9;               // px/s down the lane: ~96s from the treeline to the stop
 // Pinned rather than W - 70: this is calibrated against the deploy line (how
 // close the parked train sits to the player's actual trench, and hence how much
 // of its armament can reach back to it), not against the field's total depth —
 // letting it scale with W would park the train much deeper as the field grew,
-// putting it out of easy artillery reach for no reason. 550 is the old W - 70
-// (620 - 70) it was before pinning.
-const TRAIN_STOP_X = 550;
+// putting it out of easy artillery reach for no reason. Translated +207
+// alongside DEPLOY_X's move to even thirds, same as the other boss geometry
+// below it, so it still parks the same distance past the (new) deploy line.
+const TRAIN_STOP_X = 757;
 const TRAIN_SPACING = 46;            // wagon-to-wagon centre distance along the rails
 const TRAIN_LANE_MARGIN = 110;       // lane-centre clamp keeps every wagon + MG post on screen
 // consist, engine first: engine / turret wagon / infantry wagon / gun wagon /
@@ -1535,13 +1545,15 @@ Object.assign(ENEMY_TYPES, {
 // The one tuning decision worth writing down: it deliberately does NOT carry
 // `tank`. At x0.04 vs small arms, 3000 HP would take a rifle line ~937 seconds
 // and a prepared AT battery 3.4 shells — simultaneously impossible and trivial,
-// one answer, no decision. Instead it is hard to REACH: standing at x 92..128
-// it sits 252-288px off DEPLOY_X (380), outside rifleman (154), gunner (179),
+// one answer, no decision. Instead it is hard to REACH: standing at x 299..335
+// it sits 252-288px off DEPLOY_X (587), outside rifleman (154), gunner (179),
 // grenadier (231) and bazooka (243) range, so the artillery answer falls out of
 // geometry for free with the 3000 intact — while a player who walks his men up
 // to FORWARD_X can close inside rifle range and trade, standing in the open
 // inside a beam that reaches past the player's own edge. If it dies too fast, push
 // AW_STAND_X_MIN back (out of mortar range too), never add an armor multiplier.
+// (Translated +207 alongside DEPLOY_X's move to even thirds — same 252-288px
+// gap, same weapons falling in or out of it, measured off the new deploy line.)
 const AW_FIRST_WAVE = 666;
 const AW_HP = 3000;                  // 3x a Sherman (UNIT_TYPES.sherman.hp = 1000)
 const AW_SWEEP_DMG = 800;            // 80% of a Sherman, ONCE per actor per sweep
@@ -1562,7 +1574,7 @@ const AW_CD_MIN = 4.5, AW_CD_MAX = 7.0;
 const AW_BEAM_HALFW = 7;
 const AW_BEAM_MIN_R = 10;            // radius floor for that conversion
 const AW_WIRE_HALFW = 35;            // wire is a belt, not a point (mirrors purgeRadius)
-const AW_STAND_X_MIN = 92, AW_STAND_X_MAX = 128;  // its standing band; it never closes
+const AW_STAND_X_MIN = 299, AW_STAND_X_MAX = 335;  // its standing band; it never closes
 const AW_APPROACH_SPEED = 22, AW_PATROL_SPEED = 13;
 // The spawn roll: wave 666 is one, guaranteed. From 667 the chance climbs
 // linearly — linear because it's the only shape you can reason about three

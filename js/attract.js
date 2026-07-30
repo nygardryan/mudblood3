@@ -83,32 +83,36 @@ function attractWishlist() {
   const list = [];
   const push = (key, x, y) => list.push({ key, x: x + rand(-14, 14), y: y + rand(-10, 10) });
 
-  // a line of riflemen first, then the automatics that hold it
-  push('rifleman', 470, ly(-90));
-  push('rifleman', 470, ly(90));
-  push('sandbags', 430, ly(-70));
-  push('sandbags', 430, ly(70));
-  if (w >= 2) push('gunner', 462, ly(0));
-  if (w >= 3) push('rifleman', 486, ly(0));
-  if (w >= 4) push('medic', 500, ly(-30));
+  // a line of riflemen first, then the automatics that hold it. Positions past
+  // the forward line are hardcoded rather than DEPLOY_X-relative, so they were
+  // shifted by hand (+207) alongside DEPLOY_X's move for the even-thirds
+  // rebalance — placementMinX would otherwise strand every one of these short
+  // of the new deploy zone and silently reshuffle them via the radial fallback.
+  push('rifleman', 677, ly(-90));
+  push('rifleman', 677, ly(90));
+  push('sandbags', 637, ly(-70));
+  push('sandbags', 637, ly(70));
+  if (w >= 2) push('gunner', 669, ly(0));
+  if (w >= 3) push('rifleman', 693, ly(0));
+  if (w >= 4) push('medic', 707, ly(-30));
   if (w >= 5) push('wire', FORWARD_X + 60, ly(-60));
   if (w >= 5) push('wire', FORWARD_X + 60, ly(60));
-  if (w >= 6) push('gunner', 462, ly(-110));
+  if (w >= 6) push('gunner', 669, ly(-110));
   if (w >= 7) push('mine', FORWARD_X + 40, ly(0));
-  if (w >= 8) push('officer', 505, ly(20));
-  if (w >= 9) push('bunker', 420, ly(-40));
-  if (w >= 11) push('grenadier', 470, ly(40));
-  if (w >= 13) push('bazooka', 478, ly(-20));
-  if (w >= 15) push('watchtower', 430, ly(110));
-  if (w >= 17) push('mortarman', 500, ly(70));
-  if (w >= 20) push('sherman', 440, ly(0));
-  if (w >= 24) push('atgun', 440, ly(-120));
+  if (w >= 8) push('officer', 712, ly(20));
+  if (w >= 9) push('bunker', 627, ly(-40));
+  if (w >= 11) push('grenadier', 677, ly(40));
+  if (w >= 13) push('bazooka', 685, ly(-20));
+  if (w >= 15) push('watchtower', 637, ly(110));
+  if (w >= 17) push('mortarman', 707, ly(70));
+  if (w >= 20) push('sherman', 647, ly(0));
+  if (w >= 24) push('atgun', 647, ly(-120));
   // past the scripted opening it just keeps reinforcing — the demo is a
   // background, so it never has to win
   if (w >= 26) {
-    push('rifleman', 470, ly(rand(-130, 130)));
-    push('sandbags', 428, ly(rand(-120, 120)));
-    if (w % 3 === 0) push('gunner', 460, ly(rand(-110, 110)));
+    push('rifleman', 677, ly(rand(-130, 130)));
+    push('sandbags', 635, ly(rand(-120, 120)));
+    if (w % 3 === 0) push('gunner', 667, ly(rand(-110, 110)));
   }
   return list;
 }

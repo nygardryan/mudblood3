@@ -32,7 +32,11 @@ const RUN_SAVE_KEY = 'twRunSave';
 // v3: the field grew from 620x540 to 880x460 — old positions (especially
 // lateral ones, now scaled against a shorter H) would resume into nonsense,
 // so v2 blobs discard the same way v1 does.
-const RUN_SAVE_VERSION = 3;
+// v4: DEPLOY_X/FORWARD_X moved from 380/207 to 587/293 for the even-thirds
+// zone rebalance — a v3 save's defense line would resume sitting in the
+// middle of the new no-man's-land instead of the deploy zone, so v3 blobs
+// discard the same way.
+const RUN_SAVE_VERSION = 4;
 
 // undefined = not read yet, null = no (or discarded) save, object = parsed blob.
 // The menu reads this cache — never re-parses the full blob per refresh.

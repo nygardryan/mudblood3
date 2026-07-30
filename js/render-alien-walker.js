@@ -33,8 +33,8 @@ const AWK_GLOW_DIM = '#2b7f8c';
 const AWK_HOT = '#eafeff';
 
 // One leg, in the walker's local frame: origin under the hull, +y down the
-// screen, +x the direction of travel via `fwd`. `phase` is this leg's point in
-// the cycle, 0..1.
+// screen, and (tx, ty) the unit heading the stride is laid along. `phase` is
+// this leg's point in the cycle, 0..1.
 //
 // The stance branch is the whole trick. walkT advances by (distance moved /
 // AW_STRIDE), and stance occupies AW_DUTY of the cycle against AW_DUTY *
@@ -42,32 +42,46 @@ const AWK_HOT = '#eafeff';
 // exactly cancels the body's motion and the foot does not move in the world.
 // There is no sine in the stance at all: a sine here is precisely what makes
 // every attempt at a walk cycle look like a table jiggling its legs.
-function awLeg(c, hx, hy, gy, phase, fwd) {
+//
+// The heading is a VECTOR and not a sign, and that is what the landscape flip
+// broke: the walker closes on +x but then paces on ±y, so a scalar forward/back
+// planted every foot along x while the body travelled along y and the
+// cancellation above bought nothing. The painter is unrotated, so local axes ARE
+// screen axes and the body's displacement lands in local coords unchanged —
+// stepping the foot along the same vector cancels it on both axes for free.
+function awLeg(c, hx, hy, gy, phase, tx, ty, knee) {
   const ex = AW_STRIDE * AW_DUTY;                 // stance excursion
   let fx, fy;
   if (phase < AW_DUTY) {
     const s = phase / AW_DUTY;                    // 0..1 through the plant
-    fx = hx + fwd * ex * (0.5 - s);
-    fy = gy;                                      // no lift: it is ON the ground
+    const t = ex * (0.5 - s);
+    fx = hx + tx * t;
+    fy = gy + ty * t;                             // no lift: it is ON the ground
   } else {
     const s = (phase - AW_DUTY) / (1 - AW_DUTY);
     // smoothstep, so the foot snaps forward and SETTLES. A linear recovery
     // reads as a drift rather than as a step being taken.
     const k = s * s * (3 - 2 * s);
-    fx = hx + fwd * ex * (k - 0.5);
-    fy = gy - Math.sin(s * Math.PI) * AW_LIFT;
+    const t = ex * (k - 0.5);
+    fx = hx + tx * t;
+    fy = gy + ty * t - Math.sin(s * Math.PI) * AW_LIFT;
   }
 
-  // Two-bone IK, law of cosines. `base + bend * fwd` forces the knee BACKWARD
+  // Two-bone IK, law of cosines. `base + bend * knee` forces the knee BACKWARD
   // and up every time: a reverse knee is the single thing separating a walker
   // from a table with legs, and picking the elbow solution by sign means it can
   // never flip mid-stride the way a min-y comparison between the two would.
+  // `knee` is deliberately taken off the heading's SCREEN-X sign alone and not
+  // recomputed per frame from the hip-foot line: pacing laterally puts the leg
+  // edge-on to the camera, where both elbow solutions project onto the same
+  // line and any per-frame choice flips — the walker holds the orientation it
+  // approached on instead, and the leg simply reads foreshortened.
   const dx = fx - hx, dy = fy - hy;
   const d = Math.max(0.01, Math.min(Math.hypot(dx, dy), AW_THIGH + AW_SHIN - 0.01));
   const base = Math.atan2(dy, dx);
   const bend = Math.acos(clamp(
     (d * d + AW_THIGH * AW_THIGH - AW_SHIN * AW_SHIN) / (2 * d * AW_THIGH), -1, 1));
-  const ka = base + bend * fwd;
+  const ka = base + bend * knee;
   const kx = hx + Math.cos(ka) * AW_THIGH;
   const ky = hy + Math.sin(ka) * AW_THIGH;
 
@@ -142,7 +156,13 @@ function awHull(c, bob, charge) {
 // would be an undefined feeding straight into a transform.
 function paintAlienWalker(c, a) {
   const walk = a.walkT || 0;
-  const fwd = (a.awLane || 1) >= 0 ? 1 : -1;
+  // heading of travel, stamped by awStep (js/update-enemies.js). Straight
+  // down-field is the fallback: it is what the codex portrait's stub actor and a
+  // walker that has not taken its first step both want, and it is the heading
+  // every walker arrives on.
+  let tx = a.awGaitX, ty = a.awGaitY;
+  if (!(Math.abs(tx) + Math.abs(ty) > 0)) { tx = 1; ty = 0; }
+  const knee = tx < 0 ? -1 : 1;
   const charge = a.awPhase === 'charge'
     ? clamp(1 - (a.awT || 0) / AW_CHARGE_T, 0, 1)
     : a.awPhase === 'sweep' ? 1 : 0;
@@ -160,10 +180,10 @@ function paintAlienWalker(c, a) {
   // Far leg FIRST, so it reads as being on the other side of the hull. The
   // offsets are 1/3 apart, which against AW_DUTY = 2/3 puts exactly one foot in
   // the air at every instant — the gait never has a moment of ambiguity.
-  awLeg(c, 0, AW_HULL_Y + bob + 6, gy, (walk + 1 / 3) % 1, fwd);
+  awLeg(c, 0, AW_HULL_Y + bob + 6, gy, (walk + 1 / 3) % 1, tx, ty, knee);
   awHull(c, bob, charge);
-  awLeg(c, -AW_HIP_R, AW_HULL_Y + bob + 9, gy, (walk + 2 / 3) % 1, fwd);
-  awLeg(c, AW_HIP_R, AW_HULL_Y + bob + 9, gy, walk, fwd);
+  awLeg(c, -AW_HIP_R, AW_HULL_Y + bob + 9, gy, (walk + 2 / 3) % 1, tx, ty, knee);
+  awLeg(c, AW_HIP_R, AW_HULL_Y + bob + 9, gy, walk, tx, ty, knee);
   c.restore();
 }
 

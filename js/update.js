@@ -79,8 +79,9 @@ function update(dt) {
       // The same gate every other scan carries. `chute` was here already; the
       // other two were not, and the Yamato's roll-in is what makes that a real
       // loss rather than a tidiness point. Mines lay as far up as FORWARD_X
-      // (207, placementMinX) and she rolls in across x 160-240, so a flank
-      // minefield sits directly on her entry lane — but damageEnemy early-returns
+      // (placementMinX) and she rolls in on a fixed x — (YAM_X_MIN+YAM_X_MAX)/2,
+      // with her tubs YAM_MG_B abeam of it — so a flank minefield sits directly
+      // on her entry lane, well inside mine range. But damageEnemy early-returns
       // on `entering`, so every mine she and her ten parts touched detonated for
       // ZERO damage before she was even shootable. Measured: 14 of 20 legally
       // bought mines gone, 0 damage to the ship, in the 5s of her roll-in.

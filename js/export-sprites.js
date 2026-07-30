@@ -313,7 +313,9 @@ function spriteDefs() {
     w: 88, h: 96, ax: 44, ay: 52,
     orientation: 'upright, feet on the ground plane at local y = ' + AW_GROUND_Y,
     note: 'exported mid-stride at phase 0; the walk cycle stays procedural',
-    bake: (c) => paintAlienWalker(c, { walkT: 0, awLane: 1, awPhase: 'approach', awT: 0 }),
+    bake: (c) => paintAlienWalker(c, {
+      walkT: 0, awGaitX: 1, awGaitY: 0, awPhase: 'approach', awT: 0,
+    }),
   });
 
   /* defenses -------------------------------------------------------------- */

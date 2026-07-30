@@ -2557,7 +2557,16 @@ function awStep(e, dt) {
     if (e.y < 60 || e.y > H - 60) e.awLane = -e.awLane;
     e.y += e.awLane * AW_PATROL_SPEED * dt;
   }
-  return Math.hypot(e.x - x0, e.y - y0);
+  const dx = e.x - x0, dy = e.y - y0;
+  const d = Math.hypot(dx, dy);
+  // The direction the gait is laid along, stamped here because THIS is the only
+  // code that decides it. It has to be the real 2D heading: the walker closes on
+  // +x and then paces on ±y, and awLeg was reading a scalar sign off awLane, so
+  // for the whole patrol the feet planted along x while the body slid along y —
+  // a moonwalk. Held between ticks (a walker planted to fire keeps the heading
+  // it arrived on) and it rides the run save as a plain number pair.
+  if (d > 0) { e.awGaitX = dx / d; e.awGaitY = dy / d; }
+  return d;
 }
 
 // Lay the arc for the coming sweep. At 2.4 rad the centring barely changes WHAT

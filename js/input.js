@@ -17,12 +17,17 @@ let dummySeq = 0;
 function minefieldPositions(cx, cy) {
   // Tight X pattern: center mine plus one on each diagonal. Mines are immune
   // to explosives now, so there's no chain radius to space them around.
+  // The belt lies ACROSS the advance like every other emplacement, so the
+  // WIDER spread is the lateral one (y) and the shallower one the depth (x) —
+  // the two were left in their pre-flip roles by the landscape re-author, which
+  // made a minefield deeper than it was wide: it presented a narrow face to the
+  // men walking into it, and cost 4 extra px of depth clearance off FORWARD_X.
   return [
     { x: cx, y: cy },
-    { x: cx + 26, y: cy - 22 },
-    { x: cx - 26, y: cy - 22 },
-    { x: cx + 26, y: cy + 22 },
-    { x: cx - 26, y: cy + 22 },
+    { x: cx + 22, y: cy - 26 },
+    { x: cx - 22, y: cy - 26 },
+    { x: cx + 22, y: cy + 26 },
+    { x: cx - 22, y: cy + 26 },
   ];
 }
 

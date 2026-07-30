@@ -129,27 +129,17 @@ function fitLayout() {
 }
 
 function syncToolbarLayout() {
-  const hudEl = el('hud');
   const bar = el('toolbar');
-  if (!hudEl || !bar) return;
+  if (!bar) return;
   syncMobileChrome();
-  if (portraitMobile()) {
-    bar.style.top = 'auto';
-    bar.style.bottom = '0';
-    bar.style.left = '0';
-    bar.style.right = '0';
-    bar.style.maxHeight = '';
-    return;
-  }
-  bar.style.left = touchUI() ? '3px' : '4px';
-  bar.style.right = 'auto';
-  // #hud is offset 6px from the stage top; keep a small gap below the wrapped HUD rows
-  const top = 6 + hudEl.offsetHeight + 6;
-  bar.style.top = top + 'px';
-  // shrink-wrap to the buttons instead of spanning to the bottom edge — the empty
-  // column below the last button would otherwise swallow clicks meant for the map
-  bar.style.bottom = 'auto';
-  bar.style.maxHeight = `calc(100% - ${top + (touchUI() ? 22 : 28)}px)`;
+  // the toolbar is a bottom horizontal scroller on every form factor now —
+  // CSS owns its geometry. Clear any inline overrides an older layout pass
+  // (or a hot-reload from the previous left-column layout) left behind.
+  bar.style.top = '';
+  bar.style.bottom = '';
+  bar.style.left = '';
+  bar.style.right = '';
+  bar.style.maxHeight = '';
 }
 
 // the wave/breach plates carry a static micro-label span + a dynamic value span

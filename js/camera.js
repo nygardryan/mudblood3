@@ -3,7 +3,10 @@
 'use strict';
 
 function mobileViewActive() {
-  return touchUI() && window.innerWidth <= 768;
+  // min of the two, not innerWidth: a phone held LANDSCAPE (the game's home
+  // orientation now) reports innerWidth ~812 and would otherwise be classed
+  // as a desktop — no touch camera, no mobile chrome
+  return touchUI() && Math.min(window.innerWidth, window.innerHeight) <= 768;
 }
 
 // the world->screen transform applies on mobile, and everywhere while the
@@ -114,8 +117,10 @@ function edgeAutoPan(clientX, clientY) {
     if (r.right - clientX < margin) { viewCam.x += speed; moved = true; }
   }
   if (viewH < H - 1) {
-    const topMargin = margin + (portraitMobile() ? 36 : 0);
-    const bottomMargin = margin + (portraitMobile() ? 56 : 0);
+    // the HUD owns the top edge and the toolbar the bottom on every mobile
+    // layout now, so both margins carry the chrome allowance unconditionally
+    const topMargin = margin + 36;
+    const bottomMargin = margin + 56;
     if (clientY - r.top < topMargin) { viewCam.y -= speed; moved = true; }
     if (r.bottom - clientY < bottomMargin) { viewCam.y += speed; moved = true; }
   }
@@ -219,19 +224,35 @@ function applyViewGesture() {
   syncViewStrip();
 }
 
-// mini-map strip showing which slice of the field the mobile camera covers
+// mini-map strip showing which slice of the field the mobile camera covers.
+// Axis-aware since the landscape flip: when the DEPTH axis overflows the view
+// it runs horizontally along the top edge as before; when only the LATERAL
+// axis overflows (a landscape phone above containZoom pans up/down) it stands
+// vertically against the right edge instead.
 function syncViewStrip() {
   const strip = el('view-strip');
   const win = el('view-strip-window');
   if (!strip || !win) return;
-  const { viewW } = viewSize();
-  // only meaningful when the field is wider than the view — if it all fits,
-  // there's nothing to pan to, so the strip would just be a dead full-width bar
-  const on = mobileViewActive() && isPlaying() && !paused && viewW < W - 1;
+  const { viewW, viewH } = viewSize();
+  const panX = viewW < W - 1;
+  const panY = viewH < H - 1;
+  // only meaningful when the field overflows the view on some axis — if it
+  // all fits, there's nothing to pan to and the strip would be a dead bar
+  const on = mobileViewActive() && isPlaying() && !paused && (panX || panY);
   strip.classList.toggle('hidden', !on);
   if (!on) return;
-  win.style.width = (viewW / W * 100) + '%';
-  win.style.left = (viewCam.x / W * 100) + '%';
+  strip.classList.toggle('view-strip--v', !panX && panY);
+  if (panX) {
+    win.style.width = (viewW / W * 100) + '%';
+    win.style.left = (viewCam.x / W * 100) + '%';
+    win.style.height = '';
+    win.style.top = '';
+  } else {
+    win.style.height = (viewH / H * 100) + '%';
+    win.style.top = (viewCam.y / H * 100) + '%';
+    win.style.width = '';
+    win.style.left = '';
+  }
 }
 
 function syncMobileViewUI() {

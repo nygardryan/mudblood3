@@ -49,15 +49,17 @@ body {
   background: #5c5a3f;
   --tool-scale: 1;
 }
-/* on small mobile screens, shrink tool buttons to fit */
+/* on short viewports, shrink tool buttons to fit. The toolbar is a bottom
+   bar now, so this only trims the bar's height — floors at 0.75 to keep
+   touch targets ~33px on landscape phones */
 @media (max-height: 700px) {
-  #stage { --tool-scale: 0.85; }
+  #stage { --tool-scale: 0.9; }
 }
 @media (max-height: 600px) {
-  #stage { --tool-scale: 0.72; }
+  #stage { --tool-scale: 0.8; }
 }
 @media (max-height: 500px) {
-  #stage { --tool-scale: 0.60; }
+  #stage { --tool-scale: 0.75; }
 }
 
 #game {
@@ -249,10 +251,15 @@ body {
 
 #tipbar {
   position: absolute;
-  bottom: 4px; left: 4px; right: 4px;
+  bottom: 2px; left: 4px; right: 4px;
   text-align: center;
   font-size: clamp(9px, 2.4vw, 11px);
   line-height: 1.35;
+  /* one line only: the strip under the toolbar is 18px tall, and a wrapped
+     tip would climb up behind the bar */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: rgba(230, 225, 190, .55);
   text-shadow: 1px 1px 0 rgba(0,0,0,.7);
   pointer-events: none;
@@ -262,7 +269,7 @@ body {
 
 #tutorial-msg {
   position: absolute;
-  left: 50%; bottom: 64px;
+  left: 50%; bottom: calc(28px + 58px * var(--tool-scale));
   transform: translateX(-50%);
   max-width: 78%;
   padding: 10px 16px;
@@ -311,6 +318,25 @@ body {
   background: rgba(255, 217, 74, 0.75);
   border-radius: 0 0 2px 2px;
   min-width: 8%;
+}
+/* lateral panning (a landscape phone above containZoom): the strip stands
+   against the right edge and the window slides vertically */
+#view-strip.view-strip--v {
+  top: 0;
+  bottom: 0;
+  left: auto;
+  right: 0;
+  width: 4px;
+  height: auto;
+}
+#view-strip.view-strip--v #view-strip-window {
+  left: auto;
+  right: 0;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 8%;
+  border-radius: 2px 0 0 2px;
 }
 
 #mobile-actions {
@@ -365,34 +391,38 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ---- Toolbar (left edge, vertical) ---- */
+/* ---- Toolbar (bottom edge, horizontal scroller — every form factor) ---- */
 #toolbar {
   position: absolute;
-  top: 52px; /* overridden by syncToolbarLayout() once HUD height is known */
-  left: 4px;
-  bottom: 28px;
-  width: calc(72px * var(--tool-scale));
+  left: 0;
+  right: 0;
+  bottom: 18px; /* the tipbar line sits in the strip beneath */
+  width: auto;
+  max-height: calc(58px * var(--tool-scale));
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   flex-wrap: nowrap;
   gap: 4px;
   align-items: stretch;
+  /* `safe` keeps a bar that overflows scrollable from its start instead of
+     clipping the left half off-screen */
+  justify-content: safe center;
   pointer-events: auto;
   z-index: 5;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding: 2px 0;
+  padding: 2px 6px calc(2px + env(safe-area-inset-bottom, 0));
 }
 #toolbar::-webkit-scrollbar { display: none; }
 #toolbar.hidden { display: none; }
 /* while placing, the bar collapses to BACK + the unit being built, so it keeps
-   the left edge of the map clear */
+   the bottom edge of the map clear */
 #toolbar.toolbar-placing,
-#toolbar.toolbar-collapsed { width: calc(66px * var(--tool-scale)); }
+#toolbar.toolbar-collapsed { max-height: calc(52px * var(--tool-scale)); }
 .tool-btn {
   background: rgba(38, 36, 23, .92);
   border: 2px solid #4a4836;
@@ -404,7 +434,8 @@ body {
   text-align: center;
   line-height: 1.25;
   min-height: calc(40px * var(--tool-scale));
-  width: 100%;
+  min-width: calc(62px * var(--tool-scale));
+  width: auto;
   pointer-events: auto;
   flex: 0 0 auto;
 }
@@ -419,17 +450,8 @@ body {
 /* sticky back button — stays visible while scrolling through the category list */
 .tool-back-btn {
   position: sticky;
+  left: 0;
   z-index: 2;
-}
-/* desktop/landscape: sticky at top of vertical scroll */
-#toolbar:not(#stage.mobile-portrait #toolbar) .tool-back-btn {
-  top: 0;
-  left: 0;
-}
-/* mobile portrait: sticky at left of horizontal scroll */
-#stage.mobile-portrait #toolbar .tool-back-btn {
-  left: 0;
-  top: auto;
 }
 .tool-btn:disabled {
   opacity: .38;
@@ -459,9 +481,6 @@ body {
 .tool-back-btn:hover { border-color: #a49f7d; }
 
 @media (max-width: 700px) {
-  #toolbar {
-    width: calc(68px * var(--tool-scale));
-  }
   .tool-btn {
     font-size: calc(8px * var(--tool-scale));
     padding: calc(6px * var(--tool-scale)) calc(2px * var(--tool-scale));
@@ -471,8 +490,7 @@ body {
 
 @media (orientation: landscape) and (max-height: 520px) and (hover: none) {
   #toolbar {
-    bottom: 22px;
-    width: calc(64px * var(--tool-scale));
+    bottom: 18px;
     gap: 3px;
   }
   .tool-btn {
@@ -2373,7 +2391,7 @@ input[type="range"]::-moz-range-track {
   padding: 10px 28px;
 }
 
-@media (max-width: 768px) and (hover: none) {
+@media (hover: none) and (max-width: 768px), (hover: none) and (max-height: 500px) {
   :root {
     --frame-pad-y: 0;
   }
@@ -2402,78 +2420,17 @@ input[type="range"]::-moz-range-track {
   }
 
   #toolbar {
-    top: 48px;
-    left: 3px;
-    bottom: 22px;
-    width: calc(60px * var(--tool-scale));
     gap: 3px;
+    padding: 3px 5px calc(3px + env(safe-area-inset-bottom, 0));
   }
 
-  #toolbar.toolbar-placing {
-    width: calc(56px * var(--tool-scale));
-  }
-
-  #stage.mobile-portrait #toolbar {
-    top: auto;
-    left: 0;
-    right: 0;
-    bottom: 80px;
-    width: auto;
-    max-height: calc(58px * var(--tool-scale));
-    flex-direction: row;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 4px 6px calc(20px + env(safe-area-inset-bottom, 0));
-    gap: 4px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  #stage.mobile-portrait #toolbar .tool-btn {
-    min-width: calc(62px * var(--tool-scale));
-    width: auto;
-    flex: 0 0 auto;
+  .tool-btn {
     min-height: calc(44px * var(--tool-scale));
     padding: calc(5px * var(--tool-scale)) calc(6px * var(--tool-scale));
   }
 
-  #stage.mobile-portrait #toolbar .tool-cat-btn {
+  .tool-cat-btn {
     min-width: calc(88px * var(--tool-scale));
-  }
-
-  #stage.mobile-portrait #toolbar.toolbar-placing {
-    width: auto;
-    max-height: calc(52px * var(--tool-scale));
-    justify-content: flex-start;
-  }
-
-  #stage.mobile-portrait #toolbar.toolbar-placing .tool-btn {
-    min-width: calc(72px * var(--tool-scale));
-  }
-
-  #stage.mobile-portrait #tipbar {
-    bottom: calc(54px * var(--tool-scale) + env(safe-area-inset-bottom, 0));
-    left: 4px;
-    right: 4px;
-  }
-
-  #stage.mobile-portrait #tutorial-msg {
-    bottom: calc(70px * var(--tool-scale) + env(safe-area-inset-bottom, 0));
-    max-width: 92%;
-  }
-
-  #stage.mobile-portrait #mobile-actions {
-    bottom: calc(54px * var(--tool-scale) + env(safe-area-inset-bottom, 0));
-  }
-
-  #stage.mobile-portrait #view-strip {
-    top: auto;
-    bottom: calc(52px * var(--tool-scale) + env(safe-area-inset-bottom, 0));
-  }
-
-  #stage:not(.mobile-portrait) #mobile-actions {
-    bottom: 8px;
-    right: 8px;
   }
 
   #tipbar {

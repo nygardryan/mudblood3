@@ -52,6 +52,21 @@
 
     <div id="view-strip" class="hidden" aria-hidden="true"><div id="view-strip-window"></div></div>
 
+    <!-- rotate-to-landscape hint: pure CSS — visible only under
+         #stage.mobile-portrait (synced by syncMobileChrome off portraitMobile()),
+         so it appears in portrait and vanishes on rotation with no JS of its
+         own. pointer-events: none — portrait play is supported (contain zoom),
+         this is advice, not a wall. -->
+    <div id="rotate-hint" aria-hidden="true">
+      <svg viewBox="0 0 48 48" width="44" height="44">
+        <rect class="rh-phone" x="16" y="8" width="16" height="30" rx="3"></rect>
+        <circle class="rh-dot" cx="24" cy="33.5" r="1.4"></circle>
+        <path class="rh-arrow" d="M 36 12 A 17 17 0 0 1 41 24" fill="none"></path>
+        <path class="rh-arrow" d="M 41.4 19 L 41 24 L 37 21.5" fill="none"></path>
+      </svg>
+      <div class="rh-text">ROTATE YOUR PHONE<span class="rh-sub">best played in landscape</span></div>
+    </div>
+
     <div id="mobile-actions" class="hidden">
       <button type="button" id="mobile-deselect">DESELECT</button>
       <button type="button" id="mobile-shop">SHOP</button>

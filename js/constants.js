@@ -1152,7 +1152,7 @@ const IT_WORK_DEPLOY_MARGIN = 30;    // ...and how far short of the deploy line 
                                      // THE tuning lever for how far the creep gets: it is
                                      // the only thing standing between an Italian parapet
                                      // and the player's trench.
-const IT_WORK_MAX_X = DEPLOY_X - IT_WORK_DEPLOY_MARGIN;  // 350: the DEPTH WALL. The creep
+const IT_WORK_MAX_X = DEPLOY_X - IT_WORK_DEPLOY_MARGIN;  // 472: the DEPTH WALL. The creep
                                      // runs THROUGH the forward line and stops just short
                                      // of DEPLOY_X, so the Regio Esercito ends a long run
                                      // dug in on the player's doorstep — which is the whole
@@ -1161,27 +1161,31 @@ const IT_WORK_MAX_X = DEPLOY_X - IT_WORK_DEPLOY_MARGIN;  // 350: the DEPTH WALL.
                                      // What the wall still guards is the player's BUILD
                                      // POCKET, and only that: forEachEmplacement walks
                                      // G.itWorks, so a work inside the pocket is ground the
-                                     // player can no longer put a bunker on. At 350 the
-                                     // deepest work (the tower, hw 15) bottoms out at 365
+                                     // player can no longer put a bunker on. At 472 the
+                                     // deepest work (the tower, hw 15) bottoms out at 487
                                      // and the shallowest player defense — placementMinX's
-                                     // DEPLOY_X + 12, hw 12 — tops out at 380, so the two
+                                     // DEPLOY_X + 12, hw 12 — tops out at 502, so the two
                                      // can never overlap. Move the margin below ~27 and they
                                      // start denying each other ground at the trench lip.
+                                     // That 15px of daylight is (margin - 15) and so is a
+                                     // property of the margin and the two half-widths ALONE,
+                                     // which is why it has survived both zone rebalances
+                                     // unchanged — re-verify it, don't re-derive it.
                                      //
-                                     // The creep is ~8 steps from IT_FRONT_X_START now
+                                     // The creep is ~9-16 steps from IT_FRONT_X_START now
                                      // rather than 3-4, and every one of them has to be dug
                                      // by a sapper who walked that far down the field under
                                      // fire. That is deliberately the rate limit: the front
                                      // advances only as fast as guastatori survive to stake
                                      // it, so a player who kills sappers keeps his ground
                                      // without ever shooting a work. Deep works are also
-                                     // EASIER to answer — a parapet at 350 is inside
+                                     // EASIER to answer — a parapet at 472 is inside
                                      // grenadier and bazooka reach from the deploy line,
                                      // where one at 182 was not.
 const IT_FRONT_X_START = 64;         // where the first line goes up, and where the
                                      // front resets to if the player levels every work
 const IT_CREEP_MIN = 26;             // how much further forward each new work is sited
-const IT_CREEP_MAX = 46;             // than the current deepest one — 3-4 steps to the wall
+const IT_CREEP_MAX = 46;             // than the current deepest one — 9-16 steps to the wall
 const IT_WORK_SPACING = 46;          // minimum gap between two works
 const IT_SITE_CLEAR = 8;             // and the GAP a site keeps between its own box and the
                                      // player's emplacements. A margin on a box-vs-box test
@@ -1413,9 +1417,12 @@ const TRAIN_SPEED = 9;               // px/s down the lane: ~75s from the treeli
 // close the parked train sits to the player's actual trench, and hence how much
 // of its armament can reach back to it), not against the field's total depth —
 // letting it scale with W would park the train much deeper as the field grew,
-// putting it out of easy artillery reach for no reason. Translated +207
-// alongside DEPLOY_X's move to even thirds, same as the other boss geometry
-// below it, so it still parks the same distance past the (new) deploy line.
+// putting it out of easy artillery reach for no reason. It is TRANSLATED by
+// hand every time DEPLOY_X moves, same as the other boss geometry below it, so
+// it keeps parking the same distance past the deploy line: DEPLOY_X + 170
+// through all three positions so far (380 -> 550, 587 -> 757, 502 -> 672).
+// Move DEPLOY_X and this has to move with it or the train parks somewhere it
+// was never balanced for.
 const TRAIN_STOP_X = 672;
 const TRAIN_SPACING = 46;            // wagon-to-wagon centre distance along the rails
 const TRAIN_LANE_MARGIN = 110;       // lane-centre clamp keeps every wagon + MG post on screen

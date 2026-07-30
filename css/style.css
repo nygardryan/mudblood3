@@ -345,6 +345,87 @@ body {
   border-radius: 2px 0 0 2px;
 }
 
+/* rotate-to-landscape hint — a dispatch plate in the banner's voice, shown
+   only while #stage carries .mobile-portrait (portraitMobile(), synced by
+   syncMobileChrome). z-index 12 so it reads over the menu (#intro at 10, the
+   dossier at 11); pointer-events none because portrait is playable (contain
+   zoom) — this advises, it never blocks. Sits at 24% down: below the HUD, in
+   the letterbox above the contained field strip, clear of #intro's title
+   marquee on any phone-tall screen. */
+#rotate-hint {
+  display: none;
+  position: absolute;
+  top: 24%;
+  left: 50%;
+  translate: -50% 0;
+  width: max-content;
+  max-width: 92%;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 22px;
+  background: linear-gradient(180deg, rgba(20, 18, 11, .88), rgba(9, 8, 5, .92));
+  border-top: 2px solid #e8873a;
+  border-bottom: 2px solid #e8873a;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .5), inset 0 0 26px rgba(232, 135, 58, .1);
+  pointer-events: none;
+  z-index: 12;
+}
+/* slides in, holds ~7s, fades away — portrait is a choice the game honours, so
+   the hint must not nag. display:none -> flex restarts the animations, so each
+   re-entry into portrait shows it fresh. */
+#stage.mobile-portrait #rotate-hint {
+  display: flex;
+  animation: rotateHintIn .4s ease both, rotateHintOut .6s ease 7s forwards;
+}
+@keyframes rotateHintIn {
+  from { opacity: 0; translate: -50% 8px; }
+  to   { opacity: 1; translate: -50% 0; }
+}
+@keyframes rotateHintOut {
+  to { opacity: 0; visibility: hidden; }
+}
+#rotate-hint .rh-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: 'Saira Stencil One', 'Barlow Condensed', sans-serif;
+  font-size: clamp(15px, 4.6vw, 22px);
+  letter-spacing: clamp(1px, .7vw, 2.5px);
+  color: #f6d99a;
+  text-shadow: 2px 2px 0 #000;
+  white-space: nowrap;
+}
+#rotate-hint .rh-sub {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(10px, 2.8vw, 13px);
+  letter-spacing: 1px;
+  color: rgba(230, 225, 190, .6);
+  text-transform: uppercase;
+}
+#rotate-hint svg { flex: 0 0 auto; overflow: visible; }
+#rotate-hint .rh-phone {
+  fill: rgba(232, 135, 58, .12);
+  stroke: #e8873a;
+  stroke-width: 2;
+}
+#rotate-hint .rh-dot { fill: #e8873a; }
+#rotate-hint .rh-arrow {
+  stroke: #f6d99a;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* the phone tips to landscape, holds, and resets — the arrow shows the way */
+#rotate-hint svg { animation: rotatePhone 2.6s ease-in-out infinite; transform-origin: 24px 23px; }
+@keyframes rotatePhone {
+  0%, 18%  { transform: rotate(0deg); }
+  45%, 80% { transform: rotate(90deg); }
+  100%     { transform: rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #rotate-hint svg { animation: none; transform: rotate(90deg); }
+}
+
 #mobile-actions {
   position: absolute;
   right: calc(6px + env(safe-area-inset-right, 0px));

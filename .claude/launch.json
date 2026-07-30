@@ -6,9 +6,9 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
-        "python3 -m http.server $PORT"
+        "python3 .claude/serve-nocache.py $PORT"
       ],
-      "port": 8377,
+      "port": 8381,
       "autoPort": true
     }
   ]

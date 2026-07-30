@@ -545,7 +545,9 @@ function renderPortrait(typeKey, side) {
       ? makeUnit(typeKey, CODEX_PW / 2, CODEX_PH / 2 + 6)
       : makeEnemy(typeKey, CODEX_PW / 2, CODEX_PH / 2 + 6);
     actor.hp = actor.maxhp;
-    actor.face = side === 'us' ? -Math.PI / 2 : Math.PI / 2;
+    // portraits face the way the field does now: your men look up-field (left),
+    // the enemy looks down-field (right)
+    actor.face = side === 'us' ? Math.PI : 0;
     actor.turret = actor.face;
 
     const t = actor.t;
@@ -574,6 +576,7 @@ function renderPortrait(typeKey, side) {
       ctx.save();
       ctx.translate(CODEX_PW / 2, CODEX_PH / 2);
       ctx.scale(1.05, 1.05);
+      ctx.rotate(-Math.PI / 2);   // authored nose +y; face down-field like the live consist
       paintTrainEngine(ctx, actor);
       ctx.restore();
     } else if (t.awalker) {

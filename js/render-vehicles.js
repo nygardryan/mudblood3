@@ -830,7 +830,9 @@ function drawTank(a) {
   // reads as belonging to something else, and at the medium's 26 the bar would
   // sit ON the trailer, which is up-screen of the hull for an enemy.
   const tow = a.type === 'il3';
-  const hullRot = vehicleHullAngle(a) - vehicleHomeFace(a);
+  // hull art is authored at the side's pre-flip home facing (US nose up-screen,
+  // enemy nose down-screen); the quarter-turn to the new home lives in the blit
+  const hullRot = vehicleHullAngle(a) - vehicleHomeFace(a) - Math.PI / 2;
   // shadow (screen-fixed, hence outside the rotated blit)
   c.save();
   c.translate(a.x, a.y);
@@ -1013,7 +1015,7 @@ function stampJeepWreck(a) {
   logGroundStamp('jeep', a.x, a.y);
   gctx.save();
   gctx.translate(a.x, a.y);
-  gctx.rotate(rand(-0.5, 0.5));
+  gctx.rotate(-Math.PI / 2 + rand(-0.5, 0.5));   // hull art is authored nose +y
   gctx.fillStyle = '#33322a';
   gctx.beginPath();
   gctx.moveTo(-8, -10); gctx.lineTo(8, -12); gctx.lineTo(9, 8); gctx.lineTo(-9, 10);
@@ -1119,9 +1121,9 @@ function drawJeep(a) {
   c.save();
   c.translate(a.x, a.y);
   c.fillStyle = 'rgba(0,0,0,0.28)';
-  c.beginPath(); c.ellipse(0, 4, 12, 15, 0, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(0, 4, 15, 12, 0, 0, 7); c.fill();
   c.restore();
-  const hullRot = vehicleHullAngle(a) - vehicleHomeFace(a);
+  const hullRot = vehicleHullAngle(a) - vehicleHomeFace(a) - Math.PI / 2;
   blitSprite(c, jeepHullSprite(a), a.x, a.y, hullRot, 1);
   if (a.type === 'jeep' && jeepHasBazookaRider()) drawJeepBazookaRider(a);
   blitSprite(c, jeepGunSprite(a), a.x, a.y, a.face, 1);
@@ -1141,7 +1143,7 @@ function stampHalftrackWreck(a) {
   logGroundStamp('halftrack', a.x, a.y);
   gctx.save();
   gctx.translate(a.x, a.y);
-  gctx.rotate(rand(-0.4, 0.4));
+  gctx.rotate(-Math.PI / 2 + rand(-0.4, 0.4));   // hull art is authored nose +y
   gctx.fillStyle = '#33322a';
   gctx.fillRect(-10, -17, 20, 34);
   gctx.fillStyle = '#211f1a';
@@ -1151,9 +1153,11 @@ function stampHalftrackWreck(a) {
   gctx.restore();
 }
 
-// A halftrack's hull is screen-fixed (it only drives downfield) while its bow MG
-// swivels with e.face, so it isn't a single rigid rotation — the whole body is
-// baked per face bucket and per unloaded state, then blitted upright.
+// A halftrack's hull holds one heading (it only drives down-field) while its bow
+// MG swivels with e.face, so it isn't a single rigid rotation — the whole body is
+// baked per face bucket and per unloaded state. The art is authored nose +y and
+// the blit turns the body onto the +x advance; the bake pre-compensates the MG's
+// face so the swivel still lands at the true world angle.
 const HALFTRACK_SPR = 48, HALFTRACK_SPR_A = 24, HALFTRACK_FACINGS = 32;
 
 function halftrackSprite(e) {
@@ -1165,14 +1169,21 @@ function halftrackSprite(e) {
   return sprite('halftrack' + e.type + (us ? 'u' : 'e') + (e.unloaded ? 'U' : 'L') + fb,
     HALFTRACK_SPR, HALFTRACK_SPR, HALFTRACK_SPR_A, HALFTRACK_SPR_A, (c) => {
       const sv = e.face;
-      e.face = fb / HALFTRACK_FACINGS * (Math.PI * 2);
+      // +PI/2 cancels the -PI/2 body blit, so the baked swivel reads true
+      e.face = fb / HALFTRACK_FACINGS * (Math.PI * 2) + Math.PI / 2;
       paintHalftrackBody(c, e);
       e.face = sv;
     });
 }
 
 function drawHalftrack(e) {
-  blitSprite(ctx, halftrackSprite(e), e.x, e.y, 0, 1);
+  // screen-fixed ground shadow, outside the rotated body blit (the tank rule)
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.beginPath(); ctx.ellipse(0, 4, 19, 14, 0, 0, 7); ctx.fill();
+  ctx.restore();
+  blitSprite(ctx, halftrackSprite(e), e.x, e.y, -Math.PI / 2, 1);
 
   if (e.hp < e.maxhp) {
     const f = clamp(e.hp / e.maxhp, 0, 1);
@@ -1187,9 +1198,8 @@ function drawHalftrack(e) {
 function paintHalftrackBody(c, e) {
   c.save();
 
-  // shadow
-  c.fillStyle = 'rgba(0,0,0,0.28)';
-  c.beginPath(); c.ellipse(0, 4, 14, 19, 0, 0, 7); c.fill();
+  // (the ground shadow is drawn screen-fixed by drawHalftrack, outside the
+  // rotated blit — baking it here would swing it round with the body)
 
   // rear tracks (the back half) and front wheels — it drives downfield
   for (const tx of [-12, 7]) {
@@ -1269,8 +1279,8 @@ function bikeSprite(e) {
 }
 
 function drawBike(e) {
-  const lean = Math.sin(e.y * 0.02) * 0.12; // matches the weave
-  blitSprite(ctx, bikeSprite(e), e.x, e.y, lean, 1);
+  const lean = Math.sin(e.x * 0.02) * 0.12; // matches the weave
+  blitSprite(ctx, bikeSprite(e), e.x, e.y, lean - Math.PI / 2, 1);
 
   if (e.hp < e.maxhp) {
     const f = clamp(e.hp / e.maxhp, 0, 1);

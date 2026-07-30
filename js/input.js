@@ -168,8 +168,8 @@ function emplacementBox(key) {
     case 'bunker':     return { hw: 13, hh: 28 };  // concrete slab
     case 'camonest':   return { hw: 13, hh: 28 };  // same footprint as the bunker
     case 'sandbags':   return { hw: 12, hh: 22 };
-    case 'dummy':      return { hw: 16, hh: 10 };  // a lone post — narrow across the front
-    case 'ammocrate':  return { hw: 11, hh: 16 };
+    case 'dummy':      return { hw: 10, hh: 16 };  // a lone post — drawn upright, unrotated
+    case 'ammocrate':  return { hw: 16, hh: 11 };  // crate stack — drawn as-is, unrotated
     case 'watchtower': return { hw: 15, hh: 15 };  // square platform
     case 'mine':       return { hw: 6,  hh: 6 };
     default:           return { hw: 12, hh: 16 };

@@ -5,9 +5,14 @@
 
 function drawWire(wr) {
   const ext = SPRITES.get(defenseSpriteId('wire', wr.up, wr.up2));
+  // walls stand ACROSS the enemy's advance: the procedural art is authored in
+  // the old wide frame and turned upright by the rotate below. Pack art is
+  // exported already-upright (the exporter runs this same painter), so it
+  // blits unrotated.
   if (ext) { blitSprite(ctx, ext, wr.x, wr.y, 0, 1); return; }
   ctx.save();
   ctx.translate(wr.x, wr.y);
+  ctx.rotate(-Math.PI / 2);
   ctx.strokeStyle = '#2c2820';
   ctx.lineWidth = 2.6;
   ctx.beginPath(); ctx.moveTo(-34, 5); ctx.lineTo(-30, -7); ctx.stroke();
@@ -31,6 +36,7 @@ function drawSandbag(s) {
   if (ext) { blitSprite(ctx, ext, s.x, s.y, 0, 1); return; }
   ctx.save();
   ctx.translate(s.x, s.y);
+  ctx.rotate(-Math.PI / 2);
   ctx.fillStyle = 'rgba(0,0,0,0.2)';
   ctx.beginPath(); ctx.ellipse(0, 4, 24, 9, 0, 0, 7); ctx.fill();
   // fortified bags get a third row on top
@@ -86,6 +92,7 @@ function drawBunker(b) {
   if (ext) { blitSprite(ctx, ext, b.x, b.y, 0, 1); return; }
   ctx.save();
   ctx.translate(b.x, b.y);
+  ctx.rotate(-Math.PI / 2);
   if (b.up) {
     // breastwork bags sit in front; bunker draws on top
     ctx.fillStyle = 'rgba(0,0,0,0.14)';
@@ -246,6 +253,7 @@ function drawCamoNestBase(cn) {
   if (ext) { blitSprite(ctx, ext, cn.x, cn.y, 0, 1); return; }
   ctx.save();
   ctx.translate(cn.x, cn.y);
+  ctx.rotate(-Math.PI / 2);
   // soft ground shadow of the raised net — the gap under it sells the overhead read
   ctx.fillStyle = 'rgba(0,0,0,0.20)';
   ctx.beginPath(); ctx.ellipse(0, 7, 30, 11, 0, 0, 7); ctx.fill();
@@ -268,6 +276,7 @@ function drawCamoNestCanopy(cn) {
   if (ext) { blitSprite(ctx, ext, cn.x, cn.y, 0, 1); return; }
   ctx.save();
   ctx.translate(cn.x, cn.y);
+  ctx.rotate(-Math.PI / 2);
   const f = cn.hp / cn.maxhp;
   const edge = CAMONET_EDGE;
   // the net sags toward the ground as it's shot up

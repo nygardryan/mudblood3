@@ -2450,7 +2450,8 @@ function stampBike(e, wrecked) {
   const g = gctx;
   g.save();
   g.translate(e.x, e.y);
-  g.rotate(wrecked ? rand(-0.9, 0.9) : rand(-0.15, 0.15));
+  // the rig is authored nose +y; turn it onto the +x lane it was riding
+  g.rotate(-Math.PI / 2 + (wrecked ? rand(-0.9, 0.9) : rand(-0.15, 0.15)));
 
   const tire = wrecked ? '#1a1a16' : '#22221c';
   const metal = wrecked ? '#2f2d27' : '#474b44';

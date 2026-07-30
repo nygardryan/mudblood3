@@ -483,10 +483,11 @@ function paintV2Rail(c, a) {
 function drawV2Launcher(a) {
   const c = ctx;
   const fireT = a.v2FireT || 0;
-  const face = a.face != null ? a.face : Math.PI / 2;
+  const face = a.face != null ? a.face : 0;
 
-  // hull (static, screen-fixed) then rail (trained on the firing solution)
-  blitSprite(c, v2HullSprite(a), a.x, a.y, 0, 1);
+  // hull (static; authored tracks-along-y, turned onto the +x arrival) then the
+  // rail (trained on the firing solution)
+  blitSprite(c, v2HullSprite(a), a.x, a.y, -Math.PI / 2, 1);
   blitSprite(c, v2RailSprite(a), a.x, a.y, face, 1);
 
   // the reload round and launch flame animate, so draw them live in the rail frame

@@ -93,7 +93,7 @@ function spriteDefs() {
     add({
       id: 'tank_' + key + '_hull', dir: 'vehicles',
       w: TANK_SPR, h: TANK_SPR, ax: TANK_SPR_A, ay: TANK_SPR_A,
-      orientation: 'hull at its home heading; the engine blits at rot = (hull angle - home)',
+      orientation: 'hull at its pre-flip home heading (US nose -y, enemy nose +y); the engine blits at rot = (hull angle - home - PI/2)',
       bake: (c) => paintTankHull(c, exportActor(key, side)),
     });
     // a casemate carries its gun in the hull and has no turret to draw
@@ -111,7 +111,7 @@ function spriteDefs() {
     add({
       id: 'jeep_' + key + '_hull', dir: 'vehicles',
       w: JEEP_SPR, h: JEEP_SPR, ax: JEEP_SPR_A, ay: JEEP_SPR_A,
-      orientation: 'hull at its home heading; the engine blits at rot = (hull angle - home)',
+      orientation: 'hull at its pre-flip home heading (US nose -y, enemy nose +y); the engine blits at rot = (hull angle - home - PI/2)',
       bake: (c) => paintJeepHull(c, exportActor(key, side)),
     });
     add({
@@ -170,7 +170,7 @@ function spriteDefs() {
         add({
           id: 'halftrack_' + key + (unloaded ? '_unloaded' : '_loaded'), dir: 'vehicles',
           w: HALFTRACK_SPR, h: HALFTRACK_SPR, ax: HALFTRACK_SPR_A, ay: HALFTRACK_SPR_A,
-          orientation: 'upright, nose down +y; blitted unrotated',
+          orientation: 'authored nose +y; the engine blits at rot = -PI/2 so the nose leads down-field (+x)',
           note: 'the procedural body is baked per facing because the bow MG swivels with the crew; a pack ships one image and the MG stops swivelling',
           bake: (c) => {
             const e = exportActor(key, 'de');
@@ -186,7 +186,7 @@ function spriteDefs() {
       add({
         id: 'bike_' + key, dir: 'vehicles',
         w: BIKE_SPR, h: BIKE_SPR, ax: BIKE_SPR_A, ay: BIKE_SPR_A,
-        orientation: 'upright; the engine blits at rot = the weave lean',
+        orientation: 'authored nose +y; the engine blits at rot = (weave lean - PI/2)',
         bake: (c) => paintBikeBody(c, exportActor(key, 'de')),
       });
       continue;
@@ -195,7 +195,7 @@ function spriteDefs() {
       add({
         id: 'v2_' + key + '_hull', dir: 'vehicles',
         w: V2_SPR, h: V2_SPR, ax: V2_SPR_A, ay: V2_SPR_A,
-        orientation: 'hull at its home heading; blitted unrotated',
+        orientation: 'authored tracks along y; the engine blits at rot = -PI/2 so the hull lies along the +x arrival',
         bake: (c) => paintV2Hull(c, exportActor(key, 'de')),
       });
       add({
@@ -236,7 +236,7 @@ function spriteDefs() {
   add({
     id: 'progenitor_body', dir: 'bosses',
     w: 104, h: 104, ax: 52, ay: 52,
-    orientation: 'upright, crawling down +y; blitted unrotated',
+    orientation: 'upright; blitted unrotated (the mass reads the same from any approach)',
     note: 'the breathing pulse stays procedural',
     bake: (c) => paintProgenitorBody(c, exportActor('zprogen', 'de')),
   });
@@ -256,13 +256,13 @@ function spriteDefs() {
   add({
     id: 'train_engine', dir: 'bosses',
     w: 40, h: 72, ax: 20, ay: 36,
-    orientation: 'nose (the cowcatcher) down +y; blitted unrotated',
+    orientation: 'authored nose +y; the engine blits the whole consist at rot = -PI/2, nose leading down-field (+x)',
     bake: (c) => paintTrainEngine(c, exportActor('itrain', 'de')),
   });
   add({
     id: 'train_wagon_turret', dir: 'bosses',
     w: 40, h: 48, ax: 20, ay: 24,
-    orientation: 'upright, along the rails; blitted unrotated',
+    orientation: 'authored along local +y; the engine blits every car at rot = -PI/2, coupled along the +x rails',
     bake: (c) => { paintTrainBogies(c, 20); paintTrainBody(c, 20, true); },
   });
   add({
@@ -276,21 +276,21 @@ function spriteDefs() {
     add({
       id: 'train_wagon_infantry' + (open ? '_open' : ''), dir: 'bosses',
       w: 40, h: 48, ax: 20, ay: 24,
-      orientation: 'upright, along the rails; blitted unrotated',
+      orientation: 'authored along local +y; the engine blits every car at rot = -PI/2, coupled along the +x rails',
       bake: (c) => paintTrainInfantryWagon(c, open),
     });
   }
   add({
     id: 'train_wagon_gun', dir: 'bosses',
     w: 40, h: 48, ax: 20, ay: 24,
-    orientation: 'upright, along the rails; blitted unrotated',
+    orientation: 'authored along local +y; the engine blits every car at rot = -PI/2, coupled along the +x rails',
     note: 'the four gun posts and their crews are separate actors and stay procedural',
     bake: (c) => paintTrainGunWagon(c),
   });
   add({
     id: 'train_wagon_arty', dir: 'bosses',
     w: 40, h: 48, ax: 20, ay: 24,
-    orientation: 'upright, along the rails; blitted unrotated',
+    orientation: 'authored along local +y; the engine blits every car at rot = -PI/2, coupled along the +x rails',
     bake: (c) => paintTrainArtyWagon(c),
   });
   add({
@@ -303,7 +303,7 @@ function spriteDefs() {
   add({
     id: 'train_wagon_wrecked', dir: 'bosses',
     w: 40, h: 48, ax: 20, ay: 24,
-    orientation: 'upright, along the rails; blitted unrotated',
+    orientation: 'authored along local +y; the engine blits every car at rot = -PI/2, coupled along the +x rails',
     bake: (c) => paintWreckedWagon(c, 20),
   });
 
@@ -320,9 +320,11 @@ function spriteDefs() {
   // Each is drawn through the game's own draw function against a stub at the
   // origin, the way the placement ghost does it — they carry no overlays, so
   // there is nothing to suppress.
+  // wall kinds are tall boxes now: their painters rotate the authored art
+  // upright internally, so the export (like the live blit) is the standing wall
   const DEFENSE_BOXES = {
-    wire: [80, 32], sandbags: [60, 44], bunker: [72, 56], watchtower: [48, 48],
-    camonest_base: [76, 52], camonest_canopy: [80, 52], ammocrate: [48, 44],
+    wire: [32, 80], sandbags: [44, 60], bunker: [56, 72], watchtower: [48, 48],
+    camonest_base: [52, 76], camonest_canopy: [52, 80], ammocrate: [48, 44],
     dummy: [40, 40], mine: [20, 20],
   };
   const DEFENSE_DRAW = {
@@ -338,7 +340,7 @@ function spriteDefs() {
       add({
         id: defenseSpriteId(kind, tier >= 1, tier >= 2), dir: 'defenses',
         w, h, ax: w / 2, ay: h / 2,
-        orientation: 'upright; blitted unrotated',
+        orientation: 'as seen on the field (walls stand across the +x advance); blitted unrotated',
         note: 'battle damage (the splintering an emplacement shows as it is shot up) stays procedural',
         bake: (c) => DEFENSE_DRAW[kind]({
           x: 0, y: 0, up: tier >= 1, up2: tier >= 2, hp: 100, maxhp: 100,
@@ -431,12 +433,12 @@ function spriteDefs() {
     });
     add({
       id: terrainTrenchSpriteId(f), dir: 'terrain', base: f + '_trench',
-      w: W, h: TRENCH_SPR_H, ax: 0, ay: 0, ss: EXPORT_TERRAIN_SS,
-      orientation: 'the deploy trench, full field width; the engine lays it over the field at y = '
-        + TRENCH_SPR_Y,
+      w: TRENCH_SPR_W, h: H, ax: 0, ay: 0, ss: EXPORT_TERRAIN_SS,
+      orientation: 'the deploy trench, a full-height vertical strip; the engine lays it over the field at x = '
+        + TRENCH_SPR_X,
       note: 'the one line on the field that means something — your men deploy behind it, and it is '
         + 'the same line in every theatre. Transparency shows the field through, so a narrower cut works.',
-      bake: (c) => paintBiomeTrench(biome, c, -TRENCH_SPR_Y),
+      bake: (c) => paintBiomeTrench(biome, c, -TRENCH_SPR_X),
     });
   }
 

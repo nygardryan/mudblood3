@@ -822,6 +822,10 @@ function drawSoldierOverlays(a) {
     drawActorBar(a, 19, 18, 2, clamp(a.flakArmor / a.maxFlakArmor, 0, 1), '#b7a94e');  // olive = flak armor
   }
 
+  // an enemy officer forming an order — the mark that says shoot THIS man, and
+  // the only overlay drawn above the rot/armor stack (js/render-overlays.js)
+  if (a.cmdT > 0) drawCommandWarning(a);
+
   // rank chevrons for veterans (visual nation — US kit only)
   if ((a.nation || a.side) === 'us') drawRankChevrons(a, 17);
 

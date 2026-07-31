@@ -256,6 +256,12 @@ function hoverStats(a, own = false) {
   if (plate > 0) parts.push(`${plate}% RESIST`);
   if (t.pounce) parts.push('POUNCE');
   if (t.aura) parts.push('AURA');
+  // an officer who can ORDER as well as radiate, and — while the telegraph is
+  // up — the fact that he is doing it right now. The live line is keyed on the
+  // actor's own clock rather than on his flags, so it needs nothing for a third
+  // officer (officerCommand, js/update-enemies.js)
+  if (t.banzaiCmd || t.frenzyCmd) parts.push('RALLY CMD');
+  if (a.cmdT > 0) parts.push('ORDER FORMING');
   if (t.fixed) parts.push('IMMOBILE');
   // reward is the bounty an attacker collects for killing this unit — only
   // meaningful when it's a target, not the player's own selected trooper

@@ -208,7 +208,7 @@ function updateEnemy(e, dt) {
   }
 
   // a Japanese officer periodically screams the charge order while he fights on
-  if (e.t.banzaiCmd && !command) japBanzaiCommand(e, dt);
+  if (e.t.banzaiCmd && !command) officerCommand(e, dt, OFFICER_COMMANDS.banzai);
 
   const target = primaryUnitTarget(e, range);
   let rocketTarget = null;
@@ -1039,27 +1039,103 @@ function updateGarrison(e, dt, buffed) {
   return false;
 }
 
-// Banzai command: on a cooldown the officer hurls every Japanese soldier around
-// him into a charge — a burst of forward speed (chargeT) plus the push urge, so
-// a whole knot of men surges at the line at once.
-const BANZAI_CMD_RADIUS = 150;
-function japBanzaiCommand(e, dt) {
-  e.banzaiCd = (e.banzaiCd == null ? rand(6, 12) : e.banzaiCd) - dt;
-  if (e.banzaiCd > 0) return;
-  e.banzaiCd = rand(12, 18);
-  let roused = 0;
-  const r2 = BANZAI_CMD_RADIUS * BANZAI_CMD_RADIUS;
+// ---- Enemy officer commands: cooldown -> TELEGRAPH -> shout -----------------
+// The two officer abilities that FIRE rather than radiate — the Japanese
+// officer's banzai order and the Screamer's frenzy shriek — run through ONE
+// clock here, because both had the same problem: the order landed the frame its
+// cooldown lapsed, and a whole knot of men was already sprinting before the
+// player had anything to react to. Killing the officer first is the entire
+// counter-play to an officer, and it needs a window he is visibly winding up
+// in. So the cooldown no longer fires the command; it opens a WIND-UP
+// (OFFICER_CMD_WARN, held on e.cmdT), and the shout lands only if he is still
+// alive at the end of it. Cancelling costs nothing anywhere: a dead officer is
+// spliced out of G.enemies the frame he falls and his telegraph goes with him.
+//
+// Three things about it are the design rather than detail:
+// - **A telegraph must never resolve into nothing**, or the player learns to
+//   ignore the next one. The wind-up only opens when there is somebody in
+//   radius to rouse; an officer standing alone re-checks on
+//   OFFICER_CMD_RECHECK instead of burning a full cooldown. (The old code
+//   fired into an empty radius and silently swallowed the result — invisible
+//   then, but it would have been a lie once it was drawn.)
+// - **The state is generic and lives on the officer** (`cmdT`/`cmdMax`/`cmdR`/
+//   the label and colour), not keyed off his type, so the ground telegraph
+//   (drawOfficerCommandTelegraph, js/render.js) and the badge over his head
+//   (drawCommandWarning, js/render-overlays.js) know nothing about factions,
+//   and a third officer costs one OFFICER_COMMANDS row and no render work.
+// - **A wind-up interrupted by a stun or a pin FREEZES rather than resetting.**
+//   Both call sites sit below those blocks in updateEnemy, so a staggered
+//   Screamer holds a stalled mark over his head — which is the honest read:
+//   the order is still coming, you have bought time, and he is still the man
+//   to shoot. Nothing needed writing for that; it is worth not "fixing".
+const OFFICER_COMMANDS = {
+  // the officer hurls every Japanese soldier around him into a charge — a burst
+  // of forward speed (chargeT) plus the push urge, so a whole knot of men
+  // surges at the line at once
+  banzai: {
+    roster: isJapaneseInfantry,      // chute/staging: the roster's own gate
+    radius: BANZAI_CMD_RADIUS,
+    open: [6, 12], cd: [12, 18], charge: [2.2, 3.6],
+    warn: 'ORDERS!', shout: 'BANZAI!', color: '#ffd15a', rgb: '255,209,90',
+  },
+  // the Screamer's answer to the horde having no discipline: the same command,
+  // for the walking dead
+  frenzy: {
+    roster: isZombie,
+    radius: FRENZY_CMD_RADIUS,
+    open: [6, 11], cd: [11, 17], charge: [2.4, 3.8],
+    warn: 'INHALES!', shout: 'SKREEE!', color: '#c8e08a', rgb: '182,232,138',
+  },
+};
+
+// is there anyone in radius for this order to land on?
+function officerCommandTargets(e, cfg) {
+  const r2 = cfg.radius * cfg.radius;
   for (const o of G.enemies) {
-    if (o === e || !isJapaneseInfantry(o)) continue;   // chute: the roster's own gate
+    if (o === e || !cfg.roster(o)) continue;
+    if (dist2(e, o) < r2) return true;
+  }
+  return false;
+}
+
+function officerCommand(e, dt, cfg) {
+  // winding up: hold the mark over his head until the order forms
+  if (e.cmdT > 0) {
+    e.cmdT -= dt;
+    if (e.cmdT > 0) return;
+    e.cmdT = 0;
+    e.cmdCd = rand(cfg.cd[0], cfg.cd[1]);
+    officerShout(e, cfg);
+    return;
+  }
+  e.cmdCd = (e.cmdCd == null ? rand(cfg.open[0], cfg.open[1]) : e.cmdCd) - dt;
+  if (e.cmdCd > 0) return;
+  if (!officerCommandTargets(e, cfg)) { e.cmdCd = OFFICER_CMD_RECHECK; return; }
+  e.cmdT = e.cmdMax = OFFICER_CMD_WARN;
+  e.cmdR = cfg.radius;
+  e.cmdColor = cfg.color;
+  e.cmdRGB = cfg.rgb;
+  SFX.officerCall();
+  // clears the badge, which stands to y-40 at full swell — the shout's own text
+  // rides at the usual y-24 because by then the badge is gone
+  G.texts.push({ x: e.x, y: e.y - 46, text: cfg.warn, ttl: 1.2, color: cfg.color });
+}
+
+function officerShout(e, cfg) {
+  const r2 = cfg.radius * cfg.radius;
+  for (const o of G.enemies) {
+    if (o === e || !cfg.roster(o)) continue;
     if (dist2(e, o) > r2) continue;
-    o.chargeT = rand(2.2, 3.6);
+    o.chargeT = rand(cfg.charge[0], cfg.charge[1]);
     o.pushT = Math.max(o.pushT || 0, o.chargeT);
-    roused++;
   }
-  if (roused > 0) {
-    SFX.scream();
-    G.texts.push({ x: e.x, y: e.y - 24, text: 'BANZAI!', ttl: 1.6 });
-  }
+  // unconditional, unlike the pre-telegraph version's roused>0 gate: the
+  // player watched a ring swell for OFFICER_CMD_WARN seconds and is owed the
+  // payoff even in the rare case where every man in radius died during it.
+  // The shockwave ring lands exactly where the telegraph ring stopped growing.
+  SFX.scream();
+  G.texts.push({ x: e.x, y: e.y - 24, text: cfg.shout, ttl: 1.6, color: cfg.color });
+  G.flashes.push({ x: e.x, y: e.y, r: cfg.radius, ttl: 0.5, max: 0.5, kind: 'ring', color: cfg.color });
 }
 
 // ---- Der Schlächter: the German final boss's advance/retreat/rally cycle ----
@@ -1880,7 +1956,8 @@ function zombieGroan(e, dt) {
 const ZOMBIE_REACH = 15;
 function updateZombie(e, dt, buffed, command) {
   zombieGroan(e, dt);
-  if (e.t.frenzyCmd) zombieFrenzyCommand(e, dt);   // the screamer drives the pack
+  // the screamer drives the pack — on the shared telegraphed clock above
+  if (e.t.frenzyCmd) officerCommand(e, dt, OFFICER_COMMANDS.frenzy);
   // A leap already in the air is COMMITTED and needs no target to finish, so it
   // has to be stepped above the checks below — a hound whose man died mid-flight
   // would otherwise fall to advance() and walk on frozen at full arc, never
@@ -2087,31 +2164,6 @@ function bloaterBurst(e) {
       ttl, maxTtl: ttl, grav: -8, size: rand(3, 6),
       kind: 'smoke', color: pick(['#4f6a34', '#3d5228', '#5f7a3e']),
     });
-  }
-}
-
-// Frenzy scream: the screamer's answer to the horde having no discipline. On a
-// cadence it hurls every nearby zombie into a sprint (chargeT) plus the push urge —
-// mirror of the banzai command, but for the walking dead.
-const FRENZY_CMD_RADIUS = 160;
-function zombieFrenzyCommand(e, dt) {
-  e.frenzyCd = (e.frenzyCd == null ? rand(6, 11) : e.frenzyCd) - dt;
-  if (e.frenzyCd > 0) return;
-  e.frenzyCd = rand(11, 17);
-  let roused = 0;
-  const r2 = FRENZY_CMD_RADIUS * FRENZY_CMD_RADIUS;
-  for (const o of G.enemies) {
-    if (o === e || !isZombie(o)) continue;              // chute: the roster's own gate
-    if (dist2(e, o) > r2) continue;
-    o.chargeT = rand(2.4, 3.8);
-    o.pushT = Math.max(o.pushT || 0, o.chargeT);
-    roused++;
-  }
-  if (roused > 0) {
-    SFX.scream();
-    G.texts.push({ x: e.x, y: e.y - 24, text: 'SKREEE!', ttl: 1.6, color: '#c8e08a' });
-    // a visible shockwave ring rolling out from the shriek
-    G.flashes.push({ x: e.x, y: e.y, r: FRENZY_CMD_RADIUS, ttl: 0.5, max: 0.5, kind: 'ring', color: '#b6e88a' });
   }
 }
 

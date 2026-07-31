@@ -170,6 +170,11 @@ const TEST = {
       // phase) whether a man is in a work
       if (a.buildState) { o.buildState = a.buildState; o.buildsDone = a.buildsDone; }
       if (a.garrisoned) o.garrisoned = true;
+      // an enemy officer's command clock: `cmdWarn` is the telegraph counting
+      // down to the shout (officerCommand, js/update-enemies.js), `cmdCd` the
+      // wait before the next one opens
+      if (a.cmdT > 0) o.cmdWarn = +a.cmdT.toFixed(2);
+      else if (a.cmdCd != null) o.cmdCd = +a.cmdCd.toFixed(2);
       return o;
     };
     return {

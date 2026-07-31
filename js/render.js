@@ -121,6 +121,9 @@ function draw() {
     }
   }
 
+  // ...and the other thing on the field that is about to go off
+  drawOfficerCommandTelegraph();
+
   // rockets in flight
   for (const r of G.rockets) {
     const ang = Math.atan2(r.ty - r.sy, r.tx - r.sx);
@@ -485,6 +488,49 @@ function draw() {
 
   // the info panel sits in screen pixels so it stays legible under camera zoom
   drawHoverPanel();
+}
+
+// An enemy officer winding up a command (officerCommand, js/update-enemies.js).
+// Drawn on the GROUND, under the troops, for the same reason the shell markers
+// above are: the men fighting over the marked circle have to stay legible.
+//
+// Two marks, and the split is the point. The dashed circle is WHERE — the
+// ground about to be roused, drawn at the order's own radius so the player can
+// see at a glance which of his approaching problems is inside it. The bright
+// ring swelling out of the officer is WHEN — it reaches that edge exactly as
+// the order lands, and the shockwave the shout fires then continues it outward
+// from the same place, so the telegraph and the payoff are one motion. It is
+// deliberately the same grammar as the V2's contracting ring: a marked area
+// plus a ring closing on a deadline, learned once.
+//
+// The badge over the officer's own head (drawCommandWarning, render-overlays.js)
+// is the other half, and answers WHO — a circle on the ground with a dozen men
+// standing in it doesn't say which one to shoot.
+function drawOfficerCommandTelegraph() {
+  for (const e of G.enemies) {
+    if (!(e.cmdT > 0) || e.dead) continue;
+    const r = e.cmdR || OFFICER_AURA_R;
+    if (!inView(e.x, e.y, r + 8)) continue;
+    const f = clamp(1 - e.cmdT / (e.cmdMax || OFFICER_CMD_WARN), 0, 1);  // 0 forming, 1 landing
+    const rgb = e.cmdRGB || '255,209,90';
+
+    // the ground the order covers: faint fill, dashed edge, both firming up as
+    // the order forms so the circle itself reads as a countdown
+    ctx.fillStyle = `rgba(${rgb},${0.03 + f * 0.05})`;
+    ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = `rgba(${rgb},${0.25 + f * 0.4})`;
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([7, 6]);
+    ctx.lineDashOffset = -G.time * 14;      // a crawling edge, so a held mark never looks frozen
+    ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineDashOffset = 0;
+
+    // ...and the ring racing out to meet it
+    ctx.strokeStyle = `rgba(${rgb},${0.35 + f * 0.5})`;
+    ctx.lineWidth = 1 + f * 1.6;
+    ctx.beginPath(); ctx.arc(e.x, e.y, Math.max(2, r * f), 0, 7); ctx.stroke();
+  }
 }
 
 // pulsing ring around whatever the tutorial wants clicked next

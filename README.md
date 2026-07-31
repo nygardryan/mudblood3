@@ -37,7 +37,10 @@ workflow.
     shoot them before they reach the line) and **lunge-mine** suicide men who
     ram your armor and emplacements and detonate on contact. Every Japanese
     soldier is a fanatic: they never go prone, they only close the distance, and
-    an officer can scream a **banzai charge** that surges the men around him.
+    an officer can scream a **banzai charge** that surges the men around him. He
+    telegraphs it: a hazard mark blinks over his head and a ring swells out to
+    the men he is about to rouse, and killing him before it lands cancels the
+    order outright.
   - **The Horde** is the odd one out — not an army but a rising tide of the dead,
     and the only foe that grows itself out of *your* casualties. There's no armor
     and almost no gunfire; the whole faction is melee, and its signature is the
@@ -85,7 +88,10 @@ workflow.
       **bile** that burns and infects everyone in the splash. The **Bloater** is a
       walking mine — kill it at range or it bursts into a cloud of infectious rot.
     - The **Screamer** drives the pack: it enrages the dead around it and shrieks
-      to hurl them into a sprint. The **Revenant** is a reanimated soldier still
+      to hurl them into a sprint. Like every enemy officer it has to wind the
+      order up first — a hazard mark over its head and a ring swelling out to
+      the ground it will rouse — so there is a window to shoot it and stop the
+      charge before it starts. The **Revenant** is a reanimated soldier still
       clutching a Kar98 — the horde's only gunman, a nasty surprise in a melee mob.
     - Every 10th wave is its own set-piece (a horde surge, a hound pack, a bile
       bombardment, or the Abomination itself), and the paradrop event becomes the

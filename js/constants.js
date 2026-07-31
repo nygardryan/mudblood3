@@ -173,6 +173,28 @@ const AURA_CACHE_INTERVAL = 0.4;  // seconds between officer/watchtower aura cac
 // officer's steadying (deOfficerSteadies) share this radius on purpose, so the
 // player only has to learn where an officer's influence ends once.
 const OFFICER_AURA_R = 140;
+
+// --- enemy officer commands: the shout has to be SEEN COMING ----------------
+// The two officer abilities that FIRE rather than radiate — the Japanese
+// banzai order and the Screamer's frenzy shriek — used to land the instant
+// their cooldown lapsed. The whole counter-play to an officer is killing him
+// before he shouts, and there is no killing a thing that gives no notice: the
+// order and the charge arrived in the same frame. So the cooldown now opens a
+// WIND-UP instead of firing, and the command lands only if he is still alive
+// at the end of it (officerCommand, js/update-enemies.js).
+// Tuned against the window it has to buy: a gunner at 179 range needs ~1.5s to
+// put an officer down from full once he's acquired, and the player needs a
+// beat to SEE the mark and tap it first. Under ~2s the telegraph is honest but
+// unanswerable, which is the same as no telegraph; much over 3s and an officer
+// spends most of his life flashing and the mark stops meaning "now".
+const OFFICER_CMD_WARN = 2.6;      // seconds between the order forming and landing
+// ...and if there is nobody in radius to rouse he re-checks on this instead of
+// burning a full cooldown, so a telegraph that resolves into nothing — the one
+// thing that would teach the player to ignore the next one — never gets drawn.
+const OFFICER_CMD_RECHECK = 1.2;
+const BANZAI_CMD_RADIUS = 150;     // reach of the Japanese officer's charge order
+const FRENZY_CMD_RADIUS = 160;     // ...and of the Screamer's shriek
+
 const PARTICLE_CAP = 250;
 
 const UNIT_TYPES = {
@@ -1700,7 +1722,7 @@ const ENEMY_INFO = {
   jsniper: 'Marksman lashed into the treeline. Stays hidden until he fires, then picks off officers, medics, and gunners.',
   jknee: 'Type 89 grenade discharger — a "knee mortar." Short-ranged and light, but it lobs shells far faster than a Granatwerfer.',
   jlunge: 'Suicide anti-tank man with a Type 99 lunge mine. Charges your armor and emplacements and rams the charge home. Shoot him off before he connects.',
-  joff: 'Sword-wielding officer. His presence hardens the troops, and on command he hurls every soldier around him into a banzai charge.',
+  joff: 'Sword-wielding officer. His presence hardens the troops, and on command he hurls every soldier around him into a banzai charge. The order takes a few seconds to form, and he marks himself while it does — kill him inside that window and it never lands.',
   jflame: 'Type 100 flamethrower operator. Burns through wire, sandbags, and flesh — and his own men if they\'re in the way.',
   jhago: 'Type 95 Ha-Go light tank. Thin-skinned and armed with only a 37mm gun, but fast — and it shows up long before the heavier armor.',
   jtank: 'Type 97 Chi-Ha. Lighter and faster than a Panzer, with a stubby 57mm gun and a hull MG. Small arms still bounce off it.',
@@ -1718,7 +1740,7 @@ const ENEMY_INFO = {
   zbrute: 'A swollen, muscle-bound corpse. High HP, slow, and it hits like a truck — a heavy bite with a strong chance to infect. Soaks a lot of lead.',
   zspitter: 'The horde\'s one ranged threat. Hangs back and lobs a glob of corrosive bile that bursts on impact — area damage plus a high chance to infect everyone in the splash. Blind up close.',
   zbloater: 'A gas-swollen corpse that bursts when it dies or reaches you, venting a cloud of infectious rot: area damage and a high infect chance to all caught in it. A walking mine — kill it at range.',
-  zscreamer: 'The horde\'s driving force. Its presence enrages the dead around it, and on a cadence it looses a scream that hurls every nearby zombie into a frenzied sprint. Kill it to slow the whole pack.',
+  zscreamer: 'The horde\'s driving force. Its presence enrages the dead around it, and on a cadence it looses a scream that hurls every nearby zombie into a frenzied sprint. It swells for a few seconds first, marked and ringed — put it down inside that window and the pack never breaks into a run.',
   zrevenant: 'A reanimated Wehrmacht soldier that never let go of his Kar98 — the horde\'s only gunman. Undead hands aim poorly and it fires slowly, but a corpse that shoots back is a nasty surprise.',
   zabom: 'The Abomination — a towering mound of fused corpses, the horde\'s boss. Enormous HP, ground-shaking slow, a sweeping blow that flattens men and smashes emplacements, and near-certain infection on survivors. Burn it, shell it, or mine it.',
   zprogen: 'The Progenitor — the mass the whole horde came out of, and the thing waiting at wave 100. It crawls slower than anything on the field and swallows whole any man it reaches. Five pus modules ring its hide, lobbing infectious bile; shoot them off and its reach dies with them. It splits open every few seconds to birth a fresh brood, and every time a third of it dies it calls every corpse nearby back onto its feet — yours included. Do not let bodies pile up around it.',

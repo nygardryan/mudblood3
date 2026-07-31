@@ -234,8 +234,9 @@ interleaved A/B: ~23% → ~7% of the pack down at any moment; per flinch roll,
   (`bloaterBurst`, `e._burst` guard) into a cloud of infectious rot (`bileBurst`).
   A walking mine — hooked in `damageEnemy` (damage.js) and in `updateZombie`.
 - `zscreamer` — the horde's "officer": `aura:true` (speeds nearby dead via the
-  normal `enemyOfficerNear`/`buffed` path) + `frenzyCmd:true` → `zombieFrenzyCommand`
-  hurls nearby zombies into a `chargeT` sprint (mirror of the banzai/avanti command).
+  normal `enemyOfficerNear`/`buffed` path) + `frenzyCmd:true` → the shared
+  `officerCommand` clock (see **Enemy officer commands** below) hurls nearby
+  zombies into a `chargeT` sprint (mirror of the banzai/avanti command).
 - `zrevenant` — the ONLY gunman: no `zombie` flag, so it falls through to the
   standard ranged path (Kar98, poor `acc`). Its bullets wound but don't infect.
 - `zabom` (Abomination) — `boss:true`: enormous HP standing in for armor; its bite
@@ -331,6 +332,45 @@ dead, since `compactInPlace` splices actors out the frame they fall — and rais
 reads `t.speed`/`maxhp`, which are gone by the time a corpse is raised. Note
 `TEST.state().enemies` counts and HP totals are **inflated by parts** here as with
 the Yamato — 6 actors per Progenitor.
+
+**Enemy officer commands are TELEGRAPHED, on one shared clock.** The two officer
+abilities that fire rather than radiate — the Japanese officer's banzai order
+(`banzaiCmd`) and the Screamer's frenzy shriek (`frenzyCmd`) — were two copies of
+the same function landing the frame their cooldown lapsed. Killing the officer
+first is the whole counter-play to an officer, and there is no killing a thing
+that gives no notice: the order and the sprinting men arrived together. Both now
+run through `officerCommand` + the `OFFICER_COMMANDS` table
+(`js/update-enemies.js`), where the cooldown opens a WIND-UP (`OFFICER_CMD_WARN`,
+2.6s, on `e.cmdT`) and the shout lands only if he is still alive at the end of
+it. Cancelling costs nothing anywhere — a dead officer is spliced out of
+`G.enemies` the frame he falls and his telegraph goes with him. Tuning is the
+officer-command block in `js/constants.js` (which is also where the two radii
+live now); `TEST.roster()` reports `cmdWarn`/`cmdCd` per officer.
+
+Four things about it:
+- **A telegraph must never resolve into nothing**, or the player learns to ignore
+  the next one. The wind-up opens only when there is someone in radius to rouse;
+  an officer standing alone re-checks on `OFFICER_CMD_RECHECK` rather than
+  burning a full cooldown. The pre-telegraph code fired into an empty radius and
+  swallowed the result — invisible then, a lie once it was drawn.
+- **The state is generic and lives on the officer** (`cmdT`/`cmdMax`/`cmdR` plus
+  the label and colour), never keyed off his type, so both renderers know nothing
+  about factions and a third officer costs one `OFFICER_COMMANDS` row and no
+  render work. It rides the run save for free (`SAVE_STRIP` is by exclusion) and
+  resolves correctly after a resume.
+- **The mark is three answers, deliberately split.** WHERE is a dashed ring at the
+  order's own radius; WHEN is a bright ring swelling out of him that reaches that
+  edge exactly as the order lands — the same grammar as the V2's contracting ring,
+  and the shout's own shockwave continues it outward from where it stopped
+  (`drawOfficerCommandTelegraph`, `js/render.js`, drawn on the ground under the
+  troops so the men inside the circle stay legible). WHO is a black-keylined
+  hazard badge over his head that blinks faster as the order forms
+  (`drawCommandWarning`, `js/render-overlays.js`) — a circle with a dozen men in
+  it does not say which one to shoot. The inspector's `ORDER FORMING` chip keys
+  on `a.cmdT`, so it needs nothing for a third officer either.
+- **A wind-up interrupted by a stun or a pin FREEZES rather than resetting**, since
+  both call sites sit below those blocks in `updateEnemy`. That is the honest
+  read — the order is still coming, you bought time — and is worth not "fixing".
 
 **Smoke blocks target acquisition, not just aim.** The smokescreen event
 (`js/smoke.js`) drops a canister that burns 20-60s, spitting puffs that ride

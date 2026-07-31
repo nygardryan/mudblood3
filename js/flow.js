@@ -257,6 +257,26 @@ function bossEndRun() {
   endRun(true, 'SECTOR HELD', stats);
 }
 
+// Desktop + Android only: a way out of the game without OS chrome, right on
+// the front page — Settings > Desktop already has QUIT GAME, but that's a
+// menu dive away and Steam expects an obvious one. iOS never grows this
+// (Apple's HIG disallows an in-app quit control; PLATFORM.isAndroid, not
+// isMobile, is what keeps it off iOS — see js/platform.js). Built once, the
+// same "never create, don't just hide" rule every other platform-gated
+// control on this sheet follows (see the desktop section in settings.js) —
+// there's no confirm dialog because there's nothing on the front page a
+// misclick could lose.
+if (PLATFORM.isDesktop || PLATFORM.isAndroid) {
+  const quitBtn = document.createElement('button');
+  quitBtn.type = 'button';
+  quitBtn.id = 'intro-quit-btn';
+  quitBtn.className = 'fm-quit';
+  quitBtn.setAttribute('aria-label', 'Quit game');
+  quitBtn.textContent = 'QUIT';
+  quitBtn.addEventListener('click', () => PLATFORM.quit());
+  document.querySelector('#intro .fm').appendChild(quitBtn);
+}
+
 function returnToMenu() {
   clearRunState();
   clearField();   // the menu layers over the stage — don't leave a board behind it

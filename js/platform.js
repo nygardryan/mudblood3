@@ -27,7 +27,13 @@
        exactly what it was before this file existed. Only mobile defers,
        until the Preferences → localStorage restore has finished. main.js
        wraps its bootstrap tail in it.
-     PLATFORM.quit()/toggleFullscreen() — shell delegates, no-ops on web. */
+     PLATFORM.quit()/toggleFullscreen() — shell delegates, no-ops on web and
+       on iOS (Apple's HIG disallows an in-app quit control; App Review has
+       rejected apps over it). quit() routes to the Electron preload on
+       desktop, to Capacitor's App.exitApp() on Android.
+     PLATFORM.isAndroid — Android specifically, not all of `isMobile`; the one
+       thing that differs between the two mobile OSes so far is the quit
+       button above, which iOS must never grow. */
 'use strict';
 
 const PLATFORM = (() => {
@@ -191,14 +197,25 @@ const PLATFORM = (() => {
     })();
   }
 
+  // Android only, never iOS: Apple's HIG explicitly disallows an in-app quit
+  // control (the OS owns app lifecycle, and App Review has rejected apps over
+  // it), where Android has no such restriction and `App.exitApp()` is the
+  // documented way to back a menu quit button with one.
+  const isAndroid = !!capacitor && capacitor.getPlatform && capacitor.getPlatform() === 'android';
+
   return {
     id,
     isDesktop: id === 'desktop',
     isMobile: id === 'mobile',
     isWeb: id === 'web',
+    isAndroid,
     onReady,
     storage,
-    quit() { if (shell && shell.quit) shell.quit(); },
+    quit() {
+      if (shell && shell.quit) { shell.quit(); return; }
+      const App = isAndroid && capacitor.Plugins && capacitor.Plugins.App;
+      if (App && App.exitApp) App.exitApp();
+    },
     toggleFullscreen() { if (shell && shell.toggleFullscreen) shell.toggleFullscreen(); },
   };
 })();

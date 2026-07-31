@@ -3201,6 +3201,24 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
     rgba(8, 8, 4, .70) 0%, rgba(8, 8, 4, .48) 34%, rgba(8, 8, 4, .95) 100%);
 }
 
+/* Desktop + Android only (js/flow.js never creates it on web or iOS). A child
+   of .fm rather than #intro so it measures in the same cqi container as
+   everything else on this screen — cqi has no ancestor to resolve against
+   once it leaves .fm's container-type: inline-size (see the file-level note
+   on .fm above). .fm is position:relative, so top/right sit off ITS box, not
+   the viewport, matching the safe-area inset the rest of .fm's padding uses. */
+#intro .fm-quit {
+  position: absolute; z-index: 1;
+  top: calc(clamp(8px, 2cqi, 14px) + env(safe-area-inset-top, 0px));
+  right: calc(clamp(8px, 2cqi, 14px) + env(safe-area-inset-right, 0px));
+  min-height: 0; padding: clamp(6px, 1.6cqi, 9px) clamp(10px, 2.2cqi, 14px);
+  font-family: 'Oswald', sans-serif; font-size: clamp(9px, 1.9cqi, 11px);
+  font-weight: 600; letter-spacing: 1.5px; color: #c9c19a;
+  background: rgba(20, 20, 12, .55); border: 1px solid #50512f; border-radius: 6px;
+  cursor: pointer; transition: border-color .16s ease, color .16s ease;
+}
+#intro .fm-quit:hover { border-color: #e8873a; color: #e8873a; }
+
 /* Selectors for anything that is a <button> ARE prefixed with #intro /
    #esc-dossier, for the same reason the card shop's are: they have to outrank
    `.overlay button`, which repaints every button in an overlay gold, centred

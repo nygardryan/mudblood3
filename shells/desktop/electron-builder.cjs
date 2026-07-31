@@ -17,7 +17,14 @@
 
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
-const { APP_ID, PRODUCT_NAME_FS } = require('../app-identity.cjs');
+const {
+  APP_ID, PRODUCT_NAME_FS, DEMO_APP_ID, DEMO_APP_NAME, DEMO_PRODUCT_NAME_FS,
+} = require('../app-identity.cjs');
+
+// TW_DEMO_BUILD=1 npm run dist:demo — same files, demo identity. The flag the
+// game reads is NOT staged: main.cjs serves a generated js/demo-flag.js over
+// tw:// when the packaged package.json carries `twDemo` (extraMetadata below).
+const DEMO = process.env.TW_DEMO_BUILD === '1';
 
 const { entries, excludeSuffixes } = JSON.parse(
   readFileSync(path.join(__dirname, '..', 'file-manifest.json'), 'utf8'),
@@ -29,12 +36,15 @@ const filter = [
 ];
 
 module.exports = {
-  appId: APP_ID,
-  productName: PRODUCT_NAME_FS,
+  appId: DEMO ? DEMO_APP_ID : APP_ID,
+  productName: DEMO ? DEMO_PRODUCT_NAME_FS : PRODUCT_NAME_FS,
   directories: {
-    output: 'dist',
+    output: DEMO ? 'dist-demo' : 'dist',   // never clobber the full build
     buildResources: 'build',
   },
+  // twDemo rides the asar's package.json — how a PACKAGED demo knows itself
+  // (env vars don't survive into a shipped app). Display name keeps the colon.
+  ...(DEMO ? { extraMetadata: { twDemo: true, productName: DEMO_APP_NAME } } : {}),
   // the shell itself (asar)
   files: ['main.cjs', 'preload.cjs', 'package.json'],
   // the game core — same subset shells/mobile/scripts/sync-www.mjs ships to mobile

@@ -1192,8 +1192,13 @@ function codexEntries(tab) {
     // the Yamato's belt sections, batteries and gun tubs are all real ENEMY_TYPES
     // entries, but they're parts of her — not foes in their own right, and three
     // extra cards would just clutter the roster
-    // (and the Progenitor's pus modules and the train's wagons, for the same reason)
-    return Object.entries(ENEMY_TYPES).filter(([, t]) => !isBossPart(t)).map(([key, t]) => {
+    // (and the Progenitor's pus modules and the train's wagons, for the same reason).
+    // The demo fights only the Germans, so it doesn't reveal the other three
+    // armies here either — German types carry no `faction` field (default 'de'),
+    // and the faction-less Alien Walker stays listed because it CAN appear.
+    // Tab record counts derive from this filter automatically.
+    return Object.entries(ENEMY_TYPES).filter(([, t]) =>
+      !isBossPart(t) && (!demoActive() || (t.faction || 'de') === 'de')).map(([key, t]) => {
       const parts = [`${t.hp} HP`, `${t.reward} TP REWARD`];
       if (t.dmg > 0) parts.splice(1, 0, `${t.dmg} DMG`);
       if (t.range > 0) parts.splice(t.dmg > 0 ? 2 : 1, 0, `${t.range} RNG`);

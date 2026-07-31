@@ -57,6 +57,7 @@ const TEST = {
         'exportSprites(opts?)': 'render every drawable to a transparent PNG. opts {download=true} — pass {download:false} to render and report without a file. Returns {ok, count, bytes, ids, blank, errors}',
         'spriteRoundtrip(id)': 'bake one sprite, encode it as PNG, load it back and diff against the procedural draw. Returns {litPixels, meanChannelDiff, ...} — a large diff means a wrong anchor or a clipped box',
         'terrain()': 'ground art for the running biome: {faction, available:{field,trench}, live:{...}, ids, repaintable}. `live` is what the baked field was painted from; `available` is what the pack holds now',
+        'demo(on?)': 'demo-mode gate (js/demo.js): no arg reports {active, escMax, lockedPlaceables, cardPool}; true/false overrides PLATFORM.isDemo for this session, null restores it',
       },
       levels: Object.keys(LEVELS),
       // 'medium'/'hard' left the menu when ESCALATION shipped but still start
@@ -293,6 +294,11 @@ const TEST = {
         Object.keys(this._toolbarMap()).join(', ') };
     }
     const px = this._coord(x, W), py = this._coord(y, H);
+    // demo: place() would refuse anyway (its own backstop) — report why
+    if (demoLockedPlaceable(p)) {
+      return { ok: false, reason: 'demo locked — full game only', demoLocked: true,
+        tpBefore: +G.tp.toFixed(2), tpAfter: +G.tp.toFixed(2), spent: 0 };
+    }
     // events fire in place — no placement, no cost
     if (p.kind === 'event') {
       if (p.key === 'random') triggerEvent(); else runEvent(p.key, G.wave);
@@ -342,8 +348,29 @@ const TEST = {
       const cost = placeableCost(p);
       const atCap = p.key === 'officer' && officerCount() >= officerLimit();
       return { key: p.key, label: p.label, kind: p.kind, cost,
-        affordable: canAffordTP(cost), ...(atCap ? { atCap: true } : {}) };
+        affordable: canAffordTP(cost), ...(atCap ? { atCap: true } : {}),
+        ...(demoLockedPlaceable(p) ? { demoLocked: true } : {}) };
     });
+  },
+
+  // Demo-mode inspection and a runtime toggle for verification. No arg:
+  // report. With a boolean: override PLATFORM.isDemo for this session (null
+  // restores the platform flag) and refresh whatever UI is live.
+  demo(on) {
+    if (on !== undefined) {
+      TW_DEMO_OVERRIDE = on === null ? null : !!on;
+      if (typeof running !== 'undefined' && running && G) renderToolbar();
+      else if (typeof refreshMenu === 'function') refreshMenu();
+      refreshContinueUI();
+    }
+    return {
+      active: demoActive(),
+      build: TW_DEMO_BUILD,
+      override: TW_DEMO_OVERRIDE,
+      escMax: demoEscMax(),
+      lockedPlaceables: PLACEABLES.filter(p => demoLockedPlaceable(p)).map(p => p.key),
+      cardPool: [...DEMO_CARD_IDS],
+    };
   },
 
   // Hover-panel data for whatever sits under a point — the same name, HP, rank,
@@ -421,13 +448,19 @@ const TEST = {
       saveEndlessCards(data);
     }
     const data = loadEndlessCards();
+    // report what a run would actually GET: the demo caps the ladder at read,
+    // so the stored rung and the played rung differ under it
+    const eff = Math.min(data.escalation, escEffectiveUnlocked(data));
     return {
       ok: true,
-      level: data.escalation,
-      unlocked: data.escUnlocked,
-      faction: '(rolled per run at every rung)',
-      mods: buildEscMods(data.escalation),
-      active: ESCALATIONS.slice(0, data.escalation).map(m => m.name),
+      level: eff,
+      unlocked: escEffectiveUnlocked(data),
+      ...(eff !== data.escalation || escEffectiveUnlocked(data) !== data.escUnlocked
+        ? { demoCapped: { max: demoEscMax(), stored: data.escalation, storedUnlocked: data.escUnlocked } }
+        : {}),
+      faction: demoActive() ? "'de' (demo: pinned)" : '(rolled per run at every rung)',
+      mods: buildEscMods(eff),
+      active: ESCALATIONS.slice(0, eff).map(m => m.name),
       note: n != null ? 'takes effect on the next TEST.start()' : undefined,
     };
   },

@@ -20,4 +20,15 @@ module.exports = {
   APP_ID: 'com.nygardryan.trenchworks',
   APP_NAME: 'Trenchworks: WW2',
   PRODUCT_NAME_FS: 'Trenchworks WW2',
+  /* The DEMO is a separate store listing everywhere it ships: its own Steam
+     appid (attached to the main store page in Steamworks) and its own Google
+     Play listing. DEMO_APP_ID must stay in step with the `demo` product
+     flavor's applicationIdSuffix in shells/mobile/android/app/build.gradle —
+     Capacitor doesn't rewrite an existing native project's applicationId, so
+     the flavor owns it there and this export is the human-readable contract.
+     No iOS demo exists ON PURPOSE: App Review guideline 2.2 bars demo/trial
+     apps from the App Store outright. */
+  DEMO_APP_ID: 'com.nygardryan.trenchworks.demo',
+  DEMO_APP_NAME: 'Trenchworks: WW2 Demo',
+  DEMO_PRODUCT_NAME_FS: 'Trenchworks WW2 Demo',
 };

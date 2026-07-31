@@ -209,6 +209,11 @@ const PLATFORM = (() => {
     isMobile: id === 'mobile',
     isWeb: id === 'web',
     isAndroid,
+    // Demo build marker (js/demo-flag.js, flipped true only by demo build
+    // steps) OR the ?demo=1 test param. The typeof guard means a staging bug
+    // that drops demo-flag.js degrades to the full game, never a boot crash.
+    isDemo: (typeof TW_DEMO_BUILD !== 'undefined' && TW_DEMO_BUILD) ||
+            /[?&]demo=1(&|$)/.test(location.search),
     onReady,
     storage,
     quit() {

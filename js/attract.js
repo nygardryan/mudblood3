@@ -128,6 +128,9 @@ function attractSpendPass() {
   for (const order of attractWishlist()) {
     const p = PLACEABLES.find(pl => pl.key === order.key);
     if (!p) continue;
+    // demo: the menu board fields only what the player could buy — the
+    // wishlist's gunner/atgun orders just skip
+    if (demoLockedPlaceable(p)) continue;
     const cost = placeableCost(p);
     if (!canAffordTP(cost)) return;   // the rest of the list is dearer or equal
     if (!placementValid(p, order.x, order.y)) continue;

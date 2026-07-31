@@ -1399,19 +1399,26 @@ function saveEndlessCards(data) {
 // this: a reroll that can't turn a single slot over, and a slot that would open
 // onto SOLD OUT, are purchases of nothing, and a completionist would otherwise
 // pay for them (and double the reroll price) with the deck empty.
+// STRICT in demo (no fallback, unlike demoDrawPool): this count is what arms
+// REROLL and +1 CARD SLOT, and once the demo pool is owned a reroll could only
+// shuffle unbuyable banners and a new slot could only sell one — DECK EMPTY is
+// the honest read.
 function undrawnCardCount(data) {
   const taken = new Set([...data.owned, ...data.offer]);
-  return Object.keys(CARDS).filter(id => !taken.has(id)).length;
+  const pool = Object.keys(CARDS).filter(id => !taken.has(id));
+  return demoActive() ? pool.filter(id => DEMO_CARD_IDS.has(id)).length : pool.length;
 }
 
 // a random card the player neither owns nor is currently being offered
 function drawUnofferedCard(data) {
   const taken = new Set([...data.owned, ...data.offer]);
-  const pool = Object.keys(CARDS).filter(id => !taken.has(id));
+  const pool = demoDrawPool(Object.keys(CARDS).filter(id => !taken.has(id)));
   return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 
 function buyCard(id) {
+  // demo: full-game-only cards can sit bannered in an offer slot but never sell
+  if (demoLockedCard(id)) return false;
   const data = loadEndlessCards();
   const card = CARDS[id];
   const slot = data.offer.indexOf(id);
@@ -1485,10 +1492,10 @@ function rerollShop() {
   const avoid = new Set([...data.owned, ...data.offer]);
   data.offer = [];
   for (let i = 0; i < data.shopSlots; i++) {
-    let pool = Object.keys(CARDS).filter(id => !avoid.has(id) && !data.offer.includes(id));
+    let pool = demoDrawPool(Object.keys(CARDS).filter(id => !avoid.has(id) && !data.offer.includes(id)));
     // if the deck is too thin to fill every slot with brand-new cards, allow
     // the just-replaced ones back in rather than leaving a slot empty
-    if (!pool.length) pool = Object.keys(CARDS).filter(id => !data.owned.includes(id) && !data.offer.includes(id));
+    if (!pool.length) pool = demoDrawPool(Object.keys(CARDS).filter(id => !data.owned.includes(id) && !data.offer.includes(id)));
     if (!pool.length) break;
     data.offer.push(pool[Math.floor(Math.random() * pool.length)]);
   }
@@ -1727,7 +1734,12 @@ function commandPips(w) {
 function buildCardShopUI() {
   const data = loadEndlessCards();
   el('card-shop-medals').textContent = data.medals;
-  el('card-shop-owned').textContent = data.owned.length + ' / ' + Object.keys(CARDS).length + ' COLLECTED';
+  // demo: the deck the player can actually complete is the demo pool, so
+  // counting toward 172 would advertise a collection this build never sells
+  const deckSize = demoActive() ? DEMO_CARD_IDS.size : Object.keys(CARDS).length;
+  const held = demoActive()
+    ? data.owned.filter(id => DEMO_CARD_IDS.has(id)).length : data.owned.length;
+  el('card-shop-owned').textContent = held + ' / ' + deckSize + ' COLLECTED';
   const row = el('card-shop-row');
   row.innerHTML = '';
   for (let i = 0; i < data.shopSlots; i++) {
@@ -1741,8 +1753,12 @@ function buildCardShopUI() {
     }
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'cs-card' + (card.unique ? ' cs-card--unique' : '');
-    btn.disabled = card.cost > data.medals;
+    // demo: a full-game card can reach an offer slot once the demo pool is
+    // drained — it shows, bannered and dead (buyCard also hard-rejects it)
+    const lockedDemo = demoLockedCard(card.id);
+    btn.className = 'cs-card' + (card.unique ? ' cs-card--unique' : '') +
+      (lockedDemo ? ' cs-card--fglocked' : '');
+    btn.disabled = lockedDemo || card.cost > data.medals;
     const afford = card.cost <= data.medals;
     // a wide ROW, not a tall card: name and one-sentence effect on the left,
     // price over command pips on the right. STANDARD is the absence of the
@@ -1760,7 +1776,8 @@ function buildCardShopUI() {
       '<div class="cs-card__foot" title="' + card.weight + ' command">' +
         '<span class="cs-cost">' + card.cost + '<span class="cs-cost__u">' + (afford ? 'MED' : 'NEED') + '</span></span>' +
         '<span class="cs-pips">' + commandPips(card.weight) + '</span>' +
-      '</div>';
+      '</div>' +
+      (lockedDemo ? '<span class="cs-fgbanner">FULL GAME ONLY</span>' : '');
     btn.addEventListener('click', () => {
       if (buyCard(card.id)) {
         SFX.click();
@@ -1926,7 +1943,10 @@ function buildBattlePlanUI() {
   // loadout mode (CSS), where the rung is what the plan is being picked
   // against and unspent command is the thing worth a second look.
   const spare = data.capacity - used;
-  el('plan-note').textContent = (escLabel(data.escalation) || 'NO ESCALATION') + ' · ' +
+  // the rung the plan is being picked AGAINST — under the demo cap that is the
+  // effective one, or this line names a rung the run will not be played at
+  const planEsc = Math.min(data.escalation, escEffectiveUnlocked(data));
+  el('plan-note').textContent = (escLabel(planEsc) || 'NO ESCALATION') + ' · ' +
     (spare > 0 ? spare + ' command unspent.' : 'Command budget full.');
   const upBtn = el('plan-upgrade');
   if (data.capacity >= MAX_COMMAND_CAP) {
@@ -2111,8 +2131,12 @@ function animateMedalCount(node, to, prefix) {
 // one tap-to-expand requisition card for the endgame footlocker
 function buildEndgameCard(card, medals) {
   const afford = card.cost <= medals;
+  // demo: same locked treatment as the main shop — this endgame rail is the
+  // second offer surface and shows the same slots
+  const lockedDemo = demoLockedCard(card.id);
   const btn = document.createElement('div');
-  btn.className = 'ee-card' + (card.unique ? ' ee-card--uni' : '');
+  btn.className = 'ee-card' + (card.unique ? ' ee-card--uni' : '') +
+    (lockedDemo ? ' cs-card--fglocked' : '');
   btn.innerHTML =
     '<div class="ee-card__top">' +
       '<span class="ee-card__unit">' + cardUnitLabel(card) + '</span>' +
@@ -2128,8 +2152,9 @@ function buildEndgameCard(card, medals) {
     '</div>' +
     '<div class="ee-card__body">' +
       '<div class="ee-card__full">Costs ' + card.weight + ' command in your loadout.</div>' +
-      '<button class="ee-buy"' + (afford ? '' : ' disabled') + '>Requisition — ' + medalLabel(card.cost) + '</button>' +
-    '</div>';
+      '<button class="ee-buy"' + (afford && !lockedDemo ? '' : ' disabled') + '>Requisition — ' + medalLabel(card.cost) + '</button>' +
+    '</div>' +
+    (lockedDemo ? '<span class="cs-fgbanner">FULL GAME ONLY</span>' : '');
   // tapping the card body toggles the detail drawer; the chevron flips with it
   const chev = btn.querySelector('.ee-card__chev');
   btn.addEventListener('click', () => {

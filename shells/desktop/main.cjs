@@ -25,6 +25,13 @@ const WEB_ROOT = app.isPackaged
   ? path.join(process.resourcesPath, 'app')
   : path.resolve(__dirname, '..', '..');
 
+// Demo build: TW_DEMO_BUILD=1 for dev launches; packaged demo builds carry
+// `twDemo` in the asar's package.json (electron-builder.cjs extraMetadata).
+// The repo's js/demo-flag.js stays false forever — handleTw serves a generated
+// `true` copy instead, so the demo ships the exact same file set.
+const DEMO = process.env.TW_DEMO_BUILD === '1' ||
+  (() => { try { return !!require('./package.json').twDemo; } catch { return false; } })();
+
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml',
@@ -38,6 +45,11 @@ function handleTw(request) {
   const url = new URL(request.url);          // tw://app/<path>
   let rel = decodeURIComponent(url.pathname);
   if (rel === '/' || rel === '') rel = '/index.html';
+  // the one served-not-read path: a demo build flips the flag file in flight
+  if (DEMO && rel === '/js/demo-flag.js') {
+    return new Response("'use strict';\nconst TW_DEMO_BUILD = true;\n",
+      { headers: { 'content-type': 'text/javascript' } });
+  }
   const file = path.normalize(path.join(WEB_ROOT, rel));
   // traversal guard: nothing outside the web root is servable
   if (!file.startsWith(WEB_ROOT + path.sep)) {
@@ -91,7 +103,19 @@ function runSmoke() {
         // binaries is what makes the notice a redistribution requirement
         const licence = await fetch('assets/fonts/oswald-LICENSE.txt');
         const manifest = await fetch('assets/sprites/manifest.json').then(r => r.status, e => 'threw');
-        TEST.start('endless', 'easy', 'de');
+        const demoBuild = ${DEMO};
+        // demo: start UNPINNED so the faction pin itself is what's proven, and
+        // prove a locked purchase is refused through the real place() path
+        TEST.start('endless', 'easy', demoBuild ? undefined : 'de');
+        const faction = TEST.state().enemyFaction;
+        let demoOk = true;
+        if (demoBuild) {
+          const flagSrc = await fetch('js/demo-flag.js').then(r => r.text());
+          const lockedBuy = TEST.buy('gunner', 0.75, 0.5);
+          demoOk = PLATFORM.isDemo === true && faction === 'de' &&
+                   flagSrc.includes('TW_DEMO_BUILD = true') &&
+                   lockedBuy.ok === false && lockedBuy.demoLocked === true;
+        }
         TEST.step(10);
         const saved = TEST.save().ok;
         TEST.reset();
@@ -100,8 +124,9 @@ function runSmoke() {
         const resumed = TEST.continue().resumed;
         TEST.reset();
         return { ok: !!(window.__TW_SHELL__ && PLATFORM.id === 'desktop' && sfx.ok && font.ok &&
-                        licence.ok && saved && resumed),
-                 platform: PLATFORM.id, sfxStatus: sfx.status, fontStatus: font.status,
+                        licence.ok && saved && resumed && demoOk),
+                 platform: PLATFORM.id, demo: PLATFORM.isDemo, demoOk, faction,
+                 sfxStatus: sfx.status, fontStatus: font.status,
                  licenceStatus: licence.status, manifestStatus: manifest, saved, resumed };
       })()`, true);
       console.log('SMOKE ' + JSON.stringify(r));

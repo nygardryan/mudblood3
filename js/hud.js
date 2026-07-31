@@ -217,7 +217,10 @@ function updateHUD() {
 
   for (const btn of toolButtons) {
     const capped = btn.p.key === 'officer' && officerCount() >= officerLimit();
-    btn.el.disabled = !canAffordTP(placeableCost(btn.p)) || capped;
+    // the demo term must live in this per-frame reassign, not just at render
+    // time, or the next HUD tick would re-enable a locked button
+    btn.el.disabled = demoLockedPlaceable(btn.p) ||
+      !canAffordTP(placeableCost(btn.p)) || capped;
     btn.el.classList.toggle('active', placing === btn.p);
   }
 
@@ -407,12 +410,16 @@ function renderToolbar() {
       const cost = placeableCost(p);
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'tool-btn';
-      b.title = p.desc;
+      // demo-locked items stay visible — a dead, bannered button advertising
+      // the full game; updateHUD keeps it disabled and selectPlaceable rejects
+      const lockedDemo = demoLockedPlaceable(p);
+      b.className = 'tool-btn' + (lockedDemo ? ' tool-btn--fglocked' : '');
+      b.title = lockedDemo ? 'Available in the full game' : p.desc;
       const key = p.hotkey ? `<span class="key">[${p.hotkey}]</span>` : '';
       // events are free and instant — a "0 TP" tag would just be noise
       const costTag = p.kind === 'event' ? '' : `<span class="cost">${cost} TP</span>`;
-      b.innerHTML = `${key}${p.label}${costTag}`;
+      b.innerHTML = `${key}${p.label}${costTag}` +
+        (lockedDemo ? '<span class="tool-fg">FULL GAME</span>' : '');
       b.addEventListener('click', () => selectPlaceable(p));
       bar.appendChild(b);
       toolButtons.push({ p, el: b });
@@ -488,6 +495,9 @@ function selectPlaceable(p) {
     const allow = G.tutorial.allowBuy || [];
     if (!allow.includes(p.key)) { SFX.error(); mobileVibrate(12); return; }
   }
+  // demo: locked items are visible but dead — this is the choke both button
+  // clicks and hotkeys (input.js) route through
+  if (demoLockedPlaceable(p)) { SFX.error(); mobileVibrate(12); return; }
   // events have no placement step — they fire where they fire, right away
   if (p.kind === 'event') {
     SFX.click();

@@ -33,6 +33,42 @@ Deployment is just uploading the repo root (minus `shells/`, `docs/`, `.claude/`
 to any static host — no server-side logic, no environment variables, no API
 keys.
 
+### Running the DEMO on web
+
+Add `?demo=1` to the URL. Nothing to build, nothing to stage:
+
+```bash
+python3 -m http.server 8000
+# then visit http://localhost:8000/?demo=1
+```
+
+That is the whole switch — `PLATFORM.isDemo` reads the query param, and every
+restriction hangs off it (see [Demo builds](#demo-builds) below for what
+changes). It works on any served copy, including a deployed full-game site, so
+it is the quickest way to see or screenshot demo behavior. `TEST.demo()`
+reports the live state and `TEST.demo(true|false|null)` flips it at runtime
+without a reload.
+
+> **Careful on a shared origin.** A browser keeps one localStorage per origin,
+> so `http://localhost:8000/?demo=1` and `http://localhost:8000/` share medals,
+> the card collection, the escalation ladder and the single run-save slot. The
+> demo never *writes* a restriction down (it caps at read), and it will not
+> resume or delete a Japanese/Horde/Italian save — but starting a demo run
+> still goes through the normal ABANDON prompt and can overwrite the save slot,
+> exactly as a full-game start would. **Ship the real web demo on its own
+> origin** (see below), where the two can never touch.
+
+To produce a deployable web demo:
+
+```bash
+node scripts/stage-web-demo.mjs
+```
+
+Stages `dist-web-demo/` (gitignored) from the same
+[`shells/file-manifest.json`](../shells/file-manifest.json) subset, with
+`js/demo-flag.js` flipped to `true` so the demo needs no URL param. Upload that
+directory to the demo's **own** origin/subdomain.
+
 ---
 
 ## Desktop (Steam / Electron)
@@ -186,6 +222,78 @@ unlock, and backgrounding behavior that don't show up in a quick glance.
 
 ---
 
+## Demo builds
+
+The demo is the **same file set with one flag flipped** — never a fork, never a
+separate branch. It ships on Steam (a demo app attached to the store page) and
+on Google Play (a separate free listing), plus a web build. **There is no iOS
+demo**: Apple's App Review guidelines bar demo, trial and beta apps from the App
+Store outright, so the iOS target is left alone entirely.
+
+### The flag
+
+`js/demo-flag.js` is committed as `const TW_DEMO_BUILD = false;` and **stays
+false in the repo forever**. Each target flips it its own way at build/serve
+time, so no build ever edits a tracked file:
+
+| Target | How the flag is flipped |
+|---|---|
+| Web (testing) | `?demo=1` in the URL — no staging at all |
+| Web (deploy) | `node scripts/stage-web-demo.mjs` rewrites the staged copy in `dist-web-demo/` |
+| Desktop | `main.cjs` *serves* a generated `true` copy over `tw://`, keyed on `TW_DEMO_BUILD=1` (dev) or the packaged `package.json`'s `twDemo` field |
+| Mobile | `sync-www.mjs` overwrites the staged `www/js/demo-flag.js` under `TW_DEMO_BUILD=1` |
+
+`js/platform.js` turns that into `PLATFORM.isDemo`, and `js/demo.js` is the one
+module that decides what the demo restricts. See `CLAUDE.md` for the gating
+rules; the short version is that **every restriction is applied at read**, so a
+demo can never corrupt full-game progress that shares its storage.
+
+### What the demo restricts
+
+- **Germans only** — the endless faction roll is pinned (menu attract mode too),
+  and the codex hides the other three armies' rosters.
+- **A reduced shop** — 8 units, 3 defenses and the 2 strikes are buyable. The
+  rest stay on the toolbar as dimmed, unclickable buttons carrying a **FULL
+  GAME** banner.
+- **A 17-card pool** in the card shop. Once it's collected, full-game cards
+  appear in the offer slots behind a diagonal **FULL GAME ONLY** banner and
+  can't be bought.
+- **Escalation capped at rung III**; rungs IV–X show as FULL GAME in the dossier.
+- No wave cap — demo runs are endless like the full game.
+
+### Building each demo target
+
+```bash
+# Web
+node scripts/stage-web-demo.mjs            # → dist-web-demo/, deploy to its OWN origin
+
+# Desktop / Steam demo depot
+cd shells/desktop
+npm run start:demo                         # dev run
+npm run dist:demo                          # → dist-demo/, demo appId + product name
+TW_SMOKE=1 TW_DEMO_BUILD=1 npx electron .  # headless demo smoke test
+
+# Google Play demo listing
+cd shells/mobile
+npm run sync:demo                          # stage www/ with the flag flipped
+npm run android:demo                       # dev run on a device
+cd android && ./gradlew bundleDemoRelease   # → the .aab for the demo listing
+```
+
+Two things to remember:
+
+- **The staged `www/` is whichever sync ran last.** A leftover demo staging
+  will demo-ify the next *full* build. Run `npm run sync` to restore it.
+- **The demo is a separate store product.** Its identity lives beside the full
+  game's in [`shells/app-identity.cjs`](../shells/app-identity.cjs)
+  (`DEMO_APP_ID` / `DEMO_APP_NAME` / `DEMO_PRODUCT_NAME_FS`). On Android the
+  `demo` Gradle product flavor owns the `.demo` applicationId suffix — those two
+  must stay in step. On Steam, register the demo as its own app in Steamworks
+  and attach it to the main store page; its appid goes in the gitignored
+  `steam_appid.txt` for dev launches.
+
+---
+
 ## Quick reference
 
 | Target | Directory | Install | Dev run | Production build |
@@ -194,3 +302,7 @@ unlock, and backgrounding behavior that don't show up in a quick glance.
 | Desktop | `shells/desktop/` | `npm install` | `npm start` | `npm run dist` |
 | Android | `shells/mobile/` | `npm install` | `npm run android` | `npm run sync && npx cap open android` → build in Android Studio |
 | iOS | `shells/mobile/` | `npm install` | `npm run ios` | `npm run sync && npx cap open ios` → archive in Xcode |
+| Web **demo** | repo root | — | serve + `?demo=1` | `node scripts/stage-web-demo.mjs` → deploy `dist-web-demo/` |
+| Desktop **demo** | `shells/desktop/` | `npm install` | `npm run start:demo` | `npm run dist:demo` |
+| Android **demo** | `shells/mobile/` | `npm install` | `npm run android:demo` | `npm run sync:demo` → `./gradlew bundleDemoRelease` |
+| iOS demo | — | — | — | **not shipped** (App Store bars demo apps) |

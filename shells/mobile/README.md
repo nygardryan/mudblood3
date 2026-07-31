@@ -11,6 +11,15 @@ The shell-specific behavior (durable-save mirror into Preferences, KeepAwake,
 status bar, Android back button) lives in `js/platform.js` at the repo root —
 the mobile branch only runs when Capacitor's native bridge is present.
 
+**Demo builds** (the separate free Play listing): `npm run sync:demo` stages
+`www/` with `js/demo-flag.js` flipped to `true`, then build the `demo` gradle
+flavor (`npm run android:demo`, or `./gradlew bundleDemoRelease` in `android/`
+for the store bundle — applicationId gains a `.demo` suffix, matching
+`DEMO_APP_ID` in `shells/app-identity.cjs`). **The staged `www/` is whichever
+sync ran last**: a leftover demo staging would demo-ify the next full build and
+vice versa, so always run the matching sync (`npm run sync` restores the full
+game) before building. There is no iOS demo — Apple's guidelines bar demo apps.
+
 ## Building
 
 Requires Node plus the native toolchains (neither is on the dev Linux box):

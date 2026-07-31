@@ -88,6 +88,53 @@ construction. Six families are OFL, Special Elite is Apache-2.0 — the script
 probes upstream for each rather than assuming, and throws rather than shipping
 a font it found no license for.
 
+## DEMO builds
+
+The demo (Steam demo appid, a separate Google Play listing, a deployable web
+variant — **no iOS demo, ever**: App Review guideline 2.2 bars demo apps) is
+the SAME file set with one flag flipped. The chain: `js/demo-flag.js` (loads
+before platform.js; committed `const TW_DEMO_BUILD = false` forever) →
+`PLATFORM.isDemo` (also honours `?demo=1` for in-browser testing) →
+`demoActive()` in **`js/demo.js`, the one gating module** — every restriction
+(placeable locks, the 17-card shop pool, the rung-III escalation cap, the
+faction pin, the blocked non-'de' save) is defined there and consumed as 1–2
+line call-site edits. Each build flips the flag its own way: desktop
+`main.cjs` SERVES a generated demo-flag.js over tw:// when packaged with
+`twDemo` extraMetadata (`npm run dist:demo`), mobile `sync-www.mjs` overwrites
+the staged copy under `TW_DEMO_BUILD=1` (the one documented exception to its
+zero-transforms rule; pair with the `demo` gradle flavor, whose
+`.demo` applicationId matches `DEMO_APP_ID` in `shells/app-identity.cjs`), and
+`scripts/stage-web-demo.mjs` stages `dist-web-demo/` for the demo's own origin.
+**The one rule: demo restrictions are READ-SIDE ONLY** — `?demo=1` shares
+localStorage with the full web game, so never prune `CARDS` (MAX_COMMAND_CAP
+derives from it; loadEndlessCards drops unknown ids), never clamp the STORED
+`escUnlocked`, never delete a non-'de' run save (it is hidden, and the abandon
+prompt still guards the slot). Locked toolbar items stay VISIBLE as dead
+bannered buttons (`.tool-btn--fglocked`); once the demo card pool is owned,
+locked cards flow into offer slots bannered `FULL GAME ONLY` (that surfacing is
+`demoDrawPool`'s fallback, not a leak — `buyCard` hard-rejects). Tutorials are
+exempt from placeable locks (tutorial 3 teaches gunner/grenadier/flamer).
+Drive it with `TEST.demo(bool?)`; `TW_SMOKE=1 TW_DEMO_BUILD=1 npx electron .`
+proves the desktop demo end to end. Player-facing docs: README's *The demo*,
+`docs/building.md`'s *Demo builds*.
+
+Two traps, both found by shipping them:
+- **The placeable gate keys on IDENTITY (`DEMO_SHOP_ITEMS`, a Set over
+  `PLACEABLES`), never on `p.kind`.** The testing rosters reuse the player
+  kinds — `TESTING_ABILITIES`' RANK UP and PURGE are `kind: 'support'` — so a
+  kind test locks two DEV TOOLS while believing it locks game content. Identity
+  also makes the allowlist safe to keep: a new `PLACEABLES` entry is demo-locked
+  by default, which is the right default for a demo.
+- **Read-clamping the ladder means EVERY read, not just `buildEscMods`.** The
+  stored rung can legitimately sit above `demoEscMax()` (a full-game blob, or
+  `TEST.escalation`), so anything that displays or steps from it must go through
+  `escEffectiveUnlocked`/`Math.min` first — `stepEscalation` (stepping from a
+  stored IX under a III cap clamps straight back and SWALLOWS the press), the
+  slab and its `EARNED n / max` line (printing `/ X` sends a capped player off
+  to farm a rung that can never unlock), `plan-note`, `openLeaderboardSelect`'s
+  default board, and `TEST.escalation()`'s report. `buildEscMods` alone gets the
+  RUN right and every surface around it wrong.
+
 ## Testing — use `window.TEST`
 
 **Do not try to test this game visually or via the DOM.** Known environment

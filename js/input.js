@@ -241,6 +241,9 @@ function findNearestValidRadial(p, x, y) {
 }
 
 function place(p, x, y) {
+  // demo backstop: selectPlaceable already rejects, but this covers TEST.buy
+  // and any future caller that reaches place() directly
+  if (demoLockedPlaceable(p)) { SFX.error(); return; }
   if (!placementValid(p, x, y)) {
     const fallback = (p.kind === 'unit' || p.kind === 'defense') ? findNearestValidRadial(p, x, y) : null;
     if (!fallback) { SFX.error(); mobileVibrate(14); return; }

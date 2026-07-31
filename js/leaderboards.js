@@ -195,8 +195,14 @@ let leaderboardReturnScreen = 'intro';
 function openLeaderboardSelect(fromScreen, rung) {
   leaderboardReturnScreen = fromScreen;
   el(fromScreen).classList.add('hidden');
-  leaderboardActiveRung = clamp(Math.floor(
-    rung != null ? rung : loadEndlessCards().escalation), 0, ESC_MAX);
+  // no explicit rung means "the board your next run lands on" — under the demo
+  // cap that is the effective rung, not whatever the shared blob still stores.
+  // An explicit rung (the game-over path) is passed through: it is a rung just
+  // played. Boards above the cap stay READABLE if they hold entries — a board
+  // is a record, and the demo does not un-write the full game's history.
+  const data = loadEndlessCards();
+  leaderboardActiveRung = clamp(Math.floor(rung != null ? rung
+    : Math.min(data.escalation, escEffectiveUnlocked(data))), 0, ESC_MAX);
   buildLeaderboardSelect();
   el('leaderboard-select').classList.remove('hidden');
 }

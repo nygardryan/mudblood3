@@ -547,6 +547,37 @@ body {
   opacity: .38;
   cursor: not-allowed;
 }
+/* demo: full-game-only items stay on the bar as dead, bannered buttons.
+   Doubled class beats the single-class theme re-skins later in the sheet, so
+   the locked look holds in every theme; its own :disabled opacity replaces the
+   .38 unaffordable fade (a locked button is a signpost, not a grey blur). */
+.tool-btn.tool-btn--fglocked {
+  position: relative;
+  overflow: hidden;
+  border-color: #6b5a26;
+  color: #6f6a55;
+  background: rgba(28, 27, 18, .92);
+}
+.tool-btn.tool-btn--fglocked:disabled { opacity: .85; }
+.tool-btn.tool-btn--fglocked .key,
+.tool-btn.tool-btn--fglocked .cost { color: #6f6a55; }
+.tool-fg {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  /* low on the button (over the cost line), so the unit's NAME stays readable
+     — a lock the player can't attribute to a unit is just a broken button */
+  top: 68%;
+  transform: translateY(-50%) rotate(-10deg);
+  background: #b98c2a;
+  color: #14130c;
+  font-size: calc(7px * var(--tool-scale));
+  font-weight: bold;
+  letter-spacing: .6px;
+  text-align: center;
+  padding: 1px 0;
+  pointer-events: none;
+}
 .tool-btn.tut-pulse {
   animation: tutPulse 0.9s ease-in-out infinite;
   border-color: #ff5a3c;
@@ -1097,6 +1128,28 @@ body {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 #card-shop-row .cs-card--unique:hover:not(:disabled) { border-color: #e7b93d; }
+/* demo: a full-game-only card in an offer slot — content dimmed under a
+   diagonal banner. Shared with the endgame rail (.ee-card carries the same
+   modifier class), hence the bare selectors beside the row-scoped ones. */
+.cs-card--fglocked { position: relative; overflow: hidden; }
+.cs-card--fglocked > :not(.cs-fgbanner) { opacity: .35; }
+#card-shop-row .cs-card--fglocked:disabled { opacity: 1; }   /* the dim lives on the children */
+.cs-fgbanner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-6deg);
+  border: 1px solid #b98c2a;
+  color: #b98c2a;
+  background: rgba(18, 17, 10, .9);
+  padding: 2px 12px;
+  font-weight: bold;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+}
 #card-shop-row .cs-card--empty {
   align-items: center;
   justify-content: center;

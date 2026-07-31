@@ -439,6 +439,8 @@ function saveAndExit() {
 function continueRun() {
   const blob = readRunSave();
   if (!blob) { refreshContinueUI(); return; }
+  // demo: a non-'de' save is hidden, not resumable — and never deleted
+  if (demoBlockedSave(blob)) { refreshContinueUI(); return; }
   let g;
   try {
     g = deserializeRun(blob.run);
@@ -474,8 +476,9 @@ function refreshContinueUI() {
   const btn = el('continue-run');
   if (!btn) return;
   const blob = readRunSave();   // a corrupt blob discards right here, hiding the card
-  btn.classList.toggle('hidden', !blob);
-  if (!blob) return;
+  const hidden = !blob || demoBlockedSave(blob);   // demo hides (never deletes) a non-'de' save
+  btn.classList.toggle('hidden', hidden);
+  if (hidden) return;
   const m = blob.meta;
   const bits = ['WAVE ' + (Number.isFinite(m.wave) ? m.wave : '?'),
     'vs ' + (SAVE_FACTION_NAMES[m.faction] || '???')];

@@ -22,6 +22,24 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    // The Google Play DEMO is a separate free listing, which on Play means a
+    // separate applicationId — flavors are how one project ships both (cap sync
+    // never rewrites applicationId in an existing native project). The demo id
+    // must match DEMO_APP_ID in shells/app-identity.cjs; its display strings
+    // live in src/demo/res/values/strings.xml (a flavor source set overrides
+    // main's resources — a resValue here would duplicate app_name and fail the
+    // merge). Build the demo with `npm run sync:demo` first, or the staged
+    // www/ still carries the full game's demo-flag.js.
+    flavorDimensions = ["dist"]
+    productFlavors {
+        full {
+            dimension "dist"
+        }
+        demo {
+            dimension "dist"
+            applicationIdSuffix ".demo"
+        }
+    }
 }
 
 repositories {

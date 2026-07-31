@@ -55,18 +55,27 @@ function setupTutorial1(G) {
   tutSetCam(2.6, rifle.x, rifle.y, true);
 }
 
-// ---- Tutorial 2: a two-front crisis that teaches wire, sandbags, and unit choice.
-// The scene picks up where Tutorial 1 left off — one bunker, a PFC rifleman, and
-// a medic behind. A flamethrower charges the center; the player wires the lane to
-// win the duel, then fortifies an open right flank against a fresh squad.
+// ---- Tutorial 2: the big picture — what this war is, why the TP economy
+// exists, and what winning actually means (reach wave 100, kill the boss,
+// then choose whether to keep going). The scene still picks up where Tutorial 1
+// left off — one sandbag wall, a PFC rifleman, and a medic behind — and the
+// original two-threat scaffolding (a flamethrower duel taught with wire, then
+// a flank rush answered with sandbags and a defender) survives as the
+// hands-on middle act, but it's now bracketed by narration rather than being
+// the whole lesson. It opens on sandbags rather than a bunker on purpose: the
+// center threat is a flamethrower, and flame bypasses cover entirely
+// (flameSpray's burn() calls damageUnit directly, never coverBlock — the
+// same rule Lesson 3 states outright: "Bunkers and sandbags do not stop
+// fire"), so a bunker here would only be a prop implying a defense that does
+// nothing against the one threat in the scene.
 function setupTutorial2(G) {
-  const BX = 557, BY = tuY(150);   // BX is the bunker's depth (x), BY its lateral (y)
+  const BX = 557, BY = tuY(150);   // BX is the sandbags' depth (x), lateral (y)
   const rifle = makeUnit('rifleman', BX + 2, BY);
   rifle.rank = 1;                 // the PFC he earned in Lesson 1
   G.units.push(rifle);
-  const medic = makeUnit('medic', BX + 62, BY);   // dug in behind the bunker
+  const medic = makeUnit('medic', BX + 62, BY);   // dug in behind the sandbags
   G.units.push(medic);
-  usBunker(G, BX, BY);
+  usSandbag(G, BX, BY);
   G.spawnTimer = 9999;            // no endless waves until the script hands off
   G.tutorial = {
     script: 't2',
@@ -74,7 +83,7 @@ function setupTutorial2(G) {
     timer: 0,        // set from the step's own text on entry (flow.js enters it)
     rifle,
     medic,
-    bunker: G.bunkers[0],
+    sandbag: G.sandbags[0],
     foe: null,                    // the center flamethrower
     flankFoes: [],                // the right-flank squad
     baseWires: 0, baseBags: 0,
@@ -392,15 +401,33 @@ function tutEnterStep(step) {
 function tutEnterStep2(T, step) {
   switch (step) {
     case 'orientation':
-      tutMsg(T, 'This war rewards patience, Sergeant. Every soldier who survives a fight gains experience — veterans outfight green troops, so keep them alive.');
+      tutMsg(T, "This war has no finish line, Sergeant. There's no ground to take out there — only this trench, and whether it's still yours by nightfall.");
+      break;
+    case 'mission':
+      // pull back off the tight close-up 'orientation' opened on — "no
+      // ground to take" should show the whole field, not one man's foxhole
+      tutSetCam(1.0, W / 2, H / 2);
+      tutMsg(T, "Your only job is to keep this line intact, wave after wave, for as long as you can. There's no capital to burn, no enemy HQ to storm — just the next push, and the one after it.");
+      break;
+    case 'economy':
+      tutMsg(T, "You'll earn Troop Points on your own, every second you hold. Spend them on men, wire, and fire support — shore up your weak points before the next push finds them.");
       break;
     case 'intro':
-      tutMsg(T, "Dawn on the line, Sergeant. You held through the night — the Germans aren't finished.");
+      tutMsg(T, "First light, Sergeant. Drills are over — let's see if they hold up for real.");
       break;
     case 'spot':
       // reveal the threat: a flamethrower frozen at the top of the center lane
       T.foe = makeEnemy('eflame', 44, tuY(150));
-      T.foe.hp = T.foe.maxhp = 60;   // scripted duel: the wire + rifleman must win reliably
+      T.foe.hp = T.foe.maxhp = 60;   // scripted duel: trimmed HP so wire + rifleman can close it out
+      // clone t rather than mutate it — e.t is the shared ENEMY_TYPES.eflame
+      // record, read by every flamethrower in the game. At his real 40 dps
+      // (78 range) a rifleman who eats a bad accuracy streak on the approach
+      // can still be caught at flame range with the foe near full HP, and a
+      // ~2.5s kill window at 40 dps outright kills a 100hp rifleman — measured
+      // a 10% rifleman-death rate over 20 scripted trials of the real duel,
+      // which breaks the "must win reliably" promise this scene depends on.
+      // Halving it keeps the burn a visible, felt threat without the coin-flip.
+      T.foe.t = Object.assign({}, T.foe.t, { flame: Object.assign({}, T.foe.t.flame, { dps: 20 }) });
       T.foe.tutHold = true;
       G.enemies.push(T.foe);
       T.ringTargets = [T.foe];
@@ -419,6 +446,9 @@ function tutEnterStep2(T, step) {
     case 'charge':
       if (T.foe) T.foe.tutHold = false;     // release him; the wire does the rest
       setTutorialMsg("Here he comes — let the wire do its work.");
+      break;
+    case 'breach':
+      tutMsg(T, "That's a wave, Sergeant. They press out of the tree line, and if too many of them reach this trench, the line breaks — that's the only way you lose this war.");
       break;
     case 'flankwarn':
       // a fresh squad masses on the undefended right flank, deliberately staged
@@ -445,8 +475,10 @@ function tutEnterStep2(T, step) {
       setTutorialMsg("Sandbags go up fast — men behind them dodge half the incoming fire. Cover that flank.");
       break;
     case 'buyunits':
-      if (G.tp < 12) G.tp = 12;             // a couple of riflemen, or a gunner and a rifleman
-      T.allowBuy = ['rifleman', 'gunner']; T.pulseCat = 'units'; T.pulseKey = 'rifleman';
+      if (G.tp < 13) G.tp = 13;             // two riflemen, or a sniper and a rifleman
+      // a sniper's high per-shot damage gets more out of a held position than a
+      // gunner's sustained close fire, so it's the flank's suggested second man
+      T.allowBuy = ['rifleman', 'sniper']; T.pulseCat = 'units'; T.pulseKey = 'rifleman';
       T.placeZone = { x0: 526, y0: tuY(330), x1: 666, y1: tuY(516) };
       T.ringTargets = T.flankFoes.slice();
       tutSetCam(1.2, 552, tuY(400));
@@ -456,8 +488,28 @@ function tutEnterStep2(T, step) {
       for (const e of T.flankFoes) e.tutHold = false;   // send them in
       setTutorialMsg("Hold them! Don't let them break through!");
       break;
+    case 'veterancy':
+      // the fight just resolved on the flank corner (zoom 1.2, off-center) —
+      // pull back out for the debrief the same way 'mission' opened the lesson,
+      // so "there's no victory screen" etc. isn't delivered over a tight shot
+      // of a sandbag pile
+      tutSetCam(1.0, W / 2, H / 2);
+      tutMsg(T, "Every man who survives a fight gets sharper. A green private who lives becomes a veteran who outshoots the replacements coming up behind him — protect the ones who've earned it.");
+      break;
+    case 'pace':
+      tutMsg(T, "It doesn't stay this gentle. Every wave hits harder than the last, and every tenth brings something built for the occasion.");
+      break;
+    case 'boss':
+      // deliberately faction-agnostic — outside the tutorials the wave-100
+      // threat isn't always a man: a battleship, an armored train, a mass of
+      // rotting flesh. "Break it" reads for all four.
+      tutMsg(T, "Survive to the hundredth wave, and they send something built to end it outright. Break it, and you've won, Sergeant — this war has an ending, if you can reach it.");
+      break;
+    case 'goal':
+      tutMsg(T, "But nothing says you have to stop there. Break it and the choice is yours — call it a victory, or stay in this trench and see how much further you can push it.");
+      break;
     case 'handoff':
-      tutMsg(T, "Good work, Sergeant. Fortify your weak points and pick the right man for the job.");
+      tutMsg(T, "Now you know the shape of this war. Next, you'll learn how to answer everything they throw at you.");
       showBanner('TUTORIAL COMPLETE');
       markLevelComplete(G.level.id);
       T.done = true;
@@ -471,6 +523,14 @@ function updateTutorial2(dt, T) {
   if (T.rifle.dead) { gameOver(); return; }   // the flamethrower got through
   switch (T.step) {
     case 'orientation':
+      T.timer -= tutStepDt(dt);
+      if (T.timer <= 0) tutEnterStep('mission');
+      break;
+    case 'mission':
+      T.timer -= tutStepDt(dt);
+      if (T.timer <= 0) tutEnterStep('economy');
+      break;
+    case 'economy':
       T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('intro');
       break;
@@ -486,7 +546,11 @@ function updateTutorial2(dt, T) {
       if (G.wires.length - T.baseWires >= T.wiresWanted) tutEnterStep('charge');
       break;
     case 'charge':
-      if (T.foe && T.foe.dead) tutEnterStep('flankwarn');
+      if (T.foe && T.foe.dead) tutEnterStep('breach');
+      break;
+    case 'breach':
+      T.timer -= tutStepDt(dt);
+      if (T.timer <= 0) tutEnterStep('flankwarn');
       break;
     case 'flankwarn':
       T.timer -= tutStepDt(dt);
@@ -499,7 +563,23 @@ function updateTutorial2(dt, T) {
       if (tutRightUnitCount() >= T.unitsWanted) tutEnterStep('flankcharge');
       break;
     case 'flankcharge':
-      if (T.flankFoes.every(e => e.dead)) tutEnterStep('handoff');
+      if (T.flankFoes.every(e => e.dead)) tutEnterStep('veterancy');
+      break;
+    case 'veterancy':
+      T.timer -= tutStepDt(dt);
+      if (T.timer <= 0) tutEnterStep('pace');
+      break;
+    case 'pace':
+      T.timer -= tutStepDt(dt);
+      if (T.timer <= 0) tutEnterStep('boss');
+      break;
+    case 'boss':
+      T.timer -= tutStepDt(dt);
+      if (T.timer <= 0) tutEnterStep('goal');
+      break;
+    case 'goal':
+      T.timer -= tutStepDt(dt);
+      if (T.timer <= 0) tutEnterStep('handoff');
       break;
   }
 }

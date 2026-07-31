@@ -71,9 +71,9 @@ const LEVELS = {
 
   tutorial2: {
     id: 'tutorial2',
-    name: 'TUTORIAL 2: UNDER ATTACK',
-    menuName: 'LESSON 2 — UNDER ATTACK',
-    menuDesc: 'Fortify a weak flank under fire.',
+    name: 'TUTORIAL 2: THE LONG WAR',
+    menuName: 'LESSON 2 — THE LONG WAR',
+    menuDesc: 'What this war is, and what it means to win it.',
     mode: 'endless',
     tutorial: true,
     breachLimit: MAX_BREACH,

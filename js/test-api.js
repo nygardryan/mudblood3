@@ -44,7 +44,7 @@ const TEST = {
         'stepUntil(predFn, maxSeconds=60)': 'step until predFn(G) is truthy or timeout; returns {ok, met, simSeconds, state}',
         'buy(type, x, y)': 'realistic purchase: charges TP, checks cap/placement, runs the in-game place() path. Returns {ok, placed, cost, tpBefore, tpAfter, reason?}',
         'deploy(type, x, y)': 'FREE god-mode spawn of ANY placeable (units, defenses, supports, German test units) — no TP, no placement limit. (0..1] coords are field fractions; larger are px.',
-        'spawnEnemy(type, x, y)': 'defense modes only: push a German attacker into G.enemies. Negative y above the top edge is valid staging.',
+        'spawnEnemy(type, x, y)': 'defense modes only: push a German attacker into G.enemies. Negative x left of the enemy edge is valid staging.',
         'event(name)': "fire a random-event on demand regardless of wave gating — name in: random, fog, smokescreen, fng, paradrop, airraid, kamikaze, airstrike. 'airraid' follows the faction (kamikaze vs the IJA, bombers otherwise); 'kamikaze' forces the Japanese half against anyone and is never rolled.",
         'escalation(n?)': 'ESCALATION ladder: with no arg, reports {level, unlocked, mods, active}. With 0..10 it UNLOCKS and selects that rung (write to the save) so a run can start there without grinding boss kills. Takes effect at the next TEST.start. The rung does NOT pick the enemy — every rung rolls it, so pin it with TEST.start\'s faction arg.',
         'setTP(n) / addTP(n)': 'set or add tactical points, for scripting test scenarios',
@@ -121,12 +121,12 @@ const TEST = {
       units: tally(G.units),
       enemies: tally(G.enemies),
       // Regio Esercito: the field works and (from the garrison phase) who's in
-      // them. frontY is the deepest live work — the number that proves the enemy
+      // them. frontX is the deepest live work — the number that proves the enemy
       // line is creeping rather than just churning.
       it: {
         works: G.itWorks.length,
         worksHp: Math.round(G.itWorks.reduce((s, w) => s + Math.max(0, w.hp), 0)),
-        frontY: G.itWorks.length ? Math.round(Math.max(...G.itWorks.map(w => w.y))) : null,
+        frontX: G.itWorks.length ? Math.round(Math.max(...G.itWorks.map(w => w.x))) : null,
         garrisoned: G.enemies.filter(e => !e.dead && e.garrisoned).length,
         // AVANTI: negative = telegraphed and winding up, positive = surging, 0 = idle
         charge: +G.itCharge.toFixed(2),
@@ -170,6 +170,11 @@ const TEST = {
       // phase) whether a man is in a work
       if (a.buildState) { o.buildState = a.buildState; o.buildsDone = a.buildsDone; }
       if (a.garrisoned) o.garrisoned = true;
+      // an enemy officer's command clock: `cmdWarn` is the telegraph counting
+      // down to the shout (officerCommand, js/update-enemies.js), `cmdCd` the
+      // wait before the next one opens
+      if (a.cmdT > 0) o.cmdWarn = +a.cmdT.toFixed(2);
+      else if (a.cmdCd != null) o.cmdCd = +a.cmdCd.toFixed(2);
       return o;
     };
     return {
@@ -218,14 +223,14 @@ const TEST = {
 
   // Bounds feedback: a placement outside the playable field is accepted but
   // flagged, because such a unit is off-screen and usually never participates —
-  // a silent typo otherwise costs a whole test run. topMargin allows the top
-  // staging area above the field (negative y) for units that march in from off
-  // the top edge (enemies/attackers); defenders must land on the field itself.
-  _bounds(px, py, topMargin) {
-    if (px >= 0 && px <= W && py >= topMargin && py <= H) return null;
+  // a silent typo otherwise costs a whole test run. stageMargin allows the
+  // staging strip left of the field (negative x) for units that march in from
+  // off the enemy edge (enemies/attackers); defenders must land on the field.
+  _bounds(px, py, stageMargin) {
+    if (px >= stageMargin && px <= W && py >= 0 && py <= H) return null;
     return { offField: true,
-      warning: 'placed outside the playable field (valid x 0–' + W + ', y ' +
-        topMargin + '–' + H + ') — this unit is off-screen and may never participate' };
+      warning: 'placed outside the playable field (valid x ' + stageMargin + '–' + W +
+        ', y 0–' + H + ') — this unit is off-screen and may never participate' };
   },
 
   // Everything the god-mode deploy() can spawn, keyed by placeable key. This is
@@ -385,8 +390,8 @@ const TEST = {
     }
     const px = this._coord(x, W), py = this._coord(y, H);
     G.enemies.push(makeEnemy(type, px, py));
-    // enemies normally stage above the top edge and march in, so negative y down
-    // to the spawn band is on-field; below the bottom means already past the line
+    // enemies normally stage left of the enemy edge and march in, so negative x
+    // out to the spawn band is on-field; past the right edge means already through
     const b = this._bounds(px, py, -120);
     return { ok: true, type, x: Math.round(px), y: Math.round(py), offField: !!b, ...(b || {}) };
   },
@@ -457,14 +462,14 @@ const TEST = {
       atgun: w >= 24 ? 1 : 0,
       engineer: w >= 15 ? 1 : 0,
     };
-    const xs = [0.15, 0.3, 0.45, 0.6, 0.75, 0.88, 0.22, 0.68];
+    const lats = [0.15, 0.3, 0.45, 0.6, 0.75, 0.88, 0.22, 0.68];   // spread across the front (y)
     const back = ['sniper', 'mortarman', 'bazooka', 'atgun'];
     const queue = [];
     let i = 0;
     for (const type of ['rifleman', 'gunner', 'sniper', 'officer', 'medic', 'mortarman', 'bazooka', 'atgun', 'engineer']) {
       let deficit = (want[type] || 0) - (have[type] || 0);
       while (deficit-- > 0) {
-        queue.push({ type, x: xs[i % xs.length], y: back.includes(type) ? 0.92 : 0.8 });
+        queue.push({ type, x: back.includes(type) ? 0.92 : 0.8, y: lats[i % lats.length] });
         i++;
       }
     }

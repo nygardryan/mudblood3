@@ -53,6 +53,49 @@ function drawRankChevrons(a, dy) {
   }
 }
 
+// An enemy officer winding up a command (officerCommand, js/update-enemies.js):
+// the half of the telegraph that answers WHO, since the ground ring the order
+// is drawn inside (drawOfficerCommandTelegraph, js/render.js) can easily have a
+// dozen men standing in it and only one of them is worth shooting.
+//
+// It rides ABOVE every other bar an actor can wear — a Screamer can be carrying
+// an HP bar and a rot bar already — and it is the one overlay in the game with
+// a black keyline, because it has to be found FAST on ground of any value. The
+// blink accelerates as the order forms: an urgency the player reads out of the
+// corner of an eye without having to parse a bar. The bar under it is the exact
+// time left, for the player who has already found him and is deciding whether
+// there's room for one more burst.
+const CMD_WARN_DY = 27;   // bar sits clear of the rot bar at 22
+function drawCommandWarning(a) {
+  const f = clamp(1 - a.cmdT / (a.cmdMax || OFFICER_CMD_WARN), 0, 1);
+  const col = a.cmdColor || '#ffd15a';
+  drawActorBar(a, CMD_WARN_DY, 18, 2, f, col);
+
+  // warning triangle, growing and blinking faster as the order lands
+  const s = 1 + f * 0.3;
+  const blink = 0.55 + Math.abs(Math.sin(G.time * (5 + f * 16))) * 0.45;
+  const cx = a.x;
+  const by = a.y - CMD_WARN_DY - 2.5;     // sits on the bar
+  const ty = by - 9.5 * s;
+  ctx.globalAlpha = blink;
+  ctx.beginPath();
+  ctx.moveTo(cx, ty);
+  ctx.lineTo(cx + 6 * s, by);
+  ctx.lineTo(cx - 6 * s, by);
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+  ctx.fillStyle = col;
+  ctx.fill();
+  // the bang inside it: two dark rects rather than a glyph, which at 8px tall
+  // renders as a smudge in any font
+  ctx.fillStyle = 'rgba(0,0,0,0.8)';
+  ctx.fillRect(cx - 0.7, ty + 3.6 * s, 1.4, 3.4 * s);
+  ctx.fillRect(cx - 0.7, by - 1.8, 1.4, 1.3);
+  ctx.globalAlpha = 1;
+}
+
 // dashed ring around a selected actor — `r` is its own footprint
 function drawSelectionRing(a, r) {
   ctx.strokeStyle = 'rgba(255,255,255,0.85)';

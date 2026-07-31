@@ -135,7 +135,8 @@ function explode(x, y, r, dmg, big, by) {
       if (dist2(ac, pt) < r2) ac.hp -= dmg;
     }
     for (const wr of G.wires) {
-      if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp -= dmg;
+      // a wire strand is a belt, long across the enemy's advance (the y axis)
+      if (Math.abs(wr.x - x) < r && Math.abs(wr.y - y) < r + 35) wr.hp -= dmg;
     }
   }
   // Regio Esercito field works — OUTSIDE the Blast Shelter guard on purpose.
@@ -248,23 +249,23 @@ function spawnTransportFlyby() {
   G.planes.push({
     role: 'flyby',
     transport: true,
-    x: dir > 0 ? -90 : W + 90,
-    y: rand(70, H * 0.45),
-    vx: dir * rand(240, 320),
-    vy: rand(-12, 12),
+    x: rand(70, W * 0.45),
+    y: dir > 0 ? -90 : H + 90,
+    vx: rand(-12, 12),
+    vy: dir * rand(240, 320),
     sfxT: 0,
     flybyPlayed: false,
     done: false,
   });
 }
 
-function spawnStrafeRun(x) {
+function spawnStrafeRun(y) {
   const speed = 380;
-  const startY = H + 70;
+  const startX = W + 70;
   SFX.planeFlyby();
   G.planes.push({
     role: 'strafe',
-    x, y: startY, speed,
+    x: startX, y, speed,
     drift: rand(-10, 10),
     gunT: 0.4, sfxT: 0, gunSfxT: 0,
     flybyPlayed: true,
@@ -272,8 +273,8 @@ function spawnStrafeRun(x) {
   });
   // a stick of bombs timed to burst right as the plane passes overhead
   for (let i = 0; i < 2; i++) {
-    const by = 90 + i * 95;
-    scheduleShell(x + rand(-22, 22), by, (startY - by) / speed + 0.12, 42, 90, false);
+    const bx = 90 + i * 95;
+    scheduleShell(bx, y + rand(-22, 22), (startX - bx) / speed + 0.12, 42, 90, false);
   }
 }
 
@@ -287,8 +288,8 @@ function updatePlane(p, dt) {
     }
     p.sfxT -= dt;
     if (p.sfxT <= 0) { p.sfxT = 0.14; SFX.plane(); }
-    if (p.vx > 0 && p.x > W + 100) p.done = true;
-    if (p.vx < 0 && p.x < -100) p.done = true;
+    if (p.vy > 0 && p.y > H + 100) p.done = true;
+    if (p.vy < 0 && p.y < -100) p.done = true;
     return;
   }
 
@@ -302,23 +303,23 @@ function updatePlane(p, dt) {
     return;
   }
 
-  p.y -= p.speed * dt;
-  p.x += p.drift * dt;
+  p.x -= p.speed * dt;
+  p.y += p.drift * dt;
 
   p.sfxT -= dt;
   if (p.sfxT <= 0) { p.sfxT = 0.09; SFX.plane(); }
 
   // guns hold fire until the nose is past the trench line
-  if (p.y < DEPLOY_Y + 40 && p.y > 40) {
+  if (p.x < DEPLOY_X + 40 && p.x > 40) {
     p.gunT -= dt;
     while (p.gunT <= 0) {
       p.gunT += 0.035;
       // rounds strike well ahead of the aircraft
-      const ix = p.x + rand(-16, 16);
-      const iy = p.y - rand(70, 150);
-      if (iy < 0) continue;
+      const ix = p.x - rand(70, 150);
+      const iy = p.y + rand(-16, 16);
+      if (ix < 0) continue;
 
-      G.tracers.push({ x1: p.x + rand(-4, 4), y1: p.y - 20, x2: ix, y2: iy, ttl: 0.07, life: 0.07 });
+      G.tracers.push({ x1: p.x - 20, y1: p.y + rand(-4, 4), x2: ix, y2: iy, ttl: 0.07, life: 0.07 });
       G.particles.push({
         x: ix, y: iy, vx: rand(-25, 25), vy: rand(-70, -20),
         ttl: rand(0.2, 0.45), grav: 260, size: rand(1.2, 2.2),
@@ -339,7 +340,7 @@ function updatePlane(p, dt) {
     }
   }
 
-  if (p.y < -90) p.done = true;
+  if (p.x < -90) p.done = true;
 }
 
 // a bomber holds its heading and does not react to what's shooting at it: it
@@ -350,7 +351,7 @@ function updateBomber(p, dt) {
   p.y += p.vy * dt;
 
   // engine drone only while it's actually over the field
-  if (p.y > -60) {
+  if (p.x > -60) {
     p.sfxT -= dt;
     if (p.sfxT <= 0) { p.sfxT = 0.11; SFX.plane(); }
   }
@@ -358,7 +359,7 @@ function updateBomber(p, dt) {
   if (p.bombCd > 0) p.bombCd -= dt;
 
   // bays stay shut until it's actually over the field and something is under it
-  if (p.bombCd <= 0 && p.y > -20 && p.y < H - 20) {
+  if (p.bombCd <= 0 && p.x > -20 && p.x < W - 20) {
     let victim = null, best = p.attackR;
     for (const u of G.units) {
       if (u.dead || isCamouflaged(u)) continue;
@@ -368,7 +369,7 @@ function updateBomber(p, dt) {
     if (victim) dropBombStick(p, victim);
   }
 
-  if (p.y > H + 90) p.done = true;
+  if (p.x > W + 90) p.done = true;
 }
 
 // the stick walks along the flight path from a badly-judged release point —
@@ -432,8 +433,8 @@ function kamikazeAcquire(p) {
   p.offY = rand(-p.aim, p.aim);
   if (!p.target) {
     // nobody left to hit, and he still has to come down somewhere
-    p.aimX = clamp(rand(80, W - 80), 14, W - 14);
-    p.aimY = clamp(rand(DEPLOY_Y - 40, H - 40), 14, H - 14);
+    p.aimX = clamp(rand(DEPLOY_X - 40, W - 40), 14, W - 14);
+    p.aimY = clamp(rand(80, H - 80), 14, H - 14);
     p.locked = true;
   }
 }
@@ -469,15 +470,15 @@ function updateKamikaze(p, dt) {
   p.y += p.vy * dt;
 
   // engine note, winding tighter as the dive steepens
-  if (p.y > -40) {
+  if (p.x > -40) {
     p.sfxT -= dt;
     if (p.sfxT <= 0) { p.sfxT = 0.11 - p.dive * 0.05; SFX.plane(); }
   }
 
-  // 0..1 down the run from the entry height to the aim point. The renderer maps
+  // 0..1 down the run from the entry point to the aim point. The renderer maps
   // it to the airframe's apparent size — see drawPlane.
-  const span = p.aimY - p.entryY;
-  p.dive = span > 1 ? clamp((p.y - p.entryY) / span, 0, 1) : 1;
+  const span = p.aimX - p.entryX;
+  p.dive = span > 1 ? clamp((p.x - p.entryX) / span, 0, 1) : 1;
 
   // a holed airframe streams the rest of the way down, so a plane the flak hit
   // but didn't break still reads as hit
@@ -499,7 +500,7 @@ function updateKamikaze(p, dt) {
     return;
   }
 
-  if (p.y > H + 90) p.done = true;   // clean off the bottom of the field: gone, no blast
+  if (p.x > W + 90) p.done = true;   // clean past the player's edge: gone, no blast
 }
 
 // the aircraft IS the warhead. The synthetic firer carries side 'de' so the
@@ -553,21 +554,26 @@ function killPlane(p, by) {
       color: pick(['#2a2318', '#4a3d28', '#6e6046', '#8a7a5a', '#1a1712']),
     });
   }
-  // the wreck comes down south of where it was hit, still travelling
+  // the wreck comes down beyond where it was hit, still travelling
   const cx = clamp(p.x + p.vx * 0.5, 20, W - 20);
   const cy = clamp(p.y + p.vy * 0.55, 20, H - 20);
   explode(cx, cy, p.wreckR || 46, p.wreckDmg || 70, true);
 }
 
 // bombers are never seen, only their shadows: a twin-engine silhouette
-// sweeping south across the ground, with the attack radius it will bomb inside
+// sweeping down-field across the ground, with the attack radius it will bomb inside
 function drawBomberShadow(p) {
   const c = ctx;
-  if (p.y < -55) return;
+  if (p.x < -55) return;
 
   c.save();
   c.translate(p.x, p.y);
-  c.rotate(Math.atan2(p.vy, p.vx) - Math.PI / 2);
+  // The silhouette below is authored nose -y, so the turn onto its course is
+  // `heading + PI/2` — the same term the kamikaze in drawPlane uses, and for
+  // the same reason. It was MINUS a quarter turn, which is a half turn out:
+  // bombers cross down-field at +x and were drawn flying tail-first, props and
+  // all, the whole way over.
+  c.rotate(Math.atan2(p.vy, p.vx) + Math.PI / 2);
 
   // the radius it's hunting inside — faint, so it reads as a threat envelope
   // rather than a UI element
@@ -609,8 +615,8 @@ function drawPlane(p) {
   if (p.role === 'bomber') { drawBomberShadow(p); return; }
   const flyby = p.role === 'flyby';
   const kami = p.role === 'kamikaze';
-  const facing = flyby ? (p.vx > 0 ? 1 : -1) : 0;
-  if (kami && p.y < -40) return;
+  const facing = flyby ? (p.vy > 0 ? 1 : -1) : 0;
+  if (kami && p.x < -40) return;
 
   // apparent size. This camera looks straight down, so ALTITUDE IS DISTANCE
   // FROM THE LENS: a plane up at its entry height is nearer the viewer and
@@ -626,18 +632,25 @@ function drawPlane(p) {
     c.save();
     if (flyby) {
       c.translate(p.x, p.y + 28);
-      c.beginPath(); c.ellipse(0, 0, 26, 8, 0, 0, 7); c.fill();
+      c.beginPath(); c.ellipse(0, 0, 8, 26, 0, 0, 7); c.fill();
     } else {
+      // the strafer's. Drawn in SCREEN space (a drop shadow, so its offset is
+      // fixed and doesn't swing with the aircraft), but it is still a plane
+      // SILHOUETTE and has to lie the way the plane above it does — along x,
+      // wing across. Authored nose -y like the airframe itself, then carried
+      // through the body's own -PI/2 by hand: local (x, y) -> screen (y, -x).
       c.translate(p.x + 26, p.y + 34);
       c.beginPath(); c.ellipse(0, 0, 9, 20, 0, 0, 7); c.fill();
-      c.beginPath(); c.ellipse(0, -2, 22, 5, 0, 0, 7); c.fill();
+      c.beginPath(); c.ellipse(0, 2, 22, 5, 0, 0, 7); c.fill();
     }
     c.restore();
   }
 
   c.save();
   c.translate(p.x, p.y);
-  if (flyby) c.rotate(facing > 0 ? Math.PI / 2 : -Math.PI / 2);
+  if (flyby) c.rotate(facing > 0 ? Math.PI : 0);
+  // the strafer flies up-field (-x); the body below is authored nose -y
+  else if (!kami) c.rotate(-Math.PI / 2);
   // the body below is drawn nose-toward -y; `atan2 + PI/2` turns that into the
   // heading it is actually flying, which for a dive is down-field
   else if (kami) c.rotate(Math.atan2(p.vy, p.vx) + Math.PI / 2);
@@ -754,7 +767,7 @@ function drawPlane(p) {
 
   // wing gun muzzle flashes while firing — a kamikaze isn't strafing, it's the
   // ordnance itself, so its guns stay quiet the whole way down
-  if (!flyby && !kami && p.y < DEPLOY_Y + 40 && p.y > 40) {
+  if (!flyby && !kami && p.x < DEPLOY_X + 40 && p.x > 40) {
     c.fillStyle = 'rgba(255,220,120,0.9)';
     for (const gx of [-14, -8, 8, 14]) {
       if (Math.random() < 0.6) {

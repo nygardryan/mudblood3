@@ -11,12 +11,13 @@
 
 // ---- who is even in the fight ----------------------------------------------
 // Every scan below admits only inTheFight(e) (js/helpers.js): alive, out of the
-// staging strip above the top edge, canopy already shed, and not mid roll-in.
-// That last term is the Yamato's: she is 300px long and comes on from the SIDE,
-// so the y < 0 staging gate can't hold her — and nothing here, or anywhere else
-// in the game, gates on x. Without it her stern would be shootable while off the
-// edge and invisible. It is stamped on the hull and all ten parts, and cleared
-// together when she reaches YAM_X_MARGIN (yamatoRollIn, js/update-enemies.js).
+// staging strip left of the enemy edge, canopy already shed, and not mid roll-in.
+// That last term is the Yamato's: she is 300px long and comes on from a FLANK
+// (the top or bottom edge), so the x < 0 staging gate can't hold her — and
+// nothing here, or anywhere else in the game, gates on y. Without it her stern
+// would be shootable while off the edge and invisible. It is stamped on the hull
+// and all ten parts, and cleared together when she reaches YAM_Y_MARGIN
+// (yamatoRollIn, js/update-enemies.js).
 
 // the player can click an enemy to mark it as a focus target: any troop that
 // could otherwise shoot it (in range, matches its own weapon's target filter)
@@ -198,7 +199,7 @@ function angleDiff(a, b) {
 }
 
 function vehicleHomeFace(a) {
-  return a.side === 'us' ? -Math.PI / 2 : Math.PI / 2;
+  return a.side === 'us' ? Math.PI : 0;
 }
 
 function vehicleHullAngle(a) {
@@ -395,11 +396,11 @@ function drawUnitWeaponRange(a, opts) {
   if (empl) {
     const arc = emplacementArc(a);
     const full = unitRange(a, t.range) * fog;
-    drawATGunRangeCone(a.x, a.y, -Math.PI / 2, arc, full, alpha);
+    drawATGunRangeCone(a.x, a.y, Math.PI, arc, full, alpha);
     // Level the Barrels: overlay the near wedge in red — that's the slice of
     // the traverse this flak gun can also drop onto ground infantry
     if (t.aagun && aaGroundFireEnabled()) {
-      drawAAGroundCone(a.x, a.y, -Math.PI / 2, arc, AA_GROUND_RANGE * fog, alpha);
+      drawAAGroundCone(a.x, a.y, Math.PI, arc, AA_GROUND_RANGE * fog, alpha);
     }
     // Canister Shot: the same idea in buckshot cream. The band is a fraction of
     // the AP reach just computed, so rank, a tower and Rangefinders move both at
@@ -407,7 +408,7 @@ function drawUnitWeaponRange(a, opts) {
     // gun's tin opens past its own trails, and a MSG gun's trails open past the
     // tin — drawing only one of the two would lie in one direction or the other.
     if (t.atgun && canisterShotEnabled()) {
-      drawBuckshotCone(a.x, a.y, -Math.PI / 2, Math.max(arc, CANISTER_ARC),
+      drawBuckshotCone(a.x, a.y, Math.PI, Math.max(arc, CANISTER_ARC),
         full * CANISTER_RANGE_FRAC, alpha);
     }
     return;
@@ -526,10 +527,12 @@ function drawDefenseRangeIndicator(key, x, y, tier = 0) {
     ctx.beginPath(); ctx.arc(x, y, 44, 0, 7); ctx.stroke();
     ctx.setLineDash([]);
   } else if (key === 'wire') {
+    // the belt lies across the enemy's advance: narrow in depth (x), long
+    // laterally (y) — matches inWireBand's WIRE_BAND_DEPTH/WIRE_BAND_LAT
     ctx.strokeStyle = 'rgba(220,190,90,0.5)';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 4]);
-    ctx.strokeRect(x - 40, y - 14, 80, 28);
+    ctx.strokeRect(x - 14, y - 40, 28, 80);
     ctx.setLineDash([]);
   } else if (key === 'watchtower') {
     // Forward Observer draws the tower's second, much wider footprint: the

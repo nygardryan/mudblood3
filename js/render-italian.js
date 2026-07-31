@@ -558,6 +558,7 @@ function paintItalianSoldier(c, a) {
     // map/binocular case at the front
     c.fillStyle = '#4a4028';
     c.fillRect(-1.2, 3.4, 2.4, 2.2);
+    drawShoulderBoards(c, fx, fy);
   } else if (isBersa) {
     // light assault order — a single bandolier
     c.strokeStyle = '#4a3e28';

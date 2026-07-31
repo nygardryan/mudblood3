@@ -339,9 +339,11 @@ function spawnGib(cp, kind, us) {
     kind, x: cp.x, y: cp.y, z: 3,
     vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd * 0.7, vz: rand(70, 130),
     rot: rand(0, 7), spin: rand(-14, 14),
-    col: muteColor(cp.col, 0.32), limb: muteColor(cp.col, 0.5),
-    skin: us ? '#9a7350' : '#9c7a58',
-    helmet: corpseHelmet(cp),
+    // muted like the corpse's own post-wash palette — a landed gib sits on the
+    // field as long as the body it flew off, and must not out-shout it
+    col: muteColor(cp.col, 0.45), limb: muteColor(cp.col, 0.6),
+    skin: muteColor(us ? '#9a7350' : '#9c7a58', 0.42),
+    helmet: muteColor(corpseHelmet(cp), 0.42),
     landed: false, trail: 0, ttl: CORPSE_TTL,
   });
 }
@@ -429,12 +431,21 @@ function paintCorpse(c, cp) {
   };
   c.lineCap = 'round';
 
-  // soft ground shadow beneath the body
-  c.fillStyle = 'rgba(0,0,0,0.22)';
+  // faint ground shadow — a body flat on the ground casts far less than a
+  // standing man, and the shadow was one of the cues making the dead read alive
+  c.fillStyle = 'rgba(0,0,0,0.1)';
   c.beginPath(); c.ellipse(0, 1.5, 11, 5.5, 0, 0, 7); c.fill();
 
   if (cp.missing) poseDismembered(c, cp, P);
   else (CORPSE_POSES[cp.pose] || poseSprawl)(c, cp, P);
+
+  // grave-dirt wash over the whole body: flattens skin dots, helmet speculars
+  // and torso highlights in one pass, so a pile of the dead sinks toward the
+  // ground and never competes with a living man standing on it
+  c.globalCompositeOperation = 'source-atop';
+  c.fillStyle = 'rgba(34,30,24,0.42)';
+  c.fillRect(-CORPSE_SPR_AX, -CORPSE_SPR_AY, CORPSE_SPR_W, CORPSE_SPR_H);
+  c.globalCompositeOperation = 'source-over';
 }
 
 function drawCorpse(cp) {
@@ -467,7 +478,7 @@ function stampSandbagRubble(s) {
   logGroundStamp('sandbag', s.x, s.y);
   gctx.fillStyle = 'rgba(120,105,70,0.5)';
   gctx.beginPath();
-  gctx.ellipse(s.x, s.y, 20, 9, 0, 0, 7);
+  gctx.ellipse(s.x, s.y, 9, 20, 0, 0, 7);   // the wall stood across the advance
   gctx.fill();
 }
 
@@ -510,12 +521,12 @@ function stampBunkerRubble(b) {
   // shattered concrete slab plus scattered chunks
   gctx.fillStyle = 'rgba(105,102,92,0.6)';
   gctx.beginPath();
-  gctx.ellipse(b.x, b.y, 26, 12, 0, 0, 7);
+  gctx.ellipse(b.x, b.y, 12, 26, 0, 0, 7);   // the slab stood across the advance
   gctx.fill();
   gctx.fillStyle = 'rgba(80,78,70,0.55)';
   for (let i = 0; i < 6; i++) {
     gctx.beginPath();
-    gctx.ellipse(b.x + rand(-22, 22), b.y + rand(-9, 9), rand(3, 7), rand(2, 5), rand(0, 3), 0, 7);
+    gctx.ellipse(b.x + rand(-9, 9), b.y + rand(-22, 22), rand(3, 7), rand(2, 5), rand(0, 3), 0, 7);
     gctx.fill();
   }
 }
@@ -543,12 +554,12 @@ function stampCamoNestRubble(cn) {
   // scorched brush and torn netting
   gctx.fillStyle = 'rgba(45,42,30,0.55)';
   gctx.beginPath();
-  gctx.ellipse(cn.x, cn.y, 24, 11, 0, 0, 7);
+  gctx.ellipse(cn.x, cn.y, 11, 24, 0, 0, 7);   // the net stood across the advance
   gctx.fill();
   gctx.fillStyle = 'rgba(70,60,40,0.5)';
   for (let i = 0; i < 5; i++) {
     gctx.beginPath();
-    gctx.ellipse(cn.x + rand(-18, 18), cn.y + rand(-8, 8), rand(3, 6), rand(2, 4), rand(0, 3), 0, 7);
+    gctx.ellipse(cn.x + rand(-8, 8), cn.y + rand(-18, 18), rand(3, 6), rand(2, 4), rand(0, 3), 0, 7);
     gctx.fill();
   }
 }
@@ -748,7 +759,7 @@ function purgeRadius(x, y, r) {
   for (const cn of G.camoNests) if (dist(cn, at) < r) cn.hp = 0;
   for (const ac of G.ammoCrates) if (dist(ac, at) < r) ac.hp = 0;
   for (const d of G.dummies) if (dist(d, at) < r) d.hp = 0;
-  for (const wr of G.wires) if (Math.abs(wr.x - x) < r + 35 && Math.abs(wr.y - y) < r) wr.hp = 0;
+  for (const wr of G.wires) if (Math.abs(wr.x - x) < r && Math.abs(wr.y - y) < r + 35) wr.hp = 0;
   for (const w of G.itWorks) if (dist(w, at) < r) w.hp = 0;
   for (const m of G.mines) if (!m.dead && dist(m, at) < r) m.dead = true;
 }

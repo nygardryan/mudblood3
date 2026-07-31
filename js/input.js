@@ -17,22 +17,27 @@ let dummySeq = 0;
 function minefieldPositions(cx, cy) {
   // Tight X pattern: center mine plus one on each diagonal. Mines are immune
   // to explosives now, so there's no chain radius to space them around.
+  // The belt lies ACROSS the advance like every other emplacement, so the
+  // WIDER spread is the lateral one (y) and the shallower one the depth (x) —
+  // the two were left in their pre-flip roles by the landscape re-author, which
+  // made a minefield deeper than it was wide: it presented a narrow face to the
+  // men walking into it, and cost 4 extra px of depth clearance off FORWARD_X.
   return [
     { x: cx, y: cy },
-    { x: cx + 26, y: cy - 22 },
-    { x: cx - 26, y: cy - 22 },
-    { x: cx + 26, y: cy + 22 },
-    { x: cx - 26, y: cy + 22 },
+    { x: cx + 22, y: cy - 26 },
+    { x: cx - 22, y: cy - 26 },
+    { x: cx + 22, y: cy + 26 },
+    { x: cx - 22, y: cy + 26 },
   ];
 }
 
-function moveOrderMinY() {
-  return FORWARD_Y;
+function moveOrderMinX() {
+  return FORWARD_X;
 }
 
 function moveOrderValid(x, y) {
-  const minY = moveOrderMinY();
-  return x >= 16 && x <= W - 16 && y > minY && y < H - 14;
+  const minX = moveOrderMinX();
+  return y >= 16 && y <= H - 16 && x > minX && x < W - 14;
 }
 
 function canReceiveMoveOrders() {
@@ -95,7 +100,7 @@ function attackerTypeStats(p) {
 function placementValid(p, x, y) {
   // armor abilities are only valid over an eligible infantryman — no wasted TP on empty ground
   if (p.key === 'bodyarmor' || p.key === 'flakarmor') return !!nearestArmorableUnit(x, y);
-  if (p.kind === 'support') return y > 20 && y < H - 10;
+  if (p.kind === 'support') return x > 20 && x < W - 10;
   if (p.kind === 'egerman') {
     // testing mode: enemy units go anywhere on the field
     if (x < 16 || x > W - 16 || y < 14 || y > H - 14) return false;
@@ -121,14 +126,14 @@ function placementValid(p, x, y) {
     return clear;
   }
   const positions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
-  const minY = placementMinY(p);
+  const minX = placementMinX(p);
   for (const pos of positions) {
     // engineers extend the build zone: an emplacement sited inside a friendly
     // engineer's work radius may be placed forward of the deploy line — but
     // never past the forward line.
-    const posMin = (p.kind === 'defense' && minY > FORWARD_Y && engineerBuildReach(pos.x, pos.y))
-      ? FORWARD_Y : minY;
-    if (pos.y < posMin || pos.y > H - 14 || pos.x < 16 || pos.x > W - 16) return false;
+    const posMin = (p.kind === 'defense' && minX > FORWARD_X && engineerBuildReach(pos.x, pos.y))
+      ? FORWARD_X : minX;
+    if (pos.x < posMin || pos.x > W - 14 || pos.y < 16 || pos.y > H - 16) return false;
   }
   if (p.kind === 'unit') {
     const bulk = k => k === 'sherman' ? 34 : k === 'jeep' ? 26 : (k === 'atgun' || k === 'aagun') ? 24 : 16;
@@ -161,16 +166,18 @@ function placementValid(p, x, y) {
 // not its cover/effect zone), used to keep defenses from being dropped on top
 // of one another. Values trace the shapes in js/render-defenses.js.
 function emplacementBox(key) {
+  // half-extents in the flipped frame: walls stand ACROSS the enemy's advance,
+  // so their long axis is lateral (hh) and their shallow axis is depth (hw)
   switch (key) {
-    case 'wire':       return { hw: 34, hh: 8 };   // long, thin belt
-    case 'bunker':     return { hw: 28, hh: 13 };  // concrete slab
-    case 'camonest':   return { hw: 28, hh: 13 };  // same footprint as the bunker
-    case 'sandbags':   return { hw: 22, hh: 12 };
-    case 'dummy':      return { hw: 10, hh: 16 };  // a lone post — narrow, tall
-    case 'ammocrate':  return { hw: 16, hh: 11 };
+    case 'wire':       return { hw: 8,  hh: 34 };  // long, thin belt
+    case 'bunker':     return { hw: 13, hh: 28 };  // concrete slab
+    case 'camonest':   return { hw: 13, hh: 28 };  // same footprint as the bunker
+    case 'sandbags':   return { hw: 12, hh: 22 };
+    case 'dummy':      return { hw: 10, hh: 16 };  // a lone post — drawn upright, unrotated
+    case 'ammocrate':  return { hw: 16, hh: 11 };  // crate stack — drawn as-is, unrotated
     case 'watchtower': return { hw: 15, hh: 15 };  // square platform
     case 'mine':       return { hw: 6,  hh: 6 };
-    default:           return { hw: 16, hh: 12 };
+    default:           return { hw: 12, hh: 16 };
   }
 }
 
@@ -206,16 +213,16 @@ function engineerBuildReach(x, y) {
   return false;
 }
 
-function placementMinY(p) {
+function placementMinX(p) {
   // testing-mode enemy pieces (units and Italian works) go anywhere on the
   // field, so nothing up-field is out of bounds for them — without this the
-  // ghost shades the whole top of the map red while the placement still succeeds
+  // ghost shades the whole enemy end of the map red while the placement still succeeds
   if (p.kind === 'egerman' || p.kind === 'itwork') return 0;
   // mines/wire lay up to the forward line; the camo nest and dummy are forward
   // pieces too (a hidden ambush position and a decoy to draw fire), so they get
   // the same reach — everything else holds behind the deploy line.
   return (p.key === 'mine' || p.key === 'wire'
-          || p.key === 'camonest' || p.key === 'dummy') ? FORWARD_Y : DEPLOY_Y + 12;
+          || p.key === 'camonest' || p.key === 'dummy') ? FORWARD_X : DEPLOY_X + 12;
 }
 
 // units search outward in expanding rings for the closest open spot in any direction
@@ -326,12 +333,12 @@ function applyPlacement(p, x, y) {
   } else if (p.key === 'mortar') {
     showBanner('MORTAR FIRE MISSION');
     for (let i = 0; i < 6; i++) {
-      scheduleShell(x + rand(-68, 68), y + rand(-57, 57), 2.4 + i * 1.0, 42, 90, false);
+      scheduleShell(x + rand(-57, 57), y + rand(-68, 68), 2.4 + i * 1.0, 42, 90, false);
     }
   } else if (p.key === 'artillery') {
     showBanner('105mm BARRAGE INBOUND');
     for (let i = 0; i < 16; i++) {
-      scheduleShell(x + rand(-90, 90), y + rand(-70, 70), 1.6 + i * 0.45, 55, 105, true);
+      scheduleShell(x + rand(-70, 70), y + rand(-90, 90), 1.6 + i * 0.45, 55, 105, true);
     }
   } else if (p.key === 'rankup') {
     showBanner('FIELD PROMOTIONS');
@@ -407,7 +414,7 @@ function handleCanvasTap(shiftKey = false) {
     const T = G.tutorial;
     if (T.step === 'moveToBunker' && G.selected.length && dist(T.bunker, { x, y }) < 34) {
       // land him inside the bunker's cover radius
-      issueMoveOrder(G.selected, T.bunker.x, T.bunker.y + 2);
+      issueMoveOrder(G.selected, T.bunker.x + 2, T.bunker.y);
       SFX.click();
       mobileVibrate(5);
     }
@@ -735,10 +742,10 @@ function moveSpaceRadius(u) {
 // lands on the identical boundary point, while a slot that happens to sit on a
 // man who isn't marching with the group has never been checked at all. So the
 // slot is redirected instead: spiral out until something fits.
-function clearMoveSlot(px, py, selfR, taken, blockers, minY, toward) {
+function clearMoveSlot(px, py, selfR, taken, blockers, minX, toward) {
   const p = { x: 0, y: 0 };
   const fits = (cx, cy) => {
-    if (cx < 16 || cx > W - 16 || cy < minY || cy > H - 14) return false;
+    if (cy < 16 || cy > H - 16 || cx < minX || cx > W - 14) return false;
     p.x = cx; p.y = cy;
     const own = selfR * 2;
     for (const s of taken) if (dist2(p, s) < own * own) return false;
@@ -774,10 +781,10 @@ function issueMoveOrder(units, x, y) {
   units = units.filter(u => !u.t.fixed);   // staked guns don't take march orders
   if (!units.length) return;
   // US soldiers hold behind the forward line
-  const minY = moveOrderMinY() + 2;
+  const minX = moveOrderMinX() + 2;
   const clampDest = (dx, dy) => ({
-    x: clamp(dx, 16, W - 16),
-    y: clamp(dy, minY, H - 14),
+    x: clamp(dx, minX, W - 14),
+    y: clamp(dy, 16, H - 16),
   });
   if (units.length === 1) {
     units[0].moveTo = clampDest(x, y);
@@ -812,7 +819,7 @@ function issueMoveOrder(units, x, y) {
   const order = slots.map((s, i) => i).sort((a, b) => dist2(slots[a], centre) - dist2(slots[b], centre));
   const taken = [];
   for (const i of order) {
-    const fixed = clearMoveSlot(slots[i].x, slots[i].y, spacing / 2, taken, blockers, minY, centre);
+    const fixed = clearMoveSlot(slots[i].x, slots[i].y, spacing / 2, taken, blockers, minX, centre);
     // nowhere within reach fits (a genuinely packed field): fall back to the old
     // clamp rather than leaving a man with no order at all
     slots[i] = fixed || clampDest(slots[i].x, slots[i].y);

@@ -80,10 +80,10 @@ function triggerParadrop() {
   const pool = drop.pool.slice();
   if (w >= 10) pool.push(drop.heavy);
   const count = paradropCount(w);
-  const cx = rand(120, W - 120);
+  const cy = rand(120, H - 120);
   for (let i = 0; i < count; i++) {
-    const x = clamp(cx + rand(-120, 120), 20, W - 20);
-    const y = rand(40, H * (2 / 3) - 10);
+    const y = clamp(cy + rand(-120, 120), 20, H - 20);
+    const x = rand(40, W * (2 / 3) - 10);
     const e = makeEnemy(pick(pool), x, y);
     // untouchable while the canopy is up; staggered so the stick lands in sequence
     e.chute = rand(2.8, 3.6) + i * 0.2;
@@ -102,10 +102,10 @@ function triggerHordeRising() {
   const pool = RISING_POOL.slice();
   if (w >= 12) pool.push('zbloater');
   const count = paradropCount(w);
-  const cx = rand(120, W - 120);
+  const cy = rand(120, H - 120);
   for (let i = 0; i < count; i++) {
-    const x = clamp(cx + rand(-140, 140), 20, W - 20);
-    const y = rand(60, H * (2 / 3));
+    const y = clamp(cy + rand(-140, 140), 20, H - 20);
+    const x = rand(60, W * (2 / 3));
     const e = makeEnemy(pick(pool), x, y);
     G.enemies.push(e);
     // a spray of turned earth and gore as it breaks the surface
@@ -120,10 +120,10 @@ function triggerHordeRising() {
   SFX.scream();
 }
 
-// ---- air bombing raid: a line of bombers crosses from the north edge to the
-// south. Each one only opens its bay when allied troops pass inside its attack
-// radius, and the sticks it drops are anything but precise. Once a bomber
-// clears the bottom of the screen it's gone — the raid ends when they all are.
+// ---- air bombing raid: a line of bombers crosses the field from the enemy
+// edge toward the player's. Each one only opens its bay when allied troops pass
+// inside its attack radius, and the sticks it drops are anything but precise.
+// Once a bomber clears the player's edge it's gone — the raid ends when they all are.
 function triggerAirRaid(w) {
   // The Imperial Japanese Army doesn't bomb — it flies the aircraft into you.
   // Whole-function replacement rather than a table like PARADROPS, because
@@ -136,15 +136,15 @@ function triggerAirRaid(w) {
   SFX.planeFlyby();
 
   // spread the formation across the field in lanes, then jitter so it doesn't
-  // read as a parade; stagger the start heights so they arrive in sequence
-  const lane = W / (cfg.planes + 1);
+  // read as a parade; stagger the entry depths so they arrive in sequence
+  const lane = H / (cfg.planes + 1);
   for (let i = 0; i < cfg.planes; i++) {
     G.planes.push({
       role: 'bomber',
-      x: clamp(lane * (i + 1) + rand(-34, 34), 40, W - 40),
-      y: -70 - i * rand(70, 130),
-      vx: rand(-14, 14),
-      vy: rand(86, 112),
+      x: -70 - i * rand(70, 130),
+      y: clamp(lane * (i + 1) + rand(-34, 34), 40, H - 40),
+      vx: rand(86, 112),
+      vy: rand(-14, 14),
       hp: cfg.hp,
       maxhp: cfg.hp,
       attackR: cfg.attackR,
@@ -174,16 +174,16 @@ function triggerKamikaze(w) {
 
   // same lane spread and staggered entry heights as the bomber formation, so a
   // raid arrives as a wave rather than all at once
-  const lane = W / (cfg.planes + 1);
+  const lane = H / (cfg.planes + 1);
   for (let i = 0; i < cfg.planes; i++) {
     const speed = rand(150, 185);   // a dive: ~1.7× a bomber's cruise
-    const y0 = -50 - i * rand(40, 90);
+    const x0 = -50 - i * rand(40, 90);
     G.planes.push({
       role: 'kamikaze',
-      x: clamp(lane * (i + 1) + rand(-34, 34), 40, W - 40),
-      y: y0,
-      vx: rand(-18, 18),
-      vy: speed,
+      x: x0,
+      y: clamp(lane * (i + 1) + rand(-34, 34), 40, H - 40),
+      vx: speed,
+      vy: rand(-18, 18),
       speed,
       hp: cfg.hp,
       maxhp: cfg.hp,
@@ -198,7 +198,7 @@ function triggerKamikaze(w) {
       wreckDmg: Math.round(cfg.dmg * 0.6),
       size: cfg.size,
       aim: cfg.aim,
-      entryY: y0,        // where the dive started, so the renderer can read its altitude
+      entryX: x0,        // where the dive started, so the renderer can read its altitude
       target: null,
       aimX: 0, aimY: 0,
       locked: false,
@@ -245,12 +245,12 @@ function runEvent(ev, w) {
   } else if (ev === 'fng') {
     showBanner('REINFORCEMENTS: FNG REPORTING');
     SFX.event();
-    const u = makeUnit('rifleman', rand(100, W - 100), rand(H - 90, H - 40));
+    const u = makeUnit('rifleman', rand(W - 90, W - 40), rand(100, H - 100));
     G.units.push(u);
   } else if (ev === 'airstrike') {
     showBanner('P-47 STRAFING RUN!');
     SFX.event();
-    spawnStrafeRun(rand(120, W - 120));
+    spawnStrafeRun(rand(120, H - 120));
   }
 }
 

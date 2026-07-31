@@ -564,6 +564,7 @@ function paintJapaneseSoldier(c, a) {
     c.moveTo(-fy * 3.5 - fx * 2, fx * 3.5 - fy * 2);
     c.lineTo(-fy * 6.5 - fx * 4, fx * 6.5 - fy * 4);
     c.stroke();
+    drawShoulderBoards(c, fx, fy);
   } else if (isBanzai) {
     // light marching order — a single bandolier, a rising-sun flag on the back
     c.strokeStyle = '#4a3e28';

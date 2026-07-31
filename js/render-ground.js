@@ -93,15 +93,15 @@ function groundBiome() {
 //
 //   terrain_<f>         the whole playable field, blitted at the origin and
 //                       stretched to W×H. Opaque — it is the bottom of the frame.
-//   terrain_<f>_trench  the deploy strip, laid over the field at TRENCH_SPR_Y.
+//   terrain_<f>_trench  the deploy strip, laid over the field at TRENCH_SPR_X.
 //
 // Unlike everything else in the pack these are baked ONCE per run into
 // groundCanvas rather than blitted per frame, and that costs two things a
 // per-frame sprite gets for free: a pack that finishes loading after the field
 // was painted has to ask for a repaint (refreshGroundArt), and a repaint is only
 // safe while the bitmap is still clean — see there.
-const TRENCH_SPR_Y = DEPLOY_Y - 5;   // topmost pixel the procedural trench touches (a plank)
-const TRENCH_SPR_H = 16;             // down to DEPLOY_Y + 11, the bottom of the lip
+const TRENCH_SPR_X = DEPLOY_X - 5;   // leftmost pixel the procedural trench touches (a plank)
+const TRENCH_SPR_W = 16;             // through to DEPLOY_X + 11, the far side of the lip
 
 // what the ground bitmap currently on screen was painted from. Compared rather
 // than assumed, so toggling a pack that has no ground art in it never reshuffles
@@ -134,7 +134,7 @@ function paintGround(level) {
 
   if (art.trench) {
     gctx.drawImage(SPRITES.get(terrainTrenchSpriteId(art.faction)).img,
-      0, TRENCH_SPR_Y, W, TRENCH_SPR_H);
+      TRENCH_SPR_X, 0, TRENCH_SPR_W, H);
   } else {
     paintBiomeTrench(biome);
   }
@@ -155,18 +155,19 @@ function paintBiomeField(biome, g = gctx) {
   biome.detail(g);
 }
 
-// The trench line marking your deploy zone. `oy` shifts it off DEPLOY_Y, which
-// is how the exporter bakes a 16px strip rather than a full-height plate.
-function paintBiomeTrench(biome, g = gctx, oy = 0) {
-  const y = DEPLOY_Y + oy;
+// The trench line marking your deploy zone — a vertical strip now that the
+// field runs left to right. `ox` shifts it off DEPLOY_X, which is how the
+// exporter bakes a 16px strip rather than a full-width plate.
+function paintBiomeTrench(biome, g = gctx, ox = 0) {
+  const x = DEPLOY_X + ox;
   const t = biome.trench;
   g.fillStyle = t.lip;
-  g.fillRect(0, y - 3, W, 14);
+  g.fillRect(x - 3, 0, 14, H);
   g.fillStyle = t.cut;
-  g.fillRect(0, y, W, 7);
-  for (let x = 8; x < W; x += 26) {
+  g.fillRect(x, 0, 7, H);
+  for (let y = 8; y < H; y += 26) {
     g.fillStyle = t.plank;
-    g.fillRect(x, y - 5, 12, 4);
+    g.fillRect(x - 5, y, 4, 12);
   }
 }
 

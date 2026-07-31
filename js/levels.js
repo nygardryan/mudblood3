@@ -43,9 +43,13 @@ const LEVELS = {
     placeables: PLACEABLES,
     startTP: 25,
     setup(G) {
-      // you start with two riflemen already dug in
-      G.units.push(makeUnit('rifleman', lx(-70), 470));
-      G.units.push(makeUnit('rifleman', lx(70), 470));
+      // you start with two riflemen already dug in. x is hardcoded rather than
+      // DEPLOY_X-relative, so it carries the same running total offset DEPLOY_X
+      // has accumulated across every rebalance (currently +122, 380 -> 502 —
+      // see the note on it in constants.js) or these two spawn out in
+      // no-man's-land instead of behind the trench.
+      G.units.push(makeUnit('rifleman', 592, ly(-70)));
+      G.units.push(makeUnit('rifleman', 592, ly(70)));
     },
   },
 

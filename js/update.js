@@ -13,10 +13,10 @@ function update(dt) {
     G.usOfficers = [];
     G.deOfficers = [];
     for (const u of G.units) {
-      if (!u.dead && (u.type === 'officer' || u.t.aura)) G.usOfficers.push(u);
+      if (!u.dead && u.t.aura) G.usOfficers.push(u);
     }
     for (const e of G.enemies) {
-      if (!e.dead && (e.t.aura || e.type === 'officer' || e.type === 'eoff')) G.deOfficers.push(e);
+      if (!e.dead && e.t.aura) G.deOfficers.push(e);
     }
   }
 
@@ -78,9 +78,10 @@ function update(dt) {
     for (const e of G.enemies) {
       // The same gate every other scan carries. `chute` was here already; the
       // other two were not, and the Yamato's roll-in is what makes that a real
-      // loss rather than a tidiness point. Mines lay as far up as FORWARD_Y
-      // (207, placementMinY) and she rolls in across y 160-240, so a flank
-      // minefield sits directly on her entry lane — but damageEnemy early-returns
+      // loss rather than a tidiness point. Mines lay as far up as FORWARD_X
+      // (placementMinX) and she rolls in on a fixed x — (YAM_X_MIN+YAM_X_MAX)/2,
+      // with her tubs YAM_MG_B abeam of it — so a flank minefield sits directly
+      // on her entry lane, well inside mine range. But damageEnemy early-returns
       // on `entering`, so every mine she and her ten parts touched detonated for
       // ZERO damage before she was even shootable. Measured: 14 of 20 legally
       // bought mines gone, 0 damage to the ship, in the 5s of her roll-in.
@@ -240,17 +241,17 @@ function update(dt) {
     }
   }
 
-  // breaches: an enemy that reaches the bottom edge cracks the line
+  // breaches: an enemy that reaches the player's edge cracks the line
   for (const e of G.enemies) {
     // None of the three multi-actor bosses can get here: the Yamato is clamped
-    // to YAM_SAFE_Y, the Progenitor to PROG_SAFE_Y, and the Treno Armato PARKS
-    // at TRAIN_STOP_Y — reaching the bottom is its whole act, not a
+    // to YAM_SAFE_X, the Progenitor to PROG_SAFE_X, and the Treno Armato PARKS
+    // at TRAIN_STOP_X — reaching the player's edge is its whole act, not a
     // breakthrough. But this loop has no break, so a regressed clamp would
     // breach with EVERY actor of that boss in the same frame — eleven, six or
     // nine — blowing straight past breachLimit into an instant gameOver().
     // Cheap insurance against a one-line tuning mistake.
     if (isMultiActorBoss(e.t)) continue;
-    if (!e.dead && e.y > H + 10) {
+    if (!e.dead && e.x > W + 10) {
       e.dead = true; e.breached = true;
       G.breaches++;
       showBanner(factionAdjUpper() + ' BREAKTHROUGH! (' + G.breaches + '/' + G.level.breachLimit + ')');

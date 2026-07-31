@@ -24,7 +24,26 @@ function enemyOfficerNear(e) {
   for (const o of officers) {
     if (o.dead || o === e) continue;
     if (!o.t.aura) continue;
-    if (dist2(o, e) < 140 * 140) return true;
+    if (dist2(o, e) < OFFICER_AURA_R * OFFICER_AURA_R) return true;
+  }
+  return false;
+}
+
+// The German officer's steadying — the Wehrmacht faction ability (DE_OFF_SUP_*).
+// Same list and same bubble as the buff above, but the CALLER is suppress() over
+// in js/shooting.js, and that runs on both sides. Hence the side test, which the
+// aura scan above needs no equivalent of: it is only ever reached from
+// updateEnemy, whereas a defender can perfectly well be standing inside a German
+// officer's radius, and must not inherit that officer's men's discipline.
+// Deliberately does NOT skip self the way enemyOfficerNear does — an officer who
+// dives for cover the moment a BAR opens up isn't steadying anyone, so he is
+// inside his own bubble.
+function deOfficerSteadies(u) {
+  if (!u || u.side === 'us') return false;
+  const officers = G.deOfficers || G.enemies;
+  for (const o of officers) {
+    if (o.dead || !o.t.supResist) continue;
+    if (dist2(o, u) < OFFICER_AURA_R * OFFICER_AURA_R) return true;
   }
   return false;
 }

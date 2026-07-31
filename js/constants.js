@@ -124,6 +124,21 @@ const SUP_FIRE_TRACERS = 3;     // rounds drawn per suppressive burst
 // fire a shot, so anything gentler than this doesn't read as an answer at all.
 const OFFICER_RALLY_MULT = 3;
 
+// ...and the German officer is the mirror of that, which is the Wehrmacht's one
+// faction ability. Every other army answers the beaten zone with a blanket rule
+// written into suppress(): jp and zo can't be pinned at all, `it` can't for as
+// long as AVANTI runs. His is the only answer GATED ON AN ACTOR THE PLAYER CAN
+// KILL — drop him and the machine gun starts working again — so it's the one
+// that's counter-playable rather than a property of the roster.
+// Scaled rather than exempted outright, for exactly the reason the ZOM_PRONE_
+// constants below are scaled: a pinned man is a PRONE man, and prone is worth
+// 60% dodge, so full immunity would make his line relentless AND easier to
+// shoot. Only the relentlessness is wanted. Note the two multipliers stack on a
+// pin roll that lands, so the expected pin TIME near him is ~0.3*0.5 = 15% of
+// normal, while a man still goes down often enough to read as flinching.
+const DE_OFF_SUP_CHANCE_MULT = 0.3;   // vs everyone else's beaten-zone pin roll
+const DE_OFF_SUP_TIME_MULT = 0.5;     // and the pin that does land runs half as long
+
 // The dead barely flinch. The Horde is ALREADY exempt from the beaten zone
 // outright (the faction check in suppress(), js/shooting.js) — this is the
 // other half of the suppression family, the near-miss flinch in tryGoProne,
@@ -154,6 +169,10 @@ const WAVE_BREATHER = 3;
 // engine pacing
 const HUD_INTERVAL = 0.1;         // seconds between DOM HUD refreshes
 const AURA_CACHE_INTERVAL = 0.4;  // seconds between officer/watchtower aura cache rebuilds
+// One officer, one bubble: the enemy aura buff (enemyOfficerNear) and the German
+// officer's steadying (deOfficerSteadies) share this radius on purpose, so the
+// player only has to learn where an officer's influence ends once.
+const OFFICER_AURA_R = 140;
 const PARTICLE_CAP = 250;
 
 const UNIT_TYPES = {
@@ -615,9 +634,14 @@ const ENEMY_TYPES = {
   },
   eoff: {
     // counterpart: officer (range 101, speed 44)
+    // `supResist` is the German faction ability, and it is the mirror of the
+    // player officer's OFFICER_RALLY_MULT: men in his aura barely take the
+    // beaten-zone pin. See the DE_OFF_SUP_ constants for why it's a scale and
+    // not the outright exemption the other three armies carry.
     name: 'Officer', hp: 95, speed: 24, range: 94, dmg: 9, acc: 0.48,
     rof: 0.92, burst: 1, burstGap: 0, reward: 4,
     color: '#4f5661', gun: 5, sfx: 'pistol', priority: 5, aura: true,
+    supResist: true,
   },
   esniper: {
     // counterpart: sniper (range 274, speed 38)

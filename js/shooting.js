@@ -74,9 +74,15 @@ function suppress(u, chance, hold, mult) {
   if (u.t.boss) return;   // a boss walks through the beaten zone
   if (u.moveTo) return;
   if (braveStandsFast(u)) return;
-  if (Math.random() >= chance) return;
+  // A German officer inside OFFICER_AURA_R steadies the men around him: they
+  // still flinch from a beaten zone, but rarely and briefly. This is the fourth
+  // and last army's answer to the pin, and the only one that isn't a blanket
+  // exemption written above — see the DE_OFF_SUP_ constants for why it's scaled.
+  const steady = deOfficerSteadies(u);
+  if (Math.random() >= chance * (steady ? DE_OFF_SUP_CHANCE_MULT : 1)) return;
   const rank = u.rank || 0;   // veterans shrug off the pin faster (codex: cover)
-  const pin = ((hold || 0) + rand(SUP_PIN_MIN, SUP_PIN_MAX)) * (mult || 1);
+  const pin = ((hold || 0) + rand(SUP_PIN_MIN, SUP_PIN_MAX)) * (mult || 1)
+    * (steady ? DE_OFF_SUP_TIME_MULT : 1);
   u.prone = Math.max(u.prone, pin * (1 - rank * 0.15));
 }
 

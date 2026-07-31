@@ -288,6 +288,7 @@ an item, then the field. Hold on the field to cancel placement.
 - `js/audio.js` — sample playback with WebAudio synthesis fallback
 - `js/music.js` — music playback
 - `docs/axis-units.md` — design notes for tuning German unit stats and AI
+- `docs/building.md` — build/run instructions for web, desktop, iOS, and Android
 
 The game code lives in `js/` as plain scripts sharing one global scope; they
 load in dependency order via `index.html` (`js/platform.js` first, definitions

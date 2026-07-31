@@ -67,7 +67,7 @@ const HARDENED_HP_MULT = 1.3;
 // its scatter against the widened spread. The mortar fire block reads both.
 const CLUSTER_ROUNDS_SHELLS_MIN = 1;
 const CLUSTER_ROUNDS_SHELLS_MAX = 3;
-const CLUSTER_ROUNDS_SCATTER_MULT = 1.6;
+const CLUSTER_ROUNDS_SCATTER_MULT = 1.25;
 
 // Frag Grenades: a grenadier's frag now sprays fragments on detonation. Each
 // pellet flies out in a random direction, punches through anyone in its path

@@ -25,6 +25,67 @@ load in dependency order via `index.html` (`main.js` second-to-last,
 Serve statically — `.claude/launch.json` already defines a `static-server`
 config (python3 http.server). Use the preview/browser tooling, not Bash.
 
+## Shells — desktop (Steam) and mobile
+
+The web version at the repo root IS the game; `shells/desktop/` (Electron, for
+Steam) and `shells/mobile/` (Capacitor) are wrappers that ship the SAME files.
+**Nothing is ever copied or forked into a shell** — build-time staging only.
+The one seam is `js/platform.js`, loaded before every other script:
+`PLATFORM.id` (`'web'`/`'desktop'`/`'mobile'`), `PLATFORM.storage` (used by the
+four durable stores — `twRunSave`/`endlessCards`/`endlessLeaderboard`/
+`campaignProgress` — mirrored into Capacitor Preferences on mobile because iOS
+can evict WKWebView storage; `settings.js` and `sprites.js` stay on raw
+localStorage ON PURPOSE: trivially re-creatable, and sprites reads at top-level
+init before any async restore could land), and `PLATFORM.onReady` (synchronous-
+when-ready — `main.js`'s bootstrap tail runs inside it; on web/desktop it runs
+inline, so web boot order is exactly pre-shim). On the web every PLATFORM
+member is an inert no-op — the shim must stay free when no shell is present,
+the same rule ESCALATION rung 0 follows. Electron serves the root over the
+privileged `tw://` scheme because the core `fetch()`es its audio and sprite
+manifest and Chromium blocks fetch on `file://` — never `loadFile()`.
+`TW_SMOKE=1 npx electron .` (in `shells/desktop`) boots hidden, proves the
+tw:// fetch path plus a save/continue cycle, prints one JSON line and exits.
+The staged file subset is spelled out twice — `electron-builder.yml`
+`extraResources` and `shells/mobile/scripts/sync-www.mjs` — a new root-level
+file or asset dir the game reads must be added to BOTH. Two settings controls
+are runtime-gated the same way and both NEVER CREATE the control rather than
+hiding it (this sheet has no generic `.hidden` rule): the desktop-only
+QUIT/FULLSCREEN section on `PLATFORM.isDesktop`, and the sprite-pack EXPORT
+row, which `PLATFORM.isMobile` removes because its `<a download>` on a `blob:`
+URL is a no-op in both mobile webviews — it would bake all 183 drawables and
+silently produce nothing.
+
+**`PLATFORM.onReady` is gated by a WATCHDOG, and that is not belt-and-braces.**
+Mobile defers the whole bootstrap — menu, layout, the frame loop — behind the
+Preferences restore, so a bridge call that never SETTLES is a black screen with
+no error and no recovery. `finally` does not cover that case (it runs when the
+body settles or throws, never when an await hangs), so `BOOT_GATE_MS` opens the
+gate regardless and `openGate()` is idempotent. A restore that lands *after*
+the watchdog fired is DROPPED on purpose: `refreshMenu` has already read
+storage and decided there is no save, and writing one in behind that menu is a
+save the player can't see. The mirror keeps it for the next launch.
+
+The mirror's contract is "a copy of what localStorage holds", which is what
+lets the restore prefer localStorage unconditionally — so `storage.set` mirrors
+ONLY when the synchronous write succeeded. Mirroring a value localStorage
+rejected on quota would strand the fresher blob in Preferences behind the stale
+one the restore keeps choosing. `DURABLE_KEYS` has to be string literals
+(platform.js loads first, before the four key constants exist), so
+`checkDurableKeys` reconciles it with them on `DOMContentLoaded` — a renamed
+key would otherwise retire that store's durability with no error anywhere.
+
+**Fonts are bundled, not fetched** (`css/fonts.css` + `assets/fonts/`, generated
+by `.claude/vendor-fonts.mjs`): the three `fonts.googleapis.com` `@import`s were
+the game's only runtime network dependency, and a Steam offline launch or an
+airplane-mode phone fell back to system fonts. latin AND latin-ext are kept —
+the leaderboard name field is free text, and a latin-only bundle drops an
+accented name onto a system font mid-word. Each family's LICENSE is vendored
+beside its woff2 and ships in both bundles; bundling the binaries is what makes
+that notice a redistribution requirement where hot-linking was compliant by
+construction. Six families are OFL, Special Elite is Apache-2.0 — the script
+probes upstream for each rather than assuming, and throws rather than shipping
+a font it found no license for.
+
 ## Testing — use `window.TEST`
 
 **Do not try to test this game visually or via the DOM.** Known environment

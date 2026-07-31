@@ -195,20 +195,25 @@ function serializeRun() {
 
 function writeRunSave() {
   try {
-    localStorage.setItem(RUN_SAVE_KEY, JSON.stringify(serializeRun()));
+    // storage.set swallows the quota throw itself and reports it as false —
+    // it must be checked here, or SAVE AND EXIT walks off a run it never saved
+    if (!PLATFORM.storage.set(RUN_SAVE_KEY, JSON.stringify(serializeRun()))) {
+      console.warn('run save failed: storage write rejected (quota/unavailable)');
+      return false;
+    }
     // drop the cache rather than keep the blob: its plain arrays alias live
     // game objects, and a cached alias would drift if the run keeps going
     runSaveCache = undefined;
     return true;
   } catch (err) {
-    // serialization bug or storage quota — either way the run must not exit
+    // serialization bug — the run must not exit on this either
     console.warn('run save failed:', err);
     return false;
   }
 }
 
 function clearRunSave() {
-  try { localStorage.removeItem(RUN_SAVE_KEY); } catch (err) { /* storage unavailable */ }
+  PLATFORM.storage.remove(RUN_SAVE_KEY);
   runSaveCache = null;
 }
 
@@ -216,7 +221,7 @@ function readRunSave() {
   if (runSaveCache !== undefined) return runSaveCache;
   let blob = null;
   try {
-    const raw = localStorage.getItem(RUN_SAVE_KEY);
+    const raw = PLATFORM.storage.get(RUN_SAVE_KEY);
     blob = raw ? JSON.parse(raw) : null;
   } catch (err) { blob = null; }
   // blanket discard on any unknown version or malformed top level — an old
@@ -224,7 +229,7 @@ function readRunSave() {
   if (!blob || typeof blob !== 'object' || blob.version !== RUN_SAVE_VERSION ||
       !blob.meta || typeof blob.meta !== 'object' ||
       !blob.run || typeof blob.run !== 'object') {
-    if (blob !== null || localStorage.getItem(RUN_SAVE_KEY) != null) {
+    if (blob !== null || PLATFORM.storage.get(RUN_SAVE_KEY) != null) {
       console.warn('run save discarded (version/shape mismatch)');
       clearRunSave();
     }

@@ -1,0 +1,19 @@
+{
+  "name": "trenchworks-desktop",
+  "productName": "Trenchworks: WW2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop (Steam) shell for Trenchworks: WW2 — the game core lives at the repo root and is served to Chromium over the tw:// scheme; nothing is copied here.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "optionalDependencies": {
+    "steamworks.js": "^0.4.0"
+  }
+}

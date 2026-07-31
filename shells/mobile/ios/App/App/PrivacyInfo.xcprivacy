@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Trenchworks: WW2 — iOS privacy manifest. @capacitor/preferences (the
+     durable-save mirror js/platform.js writes through — see the PLATFORM.storage
+     comment there) touches NSUserDefaults, one of Apple's "required reason"
+     API categories; the plugin ships no manifest of its own (only
+     @capacitor/ios's core framework does), so the app target declares it here.
+     Reason CA92.1: this app reads/writes user-defaults data that belongs only
+     to itself (the run save, cards/medals, leaderboard, campaign progress
+     mirror — see DURABLE_KEYS in js/platform.js) — no App Group, no data
+     shared with any other app. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

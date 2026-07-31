@@ -5,6 +5,27 @@ No frameworks, no build step.
 Sound effects come from curated CC0 / open-licensed samples in `assets/sounds/`
 (see attribution file there); a few cues still use lightweight WebAudio synthesis.
 
+## Where it ships
+
+One codebase, three targets, with the game itself never forked or copied
+between them:
+
+- **Web** — the repo root, exactly as described below. The dev/test surface,
+  and playable as-is in any modern browser.
+- **Desktop (Steam)** — `shells/desktop/`, an Electron wrapper that serves this
+  same `index.html`/`js`/`css`/`assets` over a custom protocol, adds a
+  fullscreen window and a Steamworks integration seam. See
+  `shells/desktop/package.json` (`npm start`, `npm run dist`).
+- **Mobile (iOS/Android)** — `shells/mobile/`, a Capacitor wrapper that stages
+  the same files into a build folder for the native app. See
+  `shells/mobile/README.md`.
+
+The seam between the game and whichever shell it's running under is exactly
+one file, `js/platform.js`, loaded before everything else — it tells the game
+which shell it's in (or none, on the web) and gives it a couple of
+shell-specific hooks (persistent storage, quit/fullscreen). Everything else in
+`js/` doesn't know or care which target it's running on.
+
 ## How to run
 
 Just open `index.html` in any modern browser (double-clicking it works), or serve
@@ -269,8 +290,11 @@ an item, then the field. Hold on the field to cancel placement.
 - `docs/axis-units.md` — design notes for tuning German unit stats and AI
 
 The game code lives in `js/` as plain scripts sharing one global scope; they
-load in dependency order via `index.html` (definitions first, `main.js` last):
+load in dependency order via `index.html` (`js/platform.js` first, definitions
+next, `main.js` second-to-last):
 
+- `js/platform.js` — the shell seam: which of web/desktop/mobile the game is
+  running under, and its storage/quit/fullscreen hooks
 - `js/constants.js` — tuning constants & placeable catalog
 - `js/levels.js` — level definitions
 - `js/helpers.js` — small shared helpers
@@ -322,3 +346,8 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/main.js` — event wiring, frame loop & bootstrap
 - `js/export-sprites.js` — bakes every drawable to PNGs + a manifest (a sprite-pack starter kit)
 - `js/test-api.js` — `window.TEST` console/automation harness (inert during play)
+
+`shells/desktop/` and `shells/mobile/` are the Steam and app-store wrappers
+described in [Where it ships](#where-it-ships) above — each has its own
+`package.json`/tooling and stages or serves this same code rather than
+duplicating any of it.

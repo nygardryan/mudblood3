@@ -83,6 +83,35 @@ function bossVictoryOpen() {
   return !el('boss-victory').classList.contains('hidden');
 }
 
+// Android back (called from js/platform.js): close the TOP layer, the way the
+// Escape ladder in js/input.js does — never exit the app from inside a
+// subscreen. True = consumed; false only at the main-menu root, the one place
+// the shell may exitApp(). Same claim order as Escape where the two overlap;
+// the extra rungs are the menu screens Escape leaves to their BACK buttons.
+function handleAndroidBack() {
+  const up = (id) => !el(id).classList.contains('hidden');
+  // a live fight: back = pause, so back can never kill a run in progress
+  if (isPlaying()) { pauseGame(); return true; }
+  if (escDossierOpen()) { closeEscalationDossier(); return true; }
+  if (abandonConfirmOpen()) { closeAbandonConfirm(); return true; }
+  if (changelogOpen()) { closeChangelog(); return true; }   // layers over settings
+  if (closePauseSubscreen()) return true;   // codex / settings / loadout
+  if (up('card-shop')) { closeCardShop(); return true; }
+  if (up('leaderboard-select')) { closeLeaderboardSelect(); return true; }
+  if (up('tutorial-select')) { closeTutorialSelect(); return true; }
+  if (up('tutorial-complete')) { backToTutorialSelect(); return true; }
+  // forced question (FIGHT ON / END RUN) — back must not answer it
+  if (bossVictoryOpen()) return true;
+  // the After-Action Report's CONTINUE is the designed handoff — don't skip it
+  if (up('recap')) return true;
+  // the results screens: back is their MENU button
+  if (up('gameover') || up('endless-endgame')) { returnToMenu(); return true; }
+  if (paused) { resumeGame(); return true; }
+  // any other mid-run state (overlays mid-transition): consume, never exit
+  if (running) return true;
+  return false;
+}
+
 // leaving a run: no field, no pointer state, nothing half-issued
 function clearRunState() {
   running = false;

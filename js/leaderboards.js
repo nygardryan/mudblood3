@@ -80,7 +80,7 @@ function migrateLeaderboardsV1(data) {
 
 function loadLeaderboards() {
   try {
-    const raw = localStorage.getItem(LEADERBOARD_KEY);
+    const raw = PLATFORM.storage.get(LEADERBOARD_KEY);
     if (!raw) return defaultLeaderboards();
     const data = JSON.parse(raw);
     if (!data || typeof data !== 'object' || !data.boards) return defaultLeaderboards();
@@ -103,7 +103,7 @@ function loadLeaderboards() {
 }
 
 function saveLeaderboards(data) {
-  localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(data));
+  PLATFORM.storage.set(LEADERBOARD_KEY, JSON.stringify(data));
 }
 
 function leaderboardBoard(rung) {

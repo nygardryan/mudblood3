@@ -217,21 +217,60 @@ el('settings-custom-sprites-btn').addEventListener('click', () => {
   SPRITES.setEnabled(!SPRITES.isEnabled());
   applyCustomSprites();
 });
-el('settings-export-sprites').addEventListener('click', async () => {
-  const btn = el('settings-export-sprites');
-  const out = el('sprite-export-status');
-  // it renders every drawable in the roster, which takes a few seconds
-  btn.disabled = true;
-  btn.textContent = 'RENDERING…';
-  out.textContent = '';
-  try {
-    const r = await exportSpritePack();
-    out.textContent = r.count + ' sprites, ' + Math.round(r.bytes / 1024) + ' KB'
-      + (r.errors.length ? ' — ' + r.errors.length + ' failed' : '');
-  } catch (e) {
-    out.textContent = 'Export failed: ' + ((e && e.message) || e);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'EXPORT SPRITE PACK';
+// Both halves of the sprite-pack workflow need a filesystem the player can
+// reach, and mobile has none: the export hands its ZIP back through an
+// <a download> on a blob: URL, which neither WKWebView nor the Android WebView
+// acts on — the button would bake all 183 drawables and then silently produce
+// nothing — and installing a pack means dropping a folder beside index.html,
+// which there is inside the app bundle. So the control is never created,
+// exactly as PLATFORM.isDesktop never creates the desktop section below. ART
+// OFF/ON stays: a pack can still be shipped baked into the build.
+if (PLATFORM.isMobile) {
+  el('sprite-export-row').remove();
+  el('sprite-export-hint').textContent =
+    'This build draws the artwork it ships with. Sprite packs are installed ' +
+    'into the app bundle when the game is built, not from here.';
+} else {
+  // on desktop that folder is inside the installed game rather than beside a
+  // page you are serving, and an AppImage's copy is read-only
+  if (PLATFORM.isDesktop) {
+    el('sprite-export-hint').insertAdjacentHTML('beforeend',
+      ' On desktop <code>assets/sprites/</code> lives in the installed game\'s ' +
+      'resources folder; the AppImage build is read-only and can\'t take one.');
   }
-});
+  el('settings-export-sprites').addEventListener('click', async () => {
+    const btn = el('settings-export-sprites');
+    const out = el('sprite-export-status');
+    // it renders every drawable in the roster, which takes a few seconds
+    btn.disabled = true;
+    btn.textContent = 'RENDERING…';
+    out.textContent = '';
+    try {
+      const r = await exportSpritePack();
+      out.textContent = r.count + ' sprites, ' + Math.round(r.bytes / 1024) + ' KB'
+        + (r.errors.length ? ' — ' + r.errors.length + ' failed' : '');
+    } catch (e) {
+      out.textContent = 'Export failed: ' + ((e && e.message) || e);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'EXPORT SPRITE PACK';
+    }
+  });
+}
+
+// Desktop shell only: an in-game way out (Steam expects one) plus a fullscreen
+// toggle. Web and mobile never create the section, so their settings screen is
+// byte-identical to before the shells existed.
+if (PLATFORM.isDesktop) {
+  const section = document.createElement('div');
+  section.className = 'settings-section';
+  section.innerHTML =
+    '<div class="settings-section-title">Desktop</div>' +
+    '<div class="settings-devrow">' +
+    '<button type="button" class="secondary" id="settings-fullscreen-btn" title="F11 or Alt+Enter">FULLSCREEN</button>' +
+    '<button type="button" class="secondary" id="settings-quit-btn">QUIT GAME</button>' +
+    '</div>';
+  el('changelog-btn').closest('.settings-section').insertAdjacentElement('beforebegin', section);
+  el('settings-fullscreen-btn').addEventListener('click', () => PLATFORM.toggleFullscreen());
+  el('settings-quit-btn').addEventListener('click', () => PLATFORM.quit());
+}

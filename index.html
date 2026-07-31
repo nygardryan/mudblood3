@@ -398,11 +398,11 @@
         <!-- Artwork section: the sprite-pack seam (js/sprites.js, js/export-sprites.js) -->
         <div class="settings-section">
           <div class="settings-section-title">Artwork</div>
-          <p class="settings-hint">Export every unit, vehicle, emplacement, defense and battlefield in
+          <p class="settings-hint" id="sprite-export-hint">Export every unit, vehicle, emplacement, defense and battlefield in
             the game as transparent PNGs, ready to hand to an artist. Repaint them and drop the folder
             back in as <code>assets/sprites/</code> — anything you don't replace keeps its current art.
             <code>terrain/</code> holds the four theatres' ground, which can be repainted on its own.</p>
-          <div style="display:flex;justify-content:flex-end;gap:8px;margin:2px 0 12px">
+          <div id="sprite-export-row" style="display:flex;justify-content:flex-end;gap:8px;margin:2px 0 12px">
             <button id="settings-export-sprites" class="secondary">EXPORT SPRITE PACK</button>
           </div>
           <div id="sprite-export-status" class="settings-value"></div>
@@ -502,7 +502,9 @@
   </div>
 </div>
 
-<!-- Plain scripts sharing one global scope — load order matters: definitions first, bootstrap (main.js) last. -->
+<!-- Plain scripts sharing one global scope — load order matters: platform shim first
+     (every shell keys off it), then definitions, bootstrap (main.js) last. -->
+<script src="js/platform.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/music.js"></script>
 <script src="js/constants.js"></script>

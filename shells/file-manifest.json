@@ -1,0 +1,14 @@
+{
+  "_comment": "Single source of truth for the game-core file subset both shells ship. Read by shells/mobile/scripts/sync-www.mjs (cpSync per entry) and shells/desktop/electron-builder.cjs (glob filter for extraResources). A new root-level file or asset dir the game reads is added HERE, once — not in either consumer.",
+  "entries": [
+    { "path": "index.html", "type": "file" },
+    { "path": "favicon.ico", "type": "file" },
+    { "path": "favicon.svg", "type": "file" },
+    { "path": "favicon-32.png", "type": "file" },
+    { "path": "apple-touch-icon.png", "type": "file" },
+    { "path": "js", "type": "dir" },
+    { "path": "css", "type": "dir" },
+    { "path": "assets", "type": "dir" }
+  ],
+  "excludeSuffixes": [".bak"]
+}

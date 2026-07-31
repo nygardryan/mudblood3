@@ -870,6 +870,12 @@ document.addEventListener('keydown', e => {
     // the abandon-save prompt swaps out the screen that launched it; Escape means BACK,
     // never fall-through (the paused branch below would resume a hidden fight)
     if (abandonConfirmOpen()) { closeAbandonConfirm(); return; }
+    // the changelog layers over settings the same way settings layers over
+    // pause — it hides #settings when it opens, so settingsOpen() reads false
+    // and closePauseSubscreen() below would miss it, falling through to the
+    // paused branch and resuming the fight behind it (see handleAndroidBack,
+    // js/flow.js, which already has to make this same check)
+    if (changelogOpen()) { closeChangelog(); return; }
     // codex / settings / loadout — see PAUSE_SUBSCREENS (js/flow.js). They swap
     // #pause out but leave `paused` true, so they have to be closed here or the
     // line below resumes the fight behind a screen that's still on top of it.

@@ -1,6 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Oswald:wght@400;500;600;700&family=Barlow+Condensed:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=JetBrains+Mono:wght@400;500;700&display=swap');
+/* bundled webfonts (assets/fonts/) — the game's typography must never reach
+   the network: the shells run offline (Steam offline mode, airplane-mode
+   phones), and these @imports to fonts.googleapis.com were the whole game's
+   only runtime network dependency. See css/fonts.css for regeneration notes. */
+@import url('fonts.css');
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {

@@ -1322,7 +1322,7 @@ function planCommandUsed(plan) {
 function loadEndlessCards() {
   let data = null;
   try {
-    const raw = localStorage.getItem(ENDLESS_CARDS_KEY);
+    const raw = PLATFORM.storage.get(ENDLESS_CARDS_KEY);
     if (raw) data = JSON.parse(raw);
   } catch { data = null; }
   // migrate: the banked currency 'ribbons' was renamed to 'medals' — carry an
@@ -1391,7 +1391,7 @@ function loadEndlessCards() {
 }
 
 function saveEndlessCards(data) {
-  localStorage.setItem(ENDLESS_CARDS_KEY, JSON.stringify(data));
+  PLATFORM.storage.set(ENDLESS_CARDS_KEY, JSON.stringify(data));
 }
 
 // how many cards are neither owned nor already on display — the deck the shop

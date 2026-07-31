@@ -141,20 +141,25 @@ function frame(now) {
   }
 }
 
-buildToolbar(PLACEABLES);
-applySavedSettings();
-refreshMenu();   // surface the save, the rung and the medal count from page load
-fitLayout();
-startAttract();   // ATTRACT: the menu is the first thing up (js/attract.js)
-const hudEl = el('hud');
-if (hudEl && typeof ResizeObserver !== 'undefined') {
-  new ResizeObserver(() => syncToolbarLayout()).observe(hudEl);
-}
-window.addEventListener('resize', fitLayout);
-window.addEventListener('orientationchange', () => {
-  setTimeout(() => {
-    fitLayout();
-    if (G && mobileViewActive()) resetViewCam(G.mode);
-  }, 100);
+// PLATFORM.onReady runs inline on web/desktop (identical boot to before the
+// shim existed); on mobile it waits for the durable-save restore, so nothing
+// below reads storage before the mirror has been folded back in.
+PLATFORM.onReady(() => {
+  buildToolbar(PLACEABLES);
+  applySavedSettings();
+  refreshMenu();   // surface the save, the rung and the medal count from page load
+  fitLayout();
+  startAttract();   // ATTRACT: the menu is the first thing up (js/attract.js)
+  const hudEl = el('hud');
+  if (hudEl && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => syncToolbarLayout()).observe(hudEl);
+  }
+  window.addEventListener('resize', fitLayout);
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      fitLayout();
+      if (G && mobileViewActive()) resetViewCam(G.mode);
+    }, 100);
+  });
+  requestAnimationFrame(frame);
 });
-requestAnimationFrame(frame);

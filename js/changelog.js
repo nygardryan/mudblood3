@@ -454,5 +454,9 @@ function closeChangelog() {
   el(changelogReturnTo).classList.remove('hidden');
 }
 
+function changelogOpen() {
+  return !el('changelog').classList.contains('hidden');
+}
+
 el('changelog-btn').addEventListener('click', () => openChangelog('settings'));
 el('changelog-back-btn').addEventListener('click', closeChangelog);

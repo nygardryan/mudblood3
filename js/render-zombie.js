@@ -221,6 +221,9 @@ function paintZombieSoldier(c, a) {
     if (isBrute || isBoss) drawRibs(c, fx, fy, s);
   }
 
+  // the Screamer was an officer once — tattered gold boards still on its shoulders
+  if (isScream) drawShoulderBoards(c, fx, fy, { worn: true });
+
   // ---- bloater: a taut, swollen gas-bag with boils, faintly pulsing
   if (isBloat) {
     const pulse = 1 + Math.sin((G.time || 0) * 3 + (a.wobble || 0)) * 0.06;

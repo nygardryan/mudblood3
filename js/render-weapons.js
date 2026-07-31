@@ -245,6 +245,45 @@ function drawRevolver(c, fx, fy, gunLen, face) {
   c.beginPath(); c.arc(tipX, tipY, 1, 0, 7); c.fill();
 }
 
+// Gold shoulder boards — the one design element every faction's officer wears.
+// The Officer, the Leutnant, the sword officer and the Ufficiale each keep
+// their own national kit (cap badge, cockade, sash, bustina pip); the boards
+// are the SHARED tell, one short gold bar out along each shoulder with the
+// button at the collar end, so "two gold dashes flanking the head" reads as
+// officer on any uniform at field zoom. The Screamer wears them too, tattered
+// (`worn`) — it was an officer once, and scraps of the braid survived it.
+// Drawn in body-local space off the facing vector, so it bakes correctly into
+// the directional sprite cache and the codex portraits. `off` is the collar
+// end's lateral offset, `ax` a fore-aft shift — the prone pose passes its own
+// geometry (frame is +x-facing there, shoulders up by the head end).
+function drawShoulderBoards(c, fx, fy, opts) {
+  // The collar end starts already outside the cap: every officer's screen-fixed
+  // peaked cap is a ~4.2 disc over the head, and a board tucked at 2.2 vanished
+  // under it at most facings. 3.2→5.6 clears the cap and pokes just past the
+  // body's lateral edge (5), which is what makes the tell read at 1x — a man
+  // with gold-tipped shoulders is wider than the men around him.
+  const off = (opts && opts.off) || 3.2;   // collar end, lateral
+  const len = (opts && opts.len) || 2.4;   // board length outward
+  const ax = (opts && opts.ax) || 0;       // fore-aft shift (prone)
+  const worn = !!(opts && opts.worn);
+  const px = -fy, py = fx;
+  for (const s of [-1, 1]) {
+    // a torn board keeps only the inner stub on one side
+    const l = worn && s > 0 ? len * 0.55 : len;
+    const x0 = fx * ax + px * off * s, y0 = fy * ax + py * off * s;
+    const x1 = fx * ax + px * (off + l) * s, y1 = fy * ax + py * (off + l) * s;
+    c.strokeStyle = '#1f1c12';
+    c.lineWidth = 2.2;
+    c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+    c.strokeStyle = worn ? '#a8944a' : '#d8c24a';
+    c.lineWidth = 1.3;
+    c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+    // collar button
+    c.fillStyle = '#3a3222';
+    c.beginPath(); c.arc(x0, y0, 0.5, 0, 7); c.fill();
+  }
+}
+
 function drawOfficerCap(c, fx, fy, us) {
   c.fillStyle = us ? '#3f4a2e' : '#4a4840';
   c.beginPath(); c.arc(0, -1, 4.2, 0, 7); c.fill();

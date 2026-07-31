@@ -13,10 +13,10 @@ function update(dt) {
     G.usOfficers = [];
     G.deOfficers = [];
     for (const u of G.units) {
-      if (!u.dead && (u.type === 'officer' || u.t.aura)) G.usOfficers.push(u);
+      if (!u.dead && u.t.aura) G.usOfficers.push(u);
     }
     for (const e of G.enemies) {
-      if (!e.dead && (e.t.aura || e.type === 'officer' || e.type === 'eoff')) G.deOfficers.push(e);
+      if (!e.dead && e.t.aura) G.deOfficers.push(e);
     }
   }
 

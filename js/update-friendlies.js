@@ -6,7 +6,7 @@ function officerBuff(u) {
   const officers = G.usOfficers || G.units;
   for (const o of officers) {
     if (o.dead || o === u) continue;
-    if (!(o.type === 'officer' || o.type === 'eoff' || o.t.aura)) continue;
+    if (!o.t.aura) continue;
     if (dist2(o, u) < OFFICER_AURA * OFFICER_AURA) {
       // a veteran officer drives his men harder
       return { rofMult: 0.75 - (o.rank || 0) * 0.03, accBonus: 0.18 + (o.rank || 0) * 0.04 };

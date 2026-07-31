@@ -218,7 +218,7 @@ const UNIT_TYPES = {
   officer: {
     name: 'Officer', hp: 95, range: 101, dmg: 9, acc: 0.5,
     rof: 0.9, burst: 1, burstGap: 0, speed: 44,
-    color: '#80814a', gun: 5, sfx: 'pistol',
+    color: '#80814a', gun: 5, sfx: 'pistol', aura: true,
     desc: 'Nearby men fire faster and straighter, more so as he ranks up. Earns +1 TP / 30 s.',
   },
   flamer: {

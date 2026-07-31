@@ -418,6 +418,7 @@ function paintSoldierBody(c, a) {
   if (type === 'eoff') {
     drawEoffKit(c, fx, fy, a.face);
   }
+  if (isOfficer) drawShoulderBoards(c, fx, fy);
   if (type === 'eflame') {
     drawEflameKit(c, fx, fy, a.face);
   } else if (type === 'flamer') {

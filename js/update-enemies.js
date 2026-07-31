@@ -23,7 +23,7 @@ function enemyOfficerNear(e) {
   const officers = G.deOfficers || G.enemies;
   for (const o of officers) {
     if (o.dead || o === e) continue;
-    if (!(o.t.aura || o.type === 'officer' || o.type === 'eoff')) continue;
+    if (!o.t.aura) continue;
     if (dist2(o, e) < 140 * 140) return true;
   }
   return false;

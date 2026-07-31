@@ -70,6 +70,13 @@ const PLATFORM = (() => {
   // because every script tag is above it, so all four constants are live by
   // then (and `typeof` on a name that was renamed away reads 'undefined'
   // rather than throwing).
+  //
+  // This only catches a RENAME of one of the four known stores — it cannot
+  // discover a fifth durable store that was added and never wired in here,
+  // since it has no way to enumerate `*_KEY` constants it wasn't told the
+  // name of (this file is a classic script, not a module, so there's no
+  // scope to reflect over). A new durable store needs BOTH DURABLE_KEYS
+  // above AND the `live` list below edited by hand.
   function checkDurableKeys() {
     const live = [
       typeof RUN_SAVE_KEY, typeof ENDLESS_CARDS_KEY,

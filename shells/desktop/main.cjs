@@ -1,7 +1,7 @@
 /* Trenchworks: WW2 — Electron shell (see also preload.cjs).
    The game core is NOT copied here: in dev the tw:// protocol serves the repo
    root two directories up; packaged builds carry the same files under
-   resources/app (electron-builder.yml extraResources). tw:// rather than
+   resources/app (electron-builder.cjs extraResources). tw:// rather than
    win.loadFile() because the core fetch()es its audio and sprite manifest
    (js/audio.js, js/sprites.js) and Chromium blocks fetch on file://. */
 'use strict';

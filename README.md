@@ -291,7 +291,7 @@ an item, then the field. Hold on the field to cancel placement.
 
 The game code lives in `js/` as plain scripts sharing one global scope; they
 load in dependency order via `index.html` (`js/platform.js` first, definitions
-next, `main.js` second-to-last):
+next, `main.js` third-to-last, then `export-sprites.js`, `test-api.js` last):
 
 - `js/platform.js` — the shell seam: which of web/desktop/mobile the game is
   running under, and its storage/quit/fullscreen hooks

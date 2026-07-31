@@ -17,8 +17,8 @@ it each time. Screen-relative visuals (particles, fake-Z arcs, floating
 text, shadows at +y, HP bars at -y) still treat screen-up as up — never axis-swap
 those. Plain HTML5 Canvas + vanilla JS, **no build step, no
 package.json, no test framework**. Scripts in `js/` share one global scope and
-load in dependency order via `index.html` (`main.js` second-to-last,
-`test-api.js` last). See README.md for gameplay and the per-file map.
+load in dependency order via `index.html` (`main.js` third-to-last, then
+`export-sprites.js`, `test-api.js` last). See README.md for gameplay and the per-file map.
 
 ## Running it
 
@@ -45,9 +45,11 @@ privileged `tw://` scheme because the core `fetch()`es its audio and sprite
 manifest and Chromium blocks fetch on `file://` — never `loadFile()`.
 `TW_SMOKE=1 npx electron .` (in `shells/desktop`) boots hidden, proves the
 tw:// fetch path plus a save/continue cycle, prints one JSON line and exits.
-The staged file subset is spelled out twice — `electron-builder.yml`
-`extraResources` and `shells/mobile/scripts/sync-www.mjs` — a new root-level
-file or asset dir the game reads must be added to BOTH. Two settings controls
+The staged file subset lives in ONE place, `shells/file-manifest.json` — read by
+both `shells/desktop/electron-builder.cjs` (glob filter for `extraResources`)
+and `shells/mobile/scripts/sync-www.mjs` (`cpSync` per entry); a new root-level
+file or asset dir the game reads is added there once, not in either consumer.
+Two settings controls
 are runtime-gated the same way and both NEVER CREATE the control rather than
 hiding it (this sheet has no generic `.hidden` rule): the desktop-only
 QUIT/FULLSCREEN section on `PLATFORM.isDesktop`, and the sprite-pack EXPORT

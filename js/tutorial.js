@@ -34,17 +34,19 @@ function tuY(y) { return y * H / TUT_REF_H; }
 
 function setupTutorial1(G) {
   const rifle = makeUnit('rifleman', 592, tuY(300));
-  rifle.xp = 1;   // one kill away from PFC: the scripted duel promotes him
   G.units.push(rifle);
-  usBunker(G, 557, tuY(150));
-  G.spawnTimer = 9999;   // no waves until the script hands off
+  usSandbag(G, 557, tuY(150));
+  G.spawnTimer = 9999;   // no waves — this lesson is controls only, no combat
   G.tutorial = {
     script: 't1',
     step: 'welcome',
     timer: 0,        // set from the step's own text on entry (flow.js enters it)
     rifle,
-    bunker: G.bunkers[0],
-    foe: null,
+    sandbag: G.sandbags[0],
+    buddy: null,      // second rifleman bought in 'buildUnit'; grabbed with `rifle` in 'multiselect'
+    moveStart: null,  // rifle's position when 'move' was entered, to prove he actually moved
+    baseWires: 0,
+    baseShells: 0,
     done: false,
     cam: { active: true, tx: 0, ty: 0, tzoom: 1 },
     // per-step interaction gating (shared by both tutorial scripts)
@@ -68,7 +70,7 @@ function setupTutorial2(G) {
   G.spawnTimer = 9999;            // no endless waves until the script hands off
   G.tutorial = {
     script: 't2',
-    step: 'intro',
+    step: 'orientation',
     timer: 0,        // set from the step's own text on entry (flow.js enters it)
     rifle,
     medic,
@@ -145,17 +147,19 @@ function tutCamArrived() {
 // the box and get gaze onto it, then ~210 wpm (3.5 words/s — Brysbaert 2019 puts
 // silent non-fiction reading at 238 wpm, derated the way subtitle standards
 // derate it for text read over moving action: BBC 160-180 wpm, Netflix ~200),
-// times a 1.4 comprehension buffer because this is unfamiliar vocabulary read
-// under divided attention. Floored at 3s so a two-word box survives a glance
-// away (Netflix's own floor is 5/6s for a viewer already looking at the text),
-// capped at 10s (Material's snackbar max) because anything needing longer than
-// that should be a panel, not a transient message.
-const TUT_READ_MIN = 3;
-const TUT_READ_MAX = 10;
+// times a comprehension buffer widened to 1.8x (was 1.4x) after playtest
+// feedback that boxes were disappearing before a first-time reader finished
+// them — a tutorial box competes with the player's attention on the field
+// itself in a way ordinary subtitles don't. Floored at 4s (was 3s) so even a
+// two-word box survives a glance away, capped at 15s (was Material's snackbar
+// max of 10s — deliberately exceeded here, since these are instructional
+// panels a player is meant to finish reading, not a transient toast).
+const TUT_READ_MIN = 4;
+const TUT_READ_MAX = 15;
 function tutReadTime(text) {
   if (!text) return 0;   // a blank box has no minimum
   const words = text.trim().split(/\s+/).length;
-  return clamp(0.4 + (words / 3.5) * 1.4, TUT_READ_MIN, TUT_READ_MAX);
+  return clamp(0.4 + (words / 3.5) * 1.8, TUT_READ_MIN, TUT_READ_MAX);
 }
 
 let tutMsgCurrent = null;   // text in the box right now (null = hidden)
@@ -257,34 +261,101 @@ function tutEnterStep(step) {
       tutMsg(T, 'Welcome to the war, soldier!');
       break;
     case 'select':
-      setTutorialMsg('Click on a unit to select it.');
+      setTutorialMsg(mobileViewActive()
+        ? 'Tap your rifleman to select him.'
+        : 'Click on your rifleman to select him.');
       break;
-    case 'moveToBunker':
-      tutSetCam(1.5, 572, tuY(225));
-      setTutorialMsg('Now click the bunker to move him there — men in cover can block damage.');
+    case 'move':
+      T.moveStart = { x: T.rifle.x, y: T.rifle.y };
+      tutSetCam(1.3, T.rifle.x, T.rifle.y);
+      setTutorialMsg(mobileViewActive()
+        ? 'Now tap anywhere on the field to move him there.'
+        : 'Now click anywhere on the field to move him there.');
       break;
-    case 'fight':
-      T.timer = 1.2;
-      setTutorialMsg(null);
+    case 'deselect':
+      setTutorialMsg(mobileViewActive()
+        ? 'Your rifleman is still selected, and the shop hides while anyone is — tap DESELECT to clear him.'
+        : 'Your rifleman is still selected, and the shop hides while anyone is — press Escape (or click BACK) to deselect him.');
+      // the collapsed-for-selection bar/button was already up before this step
+      // became active, so it needs a forced refresh to pick up the new pulse
+      renderToolbar();
+      syncMobileChrome();
       break;
-    case 'rankup':
-      // the duel usually leaves him unscathed behind bunker cover — make sure
-      // he carries a wound so the medic lesson has something to heal
-      T.rifle.hp = Math.min(T.rifle.hp, T.rifle.maxhp - 35);
-      tutMsg(T, 'Your soldiers gain experience and rank up. Veterans far outfight green troops — keep them alive.');
+    case 'buildUnit':
+      if (G.tp < 3) G.tp = 3;   // exactly enough for a rifleman
+      T.allowBuy = ['rifleman']; T.pulseCat = 'units'; T.pulseKey = 'rifleman';
+      // 'move' just sent the rifleman to a free-choice spot the player picked,
+      // possibly far from his spawn — pull all the way out (zoom 1 = the whole
+      // field, and camera clamping pins it there regardless of center) so he
+      // and this zone are both guaranteed on screen, whatever he clicked
+      tutSetCam(1, W / 2, H / 2);
+      // kept clear of the sandbag on purpose: it sits almost dead-center of the
+      // OLD zone (28px from center, inside groupMove's 30px capture radius), so
+      // a rifleman placed there could already satisfy groupMove's arrival gate
+      // before that lesson even starts — this y-range is >45px further from it
+      T.placeZone = { x0: 520, y0: tuY(230), x1: 650, y1: tuY(340) };
+      setTutorialMsg(mobileViewActive()
+        ? 'Open UNITS and tap RIFLEMAN, then tap the field to post a second man.'
+        : 'Open the UNITS tab, click RIFLEMAN, then click the field to post a second man.');
       break;
-    case 'buyMedic':
-      if (G.tp < 12) G.tp = 12;   // exactly enough for the medic
-      T.allowBuy = ['medic']; T.pulseCat = 'units'; T.pulseKey = 'medic';
-      setTutorialMsg('Purchase a medic to heal your wounded soldier.');
+    case 'multiselect':
+      // the rifleman just bought in 'buildUnit' is still the active tool (a
+      // defense/unit purchase doesn't auto-close the shop) — left alone, every
+      // field click here would buy another rifleman instead of selecting one,
+      // since place() intercepts canvas clicks ahead of selection whenever
+      // something is actively being placed. Unlike buildAbility this isn't a
+      // shop-to-shop hop worth teaching — it's just incidental leftover state
+      // from an unrelated lesson, so close it silently instead of asking the
+      // player to click BACK for no reason connected to selecting units.
+      clearPlacing();
+      setTutorialMsg(mobileViewActive()
+        ? 'Drag a box across both riflemen to select them together — or double-tap one to grab every rifleman you own.'
+        : 'Drag a box around both riflemen — or click one, then shift-click the other — to select them together.');
       break;
-    case 'placeMedic':
-      T.allowBuy = ['medic']; T.pulseCat = 'units'; T.pulseKey = 'medic';
-      setTutorialMsg('After selecting the medic, place him down near your soldier to heal him.');
+    case 'groupMove':
+      // both units could be almost anywhere by now (rifle from the free-choice
+      // 'move', buddy from wherever he was placed in 'buildUnit') — same
+      // full-field guarantee as 'buildUnit', so neither can end up off-camera
+      tutSetCam(1, W / 2, H / 2);
+      setTutorialMsg(mobileViewActive()
+        ? 'With both selected, tap the sandbags to move the whole group there together — men in cover dodge some incoming fire.'
+        : 'With both selected, click the sandbags to move the whole group there together — men in cover dodge some incoming fire.');
       break;
-    case 'breather':
-      T.timer = 3;
-      setTutorialMsg(null);
+    case 'deselect2':
+      setTutorialMsg(mobileViewActive()
+        ? 'Deselect again — tap DESELECT — to bring the shop back.'
+        : 'Deselect again — press Escape, or click BACK — to bring the shop back.');
+      renderToolbar();
+      syncMobileChrome();
+      break;
+    case 'buildEmplacement':
+      if (G.tp < 3) G.tp = 3;
+      T.baseWires = G.wires.length;
+      T.allowBuy = ['wire']; T.pulseCat = 'emplacements'; T.pulseKey = 'wire';
+      // out in no-man's-land, well forward of DEPLOY_X (502) — wire's job is
+      // bogging a charge down before it reaches the line, not sitting behind it
+      T.placeZone = { x0: 370, y0: tuY(60), x1: 460, y1: tuY(260) };
+      tutSetCam(1.4, 415, tuY(160));
+      setTutorialMsg(mobileViewActive()
+        ? 'Open EMPLACEMENTS and tap WIRE, then tap out in no-man\'s-land to lay it — wire bogs down a charge before it reaches your line.'
+        : 'Open the EMPLACEMENTS tab, click WIRE, then click out in no-man\'s-land to lay it — wire bogs down a charge before it reaches your line.');
+      break;
+    case 'buildAbility':
+      if (G.tp < 5) G.tp = 5;
+      T.baseShells = G.shells.length;
+      T.allowBuy = ['mortar']; T.pulseCat = 'abilities'; T.pulseKey = 'mortar';
+      T.placeZone = null;   // mortar's own placementValid range is the only constraint
+      // WIRE is still the active tool from the last step (buying a defense
+      // doesn't auto-close the shop the way a one-shot support does) — the
+      // player has to back out of it before the ABILITIES tab is even visible
+      setTutorialMsg(mobileViewActive()
+        ? 'Tap BACK twice to leave WIRE and reach the shop tabs, then open ABILITIES and tap MORTAR STRIKE, then tap anywhere on the field to call it in.'
+        : 'Click BACK twice to leave WIRE and reach the shop tabs, then open the ABILITIES tab, click MORTAR STRIKE, then click anywhere on the field to call it in.');
+      break;
+    case 'controls':
+      // no combat has happened anywhere in this lesson — "the fight" would be
+      // an odd thing to reference before the player has seen one
+      tutMsg(T, 'PAUSE freezes everything anytime you need a break; SPEED fast-forwards once the real fighting starts.');
       break;
     case 'zoomOut':
       if (mobileViewActive()) {
@@ -294,19 +365,24 @@ function tutEnterStep(step) {
         // which would defeat the entire point of a step called "zoom out".
         T.cam.active = false;
         tutSetCam(containZoom(), W / 2, H / 2, true);
-        T.timer = 1.5;
+        tutMsg(T, 'Pinch to zoom, and drag with two fingers to look around the battlefield.');
       } else {
+        // no desktop camera gesture exists (fixed zoom, no pan) — nothing to
+        // teach, but the view still visibly pulls back, so it still gets a
+        // line rather than moving on its own with no explanation
         tutSetCam(1, W / 2, H / 2);
+        tutMsg(T, 'Pulling back for a full view of the field before you take command.');
       }
       break;
     case 'handoff':
       // tutMsg sets the timer from the text: the completion screen waits out the
       // handoff's own read time rather than a guessed 4.5s
-      tutMsg(T, 'That\'s basic training, soldier — select, move, and reinforce your line. Well done.');
+      tutMsg(T, 'That\'s basic training, soldier — select, move alone or as a group, and build your force. Well done.');
       showBanner('TUTORIAL COMPLETE');
       markLevelComplete(G.level.id);
       T.done = true;
       T.cam.active = false;
+      resetViewCam(G.mode);
       break;
   }
 }
@@ -315,6 +391,9 @@ function tutEnterStep(step) {
 
 function tutEnterStep2(T, step) {
   switch (step) {
+    case 'orientation':
+      tutMsg(T, 'This war rewards patience, Sergeant. Every soldier who survives a fight gains experience — veterans outfight green troops, so keep them alive.');
+      break;
     case 'intro':
       tutMsg(T, "Dawn on the line, Sergeant. You held through the night — the Germans aren't finished.");
       break;
@@ -391,6 +470,10 @@ function tutEnterStep2(T, step) {
 function updateTutorial2(dt, T) {
   if (T.rifle.dead) { gameOver(); return; }   // the flamethrower got through
   switch (T.step) {
+    case 'orientation':
+      T.timer -= tutStepDt(dt);
+      if (T.timer <= 0) tutEnterStep('intro');
+      break;
     case 'intro':
       T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('spot');
@@ -666,38 +749,45 @@ function updateTutorial(dt) {
   }
   if (T.script === 't2') { updateTutorial2(dt, T); return; }
   if (T.script === 't3') { updateTutorial3(dt, T); return; }
-  if (T.rifle.dead) { gameOver(); return; }   // trainee lost the scripted duel
+  if (T.rifle.dead) { gameOver(); return; }   // defensive: no enemies exist in this lesson normally
   switch (T.step) {
     case 'welcome':
       T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('select');
       break;
     case 'select':
-      if (G.selected.includes(T.rifle)) tutEnterStep('moveToBunker');
+      if (G.selected.includes(T.rifle)) tutEnterStep('move');
       break;
-    case 'moveToBunker':
-      // spawn the enemy the instant the move-to-bunker order is issued, so he's
-      // already closing in by the time our rifleman reaches cover — no dead air
-      if (!T.foe && T.rifle.moveTo && dist(T.rifle.moveTo, T.bunker) < 40) {
-        T.foe = makeEnemy('erifle', -30, tuY(165));
-        G.enemies.push(T.foe);
+    case 'move':
+      if (!T.rifle.moveTo && dist(T.rifle, T.moveStart) > 40) tutEnterStep('deselect');
+      break;
+    case 'deselect':
+      if (!G.selected.length) tutEnterStep('buildUnit');
+      break;
+    case 'buildUnit': {
+      const mates = G.units.filter(u => u.type === 'rifleman' && !u.dead);
+      if (mates.length >= 2) {
+        T.buddy = mates.find(u => u !== T.rifle) || mates[mates.length - 1];
+        tutEnterStep('multiselect');
       }
-      if (dist(T.rifle, T.bunker) < 26 && !T.rifle.moveTo) tutEnterStep('fight');
       break;
-    case 'fight':
-      if (T.foe && T.foe.dead) tutEnterStep('rankup');
+    }
+    case 'multiselect':
+      if (G.selected.includes(T.rifle) && T.buddy && G.selected.includes(T.buddy)) tutEnterStep('groupMove');
       break;
-    case 'rankup':
-      T.timer -= tutStepDt(dt);
-      if (T.timer <= 0) tutEnterStep('buyMedic');
+    case 'groupMove':
+      if (!T.rifle.moveTo && !T.buddy.moveTo && dist(T.rifle, T.sandbag) < 30 && dist(T.buddy, T.sandbag) < 30) tutEnterStep('deselect2');
       break;
-    case 'buyMedic':
-      if (placing && placing.key === 'medic') tutEnterStep('placeMedic');
+    case 'deselect2':
+      if (!G.selected.length) tutEnterStep('buildEmplacement');
       break;
-    case 'placeMedic':
-      if (G.units.some(u => u.type === 'medic' && !u.dead)) tutEnterStep('breather');
+    case 'buildEmplacement':
+      if (G.wires.length - T.baseWires >= 1) tutEnterStep('buildAbility');
       break;
-    case 'breather':
+    case 'buildAbility':
+      if (G.shells.length - T.baseShells >= 1) tutEnterStep('controls');
+      break;
+    case 'controls':
       T.timer -= tutStepDt(dt);
       if (T.timer <= 0) tutEnterStep('zoomOut');
       break;

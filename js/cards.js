@@ -26,10 +26,7 @@ const REROLL_BASE_COST = 1;
 // hard it warps a run; the player's command capacity starts at 6 and can be
 // raised a point at a time for medals (5, then +20% compounding, rounded up).
 const PLAN_SLOTS = 3;
-// phonetic rather than 'LOADOUT A/B/C': in the pane the three plans are a
-// strip of tabs on one line beside the LOADOUT title, and three copies of the
-// word LOADOUT next to that title said nothing three times
-const PLAN_NAMES = ['ALPHA', 'BRAVO', 'CHARLIE'];
+const PLAN_NAMES = ['LOADOUT 1', 'LOADOUT 2', 'LOADOUT 3'];
 
 // collection grid filters, all three reset whenever the card shop is
 // (re)opened. They narrow the same grid and are ANDed:

@@ -56,6 +56,8 @@ function syncMobileChrome() {
   if (actions) {
     actions.classList.toggle('hidden', !(touchUI() && isPlaying() && G?.selected.length && !placing));
   }
+  const deselectBtn = el('mobile-deselect');
+  if (deselectBtn) deselectBtn.classList.toggle('tut-pulse', tutorialWantsDeselect());
   if (placeCancel) {
     placeCancel.classList.toggle('hidden', !(touchUI() && placing && isPlaying()));
   }
@@ -342,6 +344,7 @@ function renderToolbar() {
       SFX.click();
       syncSelectionMobile();
     }, 'Deselect');
+    if (tutorialWantsDeselect()) bar.querySelector('.tool-back-btn')?.classList.add('tut-pulse');
 
     syncToolbarVisibility();
     syncToolbarLayout();
@@ -429,14 +432,30 @@ function renderToolbar() {
   syncTutorialPulse();
 }
 
-// tutorial: pulse the button the player should press next (category, then medic)
+// tutorial: is the current step specifically teaching "deselect to reopen the shop"?
+function tutorialWantsDeselect() {
+  const T = G && G.tutorial;
+  return !!(T && !T.done && (T.step === 'deselect' || T.step === 'deselect2'));
+}
+
+// tutorial: pulse the button the player should press next (category, then medic).
+// A leftover purchase from an earlier step (a defense stays "active" after buying
+// it, unlike a one-shot support) can leave the shop pointed at the wrong category
+// entirely, with the target category/item not even on screen yet — in that case
+// pulse the BACK control instead, so there's always something lit to press.
 function syncTutorialPulse() {
   const bar = el('toolbar');
   if (!bar) return;
   for (const b of bar.querySelectorAll('.tut-pulse')) b.classList.remove('tut-pulse');
   const T = G && G.tutorial;
-  if (!T || T.done || placing) return;
+  if (!T || T.done) return;
   if (!T.pulseCat && !T.pulseKey) return;
+  if (placing && placing.key === T.pulseKey) return;   // already correctly mid-placement
+  if (placing || (toolbarView !== 'categories' && toolbarView !== T.pulseCat)) {
+    const back = bar.querySelector('.tool-back-btn');
+    if (back) back.classList.add('tut-pulse');
+    return;
+  }
   if (toolbarView === 'categories') {
     if (T.pulseCat) {
       const catBtn = bar.querySelector(`[data-cat-id="${T.pulseCat}"]`);

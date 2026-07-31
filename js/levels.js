@@ -32,6 +32,7 @@ const WATCHTOWER_HP = 500;
 const CAMONEST_HP = 280;
 const AMMOCRATE_HP = 320;
 function usBunker(G, x, y, hp = BUNKER_HP){ G.bunkers.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
+function usSandbag(G, x, y, hp = SANDBAG_HP){ G.sandbags.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 
 const LEVELS = {
   endless: {
@@ -58,7 +59,7 @@ const LEVELS = {
     id: 'tutorial1',
     name: 'TUTORIAL 1: BASIC TRAINING',
     menuName: 'LESSON 1 — BASIC TRAINING',
-    menuDesc: 'Select, move, and buy units.',
+    menuDesc: 'Select, move, multiselect, and build your force.',
     mode: 'endless',
     tutorial: true,
     breachLimit: MAX_BREACH,

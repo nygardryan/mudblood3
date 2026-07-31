@@ -247,14 +247,6 @@ function place(p, x, y) {
     x = fallback.x;
     y = fallback.y;
   }
-  // tutorial script: the medic has to go down next to the wounded rifleman
-  if (tutorialScriptActive() && G.tutorial.step === 'placeMedic'
-      && dist({ x, y }, G.tutorial.rifle) > 130) {
-    SFX.error();
-    mobileVibrate(14);
-    G.texts.push({ x, y: y - 12, text: 'CLOSER TO YOUR MAN', ttl: 1.6 });
-    return;
-  }
   // tutorial script: some steps confine placement to a highlighted zone
   if (tutorialScriptActive() && G.tutorial.placeZone) {
     const z = G.tutorial.placeZone;
@@ -409,12 +401,26 @@ function handleCanvasTap(shiftKey = false) {
     syncSelectionMobile();
     return;
   }
-  // tutorial script: ground clicks only move a unit onto the highlighted bunker
+  // tutorial script: ground clicks only issue move orders on the steps that teach it
   if (tutorialScriptActive()) {
     const T = G.tutorial;
-    if (T.step === 'moveToBunker' && G.selected.length && dist(T.bunker, { x, y }) < 34) {
-      // land him inside the bunker's cover radius
-      issueMoveOrder(G.selected, T.bunker.x + 2, T.bunker.y);
+    if (T.step === 'move' && G.selected.length) {
+      // free choice: the lesson is "click anywhere to move him," not a specific
+      // spot — except the sandbag itself, which 'groupMove' still has to teach
+      // later, and a click that happens to land there would let the player
+      // wander onto that lesson's answer before it's even been asked
+      if (dist({ x, y }, T.sandbag) < 60) {
+        SFX.error();
+        mobileVibrate(14);
+        G.texts.push({ x, y: y - 12, text: 'PICK SOMEWHERE ELSE', ttl: 1.6 });
+        return;
+      }
+      issueMoveOrder(G.selected, x, y);
+      SFX.click();
+      mobileVibrate(5);
+    } else if (T.step === 'groupMove' && G.selected.length && dist(T.sandbag, { x, y }) < 34) {
+      // land the whole group inside the sandbag's cover radius
+      issueMoveOrder(G.selected, T.sandbag.x + 2, T.sandbag.y);
       SFX.click();
       mobileVibrate(5);
     }

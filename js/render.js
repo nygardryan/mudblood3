@@ -567,16 +567,22 @@ function drawTutorialHighlights() {
       ctx.stroke();
     }
   }
-  // Tutorial 1's yellow "click here" ring for the select/move lessons
-  let target = null, r0 = 0;
-  if (T.step === 'select' && T.rifle && !T.rifle.dead) { target = T.rifle; r0 = 16; }
-  else if (T.step === 'moveToBunker') { target = T.bunker; r0 = 30; }
-  if (target) {
+  // Tutorial 1's yellow "click here" ring for the select/move/multiselect lessons.
+  // 'move' has no ring: the destination is the player's free choice, so there's
+  // nothing specific to point at.
+  let targets = [];
+  if (T.step === 'select' && T.rifle && !T.rifle.dead) targets = [{ u: T.rifle, r0: 16 }];
+  else if (T.step === 'groupMove') targets = [{ u: T.sandbag, r0: 30 }];
+  else if (T.step === 'multiselect') {
+    if (T.rifle && !T.rifle.dead) targets.push({ u: T.rifle, r0: 16 });
+    if (T.buddy && !T.buddy.dead) targets.push({ u: T.buddy, r0: 16 });
+  }
+  for (const { u, r0 } of targets) {
     const pulse = r0 + Math.sin(G.time * 5) * 3;
     ctx.strokeStyle = 'rgba(255,217,74,0.9)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(target.x, target.y, pulse, 0, 7);
+    ctx.arc(u.x, u.y, pulse, 0, 7);
     ctx.stroke();
   }
 }

@@ -1456,7 +1456,7 @@ Object.assign(ENEMY_TYPES, {
 // clause and adding one would be a bug. AI in js/update-enemies.js
 // (updateWarTrain); art in js/render-train.js.
 const TRAIN_WAVE_INTERVAL = 100;     // arrives at wave 100, 200... (mirrors the others)
-const TRAIN_HP = 26000;              // the ENGINE pool — killing it ends the fight
+const TRAIN_HP = 17420;              // the ENGINE pool — killing it ends the fight (26000 × 0.67)
 const TRAIN_SEGMENTS = 3;            // ONE pool, ticked into three; each break sounds the AVANTI
 const TRAIN_PART_RESIST = 0.33;      // the wagons' plate per intact segment — see bossPartDamageMult
 const TRAIN_SPEED = 9;               // px/s down the lane: ~75s from the treeline to the stop

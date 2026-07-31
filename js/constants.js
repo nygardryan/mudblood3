@@ -703,13 +703,13 @@ const ENEMY_TYPES = {
     // counterpart: jeep (range 201, speed 110)
     name: 'Kübelwagen', hp: 250, speed: 45, range: 188, dmg: 13, acc: 0.42,
     rof: 2.2, burst: 8, burstGap: 0.07, reward: 8,
-    color: '#585f69', gun: 14, sfx: 'hmg', priority: 3, vehicle: true,
+    color: '#585f69', gun: 14, sfx: 'hmg', priority: 1, vehicle: true,
   },
   ehalftrack: {
     // no allied counterpart (APC) — range/speed left as authored
     name: 'Sd.Kfz. 251', hp: 1150, speed: 30, range: 161, dmg: 9, acc: 0.42,
     rof: 2.2, burst: 6, burstGap: 0.08, reward: 12,
-    color: '#565d67', gun: 16, sfx: 'mg', priority: 3, vehicle: true, apc: true,
+    color: '#565d67', gun: 16, sfx: 'mg', priority: 1, vehicle: true, apc: true,
   },
   panzer: {
     // counterpart: sherman (range 288, speed 14)
@@ -744,7 +744,7 @@ const ENEMY_TYPES = {
   ev2: {
     name: 'V2 Rocket Battery', hp: 536, speed: 18, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 60,
-    color: '#474e58', gun: 0, sfx: 'boom', priority: 5, fixed: true,
+    color: '#474e58', gun: 0, sfx: 'boom', priority: 1, fixed: true,
     // r halved from its original 130 — still levels anything close, but no
     // longer wipes out a whole line at once. dmg is 95% of a rifleman's 100
     // hp, so a near-direct hit maims rather than instantly kills, and
@@ -767,7 +767,7 @@ const ENEMY_TYPES = {
     rof: 1.6, burst: 1, burstGap: 0, reward: 200,
     // gun 14: long enough that the barrel clears his greatcoat at the 1.35x
     // sprite scale — at 10 the revolver drew entirely under the coat ellipse
-    color: '#3a3b45', gun: 14, sfx: 'sniper', priority: 5,
+    color: '#3a3b45', gun: 14, sfx: 'sniper', priority: 1,
     germanBoss: true, boss: true, noRamp: true,
     revolver: { armorDmg: 490 },
   },
@@ -852,7 +852,7 @@ Object.assign(ENEMY_TYPES, {
     // fires and never survives its own attack, so it pays no reward.
     name: 'Lunge Mine', hp: 84, speed: 46, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 5,
-    color: '#6e6a34', gun: 13, sfx: 'rifle', priority: 4, faction: 'jp',
+    color: '#6e6a34', gun: 13, sfx: 'rifle', priority: 1, faction: 'jp',
     lunge: { r: 42, dmg: 130, armorMult: 6 },
   },
   joff: {
@@ -921,7 +921,7 @@ Object.assign(ENEMY_TYPES, {
   jyamato: {
     name: 'Yamato', hp: YAM_HULL_HP, speed: YAM_SPEED, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 400,
-    color: '#5d5f52', gun: 0, sfx: 'boom', priority: 5,
+    color: '#5d5f52', gun: 0, sfx: 'boom', priority: 1,
     // tank: small arms ping off at x0.04 and HE bites at x2.2 — the counter-play
     // is artillery, AT guns and bazookas, which is right for an armor belt
     tank: true, heavy: true, boss: true, japBoss: true, ship: true,
@@ -947,13 +947,14 @@ Object.assign(ENEMY_TYPES, {
     // still out-ranges a bazooka — but she has to be closed with.
     name: 'Yamato — Main Battery', hp: YAM_TURRET_HP, speed: 0, range: 330, dmg: 0, acc: 0,
     rof: YAM_TURRET_ROF, burst: 1, burstGap: 0, reward: 60, shellDmg: YAM_SHELL_DMG,
-    color: '#63655a', gun: 0, sfx: 'boom', priority: 5,
+    color: '#63655a', gun: 0, sfx: 'boom', priority: 1,
     tank: true, shipPart: true, shipTurret: true, fixed: true, noRamp: true, faction: 'jp',
   },
   jymg: {
     // an open 25mm tub on a sponson. NOT `tank` — this is the one part of the
-    // ship a rifleman can hurt, and sniperTarget skips t.tank outright, so the
-    // high priority here quietly gets snipers picking off the gun crews.
+    // ship a rifleman can hurt, so small arms have a job against her at all.
+    // priority 1 (not 4): sniperTarget skips t.tank outright, so a high number
+    // here quietly made snipers ignore the infantry escort to plink gun crews.
     // Stats live on the type (not in an mg:{} spec) so runWeapon can drive it,
     // which is what buys bursts AND suppressArea pinning.
     // range 247: reaches ~90px past the deploy line from the near edge of her
@@ -961,7 +962,7 @@ Object.assign(ENEMY_TYPES, {
     // instead of only punishing men who push up
     name: 'Yamato — Gun Tub', hp: YAM_MG_HP, speed: 0, range: 247, dmg: 9, acc: 0.42,
     rof: 0.95, burst: 7, burstGap: 0.09, reward: 14,
-    color: '#6b6a3c', gun: 9, sfx: 'mg', priority: 4, sup: true,
+    color: '#6b6a3c', gun: 9, sfx: 'mg', priority: 1, sup: true,
     shipPart: true, shipMg: true, fixed: true, noRamp: true, faction: 'jp',
   },
 });
@@ -1071,7 +1072,7 @@ Object.assign(ENEMY_TYPES, {
     // desperate. Small arms just annoy it; burn it, shell it, or mine it.
     name: 'Abomination', hp: 920, speed: 18, range: 0, dmg: 70, acc: 0,
     rof: 1.7, burst: 1, burstGap: 0, reward: 16,
-    color: '#4f5a3a', gun: 8, sfx: 'scream', priority: 4, faction: 'zo',
+    color: '#4f5a3a', gun: 8, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.5, boss: true,
   },
   zprogen: {
@@ -1089,7 +1090,7 @@ Object.assign(ENEMY_TYPES, {
     // zombieBite'd with this instead. 0 here would make that branch a no-op.
     name: 'The Progenitor', hp: PROG_HP, speed: PROG_SPEED, range: 0,
     dmg: 90, acc: 0, rof: PROG_DEVOUR_CD, burst: 1, burstGap: 0, reward: 300,
-    color: '#4a5834', gun: 0, sfx: 'scream', priority: 5,
+    color: '#4a5834', gun: 0, sfx: 'scream', priority: 1,
     hordeBoss: true, boss: true, noRamp: true, faction: 'zo',
   },
   zpod: {
@@ -1104,7 +1105,7 @@ Object.assign(ENEMY_TYPES, {
     // melee-horde HP pass below keys on.
     name: 'Pus Module', hp: PROG_POD_HP, speed: 0, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 12,
-    color: '#7d8a44', gun: 0, sfx: 'scream', priority: 4,
+    color: '#7d8a44', gun: 0, sfx: 'scream', priority: 1,
     bossPart: true, fixed: true, noRamp: true, faction: 'zo',
     spit: PROG_POD_SPIT,
   },
@@ -1544,7 +1545,7 @@ Object.assign(ENEMY_TYPES, {
     // armor-roll exemptions every boss gets.
     name: 'Treno Armato', hp: TRAIN_HP, speed: TRAIN_SPEED, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 400,
-    color: '#6f6b4e', gun: 0, sfx: 'boom', priority: 5,
+    color: '#6f6b4e', gun: 0, sfx: 'boom', priority: 1,
     tank: true, heavy: true, boss: true, itaBoss: true, noRamp: true, faction: 'it',
   },
   ittur: {
@@ -1556,7 +1557,7 @@ Object.assign(ENEMY_TYPES, {
     name: 'Treno Armato — Turret Wagon', hp: TRAIN_TURRET_HP, speed: 0, range: 290,
     dmg: 0, acc: 0, rof: TRAIN_TURRET_ROF, burst: 1, burstGap: 0, reward: 50,
     shellDmg: TRAIN_SHELL_DMG,
-    color: '#787454', gun: 0, sfx: 'boom', priority: 5,
+    color: '#787454', gun: 0, sfx: 'boom', priority: 1,
     tank: true, trainPart: true, trainTurret: true, fixed: true, noRamp: true, faction: 'it',
   },
   itwag: {
@@ -1564,7 +1565,7 @@ Object.assign(ENEMY_TYPES, {
     // on a cadence. No weapon — killing it is how the player turns the tap off.
     name: 'Treno Armato — Infantry Wagon', hp: TRAIN_WAGON_HP, speed: 0, range: 0,
     dmg: 0, acc: 0, rof: 1, burst: 1, burstGap: 0, reward: 60,
-    color: '#7a765a', gun: 0, sfx: 'boom', priority: 4,
+    color: '#7a765a', gun: 0, sfx: 'boom', priority: 1,
     tank: true, trainPart: true, fixed: true, noRamp: true, faction: 'it',
   },
   itmg: {
@@ -1573,7 +1574,7 @@ Object.assign(ENEMY_TYPES, {
     // Stats live on the type so runWeapon can drive it: bursts AND suppression.
     name: 'Treno Armato — Gun Post', hp: TRAIN_MG_HP, speed: 0, range: 240,
     dmg: 8, acc: 0.4, rof: 1.0, burst: 7, burstGap: 0.09, reward: 12,
-    color: '#6b6a44', gun: 9, sfx: 'mg', priority: 4, sup: true,
+    color: '#6b6a44', gun: 9, sfx: 'mg', priority: 1, sup: true,
     trainPart: true, trainMg: true, fixed: true, noRamp: true, faction: 'it',
   },
   itarty: {
@@ -1586,7 +1587,7 @@ Object.assign(ENEMY_TYPES, {
     range: TRAIN_ARTY_RANGE, dmg: 0, acc: 0,
     rof: TRAIN_ARTY_CD_MIN, burst: 1, burstGap: 0, reward: 70,
     shellDmg: TRAIN_ARTY_DMG,
-    color: '#7c7856', gun: 0, sfx: 'boom', priority: 5,
+    color: '#7c7856', gun: 0, sfx: 'boom', priority: 1,
     tank: true, trainPart: true, trainArty: true, fixed: true, noRamp: true, faction: 'it',
   },
 });
@@ -1687,7 +1688,7 @@ Object.assign(ENEMY_TYPES, {
     // entirely from updateAlienWalker and reads the AW_ constants directly.
     name: 'Alien Walker', hp: AW_HP, speed: AW_APPROACH_SPEED, range: AW_BEAM_RANGE,
     dmg: AW_SWEEP_DMG, acc: 0, rof: AW_SWEEP_T, burst: 1, burstGap: 0, reward: 250,
-    color: '#2b3138', gun: 0, sfx: 'boom', priority: 5,
+    color: '#2b3138', gun: 0, sfx: 'boom', priority: 1,
     awalker: true, boss: true, noRamp: true,
   },
 });

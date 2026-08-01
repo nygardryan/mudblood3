@@ -37,6 +37,7 @@ const FULL_SCREEN_OVERLAYS = [
   'pause', 'boss-victory', 'gameover', 'endless-endgame', 'recap', 'codex',
   'changelog', 'settings', 'esc-dossier', 'leaderboard-select',
   'card-shop', 'tutorial-select', 'loadout-view', 'abandon-confirm',
+  'demo-pitch',
 ];
 
 function hideOverlays() {
@@ -90,6 +91,11 @@ function bossVictoryOpen() {
 // the extra rungs are the menu screens Escape leaves to their BACK buttons.
 function handleAndroidBack() {
   const up = (id) => !el(id).classList.contains('hidden');
+  // DEMO: the boot pitch is the top layer (js/demo.js). First, and above
+  // isPlaying(), for the same reason it is first on Escape — and because
+  // without it a hardware back on the very first screen falls all the way to
+  // `return false` and exits the app.
+  if (demoPitchOpen()) { closeDemoPitch(); return true; }
   // a live fight: back = pause, so back can never kill a run in progress
   if (isPlaying()) { pauseGame(); return true; }
   if (escDossierOpen()) { closeEscalationDossier(); return true; }

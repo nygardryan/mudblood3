@@ -373,7 +373,12 @@ function deserializeRun(run) {
 
   // -- assemble G, mirroring the newGame literal --
   const esc = buildEscMods(num(run.escLevel, 0));
-  const cards = arr(run.cards).filter(id => CARDS[id]);
+  // demo: the run's own loadout, minus anything this build doesn't sell. A
+  // full-game 'de' save IS resumable here (only the other three armies are
+  // blocked), so without this the whole card gate is one SAVE AND EXIT away
+  // from being bypassed — the same reason the rung above resumes clamped
+  // rather than at whatever the blob stored.
+  const cards = demoOwnedCards(arr(run.cards).filter(id => CARDS[id]));
   const recapIn = (run.recap && typeof run.recap === 'object') ? run.recap : {};
   const g = {
     level, mode: level.mode, difficulty, esc,
@@ -482,7 +487,13 @@ function refreshContinueUI() {
   const m = blob.meta;
   const bits = ['WAVE ' + (Number.isFinite(m.wave) ? m.wave : '?'),
     'vs ' + (SAVE_FACTION_NAMES[m.faction] || '???')];
-  if (Number.isFinite(m.escLevel) && m.escLevel > 0) bits.push('ESC ' + ESC_ROMAN[m.escLevel]);
+  // the rung the resume will actually RUN at, not the one the blob stores:
+  // deserializeRun rebuilds the mods through buildEscMods, which clamps to
+  // demoEscMax(). A full-game 'de' save is resumable under the demo (only the
+  // other three armies are blocked), so printing its stored IX here would name
+  // a rung this build cannot stand on — the read-clamp rule, on this surface.
+  const escLevel = Number.isFinite(m.escLevel) ? Math.min(m.escLevel, demoEscMax()) : 0;
+  if (escLevel > 0) bits.push('ESC ' + ESC_ROMAN[escLevel]);
   el('continue-meta').textContent = bits.join(' · ');
 }
 
@@ -502,7 +513,12 @@ function openAbandonConfirm(difficultyId, fromScreen) {
   pendingAbandonDiff = difficultyId;
   pendingAbandonFrom = fromScreen || 'intro';
   const blob = readRunSave();
-  const m = blob && blob.meta;
+  // demo: a non-'de' save is HIDDEN on the menu — no CONTINUE card, no resume —
+  // so describing it here contradicts the screen the player just came from AND
+  // names an army this build doesn't ship, the same lie the dossier's enemy line
+  // used to tell. The prompt still fires unchanged: the slot is still about to
+  // be overwritten, and that guard is what makes the loss the player's choice.
+  const m = blob && !demoBlockedSave(blob) ? blob.meta : null;
   el('abandon-meta').textContent = m
     ? 'Your saved run — wave ' + (Number.isFinite(m.wave) ? m.wave : '?') + ' vs ' +
       (SAVE_FACTION_NAMES[m.faction] || '???').toLowerCase() + ' — will be lost.'

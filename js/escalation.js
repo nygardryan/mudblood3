@@ -349,9 +349,14 @@ function escDossierSubText(sel, unlocked) {
       // as a typo to the one player who most needs this line: a new one
       : 'LOCKED ▸ PUT THE BOSS DOWN' + (sel > 0 ? ' ON ' + ESC_ROMAN[sel] : '') +
         ' TO EARN ' + ESC_ROMAN[next.level];
+  // the standing note that the ladder never picks your enemy. The DEMO pins the
+  // roll to the Wehrmacht (rollEnemyFaction, js/state.js), so "rolled at random"
+  // there promises three armies this build does not ship — and it is the only
+  // line in the game that makes a claim about the roll.
+  const enemy = demoActive() ? 'ENEMY: WEHRMACHT' : 'ENEMY: ROLLED AT RANDOM';
   return ESC_MAX + ' RUNGS · ' + sel + ' IN EFFECT · ' +
     (unlocked > 0 ? ESC_ROMAN[unlocked] + ' EARNED' : 'NONE EARNED') + ' · ' +
-    escMultLabel(sel) + ' MEDALS\n' + climb + ' · ENEMY: ROLLED AT RANDOM';
+    escMultLabel(sel) + ' MEDALS\n' + climb + ' · ' + enemy;
 }
 
 // what the side of a row says. The rung you are set to is IN EFFECT; anything
@@ -469,8 +474,19 @@ function escDossierOpen() {
 // rebuilt) whenever it is the thing that made the pick.
 function pickEscalation(n) {
   const data = loadEndlessCards();
-  const next = clamp(Math.floor(n), 0, escEffectiveUnlocked(data));
-  if (next === data.escalation) return;
+  const unlocked = escEffectiveUnlocked(data);
+  const next = clamp(Math.floor(n), 0, unlocked);
+  // The no-op test compares the rung the screen is SHOWING, not the stored one —
+  // the same distinction stepEscalation makes below, and the last place the demo
+  // clamp could escape READ-side. Under the cap a full-game blob still stores IX
+  // while every surface reads III, so a tap on the III row (labelled IN EFFECT)
+  // or the III chip (drawn --on) was `3 !== 9` and wrote the clamp straight
+  // through to a blob ?demo=1 shares with the full game: one tap that changes
+  // nothing on screen, and the full-game player comes back set to III. Picking a
+  // DIFFERENT rung still writes — that is a choice the player made. In the full
+  // game the two spellings are identical (the normalizer already clamps
+  // escalation to escUnlocked), so this is a demo branch with no full-game term.
+  if (next === Math.min(data.escalation, unlocked)) return;
   setEscalationLevel(next);
   SFX.click();
   buildEscalationUI();

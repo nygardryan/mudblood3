@@ -1793,6 +1793,12 @@ const EVENT_INFO = [
     name: 'Air Attack',
     wave: 4,
     desc: 'Aircraft cross the field out of the enemy treeline toward your line. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Against the Imperial Japanese Army it is a kamikaze attack instead: twice as many aircraft, no bombs, each one picking a defender and flying into him for a single blast exactly where it lands. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
+    // the demo fights only the Wehrmacht and hides the other three rosters from
+    // the codex, so the kamikaze clause is the one player-facing line left that
+    // names an army this build doesn't contain. Same rule as the escalation
+    // dossier's enemy note: copy that describes a faction owes demoActive() a
+    // look. Read-side only — codexEntries picks the variant, nothing prunes.
+    descDemo: 'Aircraft cross the field out of the enemy treeline toward your line. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
   },
   {
     key: 'paradrop',

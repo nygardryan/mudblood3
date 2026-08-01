@@ -867,8 +867,13 @@ canvas.addEventListener('contextmenu', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    // the escalation dossier is the only overlay here that layers over another
-    // one, so it gets first claim on Escape
+    // Two overlays here layer over another one instead of swapping it out, and
+    // the topmost claims Escape first. The demo's boot pitch (js/demo.js) sits
+    // over the menu AND over the dossier; at boot nothing below can be true, but
+    // TEST.demoPitch can raise it over a live run, where Escape must close IT
+    // rather than fall through to the paused branch and resume a hidden fight.
+    if (demoPitchOpen()) { closeDemoPitch(); return; }
+    // then the escalation dossier, which layers over the menu
     if (escDossierOpen()) { closeEscalationDossier(); return; }
     // the abandon-save prompt swaps out the screen that launched it; Escape means BACK,
     // never fall-through (the paused branch below would resume a hidden fight)

@@ -57,7 +57,8 @@ const TEST = {
         'exportSprites(opts?)': 'render every drawable to a transparent PNG. opts {download=true} — pass {download:false} to render and report without a file. Returns {ok, count, bytes, ids, blank, errors}',
         'spriteRoundtrip(id)': 'bake one sprite, encode it as PNG, load it back and diff against the procedural draw. Returns {litPixels, meanChannelDiff, ...} — a large diff means a wrong anchor or a clipped box',
         'terrain()': 'ground art for the running biome: {faction, available:{field,trench}, live:{...}, ids, repaintable}. `live` is what the baked field was painted from; `available` is what the pack holds now',
-        'demo(on?)': 'demo-mode gate (js/demo.js): no arg reports {active, escMax, lockedPlaceables, cardPool}; true/false overrides PLATFORM.isDemo for this session, null restores it',
+        'demo(on?)': 'demo-mode gate (js/demo.js): no arg reports {active, escMax, lockedPlaceables, cardPool, pitchOpen}; true/false overrides PLATFORM.isDemo for this session, null restores it',
+        'demoPitch(on?)': "the demo's value-proposition screen, shown at boot (js/demo.js): true opens it, false closes it — works in a full-game tab too, so the derived copy can be proofed without ?demo=1",
       },
       levels: Object.keys(LEVELS),
       // 'medium'/'hard' left the menu when ESCALATION shipped but still start
@@ -370,7 +371,18 @@ const TEST = {
       escMax: demoEscMax(),
       lockedPlaceables: PLACEABLES.filter(p => demoLockedPlaceable(p)).map(p => p.key),
       cardPool: [...DEMO_CARD_IDS],
+      pitchOpen: demoPitchOpen(),
     };
+  },
+
+  // The value-proposition screen the demo opens at boot (js/demo.js). Raised
+  // through openDemoPitch rather than showDemoPitchAtBoot on purpose, so the
+  // copy can be proofed in a FULL-GAME tab — which is the case that catches a
+  // figure derived through a gate instead of through the pool behind it.
+  demoPitch(on) {
+    if (on === false) closeDemoPitch();
+    else if (on === true) openDemoPitch();
+    return { open: demoPitchOpen(), demoActive: demoActive() };
   },
 
   // Hover-panel data for whatever sits under a point — the same name, HP, rank,
@@ -477,6 +489,22 @@ const TEST = {
     return { ok: true, tp: G.tp };
   },
 
+  // DEMO: where a want goes when this build won't sell the type it names. Four
+  // of the nine below are full-game-only (gunner, officer, mortarman, AT gun),
+  // and buy() refuses each — so an unadjusted plan does not merely field a
+  // thinner line, it stops SPENDING: the orders it drops are the ones the
+  // economy was sized against, and a demo run dies holding TP (measured 32 at
+  // the end of one, ~ten riflemen). That reads the demo as far harder than it
+  // is, which is the one thing autoplay exists to measure. Each locked want is
+  // folded into the nearest thing the demo does sell; the fallback is the rifle
+  // line, which is where a demo player's spare TP actually goes.
+  //
+  // A hand-written map over a hand-written gate set, so it is applied only to a
+  // type demoLockedPlaceable actually rejects — a substitution can never fire
+  // in the full game, and re-opening one of these four in DEMO_PLACEABLE_KEYS
+  // retires its row here with no edit.
+  _DEMO_SUB: { gunner: 'shotgunner', officer: 'rifleman', mortarman: 'bazooka', atgun: 'bazooka' },
+
   // Default endless build order for autoplay(): target counts scale with the
   // wave, cheap bodies up front, specialists and armour as the economy allows.
   // Returns an ordered purchase queue (most-wanted first) of {type, x, y}.
@@ -495,11 +523,44 @@ const TEST = {
       atgun: w >= 24 ? 1 : 0,
       engineer: w >= 15 ? 1 : 0,
     };
+    // shotgunner carries no want of its own — it is here only as a slot for the
+    // gunner's, and reads (0 - have) = nothing in the full game. It sits right
+    // after the type it stands in for so a folded want keeps its priority.
+    const order = ['rifleman', 'gunner', 'shotgunner', 'sniper', 'officer', 'medic',
+      'mortarman', 'bazooka', 'atgun', 'engineer'];
+    // ...then move every want this build can't buy onto its stand-in, BEFORE
+    // the deficits are read, so the stand-in's own `have` count still applies
+    // (folding two locked wants onto the bazooka must not queue two bazookas
+    // the line already has).
+    //
+    // The CHAIN is walked per type rather than left to this loop's order, which
+    // is the version that cannot rot: two of the four rows point BACKWARDS
+    // (officer -> rifleman, atgun -> bazooka), so a stand-in that later became
+    // demo-locked itself would have been folded before the want landed on it,
+    // and the order would have queued a locked type — silently dropping the
+    // spend this whole block exists to preserve. `seen` is the cycle guard; the
+    // rifle line is the terminus, and it is never locked.
+    const locked = (type) => {
+      const p = PLACEABLES.find(pl => pl.key === type);
+      return !!p && demoLockedPlaceable(p);
+    };
+    for (const type of order) {
+      if (!want[type] || !locked(type)) continue;
+      const seen = new Set([type]);
+      let sub = this._DEMO_SUB[type] || 'rifleman';
+      while (locked(sub) && !seen.has(sub)) {
+        seen.add(sub);
+        sub = this._DEMO_SUB[sub] || 'rifleman';
+      }
+      if (locked(sub)) { want[type] = 0; continue; }   // nowhere to put it
+      want[sub] = (want[sub] || 0) + want[type];
+      want[type] = 0;
+    }
     const lats = [0.15, 0.3, 0.45, 0.6, 0.75, 0.88, 0.22, 0.68];   // spread across the front (y)
     const back = ['sniper', 'mortarman', 'bazooka', 'atgun'];
     const queue = [];
     let i = 0;
-    for (const type of ['rifleman', 'gunner', 'sniper', 'officer', 'medic', 'mortarman', 'bazooka', 'atgun', 'engineer']) {
+    for (const type of order) {
       let deficit = (want[type] || 0) - (have[type] || 0);
       while (deficit-- > 0) {
         queue.push({ type, x: back.includes(type) ? 0.92 : 0.8, y: lats[i % lats.length] });

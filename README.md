@@ -305,6 +305,10 @@ The demo edition is the full game with content gated off, not a cut-down build:
 same engine, same waves, same endless run with no wave cap. What changes is how
 much of the arsenal and the ladder is available.
 
+It opens on a screen listing exactly that — what this build ships against what
+the full game adds — and one button back to the menu. The screen counts itself
+from the gate, so it always matches the build it's on.
+
 - **One enemy army.** The demo always fights the **Germans** — the endless
   faction roll is pinned, and the codex only lists the Wehrmacht roster.
 - **A reduced arsenal.** Buyable: rifleman, shotgunner, bazooka, sniper, medic,
@@ -312,7 +316,8 @@ much of the arsenal and the ladder is available.
   artillery strikes. The gunner, grenadier, mortarman, flamer, officer, Sherman
   and AT gun — plus bunkers, watchtowers, ammo crates, camo nests, dummies and
   both armor abilities — still appear in the toolbar, greyed out under a
-  **FULL GAME** banner, so you can see what the full game adds.
+  **FULL GAME** banner, so you can see what the full game adds. Their codex
+  dossiers carry the same flag.
 - **A 17-card shop.** One cheap upgrade card per available unit and
   emplacement, plus four signature cards (Rifled Slugs, HEAT Rounds, Crack
   Shot, Morphine Syrette). Once you've collected them all, full-game cards
@@ -320,6 +325,14 @@ much of the arsenal and the ladder is available.
 - **Escalation I–III.** The first three rungs of the difficulty ladder unlock
   normally by putting the wave-100 boss down; IV–X are listed in the dossier as
   full-game content.
+- **No dev tools.** Settings has no DEV TOOLS section: sandbox and testing
+  sectors hand out unlimited supply and let you spawn any enemy in the game —
+  including the three armies the demo doesn't fight — and the changelog is the
+  full game's development history. None of the three banked anything, so the
+  demo loses no progress by not having them. Settings' **EXPORT SPRITE PACK**
+  goes with them: it bakes every drawable in the game, hidden rosters and
+  bosses included, and there is nowhere in a demo build to install a pack
+  anyway. Turning custom art off and on again stays.
 
 Medals, the card shop, battle plans, leaderboards, tutorials and the run save
 all work exactly as they do in the full game.
@@ -350,7 +363,8 @@ next, `main.js` third-to-last, then `export-sprites.js`, `test-api.js` last):
 - `js/platform.js` — the shell seam: which of web/desktop/mobile the game is
   running under, whether this is a demo build, and its storage/quit/fullscreen hooks
 - `js/constants.js` — tuning constants & placeable catalog
-- `js/demo.js` — everything the demo edition restricts, in one place
+- `js/demo.js` — everything the demo edition restricts, in one place, plus the
+  value-proposition screen it opens at boot
 - `js/levels.js` — level definitions
 - `js/helpers.js` — small shared helpers
 - `js/state.js` — canvas setup & global game state

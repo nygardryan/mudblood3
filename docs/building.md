@@ -238,7 +238,7 @@ time, so no build ever edits a tracked file:
 
 | Target | How the flag is flipped |
 |---|---|
-| Web (testing) | `?demo=1` in the URL — no staging at all |
+| Web (testing) | `?demo=1` in the URL — no staging at all (the pitch screen shows on every load) |
 | Web (deploy) | `node scripts/stage-web-demo.mjs` rewrites the staged copy in `dist-web-demo/` |
 | Desktop | `main.cjs` *serves* a generated `true` copy over `tw://`, keyed on `TW_DEMO_BUILD=1` (dev) or the packaged `package.json`'s `twDemo` field |
 | Mobile | `sync-www.mjs` overwrites the staged `www/js/demo-flag.js` under `TW_DEMO_BUILD=1` |
@@ -259,7 +259,30 @@ demo can never corrupt full-game progress that shares its storage.
   appear in the offer slots behind a diagonal **FULL GAME ONLY** banner and
   can't be bought.
 - **Escalation capped at rung III**; rungs IV–X show as FULL GAME in the dossier.
+- **No DEV TOOLS section in Settings** — `#settings-dev-tools` is removed rather
+  than hidden (`js/settings.js`). It is one of the two places that reached *past*
+  the gate instead of through it: TESTING appends the three enemy rosters to the
+  toolbar, so it grew JAPANESE/HORDE/ITALIAN tabs and every wave-100 boss;
+  SANDBOX's unlimited TP undersells the economy; and CHANGELOG names the Yamato,
+  the Progenitor, the Treno Armato and rungs VI and X, which the dossier
+  deliberately withholds. Read-side like everything else here — the sandbox and
+  testing difficulty tiers still exist (`TEST.start` uses them) and the
+  `#changelog` overlay is untouched, only the way in is gone.
+- **No EXPORT SPRITE PACK row** — the other one, removed the same way and in the
+  same file. `spriteDefs()` walks `UNIT_TYPES`/`ENEMY_TYPES` by flag and the demo
+  prunes neither, so the ZIP ships the three hidden rosters, all four wave-100
+  bosses, the Alien Walker and the three hidden biome plates as PNGs, in a
+  manifest naming each. A demo build has nowhere to install a pack either, so the
+  row's only realizable output was that ZIP. ART OFF/ON stays (a demo can still
+  ship with a pack baked in), and `TEST.exportSprites()` is untouched.
 - No wave cap — demo runs are endless like the full game.
+
+It also **opens on a value-proposition screen** every launch, over the menu, and
+closes on one button (or Escape / Android back). Nothing is persisted and there
+is deliberately no store link — the URL differs per shell, and the repo has no
+outbound links at all. Every figure on it is derived from the sets above rather
+than written down, so retuning the gate can't leave it advertising a build this
+one isn't; `TEST.demoPitch(true)` raises it, in a full-game tab too.
 
 ### Building each demo target
 

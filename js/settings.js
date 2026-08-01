@@ -217,19 +217,38 @@ el('settings-custom-sprites-btn').addEventListener('click', () => {
   SPRITES.setEnabled(!SPRITES.isEnabled());
   applyCustomSprites();
 });
-// Both halves of the sprite-pack workflow need a filesystem the player can
-// reach, and mobile has none: the export hands its ZIP back through an
+// Two builds never CREATE the export control — the same "never create, don't
+// just hide" rule the desktop section below and the DEMO block at the bottom of
+// this file follow. ART OFF/ON stays in both: a pack can still be shipped baked
+// into the build.
+//
+// MOBILE, because both halves of the sprite-pack workflow need a filesystem the
+// player can reach and mobile has none: the export hands its ZIP back through an
 // <a download> on a blob: URL, which neither WKWebView nor the Android WebView
-// acts on — the button would bake all 183 drawables and then silently produce
+// acts on — the button would bake every drawable and then silently produce
 // nothing — and installing a pack means dropping a folder beside index.html,
-// which there is inside the app bundle. So the control is never created,
-// exactly as PLATFORM.isDesktop never creates the desktop section below. ART
-// OFF/ON stays: a pack can still be shipped baked into the build.
-if (PLATFORM.isMobile) {
+// which there is inside the app bundle.
+//
+// DEMO, because the exporter walks UNIT_TYPES/ENEMY_TYPES by FLAG (spriteDefs,
+// js/export-sprites.js) and the demo prunes neither — it is read-side only. So
+// the ZIP carries the Imperial Japanese, Horde and Regio Esercito rosters, all
+// four wave-100 bosses, the Alien Walker and the three biome plates the codex
+// hides, as PNGs, in a manifest that names every one of them: the full game's
+// art, two taps from the demo's own main menu. That is the DEV TOOLS leak
+// (CHANGELOG naming the Yamato and rungs VI and X) with the pictures attached,
+// and the trade mobile makes for a different reason applies here too — a demo
+// player has nowhere to INSTALL a pack either (the web demo's origin isn't his
+// to write to, and the desktop copy lives in the installed game's resources),
+// so the row's only realizable output in a shipped demo is that ZIP. The hint
+// goes with it: it named "the four theatres' ground" to a build that ships one,
+// the same rule as the dossier's enemy line (see js/demo.js).
+if (PLATFORM.isMobile || demoActive()) {
   el('sprite-export-row').remove();
-  el('sprite-export-hint').textContent =
-    'This build draws the artwork it ships with. Sprite packs are installed ' +
-    'into the app bundle when the game is built, not from here.';
+  el('sprite-export-hint').textContent = PLATFORM.isMobile
+    ? 'This build draws the artwork it ships with. Sprite packs are installed ' +
+      'into the app bundle when the game is built, not from here.'
+    : 'This build draws the artwork it ships with. Sprite packs are installed ' +
+      'when the game is built, not from here.';
 } else {
   // on desktop that folder is inside the installed game rather than beside a
   // page you are serving, and an AppImage's copy is read-only
@@ -270,7 +289,39 @@ if (PLATFORM.isDesktop) {
     '<button type="button" class="secondary" id="settings-fullscreen-btn" title="F11 or Alt+Enter">FULLSCREEN</button>' +
     '<button type="button" class="secondary" id="settings-quit-btn">QUIT GAME</button>' +
     '</div>';
-  el('changelog-btn').closest('.settings-section').insertAdjacentElement('beforebegin', section);
+  el('settings-dev-tools').insertAdjacentElement('beforebegin', section);
   el('settings-fullscreen-btn').addEventListener('click', () => PLATFORM.toggleFullscreen());
   el('settings-quit-btn').addEventListener('click', () => PLATFORM.quit());
+}
+
+// DEMO: this screen holds BOTH of the controls that reach PAST the content gate
+// (js/demo.js) rather than through it — the sprite exporter above, and all three
+// of this section's, two taps from the demo's own main menu.
+//
+// TESTING is the bad one: `difficulty.testing` appends the three enemy rosters
+// to the toolbar (js/flow.js), so it grows JAPANESE / HORDE / ITALIAN category
+// tabs and hands the player every roster the codex hides plus all four
+// wave-100 bosses, under a tipbar that names all four armies. The demo's
+// headline restriction is ONE ENEMY ARMY. SANDBOX's unlimited TP undersells the
+// economy the demo exists to sell. And CHANGELOG is the whole development
+// history of the FULL game in prose — the Yamato, the Progenitor, the Treno
+// Armato, the Alien Walker, and rungs VI and X BY NAME, which escRowStateLabel
+// and buildLeaderboardHead go out of their way to withhold. That last one is
+// exactly the "copy that names an army owes demoActive() a look" rule, on the
+// one screen nobody had asked it.
+//
+// REMOVED, never hidden — the same rule the gated controls above follow,
+// and for the same reason: this sheet has no generic `.hidden` and each hide is
+// spelled out per element. Nothing else is touched: ENDLESS_DIFFICULTIES keeps
+// its sandbox/testing tiers (TEST.start is keyed on those ids) and #changelog
+// keeps its overlay, so this is read-side like every other demo gate.
+//
+// On DOMContentLoaded rather than at file eval, for a load-order reason that is
+// not cosmetic: js/changelog.js loads AFTER this file and wires #changelog-btn
+// at ITS file eval, so deleting the node here would throw there and abandon the
+// rest of that file (the trap PAUSE_SUBSCREENS documents in js/flow.js). By
+// DOMContentLoaded every listener has attached and the screen has never been
+// shown. Same guard, and the same reasoning, as checkDemoSets.
+if (demoActive()) {
+  document.addEventListener('DOMContentLoaded', () => el('settings-dev-tools').remove());
 }

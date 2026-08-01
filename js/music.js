@@ -56,6 +56,19 @@ const MUSIC = (() => {
 
   return {
     start,
+    // Settings' NEXT button. The gesture listeners at the bottom of this file
+    // run on capture, so the press that opened Settings has already called
+    // start() and there is an `audio` by the time this can be reached — the
+    // guard is for the empty-TRACKS build, where start() returns without ever
+    // making one. `failures` resets because a deliberate skip is a fresh
+    // attempt, not another entry in the run of load errors that gives up.
+    next() {
+      if (!started) start();
+      if (!audio) return index;
+      failures = 0;
+      playTrack(index + 1);
+      return index;
+    },
     setVolume(pct) { volume = Math.max(0, Math.min(100, Math.round(pct))); applyVolume(); return volume; },
     get volume() { return volume; },
     setMuted(on) { muted = !!on; applyVolume(); return muted; },

@@ -69,7 +69,18 @@ function attractRunning() {
 // screen. Every other menu screen (card shop, codex, settings, leaderboards) is
 // opaque, so a frame spent simulating under one buys nothing — and the dossier,
 // which is NOT opaque, covers the stage anyway.
+//
+// The class test is how "the menu is up" is asked, and the DEMO PITCH
+// (js/demo.js) is the one screen it cannot see: it is opaque like the list
+// above, but it LAYERS over #intro instead of swapping it out, hiding it with
+// `visibility` from CSS rather than the class. So it read as "the menu is up"
+// and every demo launch ran the full sim AND a full draw() behind a page
+// nobody could see through, for as long as it took to read two screens of it —
+// the first thing a demo does, on the platform (a phone) that can least afford
+// it. Asked explicitly, since visibility is not something this predicate can
+// derive without a per-frame getComputedStyle.
 function attractStepping() {
+  if (demoPitchOpen()) return false;
   return attractOn && !el('intro').classList.contains('hidden');
 }
 

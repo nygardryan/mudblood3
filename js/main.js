@@ -21,6 +21,10 @@ el('esc-dossier-close').addEventListener('click', closeEscalationDossier);
 el('esc-dossier').addEventListener('click', e => {
   if (e.target === el('esc-dossier')) closeEscalationDossier();
 });
+// DEMO: the boot pitch (js/demo.js). One dismiss control and NO backdrop
+// handler — the dossier has one because it is a layer you glance at, this is a
+// page you read, and a stray tap beside it losing your place is a loss.
+el('demo-pitch-go').addEventListener('click', closeDemoPitch);
 // no rung argument: it opens on the one you're set to play (see openLeaderboardSelect)
 el('endless-leaderboard-btn').addEventListener('click', () => openLeaderboardSelect('intro'));
 el('card-shop-btn').addEventListener('click', () => openCardShop('intro'));
@@ -150,6 +154,13 @@ PLATFORM.onReady(() => {
   refreshMenu();   // surface the save, the rung and the medal count from page load
   fitLayout();
   startAttract();   // ATTRACT: the menu is the first thing up (js/attract.js)
+  // DEMO: ...and the pitch goes on top of it, every launch (js/demo.js; a no-op
+  // in the full game). AFTER refreshMenu so the menu it uncovers is already
+  // final — the first-launch tutorial promotion reparents a button, and doing
+  // that under the screen is what keeps the menu from jumping on dismiss. After
+  // fitLayout for the same reason: the screen's container queries want a stage
+  // that has already been scaled.
+  showDemoPitchAtBoot();
   const hudEl = el('hud');
   if (hudEl && typeof ResizeObserver !== 'undefined') {
     new ResizeObserver(() => syncToolbarLayout()).observe(hudEl);

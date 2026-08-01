@@ -227,10 +227,18 @@ function leaderboardRungState(level, unlocked) {
 // A standing strip is repainted rather than rebuilt, for the reason buildEscRungs
 // (js/escalation.js) spells out: switching boards is itself a tap on one of these
 // chips, and an innerHTML rebuild deletes the element mid-activation, dropping
-// keyboard focus to <body>. Only the state class and the disabled flag can differ
-// between two paints — a board's rung, label and handler never change.
+// keyboard focus to <body>. Only the state class, the disabled flag and the
+// TITLE can differ between two paints — a board's rung, label and handler never
+// change, but the title is derived from the state (see below), so it is written
+// above the standing early-out rather than below it, exactly as buildEscRungs
+// writes its own.
 function buildLeaderboardRungs() {
-  const unlocked = loadEndlessCards().escUnlocked;
+  // the EFFECTIVE rung, not the stored one: under the demo cap a full-game blob
+  // still stores IX, and reading it raw drew seven boards this build can never
+  // record a run on as browsable — while the dossier's own strip, two screens
+  // away, drew the same seven locked. The has-entries clause below is what keeps
+  // an actual record on one of them readable, which is the only reason to open it.
+  const unlocked = escEffectiveUnlocked(loadEndlessCards());
   const row = el('leaderboard-tabs');
   const standing = row.children.length === ESC_MAX + 1;
   if (!standing) row.innerHTML = '';
@@ -239,10 +247,24 @@ function buildLeaderboardRungs() {
     const chip = standing ? row.children[i] : document.createElement('button');
     chip.className = 'esc-rung esc-rung--' + state;
     chip.disabled = state === 'locked';
+    // The hover title. Past the demo cap it withholds the modifier's name the
+    // way buildEscRungs and escRowStateLabel do (js/escalation.js): these are
+    // the same chips in the same style two screens from the dossier, so one
+    // strip naming rungs IV–X while the other prints FULL GAME hands the demo
+    // player the ladder the dossier just refused him.
+    //
+    // Keyed on the CAP and not on `state`, which is what buildLeaderboardHead
+    // is keyed on and is the only version that can't disagree with it: a board
+    // above the cap is still browsable when it HOLDS a record, and a chip that
+    // gave the name away exactly when its own header stopped would be worse
+    // than not withholding it at all. Below the cap the title is unchanged —
+    // an unearned rung here is a "not yet", not content this build lacks.
+    chip.title = i === 0 ? 'No escalation'
+      : demoActive() && i > demoEscMax() ? 'Full game'
+      : ESCALATIONS[i - 1].name;
     if (standing) continue;
     chip.type = 'button';
     chip.textContent = ESC_ROMAN[i];
-    chip.title = i === 0 ? 'No escalation' : ESCALATIONS[i - 1].name;
     chip.setAttribute('aria-label', (i === 0 ? 'No escalation' : 'Escalation ' + ESC_ROMAN[i]) +
       ' leaderboard');
     chip.addEventListener('click', () => {
@@ -259,8 +281,15 @@ function buildLeaderboardRungs() {
 // rung ten times. Rung 0 borrows the menu's own wording for the clean sector.
 function buildLeaderboardHead(rung) {
   const mod = rung > 0 ? ESCALATIONS[rung - 1] : null;
+  // demo: a board above the cap opens only because it HOLDS a record (the
+  // has-entries clause in leaderboardRungState) — a migrated v1 score, or a
+  // full-game blob reached through ?demo=1. The record stays readable, and its
+  // rung and pay are facts about it; the modifier's NAME is not, and printing
+  // it here would be the one screen that gives away what escRowStateLabel
+  // withholds. Same wording as the dossier's row, for the same reason.
+  const fgLocked = !!mod && demoActive() && rung > demoEscMax();
   el('lb-board-rung').textContent = mod ? 'ESCALATION ' + ESC_ROMAN[rung] : 'NO ESCALATION';
-  el('lb-board-name').textContent = mod ? mod.name : 'CLEAN SECTOR';
+  el('lb-board-name').textContent = !mod ? 'CLEAN SECTOR' : fgLocked ? 'FULL GAME' : mod.name;
   el('lb-board-mult').textContent = escMultLabel(rung) + ' MEDALS';
 }
 

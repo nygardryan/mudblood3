@@ -137,11 +137,16 @@ function attractWishlist() {
 // create a unit differently from the way a real purchase does.
 function attractSpendPass() {
   for (const order of attractWishlist()) {
-    const p = PLACEABLES.find(pl => pl.key === order.key);
+    // demo: eight of the orders above name types this build doesn't sell, and
+    // each is FOLDED onto the nearest thing it does (demoStandIn, js/demo.js)
+    // rather than skipped. Skipping is what shipped, and it does not merely
+    // field a thinner line: the dropped orders are the ones the income curve was
+    // sized against, so the TP piles up unspent and the board collapses — on the
+    // first thing a demo player looks at. The POSITION is the wish list's whole
+    // content, so a fold keeps it. Returns the key unchanged in the full game.
+    const key = demoStandIn(order.key);
+    const p = key && PLACEABLES.find(pl => pl.key === key);
     if (!p) continue;
-    // demo: the menu board fields only what the player could buy — the
-    // wishlist's gunner/atgun orders just skip
-    if (demoLockedPlaceable(p)) continue;
     const cost = placeableCost(p);
     if (!canAffordTP(cost)) return;   // the rest of the list is dearer or equal
     if (!placementValid(p, order.x, order.y)) continue;

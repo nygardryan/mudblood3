@@ -57,7 +57,7 @@ const TEST = {
         'exportSprites(opts?)': 'render every drawable to a transparent PNG. opts {download=true} — pass {download:false} to render and report without a file. Returns {ok, count, bytes, ids, blank, errors}',
         'spriteRoundtrip(id)': 'bake one sprite, encode it as PNG, load it back and diff against the procedural draw. Returns {litPixels, meanChannelDiff, ...} — a large diff means a wrong anchor or a clipped box',
         'terrain()': 'ground art for the running biome: {faction, available:{field,trench}, live:{...}, ids, repaintable}. `live` is what the baked field was painted from; `available` is what the pack holds now',
-        'demo(on?)': 'demo-mode gate (js/demo.js): no arg reports {active, escMax, lockedPlaceables, cardPool, pitchOpen}; true/false overrides PLATFORM.isDemo for this session, null restores it',
+        'demo(on?)': 'demo-mode gate (js/demo.js): no arg reports {active, build, override, escMax, lockedPlaceables, cardPool, pitchOpen} — `build` is the shipped flag (null if js/demo-flag.js went missing in staging) and `override` this session\'s TEST forcing, so the two together say WHY active reads the way it does; true/false overrides PLATFORM.isDemo for this session, null restores it',
         'demoPitch(on?)': "the demo's value-proposition screen, shown at boot (js/demo.js): true opens it, false closes it — works in a full-game tab too, so the derived copy can be proofed without ?demo=1",
       },
       levels: Object.keys(LEVELS),
@@ -366,7 +366,11 @@ const TEST = {
     }
     return {
       active: demoActive(),
-      build: TW_DEMO_BUILD,
+      // typeof-guarded exactly as PLATFORM.isDemo is (js/platform.js): a
+      // staging bug that drops js/demo-flag.js degrades to the full game rather
+      // than crashing, and a bare read here would throw ReferenceError in that
+      // one case — on the API you would reach for to diagnose it.
+      build: typeof TW_DEMO_BUILD !== 'undefined' ? TW_DEMO_BUILD : null,
       override: TW_DEMO_OVERRIDE,
       escMax: demoEscMax(),
       lockedPlaceables: PLACEABLES.filter(p => demoLockedPlaceable(p)).map(p => p.key),
@@ -489,22 +493,6 @@ const TEST = {
     return { ok: true, tp: G.tp };
   },
 
-  // DEMO: where a want goes when this build won't sell the type it names. Four
-  // of the nine below are full-game-only (gunner, officer, mortarman, AT gun),
-  // and buy() refuses each — so an unadjusted plan does not merely field a
-  // thinner line, it stops SPENDING: the orders it drops are the ones the
-  // economy was sized against, and a demo run dies holding TP (measured 32 at
-  // the end of one, ~ten riflemen). That reads the demo as far harder than it
-  // is, which is the one thing autoplay exists to measure. Each locked want is
-  // folded into the nearest thing the demo does sell; the fallback is the rifle
-  // line, which is where a demo player's spare TP actually goes.
-  //
-  // A hand-written map over a hand-written gate set, so it is applied only to a
-  // type demoLockedPlaceable actually rejects — a substitution can never fire
-  // in the full game, and re-opening one of these four in DEMO_PLACEABLE_KEYS
-  // retires its row here with no edit.
-  _DEMO_SUB: { gunner: 'shotgunner', officer: 'rifleman', mortarman: 'bazooka', atgun: 'bazooka' },
-
   // Default endless build order for autoplay(): target counts scale with the
   // wave, cheap bodies up front, specialists and armour as the economy allows.
   // Returns an ordered purchase queue (most-wanted first) of {type, x, y}.
@@ -528,31 +516,25 @@ const TEST = {
     // after the type it stands in for so a folded want keeps its priority.
     const order = ['rifleman', 'gunner', 'shotgunner', 'sniper', 'officer', 'medic',
       'mortarman', 'bazooka', 'atgun', 'engineer'];
-    // ...then move every want this build can't buy onto its stand-in, BEFORE
-    // the deficits are read, so the stand-in's own `have` count still applies
-    // (folding two locked wants onto the bazooka must not queue two bazookas
-    // the line already has).
+    // DEMO: ...then move every want this build can't buy onto its stand-in
+    // (demoStandIn, js/demo.js — shared with attract mode's own wish list, which
+    // has the same problem for the same reason), BEFORE the deficits are read,
+    // so the stand-in's own `have` count still applies: folding two locked wants
+    // onto the bazooka must not queue two bazookas the line already has.
     //
-    // The CHAIN is walked per type rather than left to this loop's order, which
-    // is the version that cannot rot: two of the four rows point BACKWARDS
-    // (officer -> rifleman, atgun -> bazooka), so a stand-in that later became
-    // demo-locked itself would have been folded before the want landed on it,
-    // and the order would have queued a locked type — silently dropping the
-    // spend this whole block exists to preserve. `seen` is the cycle guard; the
-    // rifle line is the terminus, and it is never locked.
-    const locked = (type) => {
-      const p = PLACEABLES.find(pl => pl.key === type);
-      return !!p && demoLockedPlaceable(p);
-    };
+    // Four of the nine wants above are full-game-only (gunner, officer,
+    // mortarman, AT gun) and buy() refuses each, so an unadjusted plan does not
+    // merely field a thinner line — it stops SPENDING. The orders it drops are
+    // the ones the economy was sized against, and a demo run dies holding TP
+    // (measured 32 at the end of one, ~ten riflemen), which reads the demo as
+    // far harder than it is: the one thing autoplay exists to measure.
+    // demoStandIn hands the key straight back in the full game, so this loop
+    // costs it nothing but the lookup.
     for (const type of order) {
-      if (!want[type] || !locked(type)) continue;
-      const seen = new Set([type]);
-      let sub = this._DEMO_SUB[type] || 'rifleman';
-      while (locked(sub) && !seen.has(sub)) {
-        seen.add(sub);
-        sub = this._DEMO_SUB[sub] || 'rifleman';
-      }
-      if (locked(sub)) { want[type] = 0; continue; }   // nowhere to put it
+      if (!want[type]) continue;
+      const sub = demoStandIn(type);
+      if (sub === type) continue;                     // this build sells it
+      if (!sub) { want[type] = 0; continue; }         // nowhere to put it
       want[sub] = (want[sub] || 0) + want[type];
       want[type] = 0;
     }

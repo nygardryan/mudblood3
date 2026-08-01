@@ -2562,6 +2562,12 @@ input[type="range"]::-moz-range-track {
   border: 1px solid #5a5322;
 }
 #go-leaderboard-entry.hidden, #go-leaderboard.hidden { display: none; }
+/* ...and the CARD SHOP shortcut endRun() toggles on this screen, for the same
+   reason and on the same rule (no generic `.hidden` here either). It is dormant
+   today — every LEVELS entry is `mode: 'endless'`, so `!(G.mode === 'endless')`
+   never fires — which is exactly why it would have been found the hard way,
+   the first time a non-endless mode shipped. */
+#go-shop-btn.hidden { display: none; }
 .go-leaderboard-hint {
   color: #8fbf5a;
   font-size: clamp(12px, 3.2vw, 14px);
@@ -3858,9 +3864,29 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
    height and panel height differ by the letterbox padding alone. Precedent is
    the --tool-scale block near the top of this sheet. */
 @media (max-height: 480px) {
+  /* ...and the head was NOT the biggest spender, which is why trimming only it
+     left the screen still opening on a title card. Measured at 844x357: head 95,
+     overlay padding 40 top and 40 bottom, sticky footer 134 — 309 of 357 before
+     a word of the argument, leaving an 88px band against a 114px shortest row.
+     So the two paddings come down here too, and the whole gain is real estate
+     the rows get: 88 -> 150, a row and a half instead of half of one.
+
+     --ov-pad is the one lever for BOTH of them and that is the point, not a
+     shortcut. .overlay's padding and .dp-foot's --dp-foot-pad both read it, and
+     the sticky trick above only works while the footer's bottom padding equals
+     the scrollport's — a literal on either one alone silently breaks that. It
+     is a WIDTH-derived clamp (5vw) being spent on the short axis, which is
+     exactly why it is wrong here; #card-shop takes it to 10px for this same
+     reason ("at 390px tall the default clamp() inset was eating a sixth of the
+     screen"), and this screen came later and never got the same look. The
+     env() floors ride along untouched — a notch still gets its inset. */
+  #demo-pitch { --ov-pad: 14px; }
   #demo-pitch .dp-title { font-size: clamp(20px, 4.6cqi, 29px); letter-spacing: 3px; }
   .dp-head { gap: 3px; padding-bottom: 8px; }
   .dp-rows { padding-top: 8px; }
+  /* the gradient still needs a ramp to fade the rows out under, so this is
+     trimmed rather than dropped */
+  .dp-foot { padding-top: 12px; }
 }
 
 /* Narrow: the head's three parts stop fitting on one line — the ratio is what
@@ -3880,8 +3906,19 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
 
 /* --- mid-run loadout sheet (#loadout-view) ------------------------------ */
 /* there is no generic `.hidden` rule in this sheet — every hide is spelled out
-   per element — so the pause button that pauseGame() toggles needs its own */
-#pause-loadout-btn.hidden { display: none; }
+   per element — so BOTH pause buttons pauseGame() toggles need their own.
+   LOADOUT had one and SAVE AND EXIT did not, which is the whole failure mode
+   that convention creates: `saveBtn.classList.toggle('hidden', !saveableRun())`
+   ran, the class landed, and nothing happened. So every tutorial pause menu
+   carried a SAVE AND EXIT that saveAndExit() then refuses (it re-asks
+   saveableRun() as its backstop, and returns without even relabelling) — a
+   dead control, silent on press, on the one screen a first-time player is most
+   likely to open. It is the demo that makes that the common case: TUTORIAL is
+   promoted onto the front page for a fresh save (refreshFrontMenu, js/flow.js)
+   and a demo install is a fresh save by definition. Tutorials are also exactly
+   the runs that must NOT reach a save — G.tutorial holds live actor refs the
+   serializer has no whitelist for (see js/save.js). */
+#pause-loadout-btn.hidden, #pause-save-btn.hidden { display: none; }
 
 /* Built on the dossier above, which is the other read-only reference sheet in
    the game. Two differences, both deliberate: it SWAPS #pause out rather than

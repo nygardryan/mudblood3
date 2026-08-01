@@ -2,13 +2,17 @@
    consumed as a one-or-two-line call-site edit elsewhere; nothing outside this
    file decides WHAT is locked. The demo fights only the Wehrmacht
    (rollEnemyFaction, js/state.js), sells a subset of the toolbar
-   (demoLockedPlaceable — hud.js/input.js/attract.js; demoBuildLockedPlaceable
-   is the same question asked of the BUILD, for the codex's mark), sells a 17-card pool in
+   (demoLockedPlaceable — hud.js/input.js; demoBuildLockedPlaceable
+   is the same question asked of the BUILD, for the codex's mark; demoStandIn is
+   where an autonomous build order GOES when its type is locked, for the two
+   things that shop for themselves — attract.js and TEST.autoplay), sells a 17-card pool in
    the shop with everything else offered-but-banner-locked (demoDrawPool /
-   demoLockedCard, js/cards.js), DEPLOYS only that pool even when a shared
+   demoHasDrawable / demoLockedCard, js/cards.js), DEPLOYS only that pool even when a shared
    full-game collection says otherwise (demoOwnedCards, js/cards.js +
    js/save.js), stops selling command points once that pool could not spend
-   another (demoMaxCommandCap, js/cards.js), and caps
+   another (demoMaxCommandCap, js/cards.js), hides — never deletes — a shared
+   run save this build cannot run, whether for its ARMY or for its DEV-TOOLS
+   difficulty (demoBlockedSave, js/save.js), and caps
    ESCALATION at rung III (demoEscMax, js/escalation.js). Two restrictions take
    demoActive() bare rather than a predicate of their own, because they REMOVE a
    whole control instead of gating an item, and both live in js/settings.js:
@@ -23,9 +27,10 @@
    shares its origin — and so its localStorage — with the full game, so the
    demo must never prune CARDS (MAX_COMMAND_CAP derives from it and
    loadEndlessCards drops unknown ids from the shared blob), never clamp the
-   STORED escUnlocked, and never delete a non-'de' run save (js/save.js hides
-   it instead). A demo build that wrote through any of those would corrupt a
-   full-game player's data the first time they opened the demo URL. */
+   STORED escUnlocked, and never delete a run save it refuses to resume
+   (js/save.js hides it instead). A demo build that wrote through any of those
+   would corrupt a full-game player's data the first time they opened the demo
+   URL. */
 'use strict';
 
 // TEST-only runtime override (TEST.demo(bool) sets it, null = follow the
@@ -77,6 +82,57 @@ function demoLockedPlaceable(p) {
   return demoBuildLockedPlaceable(p);
 }
 
+// STAND-INS: where an AUTONOMOUS build order goes when this build won't sell the
+// type it names. Two things in the game buy for themselves off a fixed wish list
+// — attract mode's menu board (attractWishlist, js/attract.js) and autoplay's
+// default plan (TEST._defaultPlan) — and each names several locked types. A
+// dropped order is not merely a thinner line: it is TP that never gets SPENT,
+// so the income curve the wish list was sized against piles up unused and the
+// board reads as far weaker than the demo actually is. Measured on the attract
+// board over 300 sim-seconds, 3 runs a side: the full game fields 17-19 men at
+// 38-44 TP with no breaches, the demo fielded 9-12 at 55-74 TP with three
+// breaches (one run collapsed and restarted at wave 6) — on the one board a
+// demo player looks at before he has pressed anything.
+//
+// A hand-written map over the hand-written gate set above, so a row only ever
+// applies to a type demoLockedPlaceable actually rejects: a substitution can
+// never fire in the full game, and re-opening one of these in
+// DEMO_PLACEABLE_KEYS retires its row with no edit anywhere. Every row is the
+// nearest thing this build DOES sell, and the rifle line is the terminus,
+// because that is where a demo player's spare TP actually goes.
+const DEMO_PLACEABLE_SUB = {
+  gunner: 'shotgunner', grenadier: 'shotgunner',
+  mortarman: 'bazooka', atgun: 'bazooka',
+  officer: 'rifleman', sherman: 'jeep',
+  bunker: 'sandbags', watchtower: 'sandbags',
+};
+
+// ...resolved for one order: the key itself when this build sells it (so a
+// caller can ask unconditionally and the full game takes no branch at all),
+// otherwise the first link down the chain that isn't locked, or null when there
+// is nowhere to put it.
+//
+// The chain is WALKED rather than left to the caller's own iteration order,
+// which is the version that cannot rot: two rows point backwards
+// (officer -> rifleman, atgun -> bazooka), so a stand-in that later became
+// locked itself could be folded before the want that lands on it, and the
+// caller would queue a locked type — silently dropping the very spend this
+// exists to preserve. `seen` is the cycle guard.
+function demoStandIn(key) {
+  const lockedKey = (k) => {
+    const p = PLACEABLES.find(pl => pl.key === k);
+    return !!p && demoLockedPlaceable(p);
+  };
+  if (!lockedKey(key)) return key;
+  const seen = new Set([key]);
+  let sub = DEMO_PLACEABLE_SUB[key] || 'rifleman';
+  while (lockedKey(sub) && !seen.has(sub)) {
+    seen.add(sub);
+    sub = DEMO_PLACEABLE_SUB[sub] || 'rifleman';
+  }
+  return lockedKey(sub) ? null : sub;
+}
+
 // The purchasable card pool: one cheap generic per available placeable
 // (seasonedvet_* is the cheapest no-excludes unit template; costcut_* are the
 // only generics that exist for defenses/supports) plus exactly four uniques,
@@ -105,6 +161,24 @@ function demoDrawPool(pool) {
   return d.length ? d : pool;
 }
 
+// ...and does a pool hold anything this build can actually SELL? The two are a
+// pair, and mixing them up is a bug: demoDrawPool answers a drained pool with
+// the locked FALLBACK, which is right for a slot that must not sit empty and
+// wrong for a caller choosing BETWEEN pools. rerollShop (js/cards.js) has the
+// one such choice — "if the deck is too thin to fill every slot with brand-new
+// cards, allow the just-replaced ones back in rather than leaving a slot empty"
+// — and it tested the DRAWN pool's length, which the fallback had already made
+// non-empty out of locked cards. So that clause could never fire in the demo:
+// a paid reroll with four demo cards still unowned came back with one buyable
+// slot and two dead FULL GAME ONLY banners, and the cards it had just swept off
+// the shelf were the very ones the clause exists to put back. Pick the list
+// with this, THEN filter it with demoDrawPool. In the full game it is exactly
+// the `pool.length` test it replaces.
+function demoHasDrawable(pool) {
+  if (!demoActive()) return pool.length > 0;
+  return pool.some(id => DEMO_CARD_IDS.has(id));
+}
+
 // Read filter for a list of cards the player already HOLDS — his collection,
 // the battle plan built out of it, and a resumed run's own loadout. It is the
 // counterpart to demoDrawPool, which gates the shop's OFFER, and it has no
@@ -123,14 +197,41 @@ function demoOwnedCards(list) {
   return list.filter(id => DEMO_CARD_IDS.has(id));
 }
 
-// A full-game jp/zo/it run save must not RESUME under the demo (three of the
-// four armies don't exist here) but must never be deleted — the demo hides
-// CONTINUE and blocks continueRun, nothing more. hasRunSave stays honest on
-// purpose: the abandon-confirm prompt still fires before a demo start can
-// overwrite the shared single slot, so the loss is always the player's
-// explicit choice, exactly as in the full game.
+// A full-game run save this build cannot run must not RESUME under the demo,
+// but must never be deleted — the demo hides CONTINUE and blocks continueRun,
+// nothing more. hasRunSave stays honest on purpose: the abandon-confirm prompt
+// still fires before a demo start can overwrite the shared single slot, so the
+// loss is always the player's explicit choice, exactly as in the full game.
+//
+// TWO reasons a save is blocked, and the second is the one that was missed. The
+// ARMY is the obvious one — three of the four don't exist here. The DIFFICULTY
+// is the run save carrying DEV TOOLS in past the gate that removed them: a
+// SANDBOX or TESTING save is startable nowhere in a demo build (js/settings.js
+// deletes the whole section), but the single slot is shared on the web, and
+// `continueRun` resumed one straight off the demo's own front page. Testing is
+// the bad one for exactly the reason the section was removed: enterField
+// (js/flow.js) appends the three enemy rosters to the toolbar for
+// `difficulty.testing`, so ONE TAP on CONTINUE grew JAPANESE / HORDE / ITALIAN
+// category tabs and handed over every roster the codex hides plus all four
+// wave-100 bosses (measured: a saved testing run resumed with all five extra
+// tabs and `deploy('jyamato')` working). Sandbox's unlimited TP and wave-skip
+// undersell the economy the demo exists to sell.
+//
+// Keyed on `difficulty.sandbox`, which is `medalsEligible()`'s own term, and
+// resolved through ENDLESS_DIFFICULTIES rather than matched against a list of
+// ids here — an id that catalog does not have is CORRUPTION, not a tier this
+// build lacks, and it must fall through to readRunSave/deserializeRun's
+// blanket discard rather than being hidden forever behind a dead card.
+// Read-side as ever: nothing is written, and the blob resumes untouched in the
+// full game. medium/hard are deliberately NOT blocked — they left the menu in
+// both builds, so they are not content the demo is missing. (ENDLESS_DIFFICULTIES
+// lives in js/levels.js, script #7 — one AFTER this file — so like everything
+// the pitch touches it may only be read at CALL time, never at file eval.)
 function demoBlockedSave(blob) {
-  return demoActive() && !!blob && !!blob.meta && blob.meta.faction !== 'de';
+  if (!demoActive() || !blob || !blob.meta) return false;
+  if (blob.meta.faction !== 'de') return true;
+  const diff = ENDLESS_DIFFICULTIES[blob.meta.difficultyId];
+  return !!(diff && diff.sandbox);
 }
 
 // ESCALATION cap: rungs 0–III playable in the demo, IV–X shown locked with
@@ -209,6 +310,16 @@ function demoMaxCommandCap() {
 function checkDemoSets() {
   const lostCards = [...DEMO_CARD_IDS].filter(id => !CARDS[id]);
   const lostKeys = [...DEMO_PLACEABLE_KEYS].filter(k => !PLACEABLES.some(p => p.key === k));
+  // ...and the stand-in map, on the same reasoning one step further in: a
+  // renamed key on either side of a row is silent twice over. A renamed SOURCE
+  // retires the row (the order goes to the rifle terminus instead of its nearest
+  // equivalent); a renamed TARGET sends demoStandIn to a key PLACEABLES no
+  // longer has, which lockedKey() reads as unlocked and hands straight back to a
+  // caller that will fail to find it — the dropped order this map exists to
+  // prevent, with the fold in place and doing nothing.
+  const lostSub = Object.entries(DEMO_PLACEABLE_SUB)
+    .flatMap(([from, to]) => [from, to])
+    .filter((k, i, a) => a.indexOf(k) === i && !PLACEABLES.some(p => p.key === k));
   if (lostCards.length) {
     console.error('DEMO_CARD_IDS names ' + lostCards.length + ' card id(s) CARDS does not ' +
       'generate — the demo pool and its command ceiling are short by that many: ' + lostCards.join(', '));
@@ -216,6 +327,10 @@ function checkDemoSets() {
   if (lostKeys.length) {
     console.error('DEMO_PLACEABLE_KEYS names key(s) that are not in PLACEABLES — whatever they ' +
       'were renamed to is now demo-locked with no other symptom: ' + lostKeys.join(', '));
+  }
+  if (lostSub.length) {
+    console.error('DEMO_PLACEABLE_SUB names key(s) that are not in PLACEABLES — a locked build ' +
+      'order folded through them is dropped again, and the TP with it: ' + lostSub.join(', '));
   }
 }
 document.addEventListener('DOMContentLoaded', checkDemoSets);

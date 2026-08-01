@@ -293,7 +293,25 @@ function buildLeaderboardHead(rung) {
   el('lb-board-mult').textContent = escMultLabel(rung) + ' MEDALS';
 }
 
+// The screen's standing note. The full game's version explains why a run might
+// not have been recorded by naming the two tiers medalsEligible() excludes —
+// and a DEMO build has neither of them: js/settings.js REMOVES the whole DEV
+// TOOLS section, so SANDBOX and TESTING exist nowhere in it. That left the one
+// paragraph on this screen sending a demo player to look for two modes his
+// build does not contain, in the same breath as telling him it is why his run
+// might be missing. Same rule as the dossier's "ENEMY: ROLLED AT RANDOM" line
+// and the abandon prompt's save description: copy that describes content owes
+// demoActive() a look, and the fix is the generic line, never a prune of the
+// gate behind it (ENDLESS_DIFFICULTIES keeps both tiers — TEST.start is keyed
+// on those ids, and medalsEligible() still excludes them here).
+function leaderboardNoteText() {
+  const lead = 'Furthest wave reached before the line broke — one board per rung of the ladder.';
+  return demoActive() ? lead
+    : lead + ' Sandbox and Testing don\'t count, the supply is unlimited.';
+}
+
 function buildLeaderboardSelect() {
+  el('leaderboard-note').textContent = leaderboardNoteText();
   buildLeaderboardRungs();
   buildLeaderboardHead(leaderboardActiveRung);
   renderLeaderboardList(el('leaderboard-select-list'), leaderboardActiveRung);

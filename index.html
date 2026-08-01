@@ -260,7 +260,10 @@
 
     <div id="leaderboard-select" class="overlay hidden">
       <h1>LEADERBOARDS</h1>
-      <p>Furthest wave reached before the line broke — one board per rung of the ladder. Sandbox and Testing don't count, the supply is unlimited.</p>
+      <!-- the caveat half of this line names SANDBOX and TESTING, which a demo
+           build does not have (js/settings.js removes the whole DEV TOOLS
+           section) — buildLeaderboardSelect rewrites it per build. -->
+      <p id="leaderboard-note">Furthest wave reached before the line broke — one board per rung of the ladder. Sandbox and Testing don't count, the supply is unlimited.</p>
       <!-- one chip per ESCALATION rung, '—' plus I..X, built by
            buildLeaderboardRungs(). Same strip, states and styling as the one on
            the endless menu: the rung is the difficulty, so it is what a board is

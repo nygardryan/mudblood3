@@ -98,7 +98,8 @@ before platform.js; committed `const TW_DEMO_BUILD = false` forever) →
 `PLATFORM.isDemo` (also honours `?demo=1` for in-browser testing) →
 `demoActive()` in **`js/demo.js`, the one gating module** — every restriction
 (placeable locks, the 17-card shop pool, the command ceiling that pool can
-fill, the rung-III escalation cap, the faction pin, the blocked non-'de' save)
+fill, the rung-III escalation cap, the faction pin, the blocked non-'de' /
+dev-tier save)
 is defined there and consumed as 1–2 line call-site edits. Each build flips the flag its own way: desktop
 `main.cjs` SERVES a generated demo-flag.js over tw:// when packaged with
 `twDemo` extraMetadata (`npm run dist:demo`), mobile `sync-www.mjs` overwrites
@@ -123,8 +124,8 @@ so `TEST.demoPitch` can proof it in a full-game tab.)
 **The one rule: demo restrictions are READ-SIDE ONLY** — `?demo=1` shares
 localStorage with the full web game, so never prune `CARDS` (MAX_COMMAND_CAP
 derives from it; loadEndlessCards drops unknown ids), never clamp the STORED
-`escUnlocked`, never delete a non-'de' run save (it is hidden, and the abandon
-prompt still guards the slot). Locked toolbar items stay VISIBLE as dead
+`escUnlocked`, never delete a run save this build refuses to resume (it is
+hidden, and the abandon prompt still guards the slot). Locked toolbar items stay VISIBLE as dead
 bannered buttons (`.tool-btn--fglocked`); once the demo card pool is owned,
 locked cards flow into offer slots bannered `FULL GAME ONLY` (that surfacing is
 `demoDrawPool`'s fallback, not a leak — `buyCard` hard-rejects). Tutorials are
@@ -185,11 +186,23 @@ Six things about it:
   it had restated all eight of them in the smallest, dimmest type on the screen.
   Two CSS notes. The armies list is a two-column grid, so each army must emit
   exactly its two cells and never a wrapper (a fifth army fielding no boss still
-  emits the empty one). And `@media (max-height: 480px)` trims the head on a
-  landscape phone — the one place on this screen a media query is right rather
-  than the trap the rest of the sheet documents, because that trap is about
-  WIDTH (`#stage` is scaled to the canvas aspect) and `#stage` is the frame's
-  full HEIGHT unscaled; `@container` cannot ask about height at all.
+  emits the empty one). And `@media (max-height: 480px)` trims this screen on a
+  landscape phone — the one place on it a media query is right rather than the
+  trap the rest of the sheet documents, because that trap is about WIDTH
+  (`#stage` is scaled to the canvas aspect) and `#stage` is the frame's full
+  HEIGHT unscaled; `@container` cannot ask about height at all. It shipped
+  trimming only the HEAD, which was not the biggest spender: measured at
+  844x357, head 95 + `--ov-pad` 40 top + 40 bottom + a 134 sticky footer put 309
+  of 357 in front of the argument and left an **88px** band against a 114px
+  shortest row — the title card the block exists to prevent. **`--ov-pad` is the
+  one lever for both paddings and that is the point**: `.overlay`'s padding and
+  `.dp-foot`'s `--dp-foot-pad` both read it, and the footer's sticky
+  `bottom: calc(-1 * …)` only works while its bottom padding EQUALS the
+  scrollport's, so a literal on either alone breaks that silently. It is a
+  5vw clamp spent on the short axis, which is why `#card-shop` already takes it
+  to 10px ("at 390px tall the default clamp() inset was eating a sixth of the
+  screen") — this screen came later and never got the same look. At 14px the
+  band goes 88 → 150, and above 480px nothing changes at all.
 - **`js/demo.js` is script #6** — before `helpers.js`, `state.js`, `hud.js`,
   `escalation.js`, `save.js`. Everything the pitch touches (`el`, `SFX`, `CARDS`,
   `ESC_ROMAN`, `ENEMY_FACTIONS`, `SAVE_FACTION_NAMES`, …) resolves at CALL time;
@@ -205,7 +218,32 @@ Six things about it:
   contains, and a page headed THE FULL GAME cannot send anyone off to farm for a
   rung this build will never unlock. Removal recipe is in the fence's header.
 
-Seven traps, all found by shipping them:
+Ten traps, all found by shipping them:
+- **A build order this build can't fill must be FOLDED, never dropped — and two
+  things in the game shop for themselves.** `TEST.autoplay`'s `_defaultPlan`
+  already knew it; `attractSpendPass` (js/attract.js) did not, and it is the one
+  that matters, because the attract board is what a demo player looks at before
+  he has pressed anything. Eight of `attractWishlist`'s orders name locked types
+  (gunner ×3, officer, bunker, grenadier, watch tower, mortarman, Sherman, AT
+  gun) and it `continue`d past each, which does not merely field a thinner line:
+  the dropped orders are the ones the income curve was sized against, so the TP
+  piles up unspent and the board collapses. Measured over 300 sim-seconds, 3 runs
+  a side: the full game fielded 17–19 men on 38–44 TP with no breaches, the demo
+  9–12 on 55–74 with three breaches, one run collapsing and restarting at wave 6.
+  Folded onto stand-ins it is 16.5 ± 2.6 men against 15.5 ± 3.7, n=12 interleaved
+  — the demo now spends what it earns. **`demoStandIn(key)` is the one resolver**
+  and it lives in js/demo.js beside the gate set it reads, not in either caller:
+  it hands the key straight back when this build sells it (so the full game takes
+  no branch and a caller can ask unconditionally), and otherwise WALKS
+  `DEMO_PLACEABLE_SUB` to the first link that isn't locked. Walking is what keeps
+  it from rotting — two rows point backwards (officer → rifleman, atgun →
+  bazooka), so a stand-in that later became locked itself could be folded before
+  the want that lands on it. The POSITION is a wish-list entry's whole content,
+  so a fold keeps it; the rifle line is the terminus. `checkDemoSets` reconciles
+  both sides of every row against `PLACEABLES` for the reason it reconciles the
+  other two sets: a renamed target sends `demoStandIn` to a key that no longer
+  exists, which reads as unlocked and is handed back to a caller that will fail
+  to find it — the dropped order again, with the fold in place and doing nothing.
 - **Refusing to SELL a card is not refusing to RUN it.** `demoDrawPool` and
   `buyCard` gate the shop, but nothing gated the collection the shop writes
   into — and on the web `?demo=1` shares localStorage with the full game, so a
@@ -241,6 +279,22 @@ Seven traps, all found by shipping them:
   then [whatever the demo pushed], and it pops from the back. The **v1
   migration** is the one that stays RAW: a one-time write over the whole
   collection has to build the plan the full game would have built.
+- **`demoDrawPool` answers a DRAINED pool with the locked fallback, so its
+  length can never be used to ask whether the demo has cards left.** That is
+  right for a slot which must not sit empty and wrong for a caller choosing
+  BETWEEN pools, and `rerollShop` is the one such caller: "if the deck is too
+  thin to fill every slot with brand-new cards, allow the just-replaced ones
+  back in rather than leaving a slot empty" tested the DRAWN pool, which the
+  fallback had already made non-empty out of locked cards. The clause therefore
+  could not fire in the demo — a paid reroll with four demo cards still unowned
+  came back with one buyable slot and two dead `FULL GAME ONLY` banners, and the
+  cards it had just swept off the shelf were the ones the clause exists to put
+  back (measured 3 buyable slots → 1; 3 → 3 after). **`demoHasDrawable` picks
+  the list, `demoDrawPool` filters it** — in that order, never the reverse. The
+  two are a pair and live beside each other in `js/demo.js`; in the full game
+  `demoHasDrawable` IS the `pool.length` test it replaces, so this is a demo
+  branch with no full-game term. `drawUnofferedCard` has one pool and no choice
+  to make, so it keeps asking `demoDrawPool` directly.
 - **The placeable gate keys on IDENTITY (`DEMO_SHOP_ITEMS`, a Set over
   `PLACEABLES`), never on `p.kind`.** The testing rosters reuse the player
   kinds — `TESTING_ABILITIES`' RANK UP and PURGE are `kind: 'support'` — so a
@@ -289,6 +343,28 @@ Seven traps, all found by shipping them:
   worse than not withholding it at all. Below the cap both are untouched — an
   unearned rung in the full game is a "not yet", not content the build lacks,
   which is why this is a demo branch and not a change to the full game's strip.
+- **The RUN SAVE carries a DIFFICULTY, and it walked DEV TOOLS back in through
+  the front door.** `demoBlockedSave` asked one question — is the army one of
+  the three this build doesn't ship — and a `'de'` save passed it whatever tier
+  it was made on. But the single slot is shared on the web, so a full-game
+  **TESTING** save resumed straight off the demo's own CONTINUE card, and
+  `enterField` (js/flow.js) appends the three enemy rosters to the toolbar for
+  `difficulty.testing`: measured, one tap grew JAPANESE / HORDE / ITALIAN /
+  GERMANS / EVENTS category tabs and `deploy('jyamato')` worked — every roster
+  the codex hides plus all four wave-100 bosses, in the build whose headline
+  restriction is ONE ENEMY ARMY. That is the *exact* leak `js/settings.js`
+  deletes `#settings-dev-tools` to close, arriving by the one route that gate
+  cannot see; SANDBOX's unlimited TP and wave-skip is the same hole one size
+  down. It keys on **`difficulty.sandbox`** — `medalsEligible()`'s own term —
+  resolved through `ENDLESS_DIFFICULTIES` rather than matched against a list of
+  ids in js/demo.js, because an id that catalog does not have is CORRUPTION,
+  not a tier this build lacks, and must fall through to
+  `readRunSave`/`deserializeRun`'s blanket discard instead of hiding behind a
+  card that can never be pressed. `medium`/`hard` are deliberately NOT blocked:
+  they left the menu in both builds, so they are not content the demo is
+  missing. Still read-side — the blob is hidden, never deleted, and the abandon
+  prompt falls back to its generic line for the same reason it does on a
+  non-`'de'` save.
 - **EVERY medal sink needs the demo term, and there are three.** A sink that
   can still be bought once the demo pool is exhausted sells nothing at full
   price, and a completionist will buy it — the rule the shop already followed
@@ -313,6 +389,20 @@ Seven traps, all found by shipping them:
   and that guard is what makes the loss the player's own choice. And the codex's
   Air Attack card carried the kamikaze clause, which is why `EVENT_INFO` entries
   may now carry a `descDemo` the events tab prefers — a variant, never a prune.
+  The rule is not only about ARMIES: copy that names anything the demo REMOVES
+  owes the same look, and the fourth line was on the leaderboards. Its standing
+  note explained why a run might be missing from a board by naming the two tiers
+  `medalsEligible()` excludes — "Sandbox and Testing don't count, the supply is
+  unlimited" — against a build where `#settings-dev-tools` is deleted and
+  neither mode exists anywhere, so the one paragraph on the screen sent a demo
+  player hunting two things he cannot find, in the same breath as telling him
+  it was why his run was not there. `leaderboardNoteText` (js/leaderboards.js)
+  drops the caveat and keeps the lead, written from `buildLeaderboardSelect` so
+  it tracks `TEST.demo()`; the id on the `<p>` is the only markup change. Read-
+  side as ever — `ENDLESS_DIFFICULTIES` keeps both tiers and `medalsEligible()`
+  still excludes them. Nothing else in the shipped HTML names a removed control:
+  the other two mentions are the DEV TOOLS section's own hint (deleted with it)
+  and the sprite hint's "four theatres' ground" (already replaced).
 - **Both gate sets are hand-written ids over GENERATED catalogs, and nothing
   else checks either coupling** — `DEMO_CARD_IDS` against `CARDS` (stamped out
   by the card templates), `DEMO_PLACEABLE_KEYS` against `PLACEABLES`. Neither
@@ -1242,7 +1332,8 @@ To fast-forward a whole difficulty read, `autoplay` runs a scaling default build
 Four of the nine types it wants are demo-locked, and a dropped order is not just
 a thinner line — it is TP that never gets SPENT (a demo run died holding 32),
 which reads the demo as far harder than it is. `_defaultPlan` folds each locked
-want onto a stand-in (`_DEMO_SUB`) before the deficits are read, so the
+want onto a stand-in (`demoStandIn`, js/demo.js — shared with attract mode's own
+wish list; see the trap under *DEMO builds*) before the deficits are read, so the
 stand-in's own count still applies; the fallback is the rifle line. It can only
 fire on a type `demoLockedPlaceable` actually rejects, so the full game is
 untouched and re-opening one of the four retires its row with no edit.
@@ -1518,7 +1609,13 @@ ground layer) must not be looked up under three tier names. Verify with
 
 **The RUN SAVE** (`js/save.js`) is the single-slot save/continue: SAVE AND EXIT on the
 pause menu (endless only — `pauseGame` hides it for tutorials, which also carry live
-actor refs in `G.tutorial` that must never reach a save), CONTINUE on the main menu
+actor refs in `G.tutorial` that must never reach a save; **that hide needs its own
+CSS rule and did not have one** — the sheet has no generic `.hidden`, so
+`saveBtn.classList.toggle('hidden', …)` landed the class and changed nothing, and
+every tutorial pause menu carried a SAVE AND EXIT that `saveAndExit`'s own
+`saveableRun()` backstop then silently refused. `#pause-loadout-btn.hidden` beside
+it was correct, which is why one of the two buttons looked right. A JS-toggled
+`.hidden` on anything that is not an `.overlay` is a CSS edit, always), CONTINUE on the main menu
 (`refreshContinueUI` toggles the card off `readRunSave()`). It is a **whitelist
 serializer, never `JSON.stringify(G)`**: the boss parent/part links are true cycles
 (stringify throws), every actor's `t` is a shared type record, and the Sets

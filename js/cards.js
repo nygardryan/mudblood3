@@ -1553,10 +1553,17 @@ function rerollShop() {
   const avoid = new Set([...data.owned, ...data.offer]);
   data.offer = [];
   for (let i = 0; i < data.shopSlots; i++) {
-    let pool = demoDrawPool(Object.keys(CARDS).filter(id => !avoid.has(id) && !data.offer.includes(id)));
+    // The choice BETWEEN these two lists is made with demoHasDrawable and only
+    // then filtered with demoDrawPool, never the other way round — see the pair
+    // in js/demo.js. Drawing first hands back locked cards the moment the demo
+    // pool is dry, so a raw length test reads "plenty of brand-new cards left"
+    // while every one of them is a dead banner, and the readmit clause below
+    // never fires. In the full game demoHasDrawable IS `pool.length`.
+    let pool = Object.keys(CARDS).filter(id => !avoid.has(id) && !data.offer.includes(id));
     // if the deck is too thin to fill every slot with brand-new cards, allow
     // the just-replaced ones back in rather than leaving a slot empty
-    if (!pool.length) pool = demoDrawPool(Object.keys(CARDS).filter(id => !data.owned.includes(id) && !data.offer.includes(id)));
+    if (!demoHasDrawable(pool)) pool = Object.keys(CARDS).filter(id => !data.owned.includes(id) && !data.offer.includes(id));
+    pool = demoDrawPool(pool);
     if (!pool.length) break;
     data.offer.push(pool[Math.floor(Math.random() * pool.length)]);
   }

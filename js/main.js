@@ -154,13 +154,6 @@ PLATFORM.onReady(() => {
   refreshMenu();   // surface the save, the rung and the medal count from page load
   fitLayout();
   startAttract();   // ATTRACT: the menu is the first thing up (js/attract.js)
-  // DEMO: ...and the pitch goes on top of it, every launch (js/demo.js; a no-op
-  // in the full game). AFTER refreshMenu so the menu it uncovers is already
-  // final — the first-launch tutorial promotion reparents a button, and doing
-  // that under the screen is what keeps the menu from jumping on dismiss. After
-  // fitLayout for the same reason: the screen's container queries want a stage
-  // that has already been scaled.
-  showDemoPitchAtBoot();
   const hudEl = el('hud');
   if (hudEl && typeof ResizeObserver !== 'undefined') {
     new ResizeObserver(() => syncToolbarLayout()).observe(hudEl);
@@ -173,4 +166,18 @@ PLATFORM.onReady(() => {
     }, 100);
   });
   requestAnimationFrame(frame);
+  // DEMO: the boot pitch goes on top of the menu, every launch (js/demo.js; a
+  // no-op in the full game). Three orderings matter and they all point here.
+  // AFTER refreshMenu, so the menu it uncovers is already final — the
+  // first-launch tutorial promotion reparents a button, and doing that under
+  // the screen is what keeps the menu from jumping on dismiss. After fitLayout,
+  // because the screen's container queries want a stage that has already been
+  // scaled. And LAST of all, below the frame loop, because everything above is
+  // the game: buildDemoPitch reads six catalogs at call time and a throw in it
+  // would otherwise take the rest of this callback with it — no rAF, no frame
+  // loop, a black screen in demo builds only, which is the exact failure the
+  // memo latch and the file-eval rule in js/demo.js already guard from the
+  // other side. Scheduling is not running, so the pitch still opens before the
+  // first frame paints and attractStepping() sees it on frame one, as before.
+  showDemoPitchAtBoot();
 });

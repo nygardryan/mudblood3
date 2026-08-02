@@ -239,8 +239,8 @@ const UNIT_TYPES = {
     desc: 'Portable 60mm mortar. Indirect fire at range.',
   },
   sniper: {
-    name: 'Sniper', hp: 85, range: 274, dmg: 46, acc: 0.72,
-    rof: 5.2, burst: 1, burstGap: 0, speed: 38,
+    name: 'Sniper', hp: 85, range: 288, dmg: 46, acc: 0.72,
+    rof: 4.73, burst: 1, burstGap: 0, speed: 38,
     color: '#3f5730', gun: 12, sfx: 'sniper',
     desc: 'Springfield scoped rifle. Picks off officers, snipers, bazookas, and mortar teams first.',
   },
@@ -666,7 +666,7 @@ const ENEMY_TYPES = {
     supResist: true,
   },
   esniper: {
-    // counterpart: sniper (range 274, speed 38)
+    // counterpart: sniper (range 288, speed 38)
     name: 'Sniper', hp: 70, speed: 14, range: 209, dmg: 44, acc: 0.70,
     rof: 6.0, burst: 1, burstGap: 0, reward: 4,
     color: '#4a515c', gun: 12, sfx: 'sniper', priority: 4,
@@ -822,7 +822,7 @@ Object.assign(ENEMY_TYPES, {
     color: '#5c5c33', gun: 11, sfx: 'mg', priority: 3, faction: 'jp',
   },
   jsniper: {
-    // counterpart: sniper (range 274, speed 38) — Type 97 in the treeline.
+    // counterpart: sniper (range 288, speed 38) — Type 97 in the treeline.
     name: 'Nest Sniper', hp: 68, speed: 13, range: 205, dmg: 44, acc: 0.70,
     rof: 6.0, burst: 1, burstGap: 0, reward: 4,
     color: '#565a30', gun: 12, sfx: 'sniper', priority: 4, faction: 'jp',
@@ -1345,7 +1345,7 @@ Object.assign(ENEMY_TYPES, {
     garrison: true, garrisonPrefer: 'bunker',
   },
   icecc: {
-    // counterpart: sniper (range 274, speed 38) — scoped Carcano. He makes for a
+    // counterpart: sniper (range 288, speed 38) — scoped Carcano. He makes for a
     // watch tower, and from a hardened one his 200 reach becomes 300: further
     // than most of the player's line can answer. Shell the tower.
     name: 'Cecchino', hp: 66, speed: 12, range: 200, dmg: 44, acc: 0.70,

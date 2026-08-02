@@ -135,6 +135,9 @@ const SOUND_INFO = [
   { key: 'sfx-cash', name: 'Payout', category: 'GAME EVENTS',
     desc: 'Points ping for a payout — e.g. a research purchase.',
     group: 'cash', opts: { vol: 0.6 }, play: () => SFX.cash() },
+  { key: 'sfx-officer-call', name: 'Officer Command', category: 'GAME EVENTS',
+    desc: 'Rising call as an enemy officer winds up an order — kill him before it lands.',
+    group: 'officerCall', opts: { vol: 0.55 }, play: () => SFX.officerCall() },
   { key: 'sfx-event', name: 'Event Stinger', category: 'GAME EVENTS',
     desc: 'Cue for a battlefield event — fog, reinforcements, and strafing runs.',
     group: 'event', opts: { vol: 0.6 }, play: () => SFX.event() },
@@ -545,7 +548,9 @@ function renderPortrait(typeKey, side) {
       ? makeUnit(typeKey, CODEX_PW / 2, CODEX_PH / 2 + 6)
       : makeEnemy(typeKey, CODEX_PW / 2, CODEX_PH / 2 + 6);
     actor.hp = actor.maxhp;
-    actor.face = side === 'us' ? -Math.PI / 2 : Math.PI / 2;
+    // portraits face the way the field does now: your men look up-field (left),
+    // the enemy looks down-field (right)
+    actor.face = side === 'us' ? Math.PI : 0;
     actor.turret = actor.face;
 
     const t = actor.t;
@@ -574,6 +579,7 @@ function renderPortrait(typeKey, side) {
       ctx.save();
       ctx.translate(CODEX_PW / 2, CODEX_PH / 2);
       ctx.scale(1.05, 1.05);
+      ctx.rotate(-Math.PI / 2);   // authored nose +y; face down-field like the live consist
       paintTrainEngine(ctx, actor);
       ctx.restore();
     } else if (t.awalker) {

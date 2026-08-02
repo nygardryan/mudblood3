@@ -25,15 +25,15 @@ const TRN_HALF_W = 14;              // wagon half-width; the rails run at ±9
 
 // the rail line, laid the whole way down the lane: it is the boss's telegraph —
 // the player can read exactly where the train will roll and where it will stop
-function drawTrainRails(laneX) {
+function drawTrainRails(laneY) {
   const c = ctx;
-  const y0 = -10, y1 = TRAIN_STOP_Y + 30;
+  const x0 = -10, x1 = TRAIN_STOP_X + 30;
   c.fillStyle = TRN_SLEEPER;
-  for (let y = y0; y < y1; y += 13) c.fillRect(laneX - 12, y, 24, 3);
+  for (let x = x0; x < x1; x += 13) c.fillRect(x, laneY - 12, 3, 24);
   c.strokeStyle = TRN_RAIL;
   c.lineWidth = 2.2;
   for (const s of [-9, 9]) {
-    c.beginPath(); c.moveTo(laneX + s, y0); c.lineTo(laneX + s, y1); c.stroke();
+    c.beginPath(); c.moveTo(x0, laneY + s); c.lineTo(x1, laneY + s); c.stroke();
   }
 }
 
@@ -91,7 +91,8 @@ function paintWreckedWagon(c, halfLen) {
 }
 
 // ---- the engine -------------------------------------------------------------
-// PURE (codex rule). Facing down: the cowcatcher at +y leads toward the player.
+// PURE (codex rule). Authored nose +y; the blit rotates the whole consist -PI/2
+// so the cowcatcher leads toward the player at +x.
 function paintTrainEngine(c, a) {
   const HL = 24;                     // half-length
   paintTrainBogies(c, HL);
@@ -154,25 +155,27 @@ function drawTrainTurretWagon(p) {
   const HL = 20;
   if (p.dead) {
     const extW = SPRITES.get('train_wagon_wrecked');
-    if (extW) { blitSprite(c, extW, p.x, p.y, 0, 1); return; }
+    if (extW) { blitSprite(c, extW, p.x, p.y, -Math.PI / 2, 1); return; }
     c.save();
     c.translate(p.x, p.y);
+    c.rotate(-Math.PI / 2);
     paintWreckedWagon(c, HL);
     c.restore();
     return;
   }
   const ext = SPRITES.get('train_wagon_turret');
   if (ext) {
-    blitSprite(c, ext, p.x, p.y, 0, 1);
+    blitSprite(c, ext, p.x, p.y, -Math.PI / 2, 1);
   } else {
     c.save();
     c.translate(p.x, p.y);
+    c.rotate(-Math.PI / 2);
     paintTrainBogies(c, HL);
     paintTrainBody(c, HL, true);
     c.restore();
   }
   // the turret, at its own laid bearing
-  const bearing = p.tur || Math.PI / 2;
+  const bearing = p.tur == null ? 0 : p.tur;
   const extT = SPRITES.get('train_turret');
   if (extT) {
     blitSprite(c, extT, p.x, p.y, bearing, 1);
@@ -223,18 +226,20 @@ function drawTrainInfantryWagon(p) {
   const HL = 20;
   if (p.dead) {
     const extW = SPRITES.get('train_wagon_wrecked');
-    if (extW) { blitSprite(c, extW, p.x, p.y, 0, 1); return; }
+    if (extW) { blitSprite(c, extW, p.x, p.y, -Math.PI / 2, 1); return; }
     c.save();
     c.translate(p.x, p.y);
+    c.rotate(-Math.PI / 2);
     paintWreckedWagon(c, HL);
     c.restore();
     return;
   }
   const open = p.dropT > 0;
   const ext = SPRITES.get('train_wagon_infantry' + (open ? '_open' : ''));
-  if (ext) { blitSprite(c, ext, p.x, p.y, 0, 1); return; }
+  if (ext) { blitSprite(c, ext, p.x, p.y, -Math.PI / 2, 1); return; }
   c.save();
   c.translate(p.x, p.y);
+  c.rotate(-Math.PI / 2);
   paintTrainInfantryWagon(c, open);
   c.restore();
 }
@@ -260,20 +265,21 @@ function paintTrainGunWagon(c) {
 
 function drawTrainGunWagon(e) {
   const c = ctx;
-  const wx = e.laneX, wy = e.y + TRAIN_GUNWAGON_S;
+  const wx = e.x + TRAIN_GUNWAGON_S, wy = e.laneY;
   const ext = SPRITES.get('train_wagon_gun');
   if (ext) {
-    blitSprite(c, ext, wx, wy, 0, 1);
+    blitSprite(c, ext, wx, wy, -Math.PI / 2, 1);
   } else {
     c.save();
     c.translate(wx, wy);
+    c.rotate(-Math.PI / 2);
     paintTrainGunWagon(c);
     c.restore();
   }
 
   for (const p of e.mounts) {
     if (p.dead) continue;
-    const f = p.face == null ? (p.bOff > 0 ? 0 : Math.PI) : p.face;
+    const f = p.face == null ? (p.bOff > 0 ? Math.PI / 2 : -Math.PI / 2) : p.face;
     c.save();
     c.translate(p.x, p.y);
     // pintle MG first, so the gunner reads as crouched behind it
@@ -353,23 +359,25 @@ function drawTrainArtyWagon(p) {
   const HL = 20;
   if (p.dead) {
     const extW = SPRITES.get('train_wagon_wrecked');
-    if (extW) { blitSprite(c, extW, p.x, p.y, 0, 1); return; }
+    if (extW) { blitSprite(c, extW, p.x, p.y, -Math.PI / 2, 1); return; }
     c.save();
     c.translate(p.x, p.y);
+    c.rotate(-Math.PI / 2);
     paintWreckedWagon(c, HL);
     c.restore();
     return;
   }
   const ext = SPRITES.get('train_wagon_arty');
   if (ext) {
-    blitSprite(c, ext, p.x, p.y, 0, 1);
+    blitSprite(c, ext, p.x, p.y, -Math.PI / 2, 1);
   } else {
     c.save();
     c.translate(p.x, p.y);
+    c.rotate(-Math.PI / 2);
     paintTrainArtyWagon(c);
     c.restore();
   }
-  const bearing = p.tur || Math.PI / 2;
+  const bearing = p.tur == null ? 0 : p.tur;
   const recoil = clamp((p.fireT || 0) / TRAIN_ARTY_FIRE_T, 0, 1);
   const extG = SPRITES.get('train_arty_gun');
   if (extG) {
@@ -397,9 +405,9 @@ function drawTrainArtyWagon(p) {
 // ONE HP pool, the Progenitor's overlay verbatim — which is to say the Yamato's
 // drawBossHpBar with its ticks moved onto the TRAIN_SEGMENTS phase boundaries,
 // since each one the fill retreats past sounds an AVANTI and the player needs to
-// see the next one coming. The bar sits SOUTH of the engine — the train comes at
-// the player nose-first, so that's the face of it they're always looking at —
-// far enough out that the caption above it clears the cowcatcher.
+// see the next one coming. The bar hangs below the engine on screen — bars are
+// screen furniture, not field geometry — far enough down that the caption above
+// it clears the boiler.
 function drawWarTrainOverlays(a) {
   const c = ctx;
   const ticks = [];
@@ -413,25 +421,25 @@ function drawWarTrainOverlays(a) {
     c.strokeStyle = 'rgba(255,255,255,0.85)';
     c.lineWidth = 1;
     c.setLineDash([5, 4]);
-    c.strokeRect(a.laneX - TRN_HALF_W - 8, a.y + TRAIN_TAIL_S - 28,
-      (TRN_HALF_W + 8) * 2, -TRAIN_TAIL_S + 62);
+    c.strokeRect(a.x + TRAIN_TAIL_S - 28, a.laneY - TRN_HALF_W - 8,
+      -TRAIN_TAIL_S + 62, (TRN_HALF_W + 8) * 2);
     c.setLineDash([]);
   }
 }
 
 function drawWarTrain(e) {
   const c = ctx;
-  drawTrainRails(e.laneX);
+  drawTrainRails(e.laneY);
   // one long ground shadow under the whole consist, measured off the tail so a
   // longer train can't outrun its own shadow
   c.fillStyle = 'rgba(0,0,0,0.25)';
-  c.fillRect(e.laneX - TRN_HALF_W - 2, e.y + TRAIN_TAIL_S - 22, (TRN_HALF_W + 2) * 2, -TRAIN_TAIL_S + 52);
+  c.fillRect(e.x + TRAIN_TAIL_S - 22, e.laneY - TRN_HALF_W - 2, -TRAIN_TAIL_S + 52, (TRN_HALF_W + 2) * 2);
   // couplings between wagons, drawn under the bodies: one per gap, so the count
   // is however many cars trail the engine
   c.fillStyle = TRN_GEAR;
   const cars = Math.round(-TRAIN_TAIL_S / TRAIN_SPACING);
   for (let i = 0; i < cars; i++) {
-    c.fillRect(e.laneX - 2.2, e.y - TRAIN_SPACING * (i + 1) + 18, 4.4, 12);
+    c.fillRect(e.x - TRAIN_SPACING * (i + 1) + 18, e.laneY - 2.2, 12, 4.4);
   }
   // rear to front, so each wagon's cowl paints over the coupling behind it
   if (e.arty) drawTrainArtyWagon(e.arty);
@@ -441,10 +449,11 @@ function drawWarTrain(e) {
   drawTrainTurretWagon(e.turrets[0]);
   const extE = SPRITES.get('train_engine');
   if (extE) {
-    blitSprite(c, extE, e.x, e.y, 0, 1);
+    blitSprite(c, extE, e.x, e.y, -Math.PI / 2, 1);
   } else {
     c.save();
     c.translate(e.x, e.y);
+    c.rotate(-Math.PI / 2);
     paintTrainEngine(c, e);
     c.restore();
   }
@@ -457,7 +466,7 @@ function drawWarTrain(e) {
 function drawWarTrainPass() {
   for (const e of G.enemies) {
     if (!e.t.itaBoss || e.dead || !e.trainInit) continue;
-    if (!inView(e.laneX, e.y + TRAIN_TAIL_S / 2, -TRAIN_TAIL_S / 2 + 90)) continue;
+    if (!inView(e.x + TRAIN_TAIL_S / 2, e.laneY, -TRAIN_TAIL_S / 2 + 90)) continue;
     drawWarTrain(e);
   }
 }

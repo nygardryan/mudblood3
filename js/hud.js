@@ -56,6 +56,8 @@ function syncMobileChrome() {
   if (actions) {
     actions.classList.toggle('hidden', !(touchUI() && isPlaying() && G?.selected.length && !placing));
   }
+  const deselectBtn = el('mobile-deselect');
+  if (deselectBtn) deselectBtn.classList.toggle('tut-pulse', tutorialWantsDeselect());
   if (placeCancel) {
     placeCancel.classList.toggle('hidden', !(touchUI() && placing && isPlaying()));
   }
@@ -129,27 +131,17 @@ function fitLayout() {
 }
 
 function syncToolbarLayout() {
-  const hudEl = el('hud');
   const bar = el('toolbar');
-  if (!hudEl || !bar) return;
+  if (!bar) return;
   syncMobileChrome();
-  if (portraitMobile()) {
-    bar.style.top = 'auto';
-    bar.style.bottom = '0';
-    bar.style.left = '0';
-    bar.style.right = '0';
-    bar.style.maxHeight = '';
-    return;
-  }
-  bar.style.left = touchUI() ? '3px' : '4px';
-  bar.style.right = 'auto';
-  // #hud is offset 6px from the stage top; keep a small gap below the wrapped HUD rows
-  const top = 6 + hudEl.offsetHeight + 6;
-  bar.style.top = top + 'px';
-  // shrink-wrap to the buttons instead of spanning to the bottom edge — the empty
-  // column below the last button would otherwise swallow clicks meant for the map
-  bar.style.bottom = 'auto';
-  bar.style.maxHeight = `calc(100% - ${top + (touchUI() ? 22 : 28)}px)`;
+  // the toolbar is a bottom horizontal scroller on every form factor now —
+  // CSS owns its geometry. Clear any inline overrides an older layout pass
+  // (or a hot-reload from the previous left-column layout) left behind.
+  bar.style.top = '';
+  bar.style.bottom = '';
+  bar.style.left = '';
+  bar.style.right = '';
+  bar.style.maxHeight = '';
 }
 
 // the wave/breach plates carry a static micro-label span + a dynamic value span
@@ -352,6 +344,7 @@ function renderToolbar() {
       SFX.click();
       syncSelectionMobile();
     }, 'Deselect');
+    if (tutorialWantsDeselect()) bar.querySelector('.tool-back-btn')?.classList.add('tut-pulse');
 
     syncToolbarVisibility();
     syncToolbarLayout();
@@ -439,14 +432,30 @@ function renderToolbar() {
   syncTutorialPulse();
 }
 
-// tutorial: pulse the button the player should press next (category, then medic)
+// tutorial: is the current step specifically teaching "deselect to reopen the shop"?
+function tutorialWantsDeselect() {
+  const T = G && G.tutorial;
+  return !!(T && !T.done && (T.step === 'deselect' || T.step === 'deselect2'));
+}
+
+// tutorial: pulse the button the player should press next (category, then medic).
+// A leftover purchase from an earlier step (a defense stays "active" after buying
+// it, unlike a one-shot support) can leave the shop pointed at the wrong category
+// entirely, with the target category/item not even on screen yet — in that case
+// pulse the BACK control instead, so there's always something lit to press.
 function syncTutorialPulse() {
   const bar = el('toolbar');
   if (!bar) return;
   for (const b of bar.querySelectorAll('.tut-pulse')) b.classList.remove('tut-pulse');
   const T = G && G.tutorial;
-  if (!T || T.done || placing) return;
+  if (!T || T.done) return;
   if (!T.pulseCat && !T.pulseKey) return;
+  if (placing && placing.key === T.pulseKey) return;   // already correctly mid-placement
+  if (placing || (toolbarView !== 'categories' && toolbarView !== T.pulseCat)) {
+    const back = bar.querySelector('.tool-back-btn');
+    if (back) back.classList.add('tut-pulse');
+    return;
+  }
   if (toolbarView === 'categories') {
     if (T.pulseCat) {
       const catBtn = bar.querySelector(`[data-cat-id="${T.pulseCat}"]`);

@@ -227,6 +227,9 @@ function paintProneBody(c, a) {
     c.fillStyle = '#c8b898';
     c.fillRect(2.2, -1.5, 2.8, 3.5);
   }
+  // shared officer tell survives going prone — boards up by the head end,
+  // pushed clear of the cap (translated to (5,0)) and the coat's own edge
+  if (isOfficer) drawShoulderBoards(c, 1, 0, { ax: 1.5, off: 2.2, len: 1.6 });
   if (a.type === 'esniper') {
     c.fillStyle = 'rgba(42,38,28,0.5)';
     c.beginPath(); c.ellipse(0, 0, 5.8, 2.9, 0, 0, 7); c.fill();

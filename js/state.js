@@ -25,6 +25,15 @@ let viewDirty = false;
 let viewGesture = null;   // two-finger pinch/pan snapshot
 const activePointers = new Map();
 const VIEW_ZOOM_MAX_MUL = 2.5;
+// How much of an axis has to hang off the screen before the view is treated as
+// PANNABLE — the view strip appears and edge-auto-pan arms. This is not a float
+// epsilon: the field's 880:406 is cut to 19.5:9 on purpose, so a phone of that
+// nominal shape lands a pixel or two off in whichever direction its device-pixel
+// rounding falls, and both sites used to test `< W - 1`. That was enough to
+// declare 1.4px of hidden field pannable on the exact phone class the ratio was
+// cut FOR — a dead 4px strip across the top of the game, and edge-auto-pan
+// arming for a pan that travels a pixel and stops.
+const VIEW_PAN_MIN = 8;
 let lastFitZoom = null;
 
 function clearLongPress() {
@@ -147,7 +156,7 @@ function newGame(level, difficulty) {
     mines: [],
     watchtowers: [],
     itWorks: [],     // Regio Esercito field works — enemy-built, and they outlive the wave
-    itFrontY: IT_FRONT_Y_START,   // deepest live work: what new sites are measured from
+    itFrontX: IT_FRONT_X_START,   // deepest live work: what new sites are measured from
     itTick: 0,                    // countdown to the next works-cache rebuild
     // AVANTI: one signed clock. NEGATIVE counts up through the telegraph, POSITIVE
     // counts down through the surge, 0 is idle — so a single comparison answers
@@ -230,8 +239,8 @@ function makeUnit(type, x, y, nation = 'us') {
     // Body/Flak Armor abilities: separate depleting pools, 0 until purchased
     bodyArmor: 0, maxBodyArmor: 0, flakArmor: 0, maxFlakArmor: 0,
     cd: rand(0.2, 1.0), burstLeft: 0, burstTimer: 0,
-    face: -Math.PI / 2,
-    turret: -Math.PI / 2,
+    face: Math.PI,
+    turret: Math.PI,
     moveTo: null,
     healTick: 0,
     healed: 0,       // HP restored; medics rank up on this, slowly
@@ -279,10 +288,10 @@ function makeEnemy(type, x, y, nation) {
     // armorEnemy in waves.js). Bullets chip body armor, explosions chip flak.
     bodyArmor: 0, maxBodyArmor: 0, flakArmor: 0, maxFlakArmor: 0,
     cd: rand(0.5, 1.5), burstLeft: 0, burstTimer: 0,
-    face: Math.PI / 2,
+    face: 0,
     wobble: rand(0, Math.PI * 2),
     grenCd: rand(2, 4),
-    turret: Math.PI / 2,
+    turret: 0,
     pushT: 0, pushCd: rand(2, 5),
     prone: 0, proneCd: 0,
     moveTo: null,   // hit-squad mode: player-issued destination

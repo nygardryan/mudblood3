@@ -27,7 +27,21 @@
 'use strict';
 
 const RUN_SAVE_KEY = 'twRunSave';
-const RUN_SAVE_VERSION = 1;
+// v2: the landscape flip — every saved coordinate's axes changed meaning
+// (x = depth, y = lateral), so v1 blobs are discarded wholesale on load.
+// v3: the field grew from 620x540 to 880x460 — old positions (especially
+// lateral ones, now scaled against a shorter H) would resume into nonsense,
+// so v2 blobs discard the same way v1 does.
+// v4: DEPLOY_X/FORWARD_X moved from 380/207 to 587/293 for the even-thirds
+// zone rebalance — a v3 save's defense line would resume sitting in the
+// middle of the new no-man's-land instead of the deploy zone, so v3 blobs
+// discard the same way.
+// v5: DEPLOY_X/FORWARD_X moved again, to 502/251, widening the deploy zone
+// to ~43% of the field — same reasoning as v4, discard the same way.
+// v6: H shrank from 460 to 406 (the cover-zoom phone-ratio fit — see the W/H
+// comment in constants.js). Saved lateral positions up to 460 would resume
+// off the bottom of the new field, so v5 blobs discard the same way.
+const RUN_SAVE_VERSION = 6;
 
 // undefined = not read yet, null = no (or discarded) save, object = parsed blob.
 // The menu reads this cache — never re-parses the full blob per refresh.
@@ -43,7 +57,7 @@ let runSaveCache;
 // canvas (_sprite), or a ref/Set re-encoded separately below.
 const SAVE_STRIP = new Set([
   't', '_sprite',
-  '_tgt', '_tgtUntil', '_camoNest', '_camoFrame', '_buffs', '_buffsFrame',
+  '_tgt', '_tgtUntil', '_laserTgt', '_camoNest', '_camoFrame', '_buffs', '_buffsFrame',
   '_spotted', '_spotFrame', '_repairCount', '_repairCountFrame',
   'flameTarget', 'mgTarget', 'awHit',
   // boss parent/part links and work links — re-encoded as indices
@@ -58,7 +72,7 @@ const SAVE_STRIP = new Set([
 const SAVE_SCALARS = {
   tp: 15, wave: 0, kills: 0, medalsEarned: 0, breaches: 0, time: 0,
   bossKills: 0, spawnTimer: 6, tpTrickle: TP_TRICKLE_INTERVAL, officerTick: 30,
-  eventTimer: 50, fog: 0, fogAge: 0, itFrontY: IT_FRONT_Y_START, itTick: 0, itCharge: 0,
+  eventTimer: 50, fog: 0, fogAge: 0, itFrontX: IT_FRONT_X_START, itTick: 0, itCharge: 0,
   itAvantiCd: 30, itLastAvanti: -999, buffFrame: 0,
 };
 

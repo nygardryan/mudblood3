@@ -1,6 +1,21 @@
 # Trenchworks: WW2 — agent notes
 
-WW2 squad-defense game. Plain HTML5 Canvas + vanilla JS, **no build step, no
+WW2 squad-defense game, landscape-first: enemies stage LEFT of the field
+(`x < 0`) and march down-field at +x onto the player's trench at `DEPLOY_X`
+(502); a breach is `x > W`. `x` is the DEPTH axis, `y` the lateral; the field
+is `W=880 x H=406` — cut to exactly 19.5:9 so the mobile cover-zoom default
+fills a modern phone with little or no lateral crop (it shipped at H=460,
+sized for the old contain/letterbox default, and cover then cropped ~12% of
+the lateral axis); see the comment on `W`/`H` in constants.js for why the fix
+was an H cut and not a W stretch, and for the desktop letterbox trade. `DEPLOY_X`/`FORWARD_X` (502/251) have since moved twice from
+their first landscape values (380/207) — first out to even thirds, then the
+deploy zone widened again on purpose to ~43% of the field (up from an even
+33%), taking the other 10 points evenly off the enemy-approach and
+no-man's-land zones; see the comment on `DEPLOY_X` in constants.js for the
+rationale and for why every boss/weapon-range calibration below moves with
+it each time. Screen-relative visuals (particles, fake-Z arcs, floating
+text, shadows at +y, HP bars at -y) still treat screen-up as up — never axis-swap
+those. Plain HTML5 Canvas + vanilla JS, **no build step, no
 package.json, no test framework**. Scripts in `js/` share one global scope and
 load in dependency order via `index.html` (`main.js` second-to-last,
 `test-api.js` last). See README.md for gameplay and the per-file map.
@@ -40,9 +55,10 @@ TEST.start('endless','easy','jp')  // 3rd arg pins the endless enemy faction rol
 TEST.escalation()                  // report the ESCALATION ladder: {level, unlocked, mods, active}
 TEST.escalation(7)                 // UNLOCK + select rung 7 (the real unlock costs a boss kill
                                    // per rung). Writes the save — lands on the NEXT start().
-TEST.deploy('gunner', 0.5, 0.75)   // FREE god-mode spawn; (0..1] coords = fractions of field
-TEST.deploy('sandbags', 0.4, 0.7)  // deploys ANY placeable — defenses, supports, German test units
-TEST.buy('gunner', 0.5, 0.75)      // REALISTIC purchase: charges TP, checks cap/placement, runs place()
+TEST.deploy('gunner', 0.75, 0.5)   // FREE god-mode spawn; (0..1] coords = fractions of field
+                                   // (x = depth toward the player's right-side trench, y = lateral)
+TEST.deploy('sandbags', 0.7, 0.4)  // deploys ANY placeable — defenses, supports, German test units
+TEST.buy('gunner', 0.75, 0.5)      // REALISTIC purchase: charges TP, checks cap/placement, runs place()
 TEST.step(30)                      // advance 30 sim-seconds (pumps update() manually), redraws
 TEST.state()                       // {mode, phase, wave, tp, kills, breaches, units, enemies, ...}
 TEST.roster()                      // per-actor detail {units,enemies}: type, pos, hp, rank, kills
@@ -58,7 +74,7 @@ TEST.event('smokescreen')          // fire a random event on demand, ignoring it
 TEST.setTP(100) / TEST.addTP(20)   // script TP for a scenario
 TEST.autoplay({ seconds: 240 })    // autonomous endless player: spends+steps, returns {over,waves,log}
 TEST.stepUntil(g => g.kills > 0, 60)
-TEST.spawnEnemy('panzer', 0.5, 0.1)  // defense modes only
+TEST.spawnEnemy('panzer', 0.1, 0.5)  // defense modes only (staging is negative x)
 TEST.reset()                       // back to main menu
 ```
 
@@ -80,13 +96,13 @@ special, and each return is `w/100 ×` HP). 3150 HP (`noRamp:true` exempts him
 from `enemyHpRamp`), self-plated body+flak armor, and a three-state AI
 (`updateGermanBoss` in `js/update-enemies.js`): advance down one of five
 `BOSS_LANES` firing 6 revolver shots (190 dmg; `revolver.armorDmg` = flat 490
-vs anything armored — see `fireShot`), retreat to `BOSS_BACKLINE_Y` (on-field,
+vs anything armored — see `fireShot`), retreat to `BOSS_BACKLINE_X` (on-field,
 so artillery can punish the refit), refill armor and call two DISTINCT
 reinforcement plays (`bossCallReinforcements`: smokescreen/airraid via
 `runEvent`, paradrop, vehicle column, human wave), then advance again down a
 lane ≥ 2 indices away. Immune to prone/suppression (`t.boss` checks in
 `tryGoProne`/`suppress`) and stun (dispatch order + `maybeShellShock`); can
-never breach (`BOSS_SAFE_Y` clamp). Killing him fires `bossVictory()`
+never breach (`BOSS_SAFE_X` clamp). Killing him fires `bossVictory()`
 (`js/flow.js`): the sim pauses under a `#boss-victory` overlay offering FIGHT
 ON (run continues, boss returns at the next ×100) or END RUN — VICTORY (full
 `endRun(true, …)` recap). **That overlay is shared with the Yamato** — its title
@@ -106,7 +122,7 @@ instead of size (a 1.45× scale, a rear coat-flare ellipse, a wide pale collar
 crescent, shoulder boards) read as a dark blob rather than a man, because they
 widened him without lengthening him. Change the scale, never the local ratios.
 `deploy('eboss', …)` works (he's in `TESTING_GERMAN_PLACEABLES`) and his state
-lives on the enemy object: `bossState`/`shots`/`lane`/`laneX`/`rallyT`.
+lives on the enemy object: `bossState`/`shots`/`lane`/`laneY`/`rallyT`.
 
 The **Imperial Japanese Army** is the alternate endless foe (`faction:'jp'` in
 `ENEMY_TYPES`, 15 line keys: `jrifle`/`jbanzai`/`jsmg`/`jgren`/`jlmg`/`jhmg`/`jsniper`/
@@ -121,17 +137,17 @@ Their art lives in `js/render-japanese.js` (`paintJapaneseSoldier`).
 The **Yamato** (`jyamato`) is the Japanese wave-100 boss — a land battleship on
 treads, arriving every 100th JP wave (`spawnJapaneseBoss`, hooked in
 `spawnSpecialWave` beside the German one). Alone among the bosses she is staged off
-the **SIDE** rather than above the top edge, and **rolls in** from a random flank to
-`YAM_X_MARGIN` (`yamatoRollIn`), inert and untouchable until she gets there — no
-guns, no landing party, no clamps, via one early-out in `updateYamato`. She has to
-be, because the staging strip is held off the field by a `y < 0` test in every scan
-and a 300px hull lying broadside-on does not fit in it. `entering` (stamped on the
-hull AND all ten parts, cleared together on arrival) is what stands in for that
-gate — **nothing anywhere in this game gates on `x`**, so without it her stern
-would be shootable while off-screen.
+a **FLANK** (the top or bottom edge) rather than off the enemy end, and **rolls
+in** to `YAM_Y_MARGIN` (`yamatoRollIn`), inert and untouchable until she gets
+there — no guns, no landing party, no clamps, via one early-out in
+`updateYamato`. She has to be, because the staging strip is held off the field by
+an `x < 0` test in every scan and a 300px hull lying broadside-on does not fit in
+it. `entering` (stamped on the hull AND all ten parts, cleared together on
+arrival) is what stands in for that gate — **nothing anywhere in this game gates
+on `y`**, so without it her stern would be shootable while off-screen.
 
 That term now lives in **`inTheFight(a)`** (`js/helpers.js`), the one predicate for
-"alive and actually on the field": `dead`, `y < 0` (staging strip), `chute > 0`
+"alive and actually on the field": `dead`, `x < 0` (staging strip), `chute > 0`
 (canopy still up) and `entering`. It was extracted because the rule had GROWN
 twice and each addition — `chute` for paradrops, `entering` for her — cost a hand
 sweep of the sixteen sites that spelled it out across targeting/shooting/input/
@@ -142,7 +158,7 @@ fields. The **three faction rosters** (`isJapaneseInfantry`, `isItalianFoot`,
 `isZombie` in `js/update-enemies.js`) were the last hand-rolled copies, and had
 drifted apart exactly as predicted: `isItalianFoot` folded `chute` IN while the
 other two left it out and made their one caller append `|| o.chute > 0` by hand,
-and none of the three carried `y < 0`, so all three reached into the staging
+and none of the three carried the staging test, so all three reached into the staging
 strip. Measured to wave 24: staging men counted in 20% of sampled seconds, worst
 7 of 13, flipping `italianForce`'s `IT_AVANTI_PRESSURE_FORCE` gate in 7 of them —
 so the AVANTI clock accelerated on a force that had not arrived. They take
@@ -218,8 +234,9 @@ interleaved A/B: ~23% → ~7% of the pack down at any moment; per flinch roll,
   (`bloaterBurst`, `e._burst` guard) into a cloud of infectious rot (`bileBurst`).
   A walking mine — hooked in `damageEnemy` (damage.js) and in `updateZombie`.
 - `zscreamer` — the horde's "officer": `aura:true` (speeds nearby dead via the
-  normal `enemyOfficerNear`/`buffed` path) + `frenzyCmd:true` → `zombieFrenzyCommand`
-  hurls nearby zombies into a `chargeT` sprint (mirror of the banzai/avanti command).
+  normal `enemyOfficerNear`/`buffed` path) + `frenzyCmd:true` → the shared
+  `officerCommand` clock (see **Enemy officer commands** below) hurls nearby
+  zombies into a `chargeT` sprint (mirror of the banzai/avanti command).
 - `zrevenant` — the ONLY gunman: no `zombie` flag, so it falls through to the
   standard ranged path (Kar98, poor `acc`). Its bullets wound but don't infect.
 - `zabom` (Abomination) — `boss:true`: enormous HP standing in for armor; its bite
@@ -316,6 +333,45 @@ reads `t.speed`/`maxhp`, which are gone by the time a corpse is raised. Note
 `TEST.state().enemies` counts and HP totals are **inflated by parts** here as with
 the Yamato — 6 actors per Progenitor.
 
+**Enemy officer commands are TELEGRAPHED, on one shared clock.** The two officer
+abilities that fire rather than radiate — the Japanese officer's banzai order
+(`banzaiCmd`) and the Screamer's frenzy shriek (`frenzyCmd`) — were two copies of
+the same function landing the frame their cooldown lapsed. Killing the officer
+first is the whole counter-play to an officer, and there is no killing a thing
+that gives no notice: the order and the sprinting men arrived together. Both now
+run through `officerCommand` + the `OFFICER_COMMANDS` table
+(`js/update-enemies.js`), where the cooldown opens a WIND-UP (`OFFICER_CMD_WARN`,
+2.6s, on `e.cmdT`) and the shout lands only if he is still alive at the end of
+it. Cancelling costs nothing anywhere — a dead officer is spliced out of
+`G.enemies` the frame he falls and his telegraph goes with him. Tuning is the
+officer-command block in `js/constants.js` (which is also where the two radii
+live now); `TEST.roster()` reports `cmdWarn`/`cmdCd` per officer.
+
+Four things about it:
+- **A telegraph must never resolve into nothing**, or the player learns to ignore
+  the next one. The wind-up opens only when there is someone in radius to rouse;
+  an officer standing alone re-checks on `OFFICER_CMD_RECHECK` rather than
+  burning a full cooldown. The pre-telegraph code fired into an empty radius and
+  swallowed the result — invisible then, a lie once it was drawn.
+- **The state is generic and lives on the officer** (`cmdT`/`cmdMax`/`cmdR` plus
+  the label and colour), never keyed off his type, so both renderers know nothing
+  about factions and a third officer costs one `OFFICER_COMMANDS` row and no
+  render work. It rides the run save for free (`SAVE_STRIP` is by exclusion) and
+  resolves correctly after a resume.
+- **The mark is three answers, deliberately split.** WHERE is a dashed ring at the
+  order's own radius; WHEN is a bright ring swelling out of him that reaches that
+  edge exactly as the order lands — the same grammar as the V2's contracting ring,
+  and the shout's own shockwave continues it outward from where it stopped
+  (`drawOfficerCommandTelegraph`, `js/render.js`, drawn on the ground under the
+  troops so the men inside the circle stay legible). WHO is a black-keylined
+  hazard badge over his head that blinks faster as the order forms
+  (`drawCommandWarning`, `js/render-overlays.js`) — a circle with a dozen men in
+  it does not say which one to shoot. The inspector's `ORDER FORMING` chip keys
+  on `a.cmdT`, so it needs nothing for a third officer either.
+- **A wind-up interrupted by a stun or a pin FREEZES rather than resetting**, since
+  both call sites sit below those blocks in `updateEnemy`. That is the honest
+  read — the order is still coming, you bought time — and is worth not "fixing".
+
 **Smoke blocks target acquisition, not just aim.** The smokescreen event
 (`js/smoke.js`) drops a canister that burns 20-60s, spitting puffs that ride
 `G.wind` (one vector per run, veered up to `WIND_SHIFT_MAX` of a full turn per
@@ -350,7 +406,7 @@ and nothing to block. The renderer is three tiling cloud layers composed on
 their own buffer and blitted once — they DRIFT on `G.wind`, the same vector the
 smokescreen rides, at different fractions of it and sheared a few degrees off
 it so they churn against each other rather than sliding as one; and the bank is
-near-solid at the top of the field thinning to `FOG_DEPTH_NEAR` over the
+near-solid at the enemy end of the field thinning to `FOG_DEPTH_NEAR` over the
 player's own trench, so the ground he is shooting at dissolves while the men he
 is commanding stay legible. It does **not** sweep in across the field — that
 shipped first, with the front rolling down out of the enemy's treeline, and was
@@ -410,26 +466,29 @@ The `G.itWorks` loop in `explode` sits deliberately **outside** the Blast Shelte
 guard — that card is the player's overhead cover and must not protect enemy works.
 
 Four independent limits stop the front running away, and each guards a different
-failure: `IT_WORK_MAX_Y`, `IT_WORK_CAP`, `IT_BUILDS_PER_MAN`, and per-wave decay
+failure: `IT_WORK_MAX_X`, `IT_WORK_CAP`, `IT_BUILDS_PER_MAN`, and per-wave decay
 in `decayItalianWorks`.
 
-`IT_WORK_MAX_Y` is the **depth wall**, and it is `DEPLOY_Y - IT_WORK_DEPLOY_MARGIN`
-(350) — the creep runs *through* `FORWARD_Y` and stops just short of the player's
+`IT_WORK_MAX_X` is the **depth wall**, and it is `DEPLOY_X - IT_WORK_DEPLOY_MARGIN`
+(472) — the creep runs *through* `FORWARD_X` and stops just short of the player's
 trench, so a long run ends with the Regio Esercito dug in on his doorstep. What the
 wall guards is only the player's **build pocket**: `forEachEmplacement` walks
 `G.itWorks`, so a work inside the pocket is ground he can no longer put a bunker on.
-At 350 the tallest work bottoms out at 365 and his shallowest defense (`placementMinY`'s
-`DEPLOY_Y + 12`) tops out at 380 — measured 15px clear at wave 198 with no box overlap
-anywhere, and every sampled spot behind his line still buildable. Below ~27 of margin
-the two start denying each other ground. The rate limit is not the wall but the walk:
-~8 creep steps from `IT_FRONT_Y_START`, each dug by a sapper who had to survive
-crossing that much field. Measured with no player interference, the front reaches the
-wall by wave 11 and plateaus at 7–14 works; carpet the forward zone in mines and it
-takes until wave 35 while the belt is consumed getting there.
+At 472 the deepest work bottoms out at 487 and his shallowest defense (`placementMinX`'s
+`DEPLOY_X + 12`) tops out at 502 — 15px clear with no box overlap anywhere, and every
+sampled spot behind his line still buildable (this 15px is a property of `IT_WORK_DEPLOY_MARGIN`
+and the two box half-widths alone, so it holds for any `DEPLOY_X` — verified unchanged
+across both zone rebalances so far, see the note on `DEPLOY_X` in constants.js). Below
+~27 of margin the two start denying each other ground. The rate limit is not the wall
+but the walk: `IT_FRONT_X_START` (64, unmoved — it's anchored near the enemy's own
+edge, not the deploy line) is now ~408 short of the wall, so the creep takes
+noticeably more waves to reach it than the wave-11 figure measured against the
+original 620-wide field; carpet the forward zone in mines and it takes even
+longer while the belt is consumed getting there.
 
 That mine interaction is why `buildSiteClear` tests **box vs box** (plus
 `IT_SITE_CLEAR` as a gap) rather than the flat centre-radius it used while the wall sat
-above `FORWARD_Y`, where the player has nothing to keep off of. A radius is wrong in
+short of `FORWARD_X`, where the player has nothing to keep off of. A radius is wrong in
 both directions once the creep enters his ground: it let a work be staked half-inside a
 bunker, and it let one 6px mine deny an 80px band — a minefield would have been an
 invisible permanent construction wall, on top of mines already killing the sappers who
@@ -558,9 +617,9 @@ Verify with `TEST.spriteRoundtrip('tank_il3_hull' | 'tank_il3_turret' |
 
 The **Treno Armato** (`itrain`) is the Italian wave-100 boss — an armored war
 train (`spawnItalianBoss`, hooked in `spawnSpecialWave` beside the other three,
-`w/100 ×` HP on each return). It rolls straight down a rail lane (`e.laneX`,
+`w/100 ×` HP on each return). It rolls straight down a rail lane (`e.laneY`,
 drawn ahead of it all the way to the stop — the telegraph) and **parks at
-`TRAIN_STOP_Y`**; it never breaches (skip in update.js's breach loop, like the
+`TRAIN_STOP_X`**; it never breaches (skip in update.js's breach loop, like the
 ship and the mass). The **third multi-actor boss**, on the Progenitor's HP rule,
 which is the thing to get right: an engine parent (`itaBoss` — the whole boss
 pool, killing it fires `bossVictory()`) plus eight `trainPart` children that
@@ -609,7 +668,7 @@ coupling is still shelled by tier 3, which is exactly the counterplay the 389 re
 is sold against. It shares the turret's wedge and fire tolerance on purpose (it must
 not be able to shell its own consist either), and passes `by = p` into
 `scheduleShell` because ESCALATION rung IV keys on the firer. Being on the tail it
-is the LAST gun to clear the top edge, so it opens up about half way down the
+is the LAST gun to clear the enemy edge, so it opens up about half way down the
 roll-in.
 
 Adding it is also the worked example of what lengthening the train costs. Almost
@@ -756,10 +815,10 @@ Four things about it that are load-bearing:
 - **It deliberately does NOT carry `tank`.** At ×0.04 vs small arms, 3000 HP is
   ~937 seconds against a rifle line and 3.4 shells for an AT battery —
   simultaneously impossible and trivial, one answer, no decision. It is hard to
-  REACH instead: standing at y 92–128 it sits outside rifleman (154), gunner
+  REACH instead: standing at x 214–250 it sits outside rifleman (154), gunner
   (179), grenadier (231) and bazooka (243) range, so the artillery answer falls
-  out of geometry for free while a player who walks men up to `FORWARD_Y` can
-  close and trade. If it dies too fast the lever is `AW_STAND_Y_MIN`, never an
+  out of geometry for free while a player who walks men up to `FORWARD_X` can
+  close and trade. If it dies too fast the lever is `AW_STAND_X_MIN`, never an
   armor multiplier. `noRamp` is mandatory for the same reason it is on the
   bosses — the ramp is capped out by wave 666 and 3000 would ship as 9000.
 - **Killing it fires no `bossVictory()`.** `boss:true` is bought only for the
@@ -796,7 +855,7 @@ pass, and the deploy trench's colours — pure decoration, and blood/craters
 
 A biome is also the one thing an artist can replace **on its own**, via two ids per
 faction in the sprite pack: `terrain_<f>` (the whole field, stretched to W×H) and
-`terrain_<f>_trench` (the deploy strip, laid over it at `TRENCH_SPR_Y`). Two plates
+`terrain_<f>_trench` (the deploy strip, laid over it at `TRENCH_SPR_X`). Two plates
 rather than one because they're separately useful — repaint the field and keep the
 engine's trench, or cut a hand-drawn trench through procedural ground. `paintGround`
 asks `SPRITES.get` per layer and falls through to `paintBiomeField`/`paintBiomeTrench`,
@@ -813,8 +872,8 @@ needs combat to have happened), while flipping ART OFF/ON is a deliberate act wh
 point is to re-render and forces through. Either way the state compare runs FIRST, so a
 pack with no ground art in it — the common case — never reshuffles a procedural field
 or costs a wreck. The terrain plates are also the only defs the exporter renders at
-`EXPORT_TERRAIN_SS` (2) rather than `EXPORT_SS`: a 540×620 field at 4 px/unit is a
-2160×2480 sheet of noise, four times over. They're the only `random: true` defs too —
+`EXPORT_TERRAIN_SS` (2) rather than `EXPORT_SS`: an 880×460 field at 4 px/unit is a
+3520×1840 sheet of noise, four times over. They're the only `random: true` defs too —
 `spriteRoundtrip` flags rather than suppresses that, since its diff is meaningless
 against a pass that re-scatters its own mottle on every call.
 
@@ -832,7 +891,7 @@ Two things that were learned by drawing them wrong, and that a fifth faction wil
 `deploy`/`spawnEnemy` accept off-field coords (they don't block) but return
 `offField: true` with a `warning` when a positional placement lands outside the
 playable field — check it so a typo'd coordinate doesn't silently sit a unit
-off-screen. Negative y above the top edge is valid *staging* for `spawnEnemy`
+off-screen. Negative x left of the enemy edge is valid *staging* for `spawnEnemy`
 (enemies march in from there), so it isn't flagged; for defenders it is.
 
 To fast-forward a whole difficulty read, `autoplay` runs a scaling default build

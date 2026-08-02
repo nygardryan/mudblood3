@@ -323,7 +323,7 @@ function armorEnemy(e, w) {
 }
 
 function spawnEnemyAt(type, x, y) {
-  const e = makeEnemy(type, clamp(x, 30, W - 30), y);
+  const e = makeEnemy(type, x, clamp(y, 30, H - 30));
   armorEnemy(e, G.wave);
   G.enemies.push(e);
   return e;
@@ -343,10 +343,10 @@ const SPECIAL_WAVES = [
     spawn(t) {
       const bikes = Math.floor(specialWaveMult(t) * (3 + t));
       for (let i = 0; i < bikes; i++) {
-        spawnEnemyAt('ebike', rand(60, W - 60), -20 - i * rand(30, 70));
+        spawnEnemyAt('ebike', -20 - i * rand(30, 70), rand(60, H - 60));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * t / 2); i++) {
-        spawnEnemyAt('ejeep', rand(100, W - 100), -80 - i * 100);
+        spawnEnemyAt('ejeep', -80 - i * 100, rand(100, H - 100));
       }
     },
   },
@@ -360,17 +360,17 @@ const SPECIAL_WAVES = [
       if (t >= 3) pool.push('emg');
       const count = Math.floor(specialWaveMult(t) * (6 + 2 * t));
       for (let i = 0; i < count; i++) {
-        const e = spawnEnemyAt(pick(pool), rand(40, W - 40), rand(40, H * (2 / 3) - 10));
+        const e = spawnEnemyAt(pick(pool), rand(40, W * (2 / 3) - 10), rand(40, H - 40));
         e.chute = rand(2.8, 4.0) + i * 0.15;
         e.chuteMax = e.chute;
       }
       if (t >= 4) {
-        const o = spawnEnemyAt('eoff', rand(120, W - 120), rand(60, H / 2));
+        const o = spawnEnemyAt('eoff', rand(60, W / 2), rand(120, H - 120));
         o.chute = rand(3, 4);
         o.chuteMax = o.chute;
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (3 + t / 2)); i++) {
-        spawnEnemyAt(pick(['erifle', 'esmg']), rand(80, W - 80), rand(-70, -20));
+        spawnEnemyAt(pick(['erifle', 'esmg']), rand(-70, -20), rand(80, H - 80));
       }
     },
   },
@@ -381,14 +381,14 @@ const SPECIAL_WAVES = [
     spawn(t) {
       const count = Math.floor(specialWaveMult(t) * (8 + 2 * t));
       for (let i = 0; i < count; i++) {
-        const x = (W / (count + 1)) * (i + 1) + rand(-25, 25);
+        const y = (H / (count + 1)) * (i + 1) + rand(-25, 25);
         const roll = Math.random();
         const type = roll < 0.5 ? 'esmg' : roll < 0.65 && t >= 3 ? 'eflame' : 'erifle';
-        spawnEnemyAt(type, x, rand(-90, -20));
+        spawnEnemyAt(type, rand(-90, -20), y);
       }
       const officers = Math.floor(specialWaveMult(t) * (1 + t / 5));
       for (let i = 0; i < officers; i++) {
-        spawnEnemyAt('eoff', rand(120, W - 120), rand(-130, -90));
+        spawnEnemyAt('eoff', rand(-130, -90), rand(120, H - 120));
       }
     },
   },
@@ -399,13 +399,13 @@ const SPECIAL_WAVES = [
     spawn(t) {
       G.fog = Math.max(G.fog, Math.round((24 + t) * 1.15));
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 4)); i++) {
-        spawnEnemyAt('esniper', rand(60, W - 60), rand(-140, -60));
+        spawnEnemyAt('esniper', rand(-140, -60), rand(60, H - 60));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (1 + t / 4)); i++) {
-        spawnEnemyAt('emg', rand(80, W - 80), rand(-110, -40));
+        spawnEnemyAt('emg', rand(-110, -40), rand(80, H - 80));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (6 + t)); i++) {
-        spawnEnemyAt(pick(['erifle', 'erifle', 'esmg']), rand(50, W - 50), rand(-90, -20));
+        spawnEnemyAt(pick(['erifle', 'erifle', 'esmg']), rand(-90, -20), rand(50, H - 50));
       }
     },
   },
@@ -416,21 +416,21 @@ const SPECIAL_WAVES = [
     banner: 'PANZERKEIL! ARMOR COLUMN!',
     // tanks and halftracks in column with an infantry screen out front
     spawn(t) {
-      const cx = rand(180, W - 180);
+      const cy = rand(180, H - 180);
       const panzers = t < 6 ? 1 : Math.max(1, Math.floor(specialWaveMult(t) * t / 3));
       for (let i = 0; i < panzers; i++) {
-        spawnEnemyAt('panzer', cx + rand(-120, 120), -40 - i * 150);
+        spawnEnemyAt('panzer', -40 - i * 150, cy + rand(-120, 120));
       }
       const tracks = t < 6 ? 0 : Math.floor(specialWaveMult(t) * (1 + (t - 6) / 5));
       for (let i = 0; i < tracks; i++) {
-        spawnEnemyAt('ehalftrack', cx + rand(-160, 160), -110 - i * 130);
+        spawnEnemyAt('ehalftrack', -110 - i * 130, cy + rand(-160, 160));
       }
       const jeeps = t < 5 ? 0 : Math.floor(specialWaveMult(t) * (t - 4) / 3);
       for (let i = 0; i < jeeps; i++) {
-        spawnEnemyAt('ejeep', cx + rand(-200, 200), -70 - i * 100);
+        spawnEnemyAt('ejeep', -70 - i * 100, cy + rand(-200, 200));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (4 + t / 2)); i++) {
-        spawnEnemyAt(pick(['erifle', 'esmg', 'egren']), cx + rand(-200, 200), rand(-60, -20));
+        spawnEnemyAt(pick(['erifle', 'esmg', 'egren']), rand(-60, -20), cy + rand(-200, 200));
       }
     },
   },
@@ -449,20 +449,20 @@ const ITA_SPECIAL_WAVES = [
     spawn(t) {
       const sappers = Math.floor(specialWaveMult(t) * (3 + t / 2));
       for (let i = 0; i < sappers; i++) {
-        const g = spawnEnemyAt('iguast', rand(60, W - 60), rand(-90, -20));
+        const g = spawnEnemyAt('iguast', rand(-90, -20), rand(60, H - 60));
         g.buildState = 'seek';
         g.buildsDone = 0;
         g.t = Object.assign({}, g.t, { builder: Object.assign({}, g.t.builder, { per: 3 }) });
       }
       // a covering party so the player can't just walk up and shoot the diggers
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (3 + t)); i++) {
-        spawnEnemyAt(pick(['ifante', 'ifante', 'ibreda', 'ifiat']), rand(50, W - 50), rand(-110, -30));
+        spawnEnemyAt(pick(['ifante', 'ifante', 'ibreda', 'ifiat']), rand(-110, -30), rand(50, H - 50));
       }
       // a stretcher-bearer belongs on exactly this wave: it has no killing power
       // of its own, and what he does is keep the diggers on their feet long
       // enough to finish the works that ARE the threat, four waves from now
-      if (t >= 2) spawnEnemyAt('imed', rand(80, W - 80), rand(-100, -40));
-      if (t >= 3) spawnEnemyAt('isemo', rand(120, W - 120), rand(-120, -80));
+      if (t >= 2) spawnEnemyAt('imed', rand(-100, -40), rand(80, H - 80));
+      if (t >= 3) spawnEnemyAt('isemo', rand(-120, -80), rand(120, H - 120));
     },
   },
   {
@@ -473,11 +473,11 @@ const ITA_SPECIAL_WAVES = [
     spawn(t) {
       const count = Math.floor(specialWaveMult(t) * (8 + 2 * t));
       for (let i = 0; i < count; i++) {
-        const x = (W / (count + 1)) * (i + 1) + rand(-24, 24);
-        spawnEnemyAt(pick(['ibersa', 'ibersa', 'ibersa', 'imosch', 'ifolgore']), x, rand(-90, -20));
+        const y = (H / (count + 1)) * (i + 1) + rand(-24, 24);
+        spawnEnemyAt(pick(['ibersa', 'ibersa', 'ibersa', 'imosch', 'ifolgore']), rand(-90, -20), y);
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (1 + t / 4)); i++) {
-        spawnEnemyAt('iuff', rand(120, W - 120), rand(-120, -80));
+        spawnEnemyAt('iuff', rand(-120, -80), rand(120, H - 120));
       }
       // arm the charge: the telegraph fires on the next tick of updateAvanti
       G.itCharge = -IT_AVANTI_TELEGRAPH;
@@ -491,13 +491,13 @@ const ITA_SPECIAL_WAVES = [
     // and shell the line from inside cover. The wave that makes you buy a mortar.
     spawn(t) {
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 3)); i++) {
-        spawnEnemyAt('imortaio', rand(60, W - 60), rand(-130, -70));
+        spawnEnemyAt('imortaio', rand(-130, -70), rand(60, H - 60));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 2)); i++) {
-        spawnEnemyAt('ibrixia', rand(60, W - 60), rand(-110, -50));
+        spawnEnemyAt('ibrixia', rand(-110, -50), rand(60, H - 60));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (3 + t / 2)); i++) {
-        spawnEnemyAt(pick(['ifiat', 'ibreda', 'icecc']), rand(50, W - 50), rand(-100, -30));
+        spawnEnemyAt(pick(['ifiat', 'ibreda', 'icecc']), rand(-100, -30), rand(50, H - 50));
       }
     },
   },
@@ -508,13 +508,13 @@ const ITA_SPECIAL_WAVES = [
     // on tracks, with the mediums coming in behind it.
     spawn(t) {
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (3 + t)); i++) {
-        spawnEnemyAt('il3', rand(60, W - 60), rand(-110, -30));
+        spawnEnemyAt('il3', rand(-110, -30), rand(60, H - 60));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (t / 2)); i++) {
-        spawnEnemyAt('im13', rand(80, W - 80), rand(-150, -90));
+        spawnEnemyAt('im13', rand(-150, -90), rand(80, H - 80));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 2)); i++) {
-        spawnEnemyAt(pick(['imosch', 'ifante']), rand(50, W - 50), rand(-90, -30));
+        spawnEnemyAt(pick(['imosch', 'ifante']), rand(-90, -30), rand(50, H - 50));
       }
     },
   },
@@ -528,12 +528,12 @@ const JP_SPECIAL_WAVES = [
     spawn(t) {
       const count = Math.floor(specialWaveMult(t) * (9 + 2 * t));
       for (let i = 0; i < count; i++) {
-        const x = (W / (count + 1)) * (i + 1) + rand(-22, 22);
-        spawnEnemyAt(Math.random() < 0.75 ? 'jbanzai' : 'jrifle', x, rand(-90, -20));
+        const y = (H / (count + 1)) * (i + 1) + rand(-22, 22);
+        spawnEnemyAt(Math.random() < 0.75 ? 'jbanzai' : 'jrifle', rand(-90, -20), y);
       }
       const officers = Math.floor(specialWaveMult(t) * (1 + t / 4));
       for (let i = 0; i < officers; i++) {
-        spawnEnemyAt('joff', rand(120, W - 120), rand(-120, -80));
+        spawnEnemyAt('joff', rand(-120, -80), rand(120, H - 120));
       }
     },
   },
@@ -544,13 +544,13 @@ const JP_SPECIAL_WAVES = [
     spawn(t) {
       G.fog = Math.max(G.fog, Math.round((24 + t) * 1.15));
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (2 + t / 4)); i++) {
-        spawnEnemyAt('jsniper', rand(60, W - 60), rand(-140, -60));
+        spawnEnemyAt('jsniper', rand(-140, -60), rand(60, H - 60));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (1 + t / 4)); i++) {
-        spawnEnemyAt('jlmg', rand(80, W - 80), rand(-110, -40));
+        spawnEnemyAt('jlmg', rand(-110, -40), rand(80, H - 80));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (6 + t)); i++) {
-        spawnEnemyAt(pick(['jrifle', 'jrifle', 'jbanzai']), rand(50, W - 50), rand(-90, -20));
+        spawnEnemyAt(pick(['jrifle', 'jrifle', 'jbanzai']), rand(-90, -20), rand(50, H - 50));
       }
     },
   },
@@ -561,10 +561,10 @@ const JP_SPECIAL_WAVES = [
     spawn(t) {
       const mortars = Math.floor(specialWaveMult(t) * (3 + t / 2));
       for (let i = 0; i < mortars; i++) {
-        spawnEnemyAt('jknee', rand(70, W - 70), rand(-120, -50));
+        spawnEnemyAt('jknee', rand(-120, -50), rand(70, H - 70));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (5 + t)); i++) {
-        spawnEnemyAt(pick(['jrifle', 'jrifle', 'jlmg']), rand(50, W - 50), rand(-80, -20));
+        spawnEnemyAt(pick(['jrifle', 'jrifle', 'jlmg']), rand(-80, -20), rand(50, H - 50));
       }
     },
   },
@@ -575,14 +575,14 @@ const JP_SPECIAL_WAVES = [
     spawn(t) {
       const count = Math.floor(specialWaveMult(t) * (10 + 2 * t));
       for (let i = 0; i < count; i++) {
-        const x = (W / (count + 1)) * (i + 1) + rand(-24, 24);
+        const y = (H / (count + 1)) * (i + 1) + rand(-24, 24);
         const roll = Math.random();
         const type = roll < 0.55 ? 'jbanzai' : roll < 0.7 ? 'jlunge' : roll < 0.85 && t >= 3 ? 'jflame' : 'jrifle';
-        spawnEnemyAt(type, x, rand(-100, -20));
+        spawnEnemyAt(type, rand(-100, -20), y);
       }
       const officers = Math.floor(specialWaveMult(t) * (1 + t / 4));
       for (let i = 0; i < officers; i++) {
-        spawnEnemyAt('joff', rand(120, W - 120), rand(-130, -90));
+        spawnEnemyAt('joff', rand(-130, -90), rand(120, H - 120));
       }
     },
   },
@@ -598,14 +598,14 @@ const ZOM_SPECIAL_WAVES = [
     spawn(t) {
       const count = Math.floor(specialWaveMult(t) * (12 + 3 * t));
       for (let i = 0; i < count; i++) {
-        const x = (W / (count + 1)) * (i + 1) + rand(-22, 22);
+        const y = (H / (count + 1)) * (i + 1) + rand(-22, 22);
         const roll = Math.random();
         const type = roll < 0.55 ? 'zshambler' : roll < 0.8 ? 'zrunner' : 'zcrawler';
-        spawnEnemyAt(type, x, rand(-90, -20));
+        spawnEnemyAt(type, rand(-90, -20), y);
       }
       const screamers = Math.floor(specialWaveMult(t) * (1 + t / 4));
       for (let i = 0; i < screamers; i++) {
-        spawnEnemyAt('zscreamer', rand(120, W - 120), rand(-120, -80));
+        spawnEnemyAt('zscreamer', rand(-120, -80), rand(120, H - 120));
       }
     },
   },
@@ -616,11 +616,11 @@ const ZOM_SPECIAL_WAVES = [
     spawn(t) {
       const hounds = Math.floor(specialWaveMult(t) * (6 + 2 * t));
       for (let i = 0; i < hounds; i++) {
-        spawnEnemyAt(Math.random() < 0.7 ? 'zhound' : 'zrunner', rand(50, W - 50), -20 - i * rand(20, 55));
+        spawnEnemyAt(Math.random() < 0.7 ? 'zhound' : 'zrunner', -20 - i * rand(20, 55), rand(50, H - 50));
       }
       const screamers = Math.floor(specialWaveMult(t) * (1 + t / 5));
       for (let i = 0; i < screamers; i++) {
-        spawnEnemyAt('zscreamer', rand(120, W - 120), rand(-110, -70));
+        spawnEnemyAt('zscreamer', rand(-110, -70), rand(120, H - 120));
       }
     },
   },
@@ -631,14 +631,14 @@ const ZOM_SPECIAL_WAVES = [
     spawn(t) {
       const spitters = Math.floor(specialWaveMult(t) * (2 + t / 3));
       for (let i = 0; i < spitters; i++) {
-        spawnEnemyAt('zspitter', rand(70, W - 70), rand(-130, -60));
+        spawnEnemyAt('zspitter', rand(-130, -60), rand(70, H - 70));
       }
       const bloaters = Math.floor(specialWaveMult(t) * (2 + t / 4));
       for (let i = 0; i < bloaters; i++) {
-        spawnEnemyAt('zbloater', rand(70, W - 70), rand(-110, -40));
+        spawnEnemyAt('zbloater', rand(-110, -40), rand(70, H - 70));
       }
       for (let i = 0; i < Math.floor(specialWaveMult(t) * (6 + t)); i++) {
-        spawnEnemyAt(pick(['zshambler', 'zshambler', 'zrunner']), rand(50, W - 50), rand(-90, -20));
+        spawnEnemyAt(pick(['zshambler', 'zshambler', 'zrunner']), rand(-90, -20), rand(50, H - 50));
       }
     },
   },
@@ -647,23 +647,23 @@ const ZOM_SPECIAL_WAVES = [
     banner: 'ABOMINATION! IT COMES FOR THE LINE!',
     // the boss rolls in behind a brute vanguard and a screaming human wave
     spawn(t) {
-      const cx = rand(160, W - 160);
+      const cy = rand(160, H - 160);
       const aboms = Math.max(1, Math.floor(specialWaveMult(t) * (0.5 + t / 4)));
       for (let i = 0; i < aboms; i++) {
-        spawnEnemyAt('zabom', cx + rand(-140, 140), -40 - i * 150);
+        spawnEnemyAt('zabom', -40 - i * 150, cy + rand(-140, 140));
       }
       const brutes = Math.floor(specialWaveMult(t) * (1 + t / 3));
       for (let i = 0; i < brutes; i++) {
-        spawnEnemyAt('zbrute', cx + rand(-180, 180), -80 - i * 70);
+        spawnEnemyAt('zbrute', -80 - i * 70, cy + rand(-180, 180));
       }
       const count = Math.floor(specialWaveMult(t) * (8 + 2 * t));
       for (let i = 0; i < count; i++) {
-        const x = (W / (count + 1)) * (i + 1) + rand(-24, 24);
-        spawnEnemyAt(pick(['zshambler', 'zrunner', 'zcrawler']), x, rand(-100, -20));
+        const y = (H / (count + 1)) * (i + 1) + rand(-24, 24);
+        spawnEnemyAt(pick(['zshambler', 'zrunner', 'zcrawler']), rand(-100, -20), y);
       }
       const screamers = Math.floor(specialWaveMult(t) * (1 + t / 4));
       for (let i = 0; i < screamers; i++) {
-        spawnEnemyAt('zscreamer', rand(120, W - 120), rand(-130, -90));
+        spawnEnemyAt('zscreamer', rand(-130, -90), rand(120, H - 120));
       }
     },
   },
@@ -720,36 +720,37 @@ function spawnSpecialWave(w) {
 function spawnGermanBoss(w) {
   showBanner('DER SCHLÄCHTER — HE COMES FOR THE LINE!');
   SFX.event();
-  const b = spawnEnemyAt('eboss', W / 2, -40);
+  const b = spawnEnemyAt('eboss', -40, H / 2);
   const mult = w / BOSS_WAVE_INTERVAL;
   if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.eboss.hp * mult);
   const n = Math.floor(specialWaveMult(w / 10) * 6);
   for (let i = 0; i < n; i++) {
-    spawnEnemyAt(pick(['erifle', 'esmg', 'esmg', 'egren']),
-      clamp(W / 2 + rand(-140, 140), 30, W - 30), rand(-90, -20));
+    spawnEnemyAt(pick(['erifle', 'esmg', 'esmg', 'egren']), rand(-90, -20),
+      clamp(H / 2 + rand(-140, 140), 30, H - 30));
   }
 }
 
-// She is staged off the SIDE rather than above, unlike every other boss: the
-// staging strip is held off the field by a y < 0 test in every scan, and a hull
-// 300px long lying broadside-on can't fit in it — half her length would be over
-// the top edge while the other half sat in the fight. So she rolls in from a
-// random flank instead, and her `entering` flag (initYamato, cleared by
-// yamatoRollIn) is what stands in for that y gate: the codebase has no x gate
-// anywhere, so without it her stern would be shootable while off-screen. She
-// arrives at YAM_X_MARGIN, which her patrol already respects. spawnEnemyAt clamps
-// x into the field, so the off-field position is written after it and before
-// initYamato, which derives the entry from it. Escorts still come on from centre
-// staging as normal — they mask the arrival.
+// She is staged off a FLANK (the top or bottom edge) rather than off the enemy
+// end, unlike every other boss: the staging strip is held off the field by an
+// x < 0 test in every scan, and a hull 300px long lying broadside-on can't fit
+// in it — half her length would be over the enemy edge while the other half sat
+// in the fight. So she rolls in from a random flank instead, and her `entering`
+// flag (initYamato, cleared by yamatoRollIn) is what stands in for that x gate:
+// the codebase has no y gate anywhere, so without it her stern would be
+// shootable while off-screen. She arrives at YAM_Y_MARGIN, which her patrol
+// already respects. spawnEnemyAt clamps y into the field, so the off-field
+// position is written after it and before initYamato, which derives the entry
+// from it. Escorts still come on from centre staging as normal — they mask the
+// arrival.
 // Each hundredth-wave return is tougher — wave 200 fields her at 2x HP — and the
 // belt sections have to be re-mirrored after the scaling or they'd advertise the
 // base pool on a ship carrying double.
 function spawnJapaneseBoss(w) {
   showBanner('YAMATO — THE LAND BATTLESHIP ROLLS IN!');
   SFX.event();
-  const dir = pick([1, -1]);                  // +1 = comes on from the left
-  const b = spawnEnemyAt('jyamato', W / 2, (YAM_Y_MIN + YAM_Y_MAX) / 2);
-  b.x = dir > 0 ? -YAM_ENTRY_X : W + YAM_ENTRY_X;
+  const dir = pick([1, -1]);                  // +1 = comes on from the top edge
+  const b = spawnEnemyAt('jyamato', (YAM_X_MIN + YAM_X_MAX) / 2, H / 2);
+  b.y = dir > 0 ? -YAM_ENTRY_Y : H + YAM_ENTRY_Y;
   const mult = w / YAM_WAVE_INTERVAL;
   if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.jyamato.hp * mult);
   // build her parts now rather than waiting for the first tick, so the HP mirror
@@ -758,14 +759,14 @@ function spawnJapaneseBoss(w) {
   syncYamatoParts(b);
   const n = Math.floor(specialWaveMult(w / 10) * 6);
   for (let i = 0; i < n; i++) {
-    spawnEnemyAt(pick(['jrifle', 'jsmg', 'jsmg', 'jbanzai']),
-      clamp(W / 2 + rand(-160, 160), 30, W - 30), rand(-90, -20));
+    spawnEnemyAt(pick(['jrifle', 'jsmg', 'jsmg', 'jbanzai']), rand(-90, -20),
+      clamp(H / 2 + rand(-160, 160), 30, H - 30));
   }
 }
 
 // The Progenitor walks on from staging like the German boss rather than starting
 // on-field like the Yamato: it's a point actor with a 26px pod fan, not a 300px
-// hull, so nothing of it is stranded above the top edge. Its pods are built by
+// hull, so nothing of it is stranded off the enemy edge. Its pods are built by
 // initProgenitor on the first tick and deliberately NOT forced here — unlike the
 // ship there is no HP mirror to prime, and leaving it lazy keeps this hook and
 // TEST.deploy('zprogen') on one identical code path. Each hundredth-wave return
@@ -773,18 +774,18 @@ function spawnJapaneseBoss(w) {
 function spawnHordeBoss(w) {
   showBanner('THE PROGENITOR — THE FLESH THAT BIRTHS THE DEAD!');
   SFX.event();
-  const b = spawnEnemyAt('zprogen', W / 2, -40);
+  const b = spawnEnemyAt('zprogen', -40, H / 2);
   const mult = w / PROG_WAVE_INTERVAL;
   if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.zprogen.hp * mult);
   const n = Math.floor(specialWaveMult(w / 10) * 6);
   for (let i = 0; i < n; i++) {
-    spawnEnemyAt(pick(['zshambler', 'zrunner', 'zrunner', 'zbrute']),
-      clamp(W / 2 + rand(-150, 150), 30, W - 30), rand(-90, -20));
+    spawnEnemyAt(pick(['zshambler', 'zrunner', 'zrunner', 'zbrute']), rand(-90, -20),
+      clamp(H / 2 + rand(-150, 150), 30, H - 30));
   }
 }
 
 // The train rolls on from staging like the German boss — it's a column, not a
-// broadside, so only its engine pokes below the top edge at first and the rest
+// broadside, so only its engine pokes onto the field at first and the rest
 // of the consist follows it down the rails. Its parts are built by initWarTrain
 // on the first tick and deliberately NOT forced here — like the Progenitor there
 // is no HP mirror to prime, and leaving it lazy keeps this hook and
@@ -794,13 +795,13 @@ function spawnHordeBoss(w) {
 function spawnItalianBoss(w) {
   showBanner('TRENO ARMATO — THE ARMORED TRAIN ROLLS DOWN THE LINE!');
   SFX.event();
-  const b = spawnEnemyAt('itrain', rand(TRAIN_LANE_MARGIN, W - TRAIN_LANE_MARGIN), -30);
+  const b = spawnEnemyAt('itrain', -30, rand(TRAIN_LANE_MARGIN, H - TRAIN_LANE_MARGIN));
   const mult = w / TRAIN_WAVE_INTERVAL;
   if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.itrain.hp * mult);
   const n = Math.floor(specialWaveMult(w / 10) * 6);
   for (let i = 0; i < n; i++) {
-    spawnEnemyAt(pick(['ifante', 'imosch', 'ibersa', 'iguast']),
-      clamp(b.x + rand(-150, 150), 30, W - 30), rand(-90, -20));
+    spawnEnemyAt(pick(['ifante', 'imosch', 'ibersa', 'iguast']), rand(-90, -20),
+      clamp(b.y + rand(-150, 150), 30, H - 30));
   }
 }
 
@@ -840,7 +841,7 @@ function spawnAlienWalkers(w) {
   n = Math.min(n, room);
   if (n <= 0) return;
 
-  for (let i = 0; i < n; i++) spawnEnemyAt('awalker', rand(90, W - 90), rand(-80, -50));
+  for (let i = 0; i < n; i++) spawnEnemyAt('awalker', rand(-80, -50), rand(90, H - 90));
   showBanner(w === AW_FIRST_WAVE ? 'SOMETHING IS WALKING OUT OF THE TREELINE'
     : n > 1 ? 'MORE OF THEM' : 'ANOTHER WALKER');
   SFX.event();
@@ -860,14 +861,14 @@ function launchWave(w) {
   const comp = f === 'jp' ? japWaveComposition(w)
     : f === 'zo' ? zomWaveComposition(w)
     : f === 'it' ? itaWaveComposition(w) : waveComposition(w);
-  const cx = rand(100, W - 100);
+  const cy = rand(100, H - 100);
   for (const type of comp) {
-    const x = clamp(cx + rand(-90, 90), 30, W - 30);
-    // tighter vertical spawn band (was -70..-20) so a wave crosses the top
+    const y = clamp(cy + rand(-90, 90), 30, H - 30);
+    // tighter staging band (was -70..-20) so a wave crosses the enemy
     // edge as one group instead of stringing out into a trickle
     // the V2 battery holds position by default, so it's staked out in view
-    // from the start instead of off the top edge with the rest of the wave
-    const y = type === 'ev2' ? rand(30, 85) : rand(-52, -20);
+    // from the start instead of off the enemy edge with the rest of the wave
+    const x = type === 'ev2' ? rand(30, 85) : rand(-52, -20);
     const e = makeEnemy(type, x, y);
     armorEnemy(e, w);
     G.enemies.push(e);
@@ -911,7 +912,7 @@ function updateEnemyChute(e, dt) {
   if (!(e.chute > 0)) return;
   e.chute -= dt;
   e.sway = (e.sway || 0) + dt * 2.2;
-  e.x = clamp(e.x + Math.sin(e.sway) * 9 * dt, 14, W - 14);
+  e.y = clamp(e.y + Math.sin(e.sway) * 9 * dt, 14, H - 14);
   if (e.chute <= 0) {
     e.chute = 0;
     for (let i = 0; i < 6; i++) {

@@ -2,13 +2,45 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html. */
 'use strict';
 
-const W = 540, H = 620;
-// layouts below were authored against the original 900px-wide field; lx()
-// rescales an offset-from-center so those formations keep their proportions
+// The field went from a near-square 620x540 to a much wider 880x460 so the
+// landscape flip actually pays for itself on a widescreen phone or a desktop
+// monitor instead of pillarboxing one. 460 was picked while CONTAIN (letterbox)
+// was still the mobile default and old ~1.9:1 phones set the ceiling; once the
+// camera moved to COVER (fill and crop), that 1.91 ratio meant every modern
+// phone (19.5:9–20:9) cropped ~12% of the lateral axis and forced up/down
+// panning just to see the whole trench line. H is now 406 = 880 ÷ (19.5/9), so
+// a 19.5:9 phone shows the entire field pixel-exact at cover and a 20:9 one
+// crops ~2%. Kept as an H cut rather than a W stretch on purpose: every depth
+// calibration (DEPLOY_X and the whole boss/weapon geometry below) stays put,
+// and formations rescale themselves through ly(). The cost is a slightly
+// deeper desktop letterbox (a 16:9 monitor shows ~10% top/bottom bars instead
+// of ~4%), accepted because desktop already letterboxed and phones are the
+// edge-to-edge target.
+const W = 880, H = 406;        // W is the DEPTH axis (enemies march +x), H the lateral
+// formations below were authored against the original 900px-wide (lateral) field;
+// ly() rescales an offset-from-center so they keep their proportions on the
+// current lateral axis (screen-vertical now that the field runs left to right)
 const LAYOUT_REF_W = 900;
-function lx(off) { return W / 2 + off * (W / LAYOUT_REF_W); }
-const DEPLOY_Y = 380;          // your side of the field starts here
-const FORWARD_Y = H / 3;       // units may advance and mines/wire may be laid this far up
+function ly(off) { return H / 2 + off * (H / LAYOUT_REF_W); }
+// DEPLOY_X and FORWARD_X split the field into three zones — the enemy's own
+// approach (0..FORWARD_X), no-man's-land (FORWARD_X..DEPLOY_X, where
+// mines/wire/camo nests reach but nothing else can be placed or walked past),
+// and the player's deploy zone (DEPLOY_X..W). They first shipped at 207/380
+// (the old field's W/3 and a hand-picked trench depth), then moved out to even
+// thirds (251/502 -> 587 briefly held even thirds at 293/587) when that pin
+// was found to have left ~57% of the field in the deploy zone. The deploy
+// zone was then widened again on purpose, to ~43% of the field (up from an
+// even 33%), taking the other 10 points evenly off the other two zones rather
+// than off just one — back and no-man's-land stay equal to each other at
+// ~28.5% each. Every absolute distance calibrated off the deploy line (boss
+// backlines, the Yamato's patrol band, the war train's parking spot, the
+// walker's stand zone) moves by the same delta the line itself moves each
+// time, so those fights always measure out identically — see the comment on
+// each. Weapon ranges themselves are untouched: how many volleys a rifleman
+// gets before contact is a front-line tuning question, independent of how
+// much open ground sits beyond FORWARD_X or how deep the deploy zone runs.
+const DEPLOY_X = 502;          // your side of the field starts here (deeper = closer to you)
+const FORWARD_X = 251;
 const MAX_BREACH = 8;
 const MAX_OFFICERS = 5;
 const MEDIC_RANGE = 95;
@@ -38,7 +70,7 @@ const SANDBAG_COVER_CHIP = [4, 3, 2];
 // through it. A vehicle catches the strand slightly sooner than a man does,
 // being longer than it is wide, which is the whole of the difference between
 // the two half-heights.
-const WIRE_BAND_X = 40, WIRE_BAND_Y = 14, WIRE_BAND_Y_VEHICLE = 16;
+const WIRE_BAND_LAT = 40, WIRE_BAND_DEPTH = 14, WIRE_BAND_DEPTH_VEHICLE = 16;
 const WIRE_DRAG = [0.126, 0.0525, 0.021];
 const WIRE_WEAR = [5, 3, 2];
 // the decoy's odds an attacker sees through the ruse on a direct hit
@@ -92,6 +124,21 @@ const SUP_FIRE_TRACERS = 3;     // rounds drawn per suppressive burst
 // fire a shot, so anything gentler than this doesn't read as an answer at all.
 const OFFICER_RALLY_MULT = 3;
 
+// ...and the German officer is the mirror of that, which is the Wehrmacht's one
+// faction ability. Every other army answers the beaten zone with a blanket rule
+// written into suppress(): jp and zo can't be pinned at all, `it` can't for as
+// long as AVANTI runs. His is the only answer GATED ON AN ACTOR THE PLAYER CAN
+// KILL — drop him and the machine gun starts working again — so it's the one
+// that's counter-playable rather than a property of the roster.
+// Scaled rather than exempted outright, for exactly the reason the ZOM_PRONE_
+// constants below are scaled: a pinned man is a PRONE man, and prone is worth
+// 60% dodge, so full immunity would make his line relentless AND easier to
+// shoot. Only the relentlessness is wanted. Note the two multipliers stack on a
+// pin roll that lands, so the expected pin TIME near him is ~0.3*0.5 = 15% of
+// normal, while a man still goes down often enough to read as flinching.
+const DE_OFF_SUP_CHANCE_MULT = 0.3;   // vs everyone else's beaten-zone pin roll
+const DE_OFF_SUP_TIME_MULT = 0.5;     // and the pin that does land runs half as long
+
 // The dead barely flinch. The Horde is ALREADY exempt from the beaten zone
 // outright (the faction check in suppress(), js/shooting.js) — this is the
 // other half of the suppression family, the near-miss flinch in tryGoProne,
@@ -122,6 +169,32 @@ const WAVE_BREATHER = 3;
 // engine pacing
 const HUD_INTERVAL = 0.1;         // seconds between DOM HUD refreshes
 const AURA_CACHE_INTERVAL = 0.4;  // seconds between officer/watchtower aura cache rebuilds
+// One officer, one bubble: the enemy aura buff (enemyOfficerNear) and the German
+// officer's steadying (deOfficerSteadies) share this radius on purpose, so the
+// player only has to learn where an officer's influence ends once.
+const OFFICER_AURA_R = 140;
+
+// --- enemy officer commands: the shout has to be SEEN COMING ----------------
+// The two officer abilities that FIRE rather than radiate — the Japanese
+// banzai order and the Screamer's frenzy shriek — used to land the instant
+// their cooldown lapsed. The whole counter-play to an officer is killing him
+// before he shouts, and there is no killing a thing that gives no notice: the
+// order and the charge arrived in the same frame. So the cooldown now opens a
+// WIND-UP instead of firing, and the command lands only if he is still alive
+// at the end of it (officerCommand, js/update-enemies.js).
+// Tuned against the window it has to buy: a gunner at 179 range needs ~1.5s to
+// put an officer down from full once he's acquired, and the player needs a
+// beat to SEE the mark and tap it first. Under ~2s the telegraph is honest but
+// unanswerable, which is the same as no telegraph; much over 3s and an officer
+// spends most of his life flashing and the mark stops meaning "now".
+const OFFICER_CMD_WARN = 2.6;      // seconds between the order forming and landing
+// ...and if there is nobody in radius to rouse he re-checks on this instead of
+// burning a full cooldown, so a telegraph that resolves into nothing — the one
+// thing that would teach the player to ignore the next one — never gets drawn.
+const OFFICER_CMD_RECHECK = 1.2;
+const BANZAI_CMD_RADIUS = 150;     // reach of the Japanese officer's charge order
+const FRENZY_CMD_RADIUS = 160;     // ...and of the Screamer's shriek
+
 const PARTICLE_CAP = 250;
 
 const UNIT_TYPES = {
@@ -186,7 +259,7 @@ const UNIT_TYPES = {
   officer: {
     name: 'Officer', hp: 95, range: 101, dmg: 9, acc: 0.5,
     rof: 0.9, burst: 1, burstGap: 0, speed: 44,
-    color: '#80814a', gun: 5, sfx: 'pistol',
+    color: '#80814a', gun: 5, sfx: 'pistol', aura: true,
     desc: 'Nearby men fire faster and straighter, more so as he ranks up. Earns +1 TP / 30 s.',
   },
   flamer: {
@@ -262,16 +335,20 @@ const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points
 // ---- German final boss (eboss, "Der Schlächter"). He cycles: advance down a
 // lane firing six revolver shots, fall back to the backline, refit his plate
 // and call in two reinforcement plays, then come again down a DIFFERENT lane.
-// The rally point must sit ON-field (y > 0) — every US targeting scan skips
-// staged enemies at y < 0 — and, more importantly, inside the reach of the
+// The rally point must sit ON-field (x > 0) — every US targeting scan skips
+// staged enemies at x < 0 — and, more importantly, inside the reach of the
 // player's indirect fire, because shelling the refit is the whole counterplay.
 // It sat at 54 first, which LOOKED right and was useless: a mortar (range 348)
 // placed anywhere sane is ~446px away from there, so nothing could touch him
 // and the fight had no punish window at all. A mortar (range 348) staked at the
-// back of the deploy zone sits at y~558, so the rally point has to be at least
-// 210 for a shell to reach it — 200 was still 10px short and measured zero
-// damage taken during rally. 220 gives margin: any mortar up to y=568 can
-// range him, and he's still pulled 250px back off his engage line.
+// back of the deploy zone sits at x~680, so the rally point has to be at least
+// 332 for a shell to reach it — 322 was still 10px short and measured zero
+// damage taken during rally. 342 gives margin: any mortar up to x=690 can
+// range him, and he's still pulled well back off wherever he was actually
+// fighting (BOSS_ENGAGE_X is a rarely-hit outer fallback, not where he
+// typically engages — see the note on it below). Translated alongside every
+// move of DEPLOY_X (see the note on it) — same mortar, same margin, just
+// measured off wherever the deploy line currently sits.
 const BOSS_WAVE_INTERVAL = 100;      // arrives at wave 100, 200, 300...
 const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
 // Plate refilled at every backline rally. These have to stay BELOW what a line
@@ -282,10 +359,15 @@ const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
 // kit while leaving real damage to spill through onto HP every cycle.
 const BOSS_BODY_ARMOR = 240;
 const BOSS_FLAK_ARMOR = 180;
-const BOSS_LANES = [0.12, 0.31, 0.5, 0.69, 0.88];  // × W — advance corridors
-const BOSS_ENGAGE_Y = H - 150;       // deepest he pushes hunting a target
-const BOSS_SAFE_Y = H - 80;          // hard clamp — the boss can never breach
-const BOSS_BACKLINE_Y = 220;         // rally point (see note above)
+const BOSS_LANES = [0.12, 0.31, 0.5, 0.69, 0.88];  // × H — lateral advance corridors
+// Both grow with W on purpose: they're the fallback he walks toward only when
+// NO target is visible at all, which in practice means he engages long before
+// reaching either one (player units sit near DEPLOY_X/FORWARD_X, both pinned
+// well short of here) — so a bigger field just gives him more empty road to
+// walk before giving up and retreating, not a deeper fight.
+const BOSS_ENGAGE_X = W - 150;       // deepest he pushes hunting a target
+const BOSS_SAFE_X = W - 80;          // hard clamp — the boss can never breach
+const BOSS_BACKLINE_X = 342;         // rally point (see note above)
 const BOSS_RETREAT_SPEED_MULT = 1.5; // he jogs back, doesn't stroll
 const BOSS_RALLY_TIME = 3.5;         // seconds standing at the backline
 const BOSS_LOITER_TIME = 4;          // shots left but no target: wait, then fall back
@@ -349,27 +431,29 @@ const YAM_MG_B = 30;                 // tubs read as sponsons overhanging the be
 const YAM_SPEED = 14;
 const YAM_TURN_RATE = 0.25;          // rad/s — a 180° reversal takes ~12s: the punish window
 // The band she patrols decides which of the player's weapons can reach her at
-// all. From the deploy line (y~392) to a hull at 240 is 152px, so bazooka (243),
-// Sherman (262) and mortarman (348) all engage. Lift the band above y~130 and
+// all. From the deploy line (x~514) to a hull at 362 is 152px, so bazooka (243),
+// Sherman (262) and mortarman (348) all engage. Lift the band above x~252 and
 // bazookas fall out entirely, leaving an AT-gun-and-artillery-only problem.
-const YAM_Y_MIN = 160, YAM_Y_MAX = 240;
+// (Translated alongside every move of DEPLOY_X — same weapons, same margins,
+// measured off wherever the deploy line currently sits.)
+const YAM_X_MIN = 282, YAM_X_MAX = 362;
 // A bound on every PART, not on the hull centre — which is the distinction that
 // matters, because a part sits up to 124px along the keel and swings 95px of that
-// into y on a steep diagonal. Clamping the centre to 240 alone let her stern reach
-// y=364, 124px deeper than intended. updateYamato subtracts the current y-reach
-// from the centre clamp, so she can only push to YAM_Y_MAX while she's flat and
-// has to pull back as she angles — DEPLOY_Y is 380, so the line is never in reach.
-const YAM_SAFE_Y = 300;
-const YAM_X_MARGIN = 140;            // hull-centre clamp; keeps every section on screen
+// into x on a steep diagonal. Clamping the centre to 362 alone let her stern reach
+// x=486, 124px deeper than intended. updateYamato subtracts the current x-reach
+// from the centre clamp, so she can only push to YAM_X_MAX while she's flat and
+// has to pull back as she angles — DEPLOY_X is 502, so the line is never in reach.
+const YAM_SAFE_X = 422;
+const YAM_Y_MARGIN = 140;            // hull-centre clamp; keeps every section on screen
 // The ROLL-IN. She used to be dropped fully formed at mid-field, which reads as a
 // 300px battleship materialising out of nothing. She now drives on from a random
-// flank, staged off the edge by YAM_ENTRY_X and running to YAM_X_MARGIN — the
-// margin her patrol already respects, so the arrival hands straight over to
-// nextYamatoLeg with nothing new to clamp. She is INERT for the whole run (see the
-// `entering` early-out in updateYamato): no guns, no landing party, untargetable
-// and undamageable. So this is a telegraph rather than a movement mode, and its
-// length is purely a pacing choice — ~8s, long enough to reposition against.
-const YAM_ENTRY_X = YAM_LEN / 2 + 30;   // 180 — her centre starts this far off the edge
+// flank (top or bottom edge), staged off it by YAM_ENTRY_Y and running to
+// YAM_Y_MARGIN — the margin her patrol already respects, so the arrival hands
+// straight over to nextYamatoLeg with nothing new to clamp. She is INERT for the
+// whole run (see the `entering` early-out in updateYamato): no guns, no landing
+// party, untargetable and undamageable. So this is a telegraph rather than a
+// movement mode, and its length is purely a pacing choice — ~8s.
+const YAM_ENTRY_Y = YAM_LEN / 2 + 30;   // 180 — her centre starts this far off the edge
 const YAM_ENTRY_SPEED = 42;             // roll-in speed; 3x the patrol, still a ship
 const YAM_ENTRY_EASE = 110;             // decel to YAM_SPEED over the last of the run,
                                         // so the hand-off to 14 isn't a visible jolt
@@ -422,7 +506,7 @@ const YAM_REPAIR_CD_MIN = 12, YAM_REPAIR_CD_MAX = 18;
 const YAM_REPAIR_FRAC = 0.55;        // damage control brings a part back part-worn, not new
 
 // ---- The Progenitor: the Horde's wave-100 boss ------------------------------
-// A slab of fused flesh the size of a bunker, crawling down the field with five
+// A slab of fused flesh the size of a bunker, crawling down-field with five
 // pus modules swollen out of its hide. It is the SECOND multi-actor boss and the
 // second consumer of the parent+parts pattern the Yamato introduced: a core
 // actor plus five child pod actors, all real entries in G.enemies, repositioned
@@ -464,7 +548,7 @@ const PROG_SEGMENTS = 3;             // ONE pool; the phase boundaries are the b
 // Rifleman 42, medic 46, Sherman 14, the Abomination 9 — at 7 it is the slowest
 // thing on the field and repositioning is always an answer to it.
 const PROG_SPEED = 7;
-const PROG_SAFE_Y = H - 80;          // hard clamp, mirrors BOSS_SAFE_Y: it can never breach
+const PROG_SAFE_X = W - 80;          // hard clamp, mirrors BOSS_SAFE_X: it can never breach
 // NOTE: it deliberately carries NO blastResist. A 0.25 was tried and removed: the
 // brood screens the mass so completely that small arms almost never reach it (a
 // 20-man line fired for 55s and took it to 97.5%), which makes explosives the one
@@ -484,11 +568,11 @@ const PROG_DEVOUR_DMG = 99999;
 // Pus modules. PROG_POD_R is a MECHANIC, not decoration, for exactly the reason
 // YAM_MG_B is: every US target scan picks by RAW DISTANCE and nothing in the
 // engine can express "deprioritise this actor". The pods are fanned across the
-// DOWN-FIELD semicircle in world space (every angle has sin > 0) and deliberately
-// NOT rotated with the core's facing, so the two or three nearest a defender are
-// always closer than the core itself and small arms strip the pods before they
-// ever touch the mass. Set this to 0 and rifles shoot the core instead, and the
-// modules become undamageable decoration.
+// DOWN-FIELD semicircle in world space (every angle has cos > 0 — toward the
+// player's trench at +x) and deliberately NOT rotated with the core's facing, so
+// the two or three nearest a defender are always closer than the core itself and
+// small arms strip the pods before they ever touch the mass. Set this to 0 and
+// rifles shoot the core instead, and the modules become undamageable decoration.
 const PROG_POD_HP = 260;
 // 34, not 26: the sacs are ~7.5px across and five of them across a 130° arc are
 // exactly touching at 26, which reads as a bunch of grapes rather than five
@@ -496,7 +580,7 @@ const PROG_POD_HP = 260;
 // and a little nearer the player, which only sharpens the targeting behaviour
 // this offset exists for.
 const PROG_POD_R = 34;
-const PROG_POD_ANGLES = [0.14, 0.32, 0.5, 0.68, 0.86].map(a => a * Math.PI);
+const PROG_POD_ANGLES = [0.14, 0.32, 0.5, 0.68, 0.86].map(a => (a - 0.5) * Math.PI);
 // The sacs' plate per intact segment of the CORE (see bossPartDamageMult): 66%
 // while the mass is whole, none once it is on its last third. Note what this does
 // to the "TRUE pool" arithmetic in the PROG_HP comment above — five 260-HP sacs
@@ -572,9 +656,14 @@ const ENEMY_TYPES = {
   },
   eoff: {
     // counterpart: officer (range 101, speed 44)
+    // `supResist` is the German faction ability, and it is the mirror of the
+    // player officer's OFFICER_RALLY_MULT: men in his aura barely take the
+    // beaten-zone pin. See the DE_OFF_SUP_ constants for why it's a scale and
+    // not the outright exemption the other three armies carry.
     name: 'Officer', hp: 95, speed: 24, range: 94, dmg: 9, acc: 0.48,
     rof: 0.92, burst: 1, burstGap: 0, reward: 4,
     color: '#4f5661', gun: 5, sfx: 'pistol', priority: 5, aura: true,
+    supResist: true,
   },
   esniper: {
     // counterpart: sniper (range 274, speed 38)
@@ -614,13 +703,13 @@ const ENEMY_TYPES = {
     // counterpart: jeep (range 201, speed 110)
     name: 'Kübelwagen', hp: 250, speed: 45, range: 188, dmg: 13, acc: 0.42,
     rof: 2.2, burst: 8, burstGap: 0.07, reward: 8,
-    color: '#585f69', gun: 14, sfx: 'hmg', priority: 3, vehicle: true,
+    color: '#585f69', gun: 14, sfx: 'hmg', priority: 1, vehicle: true,
   },
   ehalftrack: {
     // no allied counterpart (APC) — range/speed left as authored
     name: 'Sd.Kfz. 251', hp: 1150, speed: 30, range: 161, dmg: 9, acc: 0.42,
     rof: 2.2, burst: 6, burstGap: 0.08, reward: 12,
-    color: '#565d67', gun: 16, sfx: 'mg', priority: 3, vehicle: true, apc: true,
+    color: '#565d67', gun: 16, sfx: 'mg', priority: 1, vehicle: true, apc: true,
   },
   panzer: {
     // counterpart: sherman (range 288, speed 14)
@@ -647,7 +736,7 @@ const ENEMY_TYPES = {
     mg: { range: 161, dmg: 8, acc: 0.42, burst: 6, burstGap: 0.08, gun: 26, sfx: 'mg' },
   },
   // A20 "V2" battery — a rear-echelon siege weapon, not a soldier. It stakes
-  // itself out near the top of the field the instant it spawns and mostly
+  // itself out just inside the enemy's own edge the instant it spawns and mostly
   // holds position, but pushes forward on the same discipline-break urge as
   // any German infantry; the counter is to reach out and kill it (AT gun,
   // artillery, a bazooka that gets lucky) before its next launch window
@@ -655,7 +744,7 @@ const ENEMY_TYPES = {
   ev2: {
     name: 'V2 Rocket Battery', hp: 536, speed: 18, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 60,
-    color: '#474e58', gun: 0, sfx: 'boom', priority: 5, fixed: true,
+    color: '#474e58', gun: 0, sfx: 'boom', priority: 1, fixed: true,
     // r halved from its original 130 — still levels anything close, but no
     // longer wipes out a whole line at once. dmg is 95% of a rifleman's 100
     // hp, so a near-direct hit maims rather than instantly kills, and
@@ -678,7 +767,7 @@ const ENEMY_TYPES = {
     rof: 1.6, burst: 1, burstGap: 0, reward: 200,
     // gun 14: long enough that the barrel clears his greatcoat at the 1.35x
     // sprite scale — at 10 the revolver drew entirely under the coat ellipse
-    color: '#3a3b45', gun: 14, sfx: 'sniper', priority: 5,
+    color: '#3a3b45', gun: 14, sfx: 'sniper', priority: 1,
     germanBoss: true, boss: true, noRamp: true,
     revolver: { armorDmg: 490 },
   },
@@ -763,7 +852,7 @@ Object.assign(ENEMY_TYPES, {
     // fires and never survives its own attack, so it pays no reward.
     name: 'Lunge Mine', hp: 84, speed: 46, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 5,
-    color: '#6e6a34', gun: 13, sfx: 'rifle', priority: 4, faction: 'jp',
+    color: '#6e6a34', gun: 13, sfx: 'rifle', priority: 1, faction: 'jp',
     lunge: { r: 42, dmg: 130, armorMult: 6 },
   },
   joff: {
@@ -832,7 +921,7 @@ Object.assign(ENEMY_TYPES, {
   jyamato: {
     name: 'Yamato', hp: YAM_HULL_HP, speed: YAM_SPEED, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 400,
-    color: '#5d5f52', gun: 0, sfx: 'boom', priority: 5,
+    color: '#5d5f52', gun: 0, sfx: 'boom', priority: 1,
     // tank: small arms ping off at x0.04 and HE bites at x2.2 — the counter-play
     // is artillery, AT guns and bazookas, which is right for an armor belt
     tank: true, heavy: true, boss: true, japBoss: true, ship: true,
@@ -858,13 +947,14 @@ Object.assign(ENEMY_TYPES, {
     // still out-ranges a bazooka — but she has to be closed with.
     name: 'Yamato — Main Battery', hp: YAM_TURRET_HP, speed: 0, range: 330, dmg: 0, acc: 0,
     rof: YAM_TURRET_ROF, burst: 1, burstGap: 0, reward: 60, shellDmg: YAM_SHELL_DMG,
-    color: '#63655a', gun: 0, sfx: 'boom', priority: 5,
+    color: '#63655a', gun: 0, sfx: 'boom', priority: 1,
     tank: true, shipPart: true, shipTurret: true, fixed: true, noRamp: true, faction: 'jp',
   },
   jymg: {
     // an open 25mm tub on a sponson. NOT `tank` — this is the one part of the
-    // ship a rifleman can hurt, and sniperTarget skips t.tank outright, so the
-    // high priority here quietly gets snipers picking off the gun crews.
+    // ship a rifleman can hurt, so small arms have a job against her at all.
+    // priority 1 (not 4): sniperTarget skips t.tank outright, so a high number
+    // here quietly made snipers ignore the infantry escort to plink gun crews.
     // Stats live on the type (not in an mg:{} spec) so runWeapon can drive it,
     // which is what buys bursts AND suppressArea pinning.
     // range 247: reaches ~90px past the deploy line from the near edge of her
@@ -872,7 +962,7 @@ Object.assign(ENEMY_TYPES, {
     // instead of only punishing men who push up
     name: 'Yamato — Gun Tub', hp: YAM_MG_HP, speed: 0, range: 247, dmg: 9, acc: 0.42,
     rof: 0.95, burst: 7, burstGap: 0.09, reward: 14,
-    color: '#6b6a3c', gun: 9, sfx: 'mg', priority: 4, sup: true,
+    color: '#6b6a3c', gun: 9, sfx: 'mg', priority: 1, sup: true,
     shipPart: true, shipMg: true, fixed: true, noRamp: true, faction: 'jp',
   },
 });
@@ -982,7 +1072,7 @@ Object.assign(ENEMY_TYPES, {
     // desperate. Small arms just annoy it; burn it, shell it, or mine it.
     name: 'Abomination', hp: 920, speed: 18, range: 0, dmg: 70, acc: 0,
     rof: 1.7, burst: 1, burstGap: 0, reward: 16,
-    color: '#4f5a3a', gun: 8, sfx: 'scream', priority: 4, faction: 'zo',
+    color: '#4f5a3a', gun: 8, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.5, boss: true,
   },
   zprogen: {
@@ -1000,7 +1090,7 @@ Object.assign(ENEMY_TYPES, {
     // zombieBite'd with this instead. 0 here would make that branch a no-op.
     name: 'The Progenitor', hp: PROG_HP, speed: PROG_SPEED, range: 0,
     dmg: 90, acc: 0, rof: PROG_DEVOUR_CD, burst: 1, burstGap: 0, reward: 300,
-    color: '#4a5834', gun: 0, sfx: 'scream', priority: 5,
+    color: '#4a5834', gun: 0, sfx: 'scream', priority: 1,
     hordeBoss: true, boss: true, noRamp: true, faction: 'zo',
   },
   zpod: {
@@ -1015,7 +1105,7 @@ Object.assign(ENEMY_TYPES, {
     // melee-horde HP pass below keys on.
     name: 'Pus Module', hp: PROG_POD_HP, speed: 0, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 12,
-    color: '#7d8a44', gun: 0, sfx: 'scream', priority: 4,
+    color: '#7d8a44', gun: 0, sfx: 'scream', priority: 1,
     bossPart: true, fixed: true, noRamp: true, faction: 'zo',
     spit: PROG_POD_SPIT,
   },
@@ -1059,9 +1149,9 @@ for (const t of Object.values(ENEMY_TYPES)) {
 // player's side. A marksman in a hardened tower outranges most of the line, which
 // is what makes a tower worth shelling ahead of a bunker.
 const IT_WORK_KINDS = {
-  sandbags:   { label: 'Sandbag Parapet', hp: 430,  cap: 2, box: { hw: 22, hh: 12 },
+  sandbags:   { label: 'Sandbag Parapet', hp: 430,  cap: 2, box: { hw: 12, hh: 22 },
                 dodge: [0.50, 0.65, 0.78], chip: [4, 3, 2] },
-  bunker:     { label: 'Bunker',          hp: 1240, cap: 3, box: { hw: 28, hh: 13 },
+  bunker:     { label: 'Bunker',          hp: 1240, cap: 3, box: { hw: 13, hh: 28 },
                 dodge: [0.75, 0.85, 0.92], chip: [2, 1, 1] },
   watchtower: { label: 'Watch Tower',     hp: 340,  cap: 1, box: { hw: 15, hh: 15 },
                 dodge: [0.10, 0.10, 0.10], chip: [3, 3, 3],
@@ -1089,9 +1179,9 @@ const IT_AVANTI_OFFICER_URGE = 0.3;   // per officer, up to two — so at most x
 const IT_AVANTI_PRESSURE_URGE = 0.25; // dug out to the wall with a crowd behind it
 const IT_AVANTI_MIN_GAP = 20;     // true safety floor: should rarely be what binds
 
-const GARRISON_STANDOFF = 8;   // how far north of the work a man stands — the work
-                               // ends up between him and the player, which is the
-                               // whole point of standing there
+const GARRISON_STANDOFF = 8;   // how far up-field (-x) of the work a man stands — the
+                               // work ends up between him and the player, which is
+                               // the whole point of standing there
 const GARRISON_SLOT_W = 13;    // lateral spacing between men sharing one work
 const GARRISON_REACH = 5;      // close enough to count as manning it
 const GARRISON_BACKSTEP = 40;  // he'll step this far back into cover, no further:
@@ -1104,41 +1194,45 @@ const GARRISON_BACKSTEP = 40;  // he'll step this far back into cover, no furthe
 // the enemy line reaching the player's own build pocket, one sapper digging
 // forever, and a rear line of abandoned works never going away.
 const IT_WORK_CAP = 24;              // hard ceiling on works alive at once
-const IT_WORK_MIN_Y = 50;            // no closer to the top edge than this
+const IT_WORK_MIN_X = 50;            // no closer to the enemy's own edge than this
 const IT_WORK_DEPLOY_MARGIN = 30;    // ...and how far short of the deploy line it stops.
                                      // THE tuning lever for how far the creep gets: it is
                                      // the only thing standing between an Italian parapet
                                      // and the player's trench.
-const IT_WORK_MAX_Y = DEPLOY_Y - IT_WORK_DEPLOY_MARGIN;  // 350: the DEPTH WALL. The creep
+const IT_WORK_MAX_X = DEPLOY_X - IT_WORK_DEPLOY_MARGIN;  // 472: the DEPTH WALL. The creep
                                      // runs THROUGH the forward line and stops just short
-                                     // of DEPLOY_Y, so the Regio Esercito ends a long run
+                                     // of DEPLOY_X, so the Regio Esercito ends a long run
                                      // dug in on the player's doorstep — which is the whole
                                      // point of the only faction that takes GROUND.
                                      //
                                      // What the wall still guards is the player's BUILD
                                      // POCKET, and only that: forEachEmplacement walks
                                      // G.itWorks, so a work inside the pocket is ground the
-                                     // player can no longer put a bunker on. At 350 the
-                                     // tallest work (the tower, hh 15) bottoms out at 365
-                                     // and the shallowest player defense — placementMinY's
-                                     // DEPLOY_Y + 12, hh 12 — tops out at 380, so the two
+                                     // player can no longer put a bunker on. At 472 the
+                                     // deepest work (the tower, hw 15) bottoms out at 487
+                                     // and the shallowest player defense — placementMinX's
+                                     // DEPLOY_X + 12, hw 12 — tops out at 502, so the two
                                      // can never overlap. Move the margin below ~27 and they
                                      // start denying each other ground at the trench lip.
+                                     // That 15px of daylight is (margin - 15) and so is a
+                                     // property of the margin and the two half-widths ALONE,
+                                     // which is why it has survived both zone rebalances
+                                     // unchanged — re-verify it, don't re-derive it.
                                      //
-                                     // The creep is ~8 steps from IT_FRONT_Y_START now
+                                     // The creep is ~9-16 steps from IT_FRONT_X_START now
                                      // rather than 3-4, and every one of them has to be dug
                                      // by a sapper who walked that far down the field under
                                      // fire. That is deliberately the rate limit: the front
                                      // advances only as fast as guastatori survive to stake
                                      // it, so a player who kills sappers keeps his ground
                                      // without ever shooting a work. Deep works are also
-                                     // EASIER to answer — a parapet at 350 is inside
+                                     // EASIER to answer — a parapet at 472 is inside
                                      // grenadier and bazooka reach from the deploy line,
                                      // where one at 182 was not.
-const IT_FRONT_Y_START = 64;         // where the first line goes up, and where the
+const IT_FRONT_X_START = 64;         // where the first line goes up, and where the
                                      // front resets to if the player levels every work
-const IT_CREEP_MIN = 26;             // how much further down each new work is sited
-const IT_CREEP_MAX = 46;             // than the current deepest one — 3-4 steps to the wall
+const IT_CREEP_MIN = 26;             // how much further forward each new work is sited
+const IT_CREEP_MAX = 46;             // than the current deepest one — 9-16 steps to the wall
 const IT_WORK_SPACING = 46;          // minimum gap between two works
 const IT_SITE_CLEAR = 8;             // and the GAP a site keeps between its own box and the
                                      // player's emplacements. A margin on a box-vs-box test
@@ -1351,9 +1445,10 @@ Object.assign(ENEMY_TYPES, {
 });
 
 // ---- The Treno Armato: the Regio Esercito's wave-100 boss ------------------
-// An armored war train that rolls straight down a rail lane from the north and
-// PARKS at the bottom of the field — it never breaches, it just sits there as a
-// fortress inside your lines until it's killed. The third multi-actor boss: an
+// An armored war train that rolls straight down a rail lane out of the enemy
+// treeline and PARKS at the player's end of the field — it never breaches, it
+// just sits there as a fortress inside your lines until it's killed. The third
+// multi-actor boss: an
 // engine (the parent, and the boss's whole HP pool) plus eight wagon/crew part
 // actors, all real entries in G.enemies, repositioned each tick by
 // syncTrainParts. Unlike the Yamato's belt there is NO shared pool — every part
@@ -1361,16 +1456,26 @@ Object.assign(ENEMY_TYPES, {
 // clause and adding one would be a bug. AI in js/update-enemies.js
 // (updateWarTrain); art in js/render-train.js.
 const TRAIN_WAVE_INTERVAL = 100;     // arrives at wave 100, 200... (mirrors the others)
-const TRAIN_HP = 26000;              // the ENGINE pool — killing it ends the fight
+const TRAIN_HP = 17420;              // the ENGINE pool — killing it ends the fight (26000 × 0.67)
 const TRAIN_SEGMENTS = 3;            // ONE pool, ticked into three; each break sounds the AVANTI
 const TRAIN_PART_RESIST = 0.33;      // the wagons' plate per intact segment — see bossPartDamageMult
-const TRAIN_SPEED = 9;               // px/s down the lane: ~70s from the top to the stop
-const TRAIN_STOP_Y = H - 70;         // "the bottom of the screen": it parks here, short of a breach
+const TRAIN_SPEED = 9;               // px/s down the lane: ~75s from the treeline to the stop
+// Pinned rather than W - 70: this is calibrated against the deploy line (how
+// close the parked train sits to the player's actual trench, and hence how much
+// of its armament can reach back to it), not against the field's total depth —
+// letting it scale with W would park the train much deeper as the field grew,
+// putting it out of easy artillery reach for no reason. It is TRANSLATED by
+// hand every time DEPLOY_X moves, same as the other boss geometry below it, so
+// it keeps parking the same distance past the deploy line: DEPLOY_X + 170
+// through all three positions so far (380 -> 550, 587 -> 757, 502 -> 672).
+// Move DEPLOY_X and this has to move with it or the train parks somewhere it
+// was never balanced for.
+const TRAIN_STOP_X = 672;
 const TRAIN_SPACING = 46;            // wagon-to-wagon centre distance along the rails
 const TRAIN_LANE_MARGIN = 110;       // lane-centre clamp keeps every wagon + MG post on screen
 // consist, engine first: engine / turret wagon / infantry wagon / gun wagon /
 // turret wagon / artillery wagon. sOff is NEGATIVE = further behind the engine
-// (north, away from the player), so the REAR of the train is the most negative.
+// (up-field at -x, away from the player), so the REAR of the train is the most negative.
 const TRAIN_TURRET_S = [-TRAIN_SPACING, -TRAIN_SPACING * 4];
 const TRAIN_WAGON_S = -TRAIN_SPACING * 2;
 const TRAIN_GUNWAGON_S = -TRAIN_SPACING * 3;
@@ -1395,7 +1500,7 @@ const TRAIN_WAGON_HP = 4200;         // the infantry wagon: kill it and the squa
 const TRAIN_MG_HP = 900;             // per post; itmg is NOT `tank`, so rifles work on it
 const TRAIN_TURRET_ROF = 9;
 const TRAIN_TURRET_TRACK = 0.35;     // rad/s traverse
-const TRAIN_TURRET_ARC = 2.0;        // wedge off straight down-field: can't fire back up its own train
+const TRAIN_TURRET_ARC = 2.0;        // wedge off straight down-field (+x): can't fire back up its own train
 const TRAIN_TURRET_FIRE_TOL = 0.14;
 const TRAIN_SHELL_DMG = 70;
 const TRAIN_SHELL_R = 40;
@@ -1440,7 +1545,7 @@ Object.assign(ENEMY_TYPES, {
     // armor-roll exemptions every boss gets.
     name: 'Treno Armato', hp: TRAIN_HP, speed: TRAIN_SPEED, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 400,
-    color: '#6f6b4e', gun: 0, sfx: 'boom', priority: 5,
+    color: '#6f6b4e', gun: 0, sfx: 'boom', priority: 1,
     tank: true, heavy: true, boss: true, itaBoss: true, noRamp: true, faction: 'it',
   },
   ittur: {
@@ -1452,7 +1557,7 @@ Object.assign(ENEMY_TYPES, {
     name: 'Treno Armato — Turret Wagon', hp: TRAIN_TURRET_HP, speed: 0, range: 290,
     dmg: 0, acc: 0, rof: TRAIN_TURRET_ROF, burst: 1, burstGap: 0, reward: 50,
     shellDmg: TRAIN_SHELL_DMG,
-    color: '#787454', gun: 0, sfx: 'boom', priority: 5,
+    color: '#787454', gun: 0, sfx: 'boom', priority: 1,
     tank: true, trainPart: true, trainTurret: true, fixed: true, noRamp: true, faction: 'it',
   },
   itwag: {
@@ -1460,7 +1565,7 @@ Object.assign(ENEMY_TYPES, {
     // on a cadence. No weapon — killing it is how the player turns the tap off.
     name: 'Treno Armato — Infantry Wagon', hp: TRAIN_WAGON_HP, speed: 0, range: 0,
     dmg: 0, acc: 0, rof: 1, burst: 1, burstGap: 0, reward: 60,
-    color: '#7a765a', gun: 0, sfx: 'boom', priority: 4,
+    color: '#7a765a', gun: 0, sfx: 'boom', priority: 1,
     tank: true, trainPart: true, fixed: true, noRamp: true, faction: 'it',
   },
   itmg: {
@@ -1469,7 +1574,7 @@ Object.assign(ENEMY_TYPES, {
     // Stats live on the type so runWeapon can drive it: bursts AND suppression.
     name: 'Treno Armato — Gun Post', hp: TRAIN_MG_HP, speed: 0, range: 240,
     dmg: 8, acc: 0.4, rof: 1.0, burst: 7, burstGap: 0.09, reward: 12,
-    color: '#6b6a44', gun: 9, sfx: 'mg', priority: 4, sup: true,
+    color: '#6b6a44', gun: 9, sfx: 'mg', priority: 1, sup: true,
     trainPart: true, trainMg: true, fixed: true, noRamp: true, faction: 'it',
   },
   itarty: {
@@ -1482,7 +1587,7 @@ Object.assign(ENEMY_TYPES, {
     range: TRAIN_ARTY_RANGE, dmg: 0, acc: 0,
     rof: TRAIN_ARTY_CD_MIN, burst: 1, burstGap: 0, reward: 70,
     shellDmg: TRAIN_ARTY_DMG,
-    color: '#7c7856', gun: 0, sfx: 'boom', priority: 5,
+    color: '#7c7856', gun: 0, sfx: 'boom', priority: 1,
     tank: true, trainPart: true, trainArty: true, fixed: true, noRamp: true, faction: 'it',
   },
 });
@@ -1504,17 +1609,19 @@ Object.assign(ENEMY_TYPES, {
 // The one tuning decision worth writing down: it deliberately does NOT carry
 // `tank`. At x0.04 vs small arms, 3000 HP would take a rifle line ~937 seconds
 // and a prepared AT battery 3.4 shells — simultaneously impossible and trivial,
-// one answer, no decision. Instead it is hard to REACH: standing at y 92..128
-// it sits 252-288px off DEPLOY_Y (380), outside rifleman (154), gunner (179),
+// one answer, no decision. Instead it is hard to REACH: standing at x 214..250
+// it sits 252-288px off DEPLOY_X (502), outside rifleman (154), gunner (179),
 // grenadier (231) and bazooka (243) range, so the artillery answer falls out of
 // geometry for free with the 3000 intact — while a player who walks his men up
-// to FORWARD_Y can close inside rifle range and trade, standing in the open
-// inside a beam that reaches past the bottom edge. If it dies too fast, push
-// AW_STAND_Y_MIN back (out of mortar range too), never add an armor multiplier.
+// to FORWARD_X can close inside rifle range and trade, standing in the open
+// inside a beam that reaches past the player's own edge. If it dies too fast, push
+// AW_STAND_X_MIN back (out of mortar range too), never add an armor multiplier.
+// (Translated alongside every move of DEPLOY_X — same 252-288px
+// gap, same weapons falling in or out of it, measured off the new deploy line.)
 const AW_FIRST_WAVE = 666;
 const AW_HP = 3000;                  // 3x a Sherman (UNIT_TYPES.sherman.hp = 1000)
 const AW_SWEEP_DMG = 800;            // 80% of a Sherman, ONCE per actor per sweep
-const AW_BEAM_RANGE = Math.round(H * 0.85);   // 527 — "85% of the battlefield"
+const AW_BEAM_RANGE = Math.round(W * 0.85);   // "85% of the battlefield" (depth axis) — scales with W on purpose
 const AW_SWEEP_T = 2.0;              // the two-second sweep
 const AW_SWEEP_ARC = 0.6;            // ~34deg, centred on the defenders' mass
 const AW_CHARGE_T = 1.4;             // telegraph: a thin aiming line, time to walk men clear
@@ -1531,7 +1638,7 @@ const AW_CD_MIN = 4.5, AW_CD_MAX = 7.0;
 const AW_BEAM_HALFW = 7;
 const AW_BEAM_MIN_R = 10;            // radius floor for that conversion
 const AW_WIRE_HALFW = 35;            // wire is a belt, not a point (mirrors purgeRadius)
-const AW_STAND_Y_MIN = 92, AW_STAND_Y_MAX = 128;  // its standing band; it never closes
+const AW_STAND_X_MIN = 214, AW_STAND_X_MAX = 250;  // its standing band; it never closes
 const AW_APPROACH_SPEED = 22, AW_PATROL_SPEED = 13;
 // The spawn roll: wave 666 is one, guaranteed. From 667 the chance climbs
 // linearly — linear because it's the only shape you can reason about three
@@ -1581,7 +1688,7 @@ Object.assign(ENEMY_TYPES, {
     // entirely from updateAlienWalker and reads the AW_ constants directly.
     name: 'Alien Walker', hp: AW_HP, speed: AW_APPROACH_SPEED, range: AW_BEAM_RANGE,
     dmg: AW_SWEEP_DMG, acc: 0, rof: AW_SWEEP_T, burst: 1, burstGap: 0, reward: 250,
-    color: '#2b3138', gun: 0, sfx: 'boom', priority: 5,
+    color: '#2b3138', gun: 0, sfx: 'boom', priority: 1,
     awalker: true, boss: true, noRamp: true,
   },
 });
@@ -1603,7 +1710,7 @@ const ENEMY_INFO = {
   estug: 'StuG III assault gun. Low-profile casemate mount; hunts bunkers and armor from range.',
   etiger: 'Tiger I heavy tank. Nearly impenetrable frontal armor and a devastating 88mm.',
   ev2: 'A20 rocket battery. Mostly holds position but pushes forward under fire like any infantry, covers most of the map, and hits hard where it lands — wildly inaccurate, but it hunts vehicles first and wrecks them fast. Doesn\'t show up until the fighting gets desperate.',
-  eboss: 'Der Schlächter — the dark-haired executioner who takes the field every hundredth wave. Six revolver shots, each one a kill, and enough of a punch to hole a Sherman. When the cylinder runs dry he falls back to the top of the field, refits his plate and calls in reinforcements, then comes again down a different lane. Shell him while he reloads.',
+  eboss: 'Der Schlächter — the dark-haired executioner who takes the field every hundredth wave. Six revolver shots, each one a kill, and enough of a punch to hole a Sherman. When the cylinder runs dry he falls back up the field, refits his plate and calls in reinforcements, then comes again down a different lane. Shell him while he reloads.',
   // Imperial Japanese Army — the alternate endless foe. All of them are
   // fanatics: they never hit the dirt, closing the distance instead of pinning.
   jrifle: 'Imperial infantry with a Type 38 Arisaka and a long bayonet. Fanatical — never goes to ground, just keeps coming.',
@@ -1616,7 +1723,7 @@ const ENEMY_INFO = {
   jsniper: 'Marksman lashed into the treeline. Stays hidden until he fires, then picks off officers, medics, and gunners.',
   jknee: 'Type 89 grenade discharger — a "knee mortar." Short-ranged and light, but it lobs shells far faster than a Granatwerfer.',
   jlunge: 'Suicide anti-tank man with a Type 99 lunge mine. Charges your armor and emplacements and rams the charge home. Shoot him off before he connects.',
-  joff: 'Sword-wielding officer. His presence hardens the troops, and on command he hurls every soldier around him into a banzai charge.',
+  joff: 'Sword-wielding officer. His presence hardens the troops, and on command he hurls every soldier around him into a banzai charge. The order takes a few seconds to form, and he marks himself while it does — kill him inside that window and it never lands.',
   jflame: 'Type 100 flamethrower operator. Burns through wire, sandbags, and flesh — and his own men if they\'re in the way.',
   jhago: 'Type 95 Ha-Go light tank. Thin-skinned and armed with only a 37mm gun, but fast — and it shows up long before the heavier armor.',
   jtank: 'Type 97 Chi-Ha. Lighter and faster than a Panzer, with a stubby 57mm gun and a hull MG. Small arms still bounce off it.',
@@ -1634,7 +1741,7 @@ const ENEMY_INFO = {
   zbrute: 'A swollen, muscle-bound corpse. High HP, slow, and it hits like a truck — a heavy bite with a strong chance to infect. Soaks a lot of lead.',
   zspitter: 'The horde\'s one ranged threat. Hangs back and lobs a glob of corrosive bile that bursts on impact — area damage plus a high chance to infect everyone in the splash. Blind up close.',
   zbloater: 'A gas-swollen corpse that bursts when it dies or reaches you, venting a cloud of infectious rot: area damage and a high infect chance to all caught in it. A walking mine — kill it at range.',
-  zscreamer: 'The horde\'s driving force. Its presence enrages the dead around it, and on a cadence it looses a scream that hurls every nearby zombie into a frenzied sprint. Kill it to slow the whole pack.',
+  zscreamer: 'The horde\'s driving force. Its presence enrages the dead around it, and on a cadence it looses a scream that hurls every nearby zombie into a frenzied sprint. It swells for a few seconds first, marked and ringed — put it down inside that window and the pack never breaks into a run.',
   zrevenant: 'A reanimated Wehrmacht soldier that never let go of his Kar98 — the horde\'s only gunman. Undead hands aim poorly and it fires slowly, but a corpse that shoots back is a nasty surprise.',
   zabom: 'The Abomination — a towering mound of fused corpses, the horde\'s boss. Enormous HP, ground-shaking slow, a sweeping blow that flattens men and smashes emplacements, and near-certain infection on survivors. Burn it, shell it, or mine it.',
   zprogen: 'The Progenitor — the mass the whole horde came out of, and the thing waiting at wave 100. It crawls slower than anything on the field and swallows whole any man it reaches. Five pus modules ring its hide, lobbing infectious bile; shoot them off and its reach dies with them. It splits open every few seconds to birth a fresh brood, and every time a third of it dies it calls every corpse nearby back onto its feet — yours included. Do not let bodies pile up around it.',
@@ -1659,7 +1766,7 @@ const ENEMY_INFO = {
   isemo: 'Semovente 75/18 assault gun. A low casemate mount with no turret and the best anti-tank punch the Italians bring; it stands off and shells your bunkers and armour.',
   ibersa: 'Bersagliere close-assault trooper in a plumed helmet. Elite and quick — he runs the open ground to get inside buckshot range, then stops and shreds your line at point-blank. He never digs in; he is what comes out of the works at you.',
   awalker: 'No army fields this. It walks out of the treeline on three legs some time after the six hundred and sixty-sixth wave, plants itself beyond every rifle you own, and sweeps a lance of light across the whole sector — enough in one pass to gut a Sherman, and it does not care whose men are underneath. It comes whoever you are fighting, and the longer you last the more of them come. Artillery and anti-tank guns are the only things that reach it.',
-  itrain: 'The Italian final boss: an armored war train that rolls straight down its rails and PARKS at the bottom of your sector. Two turret wagons shell your line, four gun posts rake it, and an infantry wagon unloads fanteria beside the track. On the tail is a howitzer wagon that outranges every mortar you own and drops heavy shells across your whole trench — but it cannot depress onto anything close, so men who get in among the wheels are safe from it. Small arms only reach the gun crews — bring explosives. Every third of the engine\'s health you strip away, the whole army answers with an AVANTI charge.',
+  itrain: 'The Italian final boss: an armored war train that rolls straight down its rails and PARKS deep inside your sector. Two turret wagons shell your line, four gun posts rake it, and an infantry wagon unloads fanteria beside the track. On the tail is a howitzer wagon that outranges every mortar you own and drops heavy shells across your whole trench — but it cannot depress onto anything close, so men who get in among the wheels are safe from it. Small arms only reach the gun crews — bring explosives. Every third of the engine\'s health you strip away, the whole army answers with an AVANTI charge.',
 };
 
 const EVENT_INFO = [
@@ -1685,7 +1792,7 @@ const EVENT_INFO = [
     key: 'airraid',
     name: 'Air Attack',
     wave: 4,
-    desc: 'Aircraft cross the field from north to south. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Against the Imperial Japanese Army it is a kamikaze attack instead: twice as many aircraft, no bombs, each one picking a defender and flying into him for a single blast exactly where it lands. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
+    desc: 'Aircraft cross the field out of the enemy treeline toward your line. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Against the Imperial Japanese Army it is a kamikaze attack instead: twice as many aircraft, no bombs, each one picking a defender and flying into him for a single blast exactly where it lands. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
   },
   {
     key: 'paradrop',
@@ -1981,7 +2088,7 @@ const TESTING_ITALIAN_PLACEABLES = [
   // the engine only — its seven wagon/crew parts are built by initWarTrain on
   // the first tick, so deploying the boss deploys the whole consist
   { key: 'itrain', label: 'TRENO ARMATO', cost: 400, kind: 'egerman', hotkey: '',
-    desc: 'The Italian final boss: an armored war train that parks at the bottom of the field. Normally arrives at wave 100 — testing mode rolls one in on demand.' },
+    desc: 'The Italian final boss: an armored war train that parks deep inside your sector. Normally arrives at wave 100 — testing mode rolls one in on demand.' },
   // The field works. Their own kind ('itwork') because they aren't units — they
   // route through applyPlacement's G.itWorks branch, not makeEnemy. `workKind`
   // indexes IT_WORK_KINDS; the key only has to be unique in the toolbar.
@@ -2068,7 +2175,7 @@ const TESTING_EVENTS = [
   { key: 'paradrop', label: 'PARADROP', cost: 0, kind: 'event', hotkey: '',
     desc: 'Fallschirmjäger drop into the field. Stick size scales with the current wave.' },
   { key: 'airraid', label: 'AIR RAID', cost: 0, kind: 'event', hotkey: '',
-    desc: 'Whatever the current enemy sends: bombers crossing north to south, or kamikaze against the Imperial Japanese Army. Formation and payload scale with the current wave.' },
+    desc: 'Whatever the current enemy sends: bombers crossing from their treeline over your line, or kamikaze against the Imperial Japanese Army. Formation and payload scale with the current wave.' },
   { key: 'kamikaze', label: 'KAMIKAZE', cost: 0, kind: 'event', hotkey: '',
     desc: 'Forces the Japanese half of the air raid against any enemy. Twice the aircraft of a bombing run, each picking a defender at random and diving into him for one blast.' },
   { key: 'airstrike', label: 'STRAFING RUN', cost: 0, kind: 'event', hotkey: '',

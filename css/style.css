@@ -23,11 +23,12 @@ body {
   align-items: center;
   min-height: 100vh;
   min-height: 100dvh;
-  padding:
-    env(safe-area-inset-top, 0)
-    env(safe-area-inset-right, 0)
-    env(safe-area-inset-bottom, 0)
-    env(safe-area-inset-left, 0);
+  /* NO safe-area padding here: fitLayout sizes #wrap to the full innerWidth ×
+     innerHeight, so body padding would shift the canvas sideways on a notched
+     phone (black bar on the notch side, opposite edge clipped by overflow:
+     hidden). The canvas runs edge to edge on purpose; every piece of
+     positioned chrome that hugs a screen edge carries its own
+     env(safe-area-inset-*) offset instead. */
   user-select: none;
   overscroll-behavior: none;
 }
@@ -49,15 +50,17 @@ body {
   background: #5c5a3f;
   --tool-scale: 1;
 }
-/* on small mobile screens, shrink tool buttons to fit */
+/* on short viewports, shrink tool buttons to fit. The toolbar is a bottom
+   bar now, so this only trims the bar's height — floors at 0.75 to keep
+   touch targets ~33px on landscape phones */
 @media (max-height: 700px) {
-  #stage { --tool-scale: 0.85; }
+  #stage { --tool-scale: 0.9; }
 }
 @media (max-height: 600px) {
-  #stage { --tool-scale: 0.72; }
+  #stage { --tool-scale: 0.8; }
 }
 @media (max-height: 500px) {
-  #stage { --tool-scale: 0.60; }
+  #stage { --tool-scale: 0.75; }
 }
 
 #game {
@@ -75,7 +78,9 @@ body {
    menus (stamped tiles, Oswald caps, gold currency, red danger). */
 #hud {
   position: absolute;
-  top: 6px; left: 6px; right: 6px;
+  top: calc(6px + env(safe-area-inset-top, 0px));
+  left: calc(6px + env(safe-area-inset-left, 0px));
+  right: calc(6px + env(safe-area-inset-right, 0px));
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -195,7 +200,7 @@ body {
    ordinary calls; red + throb for incoming fire / a broken line. */
 #banner {
   position: absolute;
-  top: 58px; left: 50%; right: auto;
+  top: calc(58px + env(safe-area-inset-top, 0px)); left: 50%; right: auto;
   translate: -50% 0;
   width: max-content;
   max-width: 92%;
@@ -249,10 +254,17 @@ body {
 
 #tipbar {
   position: absolute;
-  bottom: 4px; left: 4px; right: 4px;
+  bottom: calc(2px + env(safe-area-inset-bottom, 0px));
+  left: calc(4px + env(safe-area-inset-left, 0px));
+  right: calc(4px + env(safe-area-inset-right, 0px));
   text-align: center;
   font-size: clamp(9px, 2.4vw, 11px);
   line-height: 1.35;
+  /* one line only: the strip under the toolbar is 18px tall, and a wrapped
+     tip would climb up behind the bar */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: rgba(230, 225, 190, .55);
   text-shadow: 1px 1px 0 rgba(0,0,0,.7);
   pointer-events: none;
@@ -262,7 +274,7 @@ body {
 
 #tutorial-msg {
   position: absolute;
-  left: 50%; bottom: 64px;
+  left: 50%; bottom: calc(28px + 58px * var(--tool-scale) + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   max-width: 78%;
   padding: 10px 16px;
@@ -312,11 +324,112 @@ body {
   border-radius: 0 0 2px 2px;
   min-width: 8%;
 }
+/* lateral panning (a landscape phone above containZoom): the strip stands
+   against the right edge and the window slides vertically */
+#view-strip.view-strip--v {
+  top: 0;
+  bottom: 0;
+  left: auto;
+  /* clear a right-side camera cutout, which sits mid-edge in landscape */
+  right: env(safe-area-inset-right, 0px);
+  width: 4px;
+  height: auto;
+}
+#view-strip.view-strip--v #view-strip-window {
+  left: auto;
+  right: 0;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 8%;
+  border-radius: 2px 0 0 2px;
+}
+
+/* rotate-to-landscape hint — a dispatch plate in the banner's voice, shown
+   only while #stage carries .mobile-portrait (portraitMobile(), synced by
+   syncMobileChrome). z-index 12 so it reads over the menu (#intro at 10, the
+   dossier at 11); pointer-events none because portrait is playable (contain
+   zoom) — this advises, it never blocks. Sits at 24% down: below the HUD, in
+   the letterbox above the contained field strip, clear of #intro's title
+   marquee on any phone-tall screen. */
+#rotate-hint {
+  display: none;
+  position: absolute;
+  top: 24%;
+  left: 50%;
+  translate: -50% 0;
+  width: max-content;
+  max-width: 92%;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 22px;
+  background: linear-gradient(180deg, rgba(20, 18, 11, .88), rgba(9, 8, 5, .92));
+  border-top: 2px solid #e8873a;
+  border-bottom: 2px solid #e8873a;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .5), inset 0 0 26px rgba(232, 135, 58, .1);
+  pointer-events: none;
+  z-index: 12;
+}
+/* slides in, holds ~7s, fades away — portrait is a choice the game honours, so
+   the hint must not nag. display:none -> flex restarts the animations, so each
+   re-entry into portrait shows it fresh. */
+#stage.mobile-portrait #rotate-hint {
+  display: flex;
+  animation: rotateHintIn .4s ease both, rotateHintOut .6s ease 7s forwards;
+}
+@keyframes rotateHintIn {
+  from { opacity: 0; translate: -50% 8px; }
+  to   { opacity: 1; translate: -50% 0; }
+}
+@keyframes rotateHintOut {
+  to { opacity: 0; visibility: hidden; }
+}
+#rotate-hint .rh-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: 'Saira Stencil One', 'Barlow Condensed', sans-serif;
+  font-size: clamp(15px, 4.6vw, 22px);
+  letter-spacing: clamp(1px, .7vw, 2.5px);
+  color: #f6d99a;
+  text-shadow: 2px 2px 0 #000;
+  white-space: nowrap;
+}
+#rotate-hint .rh-sub {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(10px, 2.8vw, 13px);
+  letter-spacing: 1px;
+  color: rgba(230, 225, 190, .6);
+  text-transform: uppercase;
+}
+#rotate-hint svg { flex: 0 0 auto; overflow: visible; }
+#rotate-hint .rh-phone {
+  fill: rgba(232, 135, 58, .12);
+  stroke: #e8873a;
+  stroke-width: 2;
+}
+#rotate-hint .rh-dot { fill: #e8873a; }
+#rotate-hint .rh-arrow {
+  stroke: #f6d99a;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* the phone tips to landscape, holds, and resets — the arrow shows the way */
+#rotate-hint svg { animation: rotatePhone 2.6s ease-in-out infinite; transform-origin: 24px 23px; }
+@keyframes rotatePhone {
+  0%, 18%  { transform: rotate(0deg); }
+  45%, 80% { transform: rotate(90deg); }
+  100%     { transform: rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #rotate-hint svg { animation: none; transform: rotate(90deg); }
+}
 
 #mobile-actions {
   position: absolute;
-  right: 6px;
-  bottom: calc(62px * var(--tool-scale) + env(safe-area-inset-bottom, 0));
+  right: calc(6px + env(safe-area-inset-right, 0px));
+  bottom: calc(62px * var(--tool-scale) + env(safe-area-inset-bottom, 0px));
   display: flex;
   gap: 6px;
   z-index: 6;
@@ -339,8 +452,8 @@ body {
 
 #place-cancel {
   position: absolute;
-  top: calc(48px + env(safe-area-inset-top, 0));
-  right: 8px;
+  top: calc(48px + env(safe-area-inset-top, 0px));
+  right: calc(8px + env(safe-area-inset-right, 0px));
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -365,34 +478,39 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ---- Toolbar (left edge, vertical) ---- */
+/* ---- Toolbar (bottom edge, horizontal scroller — every form factor) ---- */
 #toolbar {
   position: absolute;
-  top: 52px; /* overridden by syncToolbarLayout() once HUD height is known */
-  left: 4px;
-  bottom: 28px;
-  width: calc(72px * var(--tool-scale));
+  left: 0;
+  right: 0;
+  /* the tipbar line sits in the strip beneath; both rise by the home-bar
+     inset via their `bottom`, so the bar's own padding must NOT add the
+     inset again (it used to, double-counted against the old body padding) */
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  width: auto;
+  max-height: calc(58px * var(--tool-scale));
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   flex-wrap: nowrap;
   gap: 4px;
   align-items: stretch;
+  justify-content: flex-start;
   pointer-events: auto;
   z-index: 5;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding: 2px 0;
+  padding: 2px calc(6px + env(safe-area-inset-right, 0px)) 2px calc(6px + env(safe-area-inset-left, 0px));
 }
 #toolbar::-webkit-scrollbar { display: none; }
 #toolbar.hidden { display: none; }
 /* while placing, the bar collapses to BACK + the unit being built, so it keeps
-   the left edge of the map clear */
+   the bottom edge of the map clear */
 #toolbar.toolbar-placing,
-#toolbar.toolbar-collapsed { width: calc(66px * var(--tool-scale)); }
+#toolbar.toolbar-collapsed { max-height: calc(52px * var(--tool-scale)); }
 .tool-btn {
   background: rgba(38, 36, 23, .92);
   border: 2px solid #4a4836;
@@ -404,7 +522,8 @@ body {
   text-align: center;
   line-height: 1.25;
   min-height: calc(40px * var(--tool-scale));
-  width: 100%;
+  min-width: calc(62px * var(--tool-scale));
+  width: auto;
   pointer-events: auto;
   flex: 0 0 auto;
 }
@@ -419,17 +538,8 @@ body {
 /* sticky back button — stays visible while scrolling through the category list */
 .tool-back-btn {
   position: sticky;
+  left: 0;
   z-index: 2;
-}
-/* desktop/landscape: sticky at top of vertical scroll */
-#toolbar:not(#stage.mobile-portrait #toolbar) .tool-back-btn {
-  top: 0;
-  left: 0;
-}
-/* mobile portrait: sticky at left of horizontal scroll */
-#stage.mobile-portrait #toolbar .tool-back-btn {
-  left: 0;
-  top: auto;
 }
 .tool-btn:disabled {
   opacity: .38;
@@ -459,9 +569,6 @@ body {
 .tool-back-btn:hover { border-color: #a49f7d; }
 
 @media (max-width: 700px) {
-  #toolbar {
-    width: calc(68px * var(--tool-scale));
-  }
   .tool-btn {
     font-size: calc(8px * var(--tool-scale));
     padding: calc(6px * var(--tool-scale)) calc(2px * var(--tool-scale));
@@ -471,8 +578,7 @@ body {
 
 @media (orientation: landscape) and (max-height: 520px) and (hover: none) {
   #toolbar {
-    bottom: 22px;
-    width: calc(64px * var(--tool-scale));
+    bottom: 18px;
     gap: 3px;
   }
   .tool-btn {
@@ -503,7 +609,15 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: clamp(16px, 5vw, 40px);
+  /* per-side max() so menu content clears a notch/home bar now that the
+     stage runs edge to edge (the old body safe-area padding used to inset
+     the whole stage instead) */
+  --ov-pad: clamp(16px, 5vw, 40px);
+  padding:
+    max(var(--ov-pad), env(safe-area-inset-top, 0px))
+    max(var(--ov-pad), env(safe-area-inset-right, 0px))
+    max(var(--ov-pad), env(safe-area-inset-bottom, 0px))
+    max(var(--ov-pad), env(safe-area-inset-left, 0px));
   z-index: 10;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -548,7 +662,7 @@ body {
 #stage:has(> #intro:not(.hidden)) #mobile-actions,
 #stage:has(> #intro:not(.hidden)) #place-cancel { display: none; }
 /* many campaign buttons — anchor to the top so they all scroll into reach */
-#axis-select, #commando-select, #card-shop { justify-content: flex-start; }
+#axis-select, #commando-select { justify-content: flex-start; }
 .overlay h1 {
   font-size: clamp(24px, 8vw, 52px);
   letter-spacing: clamp(2px, 2vw, 10px);
@@ -691,54 +805,136 @@ body {
   cursor: not-allowed;
 }
 
-/* ---- Endless card shop (mobile-first redesign) ----
-   The overlay lives inside the scaled stage, so viewport media queries and
-   `vw` sizing can't be trusted for the internal layout. Everything here is
-   container-driven instead: the shop row is a flex-wrap that stacks one card
-   per row on a phone and flows to two, then three across as the stage widens;
-   the collection is an auto-fill grid. Selectors are prefixed with #card-shop /
-   #card-shop-row / #plan-tabs / #plan-collection so they outrank `.overlay
-   button` and `.overlay p/h2`, which centre and restyle their contents. */
+/* ---- Endless card shop: TWO PANES, LANDSCAPE ----
+   The screen used to be one 720px column that the PAGE scrolled. Held
+   landscape at 844x390 — an iPhone, and the tightest case this game has to
+   read at — that column showed the title, two dispatch paragraphs and the top
+   of the first card; the command meter, the plans and the collection were four
+   to five swipes down. Buying a card and seeing what it costs you in command
+   were never on screen together, which is the entire decision this screen
+   exists to support.
+
+   So: nothing scrolls but the two lists. Buying is the left rail, spending
+   command is the right pane, and the meter above the collection is always
+   visible while cards are tapped. Desktop is the same layout with wider panes,
+   not a second design.
+
+   Everything measures in `cqi` off the container declared on .cs-inner, never
+   `vw` or @media: this overlay lives inside the scaled #stage, so viewport
+   units there report the WINDOW rather than the ~600px the panel actually
+   gets. Same trap the After-Action Report and the escalation dossier document.
+   There are no breakpoints on this screen at all — just clamps between a phone
+   value and a desktop one. Selectors are prefixed #card-shop / #card-shop-row /
+   #plan-tabs / #plan-collection so they outrank `.overlay button` and
+   `.overlay p/h2`, which centre and restyle their contents. */
+/* the query container is #card-shop ITSELF, not .cs-inner: an element cannot
+   query itself, and a `cqi` that finds no container silently falls back to the
+   VIEWPORT — which inside the scaled stage is the exact lie this is here to
+   avoid. Declared on the outermost node of the screen so every `cqi` below,
+   .cs-inner's own gap included, measures the panel. Its padding therefore can't
+   use cqi and is spelled in px. */
+#card-shop {
+  container-type: inline-size;
+  /* fill the stage rather than centring a column in it, and take the padding
+     down: at 390px tall the default clamp() inset was eating a sixth of the
+     screen */
+  --ov-pad: 10px;
+  padding:
+    max(10px, env(safe-area-inset-top, 0px))
+    max(12px, env(safe-area-inset-right, 0px))
+    max(10px, env(safe-area-inset-bottom, 0px))
+    max(12px, env(safe-area-inset-left, 0px));
+  justify-content: stretch;
+  align-items: stretch;
+}
 #card-shop .cs-inner {
   width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.1cqi, 16px);
   text-align: left;
 }
 
 /* loadout mode: the same screen the endless run opens onto, stripped of every
-   way to spend medals — the ON OFFER shop, the reroll/slot controls, the medal
+   way to spend medals — the ON OFFER rail, the reroll/slot controls, the medal
    tag and the command upgrade all go, leaving just the battle plans to pick and
-   swap. The DEPLOY button only exists in this mode. */
-#card-shop-deploy, #card-shop-deploy-top { display: none; }
+   swap. The DEPLOY button only exists in this mode. The plans and the meter are
+   not hidden and rebuilt over there: applyCardShopMode() MOVES those two nodes
+   into #cs-plan-rail, so buildBattlePlanUI() still fills one set of elements. */
+#card-shop-deploy { display: none; }
 #card-shop.cs--loadout #cs-shop-section,
 #card-shop.cs--loadout .cs-tag,
+#card-shop.cs--loadout .cs-pane-head,
 #card-shop.cs--loadout #plan-upgrade { display: none; }
 #card-shop.cs--loadout #card-shop-deploy { display: inline-block; }
-#card-shop.cs--loadout #card-shop-deploy-top { display: inline-block; }
+#card-shop:not(.cs--loadout) #cs-plan-rail { display: none; }
+#card-shop:not(.cs--loadout) .cs-meter__note { display: none; }
 
-/* header row: title + dog-tag medal balance */
+/* ---- header: title, rule, one-line dispatch, medal tag, BACK / DEPLOY ---- */
 #card-shop .cs-head {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px 16px;
-  margin-bottom: 10px;
+  align-items: center;
+  gap: clamp(8px, 1.2cqi, 18px);
+  flex: 0 0 auto;
 }
-#card-shop .cs-head h1 { margin: 0; flex: 0 0 auto; }
+#card-shop .cs-head h1 {
+  margin: 0;
+  flex: 0 0 auto;
+  font-size: clamp(20px, 3cqi, 44px);
+  letter-spacing: clamp(2px, 0.55cqi, 8px);
+  line-height: 1;
+  margin-bottom: 0;
+}
+#card-shop .cs-rule {
+  flex: 1;
+  min-width: 8px;
+  height: 2px;
+  background: linear-gradient(90deg, #7a2c22, rgba(122, 44, 34, 0));
+}
+/* the dispatch line, cut from three sentences to one and dropped outright
+   below ~1000 stage px — on a phone those rows belong to the panes */
+#card-shop .cs-headnote {
+  display: none;
+  flex: 0 1 auto;
+  max-width: 46ch;
+  font-size: clamp(12px, 1.05cqi, 14px);
+  line-height: 1.4;
+  color: #968f6c;
+  border-left: 2px solid #7a2c22;
+  padding-left: 12px;
+}
+@container (min-width: 1000px) {
+  #card-shop .cs-headnote { display: block; }
+}
+#card-shop.cs--loadout .cs-headnote {
+  display: block;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  max-width: none;
+  border-left: 0;
+  padding-left: 0;
+  font-size: clamp(9px, 0.8cqi, 11px);
+  letter-spacing: 2px;
+  font-weight: bold;
+  color: #6c6650;
+  text-transform: uppercase;
+}
 #card-shop .cs-tag {
   display: flex;
   align-items: baseline;
-  gap: 7px;
+  gap: clamp(6px, 0.7cqi, 9px);
+  flex: 0 0 auto;
   background: linear-gradient(180deg, #26271a, #191a10);
   border: 1px solid #50512f;
-  border-radius: 22px;
-  padding: 7px 16px;
+  border-radius: 26px;
+  padding: clamp(4px, 0.6cqi, 8px) clamp(13px, 1.5cqi, 20px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 #card-shop .cs-tag__num {
-  font-size: clamp(18px, 5vw, 24px);
+  font-size: clamp(19px, 2cqi, 28px);
   font-weight: bold;
   color: #e7b93d;
   font-variant-numeric: tabular-nums;
@@ -746,111 +942,164 @@ body {
   line-height: 1;
 }
 #card-shop .cs-tag__lab {
-  font-size: 10px;
+  font-size: clamp(9px, 0.8cqi, 11px);
   letter-spacing: 2px;
   color: #968f6c;
   font-weight: bold;
 }
-#card-shop-deploy-top {
-  margin-left: auto;
-  padding: 8px 22px;
-  font-size: 13px;
+/* BACK moved out of the footer and into the header: the footer was below the
+   fold, so leaving the screen meant scrolling to the bottom of it */
+#card-shop .cs-back {
+  flex: 0 0 auto;
+  font-size: clamp(11px, 0.95cqi, 13px);
   letter-spacing: 2px;
   font-weight: bold;
+  color: #c9c19a;
+  background: #262417;
+  border: 1px solid #8a8668;
   border-radius: 4px;
+  padding: clamp(6px, 0.8cqi, 11px) clamp(13px, 1.6cqi, 22px);
+  min-height: 34px;
+  cursor: pointer;
+}
+#card-shop .cs-back:hover { background: #322f1d; border-color: #b3ad86; color: #efe9d4; }
+#card-shop-deploy {
+  flex: 0 0 auto;
+  font-size: clamp(12px, 1cqi, 15px);
+  letter-spacing: 2.5px;
+  font-weight: bold;
+  border-radius: 4px;
+  padding: clamp(7px, 0.9cqi, 12px) clamp(22px, 2.6cqi, 34px);
+  min-height: 38px;
   cursor: pointer;
 }
 
-/* intro dispatch lines */
-#card-shop .cs-intro {
-  margin: 0 0 6px;
-  max-width: 62ch;
-  font-size: clamp(12px, 3vw, 13px);
-  line-height: 1.55;
-  color: #968f6c;
-  border-left: 2px solid #7a2c22;
-  padding: 2px 0 2px 12px;
+/* ---- body: the two panes. Nothing below here may scroll the page — every
+   overflow is owned by a list, and min-height:0 on each flex link is what
+   actually lets those lists shrink instead of stretching their parent. ---- */
+#card-shop .cs-body {
+  display: flex;
+  gap: clamp(10px, 1.2cqi, 18px);
+  flex: 1;
+  min-height: 0;
 }
-#card-shop .cs-intro b { color: #ddd5ad; }
+#card-shop .cs-left {
+  width: clamp(300px, 36cqi, 460px);
+  /* shrinkable rather than 0 0: the game gates portrait behind a rotate hint,
+     but a stage narrower than rail + pane must degrade by squeezing, not by
+     painting the loadout pane off the edge of the stage */
+  flex: 0 1 clamp(300px, 36cqi, 460px);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+#card-shop #cs-shop-section,
+#card-shop #cs-plan-rail {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 0.8cqi, 10px);
+  flex: 1;
+  min-height: 0;
+}
+#card-shop #cs-loadout-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 0.8cqi, 10px);
+  min-width: 0;
+  min-height: 0;
+  background: #12130c;
+  border: 1px solid #23241a;
+  border-radius: 10px;
+  padding: clamp(8px, 1cqi, 16px) clamp(9px, 1.1cqi, 16px);
+}
 
 /* section heads: a stamped tick + label on the left, a status meta on the right */
 #card-shop .cs-sec-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  margin: 24px 0 12px;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 #card-shop .cs-sec-title {
   margin: 0;
-  font-size: 12px;
+  font-size: clamp(11px, 0.95cqi, 13px);
   font-weight: bold;
-  letter-spacing: 4px;
+  letter-spacing: clamp(3px, 0.35cqi, 4px);
   color: #ddd5ad;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 #card-shop .cs-sec-title::before {
   content: "";
-  width: 16px;
+  width: 14px;
   height: 2px;
   background: #e7b93d;
   display: inline-block;
+  flex: 0 0 auto;
 }
 #card-shop .cs-sec-title--plans::before { background: #c8422f; }
 #card-shop .cs-sec-meta {
-  font-size: 10px;
-  letter-spacing: 2px;
+  font-size: clamp(9px, 0.8cqi, 11px);
+  letter-spacing: 1.5px;
   color: #6c6650;
   font-weight: bold;
   font-variant-numeric: tabular-nums;
   text-align: right;
+  white-space: nowrap;
 }
 
-/* shop card row: container-driven stack → 2-up → 3-across */
+/* ---- ON OFFER: a scrolling list of wide rows, not a grid of tall cards.
+   A row is the shape the rail wants — the name and its one-sentence effect
+   read left, the price and the command pips stack right, and four cards fit
+   the 390px case without the list ever being the thing that scrolls the
+   screen. ---- */
 #card-shop-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: stretch;
-  width: 100%;
-  margin-bottom: 4px;
+  flex-direction: column;
+  gap: clamp(5px, 0.7cqi, 9px);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding-right: 2px;
 }
 #card-shop-row .cs-card {
-  flex: 1 1 200px;
-  min-width: 0;
-  max-width: 340px;
   display: flex;
-  flex-direction: column;
+  align-items: stretch;
+  gap: clamp(8px, 1cqi, 14px);
   text-align: left;
-  padding: 13px 14px 12px;
   background: linear-gradient(180deg, #2b2c1d, #232418);
   border: 1px solid #3a3b28;
-  border-radius: 9px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35),
-    inset 0 0 0 3px rgba(0, 0, 0, 0.28), inset 0 0 0 4px rgba(80, 81, 47, 0.32);
+  border-left: 3px solid #6c6650;
+  border-radius: 8px;
+  padding: clamp(8px, 0.95cqi, 13px) clamp(9px, 1cqi, 14px);
   color: #ddd5ad;
   font-family: inherit;
   font-weight: normal;
   font-size: 12px;
   letter-spacing: 0;
   text-transform: none;
-  transition: transform 0.16s ease, border-color 0.16s ease;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: border-color 0.16s ease, background 0.16s ease;
 }
-#card-shop-row .cs-card:hover:not(:disabled) { transform: translateY(-3px); border-color: #50512f; }
-#card-shop-row .cs-card:disabled { opacity: 0.5; cursor: not-allowed; }
+#card-shop-row .cs-card:hover:not(:disabled) { border-color: #50512f; background: linear-gradient(180deg, #33341f, #292a1a); }
+#card-shop-row .cs-card:disabled { opacity: 0.55; cursor: not-allowed; }
 #card-shop-row .cs-card--unique {
+  background: linear-gradient(180deg, #33301c, #282413);
   border-color: #b78e22;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4),
-    inset 0 0 0 3px rgba(0, 0, 0, 0.3), inset 0 0 0 4px rgba(183, 142, 34, 0.4);
+  border-left-color: #e7b93d;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 #card-shop-row .cs-card--unique:hover:not(:disabled) { border-color: #e7b93d; }
 #card-shop-row .cs-card--empty {
   align-items: center;
   justify-content: center;
   text-align: center;
-  min-height: 130px;
+  min-height: 56px;
   color: #6c6650;
   letter-spacing: 3px;
   border-style: dashed;
@@ -858,150 +1107,182 @@ body {
   background: rgba(20, 18, 12, 0.5);
   box-shadow: none;
 }
+#card-shop .cs-card__copy {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3px, 0.4cqi, 5px);
+  flex: 1;
+  min-width: 0;
+}
 #card-shop .cs-card__top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 9px;
+  gap: 7px;
+  flex-wrap: wrap;
 }
 /* the unit chip, the command pips and the segmented meter are shared with the
    mid-run loadout sheet (#loadout-view), which renders them from the very same
    helpers — commandPips() and the cs-seg loop in js/cards.js */
 #card-shop .cs-chip, #loadout-view .cs-chip {
-  font-size: 9px;
+  font-size: clamp(8px, 0.72cqi, 9.5px);
   letter-spacing: 2px;
   font-weight: bold;
   color: #968f6c;
   background: rgba(0, 0, 0, 0.28);
   border: 1px solid #3a3b28;
-  border-radius: 5px;
-  padding: 3px 7px;
+  border-radius: 4px;
+  padding: 2px 5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* UNIQUE rides BESIDE the unit chip rather than replacing it: which unit a
+   card upgrades is the first thing a purchase is judged on, and a gold badge
+   in its place answers a question nobody asked */
 #card-shop .cs-rarity {
-  font-size: 8.5px;
-  letter-spacing: 1.5px;
+  font-size: clamp(8px, 0.72cqi, 9.5px);
+  letter-spacing: 2px;
   font-weight: bold;
-  padding: 3px 7px;
-  border-radius: 5px;
+  padding: 2px 5px;
+  border-radius: 4px;
   white-space: nowrap;
-}
-#card-shop .cs-rarity--std { color: #6c6650; border: 1px solid #3a3b28; }
-#card-shop .cs-rarity--uni {
   color: #1a160a;
   background: linear-gradient(180deg, #e7b93d, #b78e22);
 }
 #card-shop .cs-card__name {
-  font-size: clamp(15px, 4vw, 18px);
+  font-size: clamp(15px, 1.5cqi, 21px);
   font-weight: bold;
-  letter-spacing: 1px;
-  line-height: 1.15;
+  letter-spacing: 0.5px;
+  line-height: 1;
   color: #ddd5ad;
-  margin-bottom: 7px;
 }
 #card-shop-row .cs-card--unique .cs-card__name { color: #e7b93d; }
-#card-shop .cs-card__effect { flex: 1; font-size: 12px; line-height: 1.5; color: #968f6c; }
-#card-shop .cs-card__foot {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px dashed #50512f;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+#card-shop .cs-card__effect {
+  font-size: clamp(11.5px, 1cqi, 14px);
+  line-height: 1.3;
+  color: #968f6c;
 }
-#card-shop .cs-cmd { display: flex; flex-direction: column; gap: 4px; }
-#card-shop .cs-cmd__lab { font-size: 8px; letter-spacing: 2px; color: #6c6650; font-weight: bold; }
-#card-shop .cs-pips, #loadout-view .cs-pips { display: flex; gap: 3px; }
-#card-shop .cs-pip, #loadout-view .cs-pip { width: 9px; height: 9px; border-radius: 2px; border: 1px solid #50512f; }
+#card-shop .cs-card__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+#card-shop .cs-pips, #loadout-view .cs-pips { display: flex; gap: 2px; }
+#card-shop .cs-pip, #loadout-view .cs-pip { width: 7px; height: 7px; border-radius: 2px; border: 1px solid #50512f; }
 #card-shop .cs-pip--on, #loadout-view .cs-pip--on { background: #e7b93d; border-color: #e7b93d; }
 #card-shop .cs-cost {
-  font-size: 13px;
+  font-size: clamp(12px, 1.05cqi, 15px);
   font-weight: bold;
   letter-spacing: 1px;
   font-variant-numeric: tabular-nums;
   color: #96c45c;
   background: rgba(79, 107, 44, 0.16);
   border: 1px solid #4f6b2c;
-  border-radius: 7px;
-  padding: 6px 11px;
+  border-radius: 6px;
+  padding: 3px 8px;
   white-space: nowrap;
 }
-#card-shop .cs-cost__u { font-size: 9px; letter-spacing: 1px; margin-left: 3px; opacity: 0.8; }
+#card-shop .cs-cost__u { font-size: 8px; letter-spacing: 1px; margin-left: 2px; opacity: 0.8; }
 #card-shop-row .cs-card:disabled .cs-cost {
   color: #c8422f;
   border-color: #7a2c22;
   background: rgba(122, 44, 34, 0.14);
 }
 
-/* shop controls: reroll + add-slot */
-#card-shop .cs-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+/* shop controls: reroll + add-slot, pinned under the list rather than after it */
+#card-shop .cs-controls { display: flex; gap: 6px; flex: 0 0 auto; }
 #card-shop .cs-ctrl {
-  flex: 1 1 180px;
+  flex: 1;
+  min-width: 0;
   font-family: inherit;
   cursor: pointer;
-  font-size: 11px;
+  font-size: clamp(10px, 0.85cqi, 12px);
   font-weight: bold;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
   color: #ddd5ad;
   background: #1b1c12;
   border: 1px solid #3a3b28;
-  border-radius: 7px;
-  padding: 11px 14px;
-  min-height: 44px;
+  border-radius: 6px;
+  padding: 9px 6px;
+  min-height: 36px;
   transition: border-color 0.14s ease, color 0.14s ease;
 }
 #card-shop .cs-ctrl:hover:not(:disabled) { border-color: #b78e22; color: #e7b93d; }
-#card-shop .cs-ctrl:disabled { opacity: 0.4; cursor: not-allowed; }
+#card-shop .cs-ctrl:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ---- Battle plans ---- */
-#plan-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+#card-shop .cs-pane-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: clamp(8px, 1cqi, 12px);
+  flex: 0 0 auto;
+}
+/* in the pane the plans are a compact strip on the head's right; in the rail
+   they are the screen's main choice and stack full width */
+#card-shop .cs-pane-head #plan-tabs { margin-left: auto; }
+#plan-tabs { display: flex; flex-wrap: wrap; gap: clamp(4px, 0.5cqi, 7px); min-width: 0; }
 #plan-tabs .cs-ptab {
-  flex: 1 1 90px;
   font-family: inherit;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
+  align-items: baseline;
+  gap: 5px;
   background: #1b1c12;
   border: 1px solid #3a3b28;
-  border-radius: 8px;
-  padding: 9px 6px;
-  min-height: 44px;
+  border-radius: 5px;
+  padding: clamp(5px, 0.6cqi, 8px) clamp(9px, 1.1cqi, 16px);
   transition: border-color 0.14s ease, background 0.14s ease;
 }
-#plan-tabs .cs-ptab__n { font-size: 11px; font-weight: bold; letter-spacing: 2px; color: #968f6c; }
-#plan-tabs .cs-ptab__c { font-size: 9.5px; letter-spacing: 1px; color: #6c6650; font-variant-numeric: tabular-nums; }
+#plan-tabs .cs-ptab__n { font-size: clamp(9px, 0.8cqi, 11px); font-weight: bold; letter-spacing: clamp(1.5px, 0.2cqi, 2px); color: #968f6c; white-space: nowrap; }
+#plan-tabs .cs-ptab__c { font-size: clamp(9px, 0.75cqi, 11px); letter-spacing: 1px; color: #6c6650; font-variant-numeric: tabular-nums; white-space: nowrap; }
 #plan-tabs .cs-ptab:hover:not(.cs-ptab--active) { border-color: #50512f; }
-#plan-tabs .cs-ptab--active { border-color: #e7b93d; background: linear-gradient(180deg, rgba(231, 185, 61, 0.1), transparent); }
+#plan-tabs .cs-ptab--active { border-color: #e7b93d; background: linear-gradient(180deg, rgba(231, 185, 61, 0.12), transparent); }
 #plan-tabs .cs-ptab--active .cs-ptab__n { color: #e7b93d; }
 #plan-tabs .cs-ptab--active .cs-ptab__c { color: #968f6c; }
+/* rail form: one full-width row per plan, name left and its budget right */
+#cs-plan-rail #plan-tabs { flex-direction: column; gap: 5px; }
+#cs-plan-rail .cs-ptab { justify-content: space-between; padding: 9px 11px; min-height: 40px; }
+#cs-plan-rail .cs-ptab__n { font-size: clamp(11px, 1.1cqi, 14px); }
+#cs-plan-rail .cs-ptab__c { font-size: clamp(10px, 0.95cqi, 12px); }
+/* the rail has the width for the unit; the pane's tab strip does not */
+#cs-plan-rail .cs-ptab__c::after { content: " CMD"; }
 
-/* command budget meter */
+/* command budget meter. One flat node list styled two ways: an inline strip
+   above the collection in shop mode, a block in the rail in loadout mode. */
 #card-shop .cs-meter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: clamp(7px, 1cqi, 14px);
+  flex: 0 0 auto;
   background: #1b1c12;
   border: 1px solid #3a3b28;
-  border-radius: 9px;
-  padding: 13px 15px;
-  margin-bottom: 16px;
+  border-radius: 7px;
+  padding: clamp(6px, 0.8cqi, 11px) clamp(9px, 1cqi, 14px);
 }
-#card-shop .cs-meter__top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 9px;
+#card-shop .cs-meter__lab {
+  font-size: clamp(9px, 0.8cqi, 11px);
+  letter-spacing: 2px;
+  color: #6c6650;
+  font-weight: bold;
+  white-space: nowrap;
 }
-#card-shop .cs-meter__lab { font-size: 10px; letter-spacing: 2px; color: #6c6650; font-weight: bold; }
-#card-shop .cs-meter__val { font-size: 14px; font-weight: bold; letter-spacing: 1px; color: #ddd5ad; font-variant-numeric: tabular-nums; }
-#card-shop .cs-segs, #loadout-view .cs-segs { display: flex; gap: 4px; margin-bottom: 12px; }
+#card-shop .cs-meter__val {
+  font-size: clamp(14px, 1.4cqi, 19px);
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: #ddd5ad;
+  font-variant-numeric: tabular-nums;
+}
+#card-shop .cs-segs { display: flex; gap: 3px; flex: 1; min-width: 0; }
+#loadout-view .cs-segs { display: flex; gap: 4px; margin-bottom: 12px; }
 #card-shop .cs-seg, #loadout-view .cs-seg {
   flex: 1;
-  height: 12px;
+  height: 11px;
   border-radius: 3px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid #3a3b28;
@@ -1009,54 +1290,129 @@ body {
 }
 #card-shop .cs-seg--fill, #loadout-view .cs-seg--fill { background: linear-gradient(180deg, #96c45c, #4f6b2c); border-color: #4f6b2c; }
 #card-shop .cs-upg {
-  width: 100%;
   font-family: inherit;
   cursor: pointer;
-  font-size: 11px;
+  font-size: clamp(9px, 0.8cqi, 11px);
   font-weight: bold;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
   color: #ddd5ad;
   background: transparent;
   border: 1px dashed #50512f;
-  border-radius: 7px;
-  padding: 9px;
-  min-height: 40px;
+  border-radius: 5px;
+  padding: 5px 8px;
+  min-height: 30px;
+  white-space: nowrap;
+  flex: 0 0 auto;
   transition: border-color 0.14s ease, color 0.14s ease;
 }
 #card-shop .cs-upg:hover:not(:disabled) { border-color: #e7b93d; color: #e7b93d; }
 #card-shop .cs-upg:disabled { opacity: 0.4; cursor: not-allowed; }
+/* rail form: the pre-run screen's one big readout, pushed to the bottom of the
+   column so the plans sit under the title and the number sits over the fold */
+#cs-plan-rail .cs-meter {
+  margin-top: auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  background: #12130c;
+  border-color: #23241a;
+  border-radius: 8px;
+}
+#cs-plan-rail .cs-meter__val { font-size: clamp(24px, 3cqi, 38px); line-height: 1; }
+#cs-plan-rail .cs-segs { flex: 0 0 auto; height: 12px; }
+#cs-plan-rail .cs-meter__note { font-size: clamp(10px, 0.95cqi, 12px); color: #968f6c; line-height: 1.3; }
 
-/* collection filter: unit-type chips above the grid; ALL clears, OTHER covers
-   cards with no unit tie (emplacements, HQ, war surplus on placeables) */
-.cs-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.cs-filters:empty { display: none; margin: 0; }
-.cs-filters .cs-filter {
+/* collection filter bar: unit type and command cost as selects (a chip per
+   unit type overflowed the pane once a collection got past a handful), plus a
+   deployed/reserve segment. All three narrow the SAME grid. */
+#card-shop .cs-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+#card-shop .cs-filterbar:empty { display: none; }
+#card-shop .cs-sel { position: relative; flex: 1; min-width: 0; }
+#card-shop .cs-sel--cmd { flex: 0 0 clamp(112px, 12cqi, 176px); }
+#card-shop .cs-sel select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  font-family: inherit;
+  font-size: clamp(10px, 0.85cqi, 12px);
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  color: #ddd5ad;
+  background: #1b1c12;
+  border: 1px solid #3a3b28;
+  border-radius: 6px;
+  padding: 7px 26px 7px 9px;
+  min-height: 32px;
+  cursor: pointer;
+}
+#card-shop .cs-sel select:hover { border-color: #50512f; }
+#card-shop .cs-sel__chev {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 10px;
+  font-weight: bold;
+  color: #6c6650;
+}
+#card-shop .cs-toggle {
+  display: flex;
+  border: 1px solid #3a3b28;
+  border-radius: 6px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+#card-shop .cs-toggle button {
   font-family: inherit;
   cursor: pointer;
-  font-size: 10px;
+  font-size: clamp(9px, 0.78cqi, 11px);
   font-weight: bold;
   letter-spacing: 1.5px;
   color: #968f6c;
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid #3a3b28;
-  border-radius: 999px;
-  padding: 6px 12px;
-  transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
+  background: #1b1c12;
+  border: 0;
+  border-left: 1px solid #3a3b28;
+  border-radius: 0;
+  padding: 6px clamp(9px, 1.1cqi, 16px);
+  min-height: 32px;
 }
-.cs-filters .cs-filter:hover:not(.cs-filter--active) { border-color: #50512f; color: #ddd5ad; }
-.cs-filters .cs-filter--active {
-  border-color: #e7b93d;
-  color: #1a160a;
-  background: linear-gradient(180deg, #e7b93d, #b78e22);
-}
+#card-shop .cs-toggle button:first-child { border-left: 0; }
+#card-shop .cs-toggle button:hover:not(.cs-toggle--on) { color: #ddd5ad; }
+#card-shop .cs-toggle button.cs-toggle--on { color: #1a160a; background: linear-gradient(180deg, #e7b93d, #b78e22); }
+#card-shop .cs-toggle button.cs-toggle--field { color: #96c45c; }
+#card-shop .cs-toggle button.cs-toggle--field.cs-toggle--on { color: #1a160a; }
 
-/* collection grid: compact chits with a deployed/reserve state stripe */
+/* collection grid: compact chits with a deployed/reserve state stripe. The
+   column width is itself a clamp on the container, so the pane holds 2 across
+   at 844 and 3 at desktop without a breakpoint. */
 #plan-collection {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
+  /* the column floor is what puts 2 across on a phone and 3 on a desktop with
+     no breakpoint: at 844 a 16cqi track clamps up to 170 and the pane fits
+     two, at 1440 it is 230 and the pane fits three */
+  grid-template-columns: repeat(auto-fill, minmax(min(clamp(170px, 16cqi, 250px), 100%), 1fr));
+  gap: clamp(5px, 0.7cqi, 10px);
+  align-content: start;
+  /* `max-content`, NOT the `auto` a row track defaults to. A chit is a <button>
+     that is itself a flex column, and Chrome does not derive such a button's
+     intrinsic block size from its flex children when sizing an auto track — it
+     sized every row to the 44px min-height off `.overlay button` and clipped
+     the state line, and to 16px when that min-height was removed. max-content
+     asks for the height the content actually wants, which is the whole point of
+     an auto row here. Measured: 44 → 60 on a three-line chit. */
+  grid-auto-rows: max-content;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  margin: 0 0 20px;
+  padding-right: 2px;
 }
 #plan-collection .cs-chit {
   text-align: left;
@@ -1064,45 +1420,77 @@ body {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: clamp(3px, 0.45cqi, 6px);
   background: #232418;
   border: 1px solid #3a3b28;
   border-left: 3px solid #6c6650;
-  border-radius: 7px;
-  padding: 11px 12px;
+  border-radius: 6px;
+  padding: clamp(7px, 0.85cqi, 11px) clamp(8px, 0.9cqi, 12px);
   color: #ddd5ad;
   font-weight: normal;
   font-size: 12px;
   letter-spacing: 0;
   text-transform: none;
-  transition: transform 0.12s ease, border-color 0.14s ease, background 0.14s ease;
+  align-content: start;
+  transition: border-color 0.14s ease, background 0.14s ease;
 }
-#plan-collection .cs-chit:hover:not(:disabled) { transform: translateY(-2px); }
+#plan-collection .cs-chit:hover:not(:disabled) { border-color: #50512f; }
 #plan-collection .cs-chit:disabled { opacity: 0.4; cursor: not-allowed; }
+#plan-collection .cs-chit__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+#plan-collection .cs-chit__name {
+  font-size: clamp(12.5px, 1.15cqi, 16px);
+  font-weight: bold;
+  letter-spacing: 0.4px;
+  color: #ddd5ad;
+  line-height: 1.1;
+  min-width: 0;
+}
+#plan-collection .cs-chit__cmd {
+  font-size: clamp(9px, 0.78cqi, 10px);
+  font-weight: bold;
+  color: #6c6650;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
 /* card effect, always shown so the condensed cards read on touch too */
 #plan-collection .cs-chit__desc {
-  font-size: 11px;
+  font-size: clamp(10.5px, 0.95cqi, 12.5px);
   font-weight: normal;
-  line-height: 1.4;
-  letter-spacing: 0.2px;
+  line-height: 1.3;
   color: #b7b089;
 }
-#plan-collection .cs-chit__name { font-size: 13px; font-weight: bold; letter-spacing: 0.5px; color: #ddd5ad; line-height: 1.15; }
-#plan-collection .cs-chit__state { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; letter-spacing: 1px; font-weight: bold; color: #6c6650; }
-#card-shop .cs-dot { width: 7px; height: 7px; border-radius: 50%; background: #6c6650; flex: 0 0 auto; }
+#plan-collection .cs-chit__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: clamp(8px, 0.72cqi, 9px);
+  letter-spacing: 1.5px;
+  font-weight: bold;
+  color: #6c6650;
+}
+#card-shop .cs-dot { width: 6px; height: 6px; border-radius: 50%; background: #6c6650; flex: 0 0 auto; }
 #plan-collection .cs-chit--unique { border-left-color: #e7b93d; }
 #plan-collection .cs-chit--unique .cs-chit__name { color: #e7b93d; }
 #plan-collection .cs-chit--deployed {
   border-color: #96c45c;
   border-left-color: #96c45c;
   background: linear-gradient(180deg, rgba(79, 107, 44, 0.34), rgba(60, 82, 33, 0.22));
-  box-shadow: 0 0 0 1px rgba(150, 196, 92, 0.55), 0 4px 14px rgba(79, 107, 44, 0.35);
+  box-shadow: 0 0 0 1px rgba(150, 196, 92, 0.4);
 }
 #plan-collection .cs-chit--deployed .cs-chit__name { color: #eef0d4; }
+#plan-collection .cs-chit--deployed .cs-chit__cmd,
 #plan-collection .cs-chit--deployed .cs-chit__state { color: #b6e084; }
 #plan-collection .cs-chit--deployed .cs-chit__desc { color: #ccca9c; }
 #plan-collection .cs-chit--deployed .cs-dot { background: #96c45c; box-shadow: 0 0 6px rgba(150, 196, 92, 0.6); }
 #plan-collection .cs-chit--unique.cs-chit--deployed { border-color: #96c45c; border-left-color: #96c45c; }
+/* a card blocked by the command budget says so where its state line is */
+#plan-collection .cs-chit--nofit .cs-chit__state { color: #c8422f; }
+#plan-collection .cs-chit--nofit .cs-dot { background: #7a2c22; }
 #plan-collection .cs-chit--empty {
   grid-column: 1 / -1;
   text-align: center;
@@ -1529,7 +1917,12 @@ body {
 /* ---- Settings ---- */
 #settings {
   justify-content: flex-start;
-  padding: clamp(16px, 5vw, 32px);
+  --ov-pad: clamp(16px, 5vw, 32px);
+  padding:
+    max(var(--ov-pad), env(safe-area-inset-top, 0px))
+    max(var(--ov-pad), env(safe-area-inset-right, 0px))
+    max(var(--ov-pad), env(safe-area-inset-bottom, 0px))
+    max(var(--ov-pad), env(safe-area-inset-left, 0px));
 }
 #settings h1 {
   margin-bottom: 18px;
@@ -1712,7 +2105,13 @@ input[type="range"]::-moz-range-track {
 #codex {
   justify-content: flex-start;
   align-items: stretch;
-  padding: 0;
+  /* full-bleed by design; the env() terms are 0 everywhere but a notch/home
+     bar, which the terminal chrome must still clear */
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
   text-align: left;
   background: #0c0f0b;
   color: #c7dabf;
@@ -1895,7 +2294,11 @@ input[type="range"]::-moz-range-track {
 /* ---- Changelog ---- */
 #changelog {
   justify-content: flex-start;
-  padding: clamp(12px, 4vw, 24px) clamp(12px, 4vw, 28px) clamp(12px, 3vw, 20px);
+  padding:
+    max(clamp(12px, 4vw, 24px), env(safe-area-inset-top, 0px))
+    max(clamp(12px, 4vw, 28px), env(safe-area-inset-right, 0px))
+    max(clamp(12px, 3vw, 20px), env(safe-area-inset-bottom, 0px))
+    max(clamp(12px, 4vw, 28px), env(safe-area-inset-left, 0px));
   text-align: left;
 }
 #changelog h1 {
@@ -2373,7 +2776,7 @@ input[type="range"]::-moz-range-track {
   padding: 10px 28px;
 }
 
-@media (max-width: 768px) and (hover: none) {
+@media (hover: none) and (max-width: 768px), (hover: none) and (max-height: 500px) {
   :root {
     --frame-pad-y: 0;
   }
@@ -2384,9 +2787,9 @@ input[type="range"]::-moz-range-track {
   }
 
   #hud {
-    top: 4px;
-    left: 4px;
-    right: 4px;
+    top: calc(4px + env(safe-area-inset-top, 0px));
+    left: calc(4px + env(safe-area-inset-left, 0px));
+    right: calc(4px + env(safe-area-inset-right, 0px));
     gap: 4px;
   }
 
@@ -2397,89 +2800,38 @@ input[type="range"]::-moz-range-track {
     padding: 4px 9px;
   }
 
+  /* the base rule's vw clamps assume mobile = narrow, but a landscape phone
+     is ~850px wide — every clamp hits its desktop max on a 390px-tall screen.
+     Size off the height instead and pull the maxima way down. */
   #banner {
-    top: 48px;
+    top: calc(48px + env(safe-area-inset-top, 0px));
+    gap: clamp(6px, 1.8vh, 10px);
+    padding: 4px clamp(10px, 3vh, 16px);
+    font-size: clamp(12px, 4vh, 16px);
+    letter-spacing: clamp(1px, .4vh, 1.5px);
+    border-top-width: 1px;
+    border-bottom-width: 1px;
   }
+  #banner::before, #banner::after { width: clamp(12px, 6vh, 28px); }
 
   #toolbar {
-    top: 48px;
-    left: 3px;
-    bottom: 22px;
-    width: calc(60px * var(--tool-scale));
     gap: 3px;
+    padding: 3px calc(5px + env(safe-area-inset-right, 0px)) 3px calc(5px + env(safe-area-inset-left, 0px));
   }
 
-  #toolbar.toolbar-placing {
-    width: calc(56px * var(--tool-scale));
-  }
-
-  #stage.mobile-portrait #toolbar {
-    top: auto;
-    left: 0;
-    right: 0;
-    bottom: 80px;
-    width: auto;
-    max-height: calc(58px * var(--tool-scale));
-    flex-direction: row;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 4px 6px calc(20px + env(safe-area-inset-bottom, 0));
-    gap: 4px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  #stage.mobile-portrait #toolbar .tool-btn {
-    min-width: calc(62px * var(--tool-scale));
-    width: auto;
-    flex: 0 0 auto;
+  .tool-btn {
     min-height: calc(44px * var(--tool-scale));
     padding: calc(5px * var(--tool-scale)) calc(6px * var(--tool-scale));
   }
 
-  #stage.mobile-portrait #toolbar .tool-cat-btn {
+  .tool-cat-btn {
     min-width: calc(88px * var(--tool-scale));
   }
 
-  #stage.mobile-portrait #toolbar.toolbar-placing {
-    width: auto;
-    max-height: calc(52px * var(--tool-scale));
-    justify-content: flex-start;
-  }
-
-  #stage.mobile-portrait #toolbar.toolbar-placing .tool-btn {
-    min-width: calc(72px * var(--tool-scale));
-  }
-
-  #stage.mobile-portrait #tipbar {
-    bottom: calc(54px * var(--tool-scale) + env(safe-area-inset-bottom, 0));
-    left: 4px;
-    right: 4px;
-  }
-
-  #stage.mobile-portrait #tutorial-msg {
-    bottom: calc(70px * var(--tool-scale) + env(safe-area-inset-bottom, 0));
-    max-width: 92%;
-  }
-
-  #stage.mobile-portrait #mobile-actions {
-    bottom: calc(54px * var(--tool-scale) + env(safe-area-inset-bottom, 0));
-  }
-
-  #stage.mobile-portrait #view-strip {
-    top: auto;
-    bottom: calc(52px * var(--tool-scale) + env(safe-area-inset-bottom, 0));
-  }
-
-  #stage:not(.mobile-portrait) #mobile-actions {
-    bottom: 8px;
-    right: 8px;
-  }
-
   #tipbar {
-    bottom: 2px;
-    left: 2px;
-    right: 2px;
+    bottom: calc(2px + env(safe-area-inset-bottom, 0px));
+    left: calc(2px + env(safe-area-inset-left, 0px));
+    right: calc(2px + env(safe-area-inset-right, 0px));
     font-size: clamp(8px, 2.2vw, 10px);
   }
 }
@@ -2524,8 +2876,7 @@ input[type="range"]::-moz-range-track {
 #start-wave-btn:not(:disabled),
 .intro-btns:not(.modes) button:not(.secondary),
 .mm-action,
-#card-shop-deploy,
-#card-shop-deploy-top {
+#card-shop-deploy {
   background: repeating-linear-gradient(45deg, #f2c53d 0 12px, #d9ae2a 12px 24px);
   border: 2px solid #1a1710;
   color: #1a1710;
@@ -2534,8 +2885,7 @@ input[type="range"]::-moz-range-track {
 #start-wave-btn:not(:disabled):hover,
 .intro-btns:not(.modes) button:not(.secondary):hover,
 .mm-action:hover,
-#card-shop-deploy:hover,
-#card-shop-deploy-top:hover {
+#card-shop-deploy:hover {
   background: repeating-linear-gradient(45deg, #f7d152 0 12px, #e3b833 12px 24px);
 }
 
@@ -2624,8 +2974,7 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
 #start-wave-btn:not(:disabled),
 .intro-btns:not(.modes) button:not(.secondary),
 .mm-action,
-#card-shop-deploy,
-#card-shop-deploy-top {
+#card-shop-deploy {
   background: #e8873a;
   border: 1px solid #f2a45f;
   color: #17140f;
@@ -2635,16 +2984,14 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
 #start-wave-btn:not(:disabled):hover,
 .intro-btns:not(.modes) button:not(.secondary):hover,
 .mm-action:hover,
-#card-shop-deploy:hover,
-#card-shop-deploy-top:hover {
+#card-shop-deploy:hover:hover {
   background: #f2a45f;
   box-shadow: 0 3px 0 #7a4415;
 }
 #start-wave-btn:not(:disabled):active,
 .intro-btns:not(.modes) button:not(.secondary):active,
 .mm-action:active,
-#card-shop-deploy:active,
-#card-shop-deploy-top:active {
+#card-shop-deploy:active:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 #7a4415;
 }
@@ -2685,7 +3032,11 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
 @keyframes egPulse { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 
 #endless-endgame {
-  padding: 0;
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
   justify-content: flex-start;
   background:
     radial-gradient(110% 55% at 50% 14%, rgba(232,135,58,.18), rgba(10,10,6,0) 60%),
@@ -2832,7 +3183,12 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
   width: 100%; min-height: 100%; margin: 0 auto;
   display: flex; flex-direction: column; justify-content: space-between;
   gap: clamp(12px, 2.4cqi, 20px);
-  padding: clamp(16px, 3.4cqi, 30px) clamp(4px, 1.4cqi, 12px);
+  /* + safe-area: the stage runs edge to edge, and .fm owns the menu's inset */
+  padding:
+    calc(clamp(16px, 3.4cqi, 30px) + env(safe-area-inset-top, 0px))
+    calc(clamp(4px, 1.4cqi, 12px) + env(safe-area-inset-right, 0px))
+    calc(clamp(16px, 3.4cqi, 30px) + env(safe-area-inset-bottom, 0px))
+    calc(clamp(4px, 1.4cqi, 12px) + env(safe-area-inset-left, 0px));
 }
 /* the gradient over the attract demo. On the overlay itself it would be one
    flat wash; as its own layer it can be light where the title sits and heavy
@@ -2949,7 +3305,10 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
   flex: 1 1 auto; min-width: 0; min-height: 0;
   display: flex; flex-direction: column; align-items: center;
   gap: clamp(5px, 1.2cqi, 9px);
-  padding: clamp(18px, 4.6cqi, 32px) clamp(8px, 2.6cqi, 22px);
+  /* vertical metrics are vh-capped: cqi reads the container's WIDTH, and a
+     landscape phone is wide but short — width-only clamps rendered the slab
+     at its desktop max on a 375px-tall screen */
+  padding: clamp(10px, 3.2vh, 22px) clamp(8px, 2.6cqi, 22px);
   background: transparent; border: 0; border-radius: 0; cursor: pointer;
   letter-spacing: normal; font-weight: normal;
   transition: background .12s ease;
@@ -2958,7 +3317,7 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
 #intro .fm-play:active { box-shadow: 0 3px 0 #7a4415; transform: translateY(3px); }
 .fm-play__word {
   font-family: 'Saira Stencil One', 'Barlow Condensed', sans-serif;
-  font-size: clamp(36px, 9cqi, 70px); line-height: .84;
+  font-size: min(clamp(32px, 8cqi, 56px), 11vh); line-height: .84;
   letter-spacing: clamp(2px, 1.1cqi, 9px); color: #17140f;
 }
 /* the rung is printed INSIDE the button, so the thing you press states the

@@ -26,11 +26,18 @@ const REROLL_BASE_COST = 1;
 // hard it warps a run; the player's command capacity starts at 6 and can be
 // raised a point at a time for medals (5, then +20% compounding, rounded up).
 const PLAN_SLOTS = 3;
-const PLAN_NAMES = ['LOADOUT A', 'LOADOUT B', 'LOADOUT C'];
+const PLAN_NAMES = ['LOADOUT 1', 'LOADOUT 2', 'LOADOUT 3'];
 
-// collection grid filter: a UNIT_TYPES key, 'other' for cards with no unit
-// tie, or null to show everything. Reset whenever the card shop is (re)opened.
+// collection grid filters, all three reset whenever the card shop is
+// (re)opened. They narrow the same grid and are ANDed:
+//   collectionFilter      a UNIT_TYPES key, 'other' for cards with no unit tie,
+//                         or null for every type
+//   collectionCmdFilter   a command weight 1-6, 'fits' for what the remaining
+//                         budget can still take, or null for any
+//   collectionStateFilter 'field' | 'reserve', or null for both
 let collectionFilter = null;
+let collectionCmdFilter = null;
+let collectionStateFilter = null;
 const BASE_COMMAND_CAP = 6;
 const COMMAND_UPGRADE_BASE_COST = 5;
 
@@ -201,19 +208,19 @@ function healBreachesBetweenWaves() {
 //   offensive job; without the check it would be an HQ card wearing his chip,
 //   paying out on a field with no officer on it.
 // - It shells a random enemy ON THE FIELD, and that is three conditions, not one.
-//   A wave stages above the top edge at negative y, so an unfiltered pick would
+//   A wave stages off the enemy edge at negative x, so an unfiltered pick would
 //   drop most fire missions on ground the player can't see, against men who
-//   haven't arrived. But `y > 0` alone is NOT "on the field" — it is one term of
+//   haven't arrived. But `x > 0` alone is NOT "on the field" — it is one term of
 //   inTheFight (js/helpers.js), and this scan is hand-rolled rather than routed
 //   through targeting.js, so it went without the others until that predicate was
 //   extracted. The two it was missing are why the helper exists: `entering` (the
-//   Yamato rolls in from a FLANK, so her y is on-field while her x is hundreds of
-//   pixels off the edge — measured x -170 on a 540-wide field, all ELEVEN of her
-//   actors admitted here and none by any other scan), and `chute > 0` (a
-//   paradropped stick hangs at an on-field y for seconds before it lands —
-//   measured 3 admitted here, 0 anywhere else). Both are untouchable: damageEnemy
-//   returns early on each, so a mission called onto one spent the proc to shell
-//   empty ground the player mostly cannot even see.
+//   Yamato rolls in from a FLANK, so her x is on-field while her y is hundreds of
+//   pixels off the top or bottom edge — measured y -170 on a 540-tall field, all
+//   ELEVEN of her actors admitted here and none by any other scan), and
+//   `chute > 0` (a paradropped stick hangs at an on-field x for seconds before it
+//   lands — measured 3 admitted here, 0 anywhere else). Both are untouchable:
+//   damageEnemy returns early on each, so a mission called onto one spent the
+//   proc to shell empty ground the player mostly cannot even see.
 //   Called before launchWave, the pool is exactly the previous wave's survivors.
 // - The salvo is the toolbar MORTAR STRIKE's WEIGHT — 6 rounds, the same 42
 //   radius and 90 damage, and it credits nobody, exactly like the bought strike.
@@ -233,8 +240,9 @@ function healBreachesBetweenWaves() {
 // its banner must not be stomped. Over the officer, so it reads as HIS call.
 const FIRE_MISSION_CHANCE = 0.05;   // per wave, on top of a live officer
 const FIRE_MISSION_SHELLS = 6;
-const FIRE_MISSION_SPREAD_X = 38;   // observed fire, not a map square: about half
-const FIRE_MISSION_SPREAD_Y = 32;   // the toolbar strike's box
+const FIRE_MISSION_SPREAD_LAT = 38;   // observed fire, not a map square: about half
+const FIRE_MISSION_SPREAD_DEPTH = 32; // the toolbar strike's box — wider across the
+                                      // enemy's front (lateral) than along his advance
 const FIRE_MISSION_DELAY = 2.0;     // first round down
 const FIRE_MISSION_GAP = 0.55;      // and the rest inside three more seconds, so
                                     // a walking target is still in the pattern
@@ -249,8 +257,8 @@ function maybeOfficerFireMission() {
   const caller = pick(officers);
   const tgt = pick(targets);
   for (let i = 0; i < FIRE_MISSION_SHELLS; i++) {
-    scheduleShell(tgt.x + rand(-FIRE_MISSION_SPREAD_X, FIRE_MISSION_SPREAD_X),
-      tgt.y + rand(-FIRE_MISSION_SPREAD_Y, FIRE_MISSION_SPREAD_Y),
+    scheduleShell(tgt.x + rand(-FIRE_MISSION_SPREAD_DEPTH, FIRE_MISSION_SPREAD_DEPTH),
+      tgt.y + rand(-FIRE_MISSION_SPREAD_LAT, FIRE_MISSION_SPREAD_LAT),
       FIRE_MISSION_DELAY + i * FIRE_MISSION_GAP, 42, 90, false);
   }
   G.texts.push({ x: caller.x, y: caller.y - 22, text: 'FIRE MISSION — SHOT OUT', ttl: 2.6 });
@@ -403,8 +411,13 @@ function maybeSpawnPassenger(jeep) {
   if (jeep.type !== 'jeep') return;
   const type = rollPassengerType(passengerPool());
   if (!type) return;
-  // drop the passenger just behind the jeep so he doesn't spawn on the .50 cal
-  const u = makeUnit(type, jeep.x + rand(-22, 22), jeep.y + rand(18, 34));
+  // Drop the passenger just behind the jeep so he doesn't spawn on the .50 cal.
+  // BEHIND is +x now — the landscape flip left this offset on the old axis, so
+  // he was stepping out sideways into the lane beside the gun instead. Clamped
+  // because the back of the deploy zone is one jeep-length from the field edge.
+  const u = makeUnit(type,
+    clamp(jeep.x + rand(18, 34), 16, W - 14),
+    clamp(jeep.y + rand(-22, 22), 16, H - 16));
   G.units.push(u);
   G.texts.push({ x: u.x, y: u.y - 22, text: 'PASSENGER: ' + UNIT_TYPES[type].name.toUpperCase(), ttl: 2 });
 }
@@ -719,6 +732,15 @@ const FRENZY_WEIGHTS = {
 // commons: stamped out once per eligible unit type. `excludes` drops types
 // the effect can't touch (the flamethrower has no cooldown to reset).
 // `weight` is the card's command weight, 1-6 by impact.
+//
+// EVERY `desc` in this file is ONE SENTENCE, and that is a hard rule rather
+// than a style note: the shop's offer rail and the collection chits are both
+// fixed-height rows in a scrolling pane now, so a second sentence doesn't wrap,
+// it pushes the cost pill and the command pips out of the row. The long
+// versions read as documentation on a screen where nobody is reading — the
+// player is comparing four cards against a medal balance. Numbers stay
+// interpolated from the constants above so a tuning pass can't leave the copy
+// lying; what got cut is the flavour and the caveats, never a figure.
 const CARD_COMMON_TEMPLATES = {
   frenzy: {
     name: 'Frenzy', cost: 5, excludes: ['flamer', 'medic'],
@@ -730,7 +752,7 @@ const CARD_COMMON_TEMPLATES = {
     name: 'Busted Down', cost: 6,
     // cheating death matters most on the units a run can't afford to replace
     weight: type => ({ jeep: 3, atgun: 3, aagun: 3, sherman: 5 }[type] || 2),
-    desc: t => `instead of dying your ${t.name.toLowerCase()} loses 2 ranks`,
+    desc: t => `Instead of dying, the ${t.name.toLowerCase()} drops 2 ranks.`,
     hooks: type => ({ beforeDeath: cheatDeath }),
   },
   // small-arms accuracy only — the units whose to-hit runs through fireShot.
@@ -772,7 +794,7 @@ const CARD_COMMON_TEMPLATES = {
   // `seasonedvet_<type>` at spawn.
   seasonedvet: {
     name: 'Seasoned Veteran', cost: 5, weight: 2,
-    desc: t => `Every ${t.name.toLowerCase()} musters in one rank higher — a free promotion.`,
+    desc: t => `Every ${t.name.toLowerCase()} musters in one rank higher.`,
     hooks: type => ({}),
   },
   // support units carry weak short-range sidearms; this trades one for a
@@ -785,7 +807,7 @@ const CARD_COMMON_TEMPLATES = {
       'mortarman', 'sniper', 'flamer', 'jeep', 'sherman', 'atgun', 'aagun'],
     desc: (t, type) => type === 'medic'
       ? `Arms the medic with a full M1 rifle — a healer who can fight back.`
-      : `Arms the ${t.name.toLowerCase()} with a full M1 rifle in place of their weak sidearm — longer range, harder hits.`,
+      : `Swaps the ${t.name.toLowerCase()}'s weak sidearm for a full M1 rifle.`,
     hooks: type => ({}),
   },
   // the four close-in specialists spend most of a fight walking into or out of
@@ -805,7 +827,7 @@ const CARD_COMMON_TEMPLATES = {
     name: 'Emergency Repair', cost: 8, weight: 3,
     excludes: ['rifleman', 'gunner', 'grenadier', 'shotgunner', 'bazooka',
       'mortarman', 'sniper', 'flamer', 'medic', 'engineer', 'officer', 'atgun', 'aagun'],
-    desc: t => `Once ${t.name.toLowerCase()} drops below 30% HP, rapidly regenerate 30% HP. Cooldown: ${EMERGENCY_REPAIR_COOLDOWN}s.`,
+    desc: t => `Below 30% HP the ${t.name.toLowerCase()} rapidly regenerates 30% HP, once every ${EMERGENCY_REPAIR_COOLDOWN}s.`,
     hooks: type => ({}),
   },
   // medal price runs opposite the unit's TP cost: a discount on a 3 TP
@@ -828,7 +850,7 @@ const CARD_COMMON_TEMPLATES = {
 const CARD_UNIQUES = {
   deadmansswitch: {
     unit: 'rifleman', name: "Dead Man's Switch", cost: 9, weight: 3,
-    desc: 'A dying rifleman pulls the pin — a live frag drops on the nearest enemy.',
+    desc: 'A dying rifleman drops a live frag on the nearest enemy.',
     hooks: {
       // fires from the death block after the man is down; the corpse still
       // gets credited as the thrower so grenadiers won't scoop it back
@@ -847,7 +869,7 @@ const CARD_UNIQUES = {
   rifledslugs: {
     unit: 'shotgunner', name: 'Rifled Slugs', cost: 9, weight: 3,
     // flag-only: fireShotgun reads G.cardsOwned directly, like Extended Tube
-    desc: 'Load slugs, not buckshot: one hard, long-range round, but a wider cone than the buckshot pattern gave up.',
+    desc: 'Slugs, not buckshot: one hard long-range round in a wider cone.',
     hooks: {},
   },
   // flag-only, like Rifled Slugs: unitRangeMult reads G.cardsOwned to stretch a
@@ -855,7 +877,7 @@ const CARD_UNIQUES = {
   // all lengthen together
   desperatemeasures: {
     unit: 'flamer', name: 'Desperate Measures', cost: 9, weight: 3,
-    desc: 'A flamer below half health throws his stream 30% farther — a glass-cannon gamble.',
+    desc: 'A flamer below half health throws his stream 30% farther.',
     hooks: {},
   },
   // flag-only, like Desperate Measures/Rifled Slugs: flameSpray reads
@@ -864,7 +886,7 @@ const CARD_UNIQUES = {
   // from every enemy his stream burns, a vampire's deal with the fire.
   vampiricflame: {
     unit: 'flamer', name: 'Vampiric Flame', cost: 9, weight: 3,
-    desc: `The flamer siphons ${Math.round(VAMPIRIC_FLAME_LIFESTEAL * 100)}% of the damage his stream deals to enemies back as slow healing.`,
+    desc: `The flamer heals for ${Math.round(VAMPIRIC_FLAME_LIFESTEAL * 100)}% of the damage his stream deals.`,
     hooks: {},
   },
   // flag-only, like Rifled Slugs: tankTargets/updateTankCombat read
@@ -873,7 +895,7 @@ const CARD_UNIQUES = {
   // damage to armor, so this genuinely can't crack a Tiger.
   flametank: {
     unit: 'sherman', name: 'Flame Tank', cost: 14, weight: 5,
-    desc: `Rip out the 75mm for a hull flamethrower: a wide cone of fire torches infantry — friend or foe — at close range. It still scorches armor, but only for chip damage, never the cannon's punch.`,
+    desc: `Trades the 75mm for a hull flamethrower that torches infantry — friend or foe — and only chips armor.`,
     hooks: {},
   },
   // flag-only, like Flame Tank: explode() reads G.cardsOwned via
@@ -881,21 +903,21 @@ const CARD_UNIQUES = {
   // on the Sherman
   slopedarmor: {
     unit: 'sherman', name: 'Sloped Armor', cost: 12, weight: 5,
-    desc: `Angled plate deflects the tank's real killers: the Sherman takes ${Math.round(SLOPED_ARMOR_REDUCTION * 100)}% less damage from enemy tank shells and rocket launchers.`,
+    desc: `Angled plate: the Sherman takes ${Math.round(SLOPED_ARMOR_REDUCTION * 100)}% less damage from enemy tank shells and rockets.`,
     hooks: {},
   },
   // flag-only, like Sloped Armor: the tank cannon block in updateTankCombat
   // reads G.cardsOwned via unitBlastMult and widens the r it hands the shell
   heshells: {
     unit: 'sherman', name: 'High Explosive', cost: 13, weight: 5,
-    desc: `The 75mm loads HE: every cannon shell bursts across ${HE_BLAST_MULT}x the radius. The tank fires it at whatever it is aimed at, with no regard for how close your own men are standing.`,
+    desc: `Every 75mm shell bursts across ${HE_BLAST_MULT}x the radius, with no regard for how close your own men stand.`,
     hooks: {},
   },
   // flag-only: maybeSpawnPassenger (called from input.js placement) reads
   // G.cardsOwned when a jeep deploys and rolls a free rider off rollPassengerType
   passenger: {
     unit: 'jeep', name: 'Passenger', cost: 10, weight: 3,
-    desc: 'Every jeep rolls in carrying one free infantryman — cheap grunts far likelier than pricey specialists, so a rifleman rides most often.',
+    desc: 'Every jeep rolls in carrying one free infantryman, usually a rifleman.',
     hooks: {},
   },
   // flag-only, like Rifled Slugs: fireJeepBazooka (called from the vehicle
@@ -903,21 +925,21 @@ const CARD_UNIQUES = {
   // paints the rider in the passenger seat
   bazookarider: {
     unit: 'jeep', name: 'Bazooka Rider', cost: 12, weight: 4,
-    desc: 'A bazooka gunner rides shotgun in every jeep, launching armor-piercing rockets on the move — the .50 keeps talking while he hunts tanks.',
+    desc: 'A bazooka gunner rides shotgun in every jeep, hunting armor on the move.',
     hooks: {},
   },
   // flag-only, like Rifled Slugs: fireShot reads G.cardsOwned via
   // armorPiercingMult and boosts a gunner's damage against light enemy vehicles
   armorpiercing: {
     unit: 'gunner', name: 'Armor Piercing', cost: 9, weight: 3,
-    desc: `The gunner loads AP rounds: his BAR deals ${ARMOR_PIERCING_MULT}x damage to enemy jeeps, halftracks, and motorcycles, and ${ARMOR_PIERCING_TANK_MULT}x against tanks — enough to chip armor, not to crack it like a bazooka.`,
+    desc: `The gunner's BAR deals ${ARMOR_PIERCING_MULT}x damage to light enemy vehicles and ${ARMOR_PIERCING_TANK_MULT}x to tanks.`,
     hooks: {},
   },
   // flag-only, like Armor Piercing: suppressArea reads G.cardsOwned via
   // suppressionPinMult on every burst a US gunner opens
   beatenzone: {
     unit: 'gunner', name: 'Beaten Zone', cost: 10, weight: 4,
-    desc: `The gunner walks his fire like a man who means to keep the ground: every burst pins the enemies around his aim point for ${BEATEN_ZONE_MULT}x as long, and a pinned man neither advances nor fires. Only what a machine gun can pin at all — fanatics, the dead and a charging Italian ignore a beaten zone as they always did.`,
+    desc: `Every gunner burst pins the enemies around his aim point for ${BEATEN_ZONE_MULT}x as long.`,
     hooks: {},
   },
   // flag-only, like Armor Piercing: damageEnemy and damageUnit read
@@ -925,7 +947,7 @@ const CARD_UNIQUES = {
   // otherwise have soaked the blast.
   heatrounds: {
     unit: 'bazooka', name: 'HEAT Rounds', cost: 10, weight: 3,
-    desc: 'Shaped-charge warheads: the rocket burns straight through flak plate instead of grinding it down, so armored infantry take the whole blast with their vests still on — and the deeper the run, the more of them are wearing one. The jet does not ask whose vest it is: your own men\'s flak armor stops none of it either.',
+    desc: 'Shaped charges burn straight through flak plate — anyone\'s, your own men\'s included.',
     hooks: {},
   },
   crackshot: {
@@ -944,12 +966,12 @@ const CARD_UNIQUES = {
   // HEADSHOT_CHANCE for why the two rates are so far apart.
   headshotsniper: {
     unit: 'sniper', name: 'Headshot', cost: 12, weight: 4,
-    desc: `Every sniper round that connects has a ${Math.round(HEADSHOT_CHANCE.sniper * 100)}% chance to find the head and kill outright, no matter how much health the man had left. Enemy infantry only — armor, vehicles and bosses are unaffected.`,
+    desc: `Every sniper round that connects has a ${Math.round(HEADSHOT_CHANCE.sniper * 100)}% chance to kill enemy infantry outright.`,
     hooks: {},
   },
   headshotrifleman: {
     unit: 'rifleman', name: 'Headshot', cost: 11, weight: 4,
-    desc: `Every rifle round that connects has a ${Math.round(HEADSHOT_CHANCE.rifleman * 100)}% chance to find the head and kill outright, no matter how much health the man had left. A slim chance, but every rifleman on the field is rolling it. Enemy infantry only — armor, vehicles and bosses are unaffected.`,
+    desc: `Every rifle round that connects has a ${Math.round(HEADSHOT_CHANCE.rifleman * 100)}% chance to kill enemy infantry outright.`,
     hooks: {},
   },
   // Follow Through: the one card built on kill momentum, and the second pair
@@ -963,7 +985,7 @@ const CARD_UNIQUES = {
   // the very next tick rather than a frame and a bit later.
   followthroughsniper: {
     unit: 'sniper', name: 'Follow Through', cost: 12, weight: 4,
-    desc: `A confirmed kill steadies the sniper: his next shot reaches ${LONG_SHOT_MULT}x as far — far enough to cover the whole sector. Kill with it and it arms again. A miss spends it.`,
+    desc: `A confirmed kill sends the sniper's next shot ${LONG_SHOT_MULT}x as far; a miss spends it.`,
     hooks: {
       onKill: u => { u.longShot = true; u._tgtUntil = 0; },
       afterShot: u => { u.longShot = false; },
@@ -971,7 +993,7 @@ const CARD_UNIQUES = {
   },
   followthroughrifleman: {
     unit: 'rifleman', name: 'Follow Through', cost: 9, weight: 3,
-    desc: `A confirmed kill steadies the rifleman: his next shot reaches ${LONG_SHOT_MULT}x as far. Kill with it and it arms again. A miss spends it.`,
+    desc: `A confirmed kill sends the rifleman's next shot ${LONG_SHOT_MULT}x as far; a miss spends it.`,
     hooks: {
       onKill: u => { u.longShot = true; u._tgtUntil = 0; },
       afterShot: u => { u.longShot = false; },
@@ -982,7 +1004,7 @@ const CARD_UNIQUES = {
   // G.cardsOwned directly instead
   greasemonkey: {
     unit: 'engineer', name: 'Grease Monkey', cost: 8, weight: 2,
-    desc: 'Engineers repair everything — emplacements and vehicles alike — twice as fast.',
+    desc: 'Engineers repair emplacements and vehicles alike twice as fast.',
     hooks: {},
   },
   hardenedworks: {
@@ -990,13 +1012,13 @@ const CARD_UNIQUES = {
     // flag-only: updateEngineer reads G.cardsOwned directly, like Grease Monkey.
     // Lets an engineer push an already-fortified emplacement to a second tier —
     // tougher, deeper cover, longer range, harder wire.
-    desc: 'Engineers push fortifications to a second tier: hardened emplacements with even more HP, cover, and range.',
+    desc: 'Engineers push fortifications to a second HARDENED tier — more HP, cover and range.',
     hooks: {},
   },
   fieldarmorer: {
     unit: 'engineer', name: 'Field Armorer', cost: 10, weight: 3,
     // flag-only, like Grease Monkey: updateEngineer reads G.cardsOwned directly
-    desc: 'Engineers patch battle-damaged body and flak armor on nearby infantry, slowly refilling a broken plate at the same crawling rate they wrench on a tank.',
+    desc: 'Engineers slowly patch battle-damaged body and flak armor on nearby infantry.',
     hooks: {},
   },
   cannibalize: {
@@ -1010,7 +1032,7 @@ const CARD_UNIQUES = {
   // stamps u.medicGuard on the man he just patched; damageUnit reads the timer.
   morphinesyrette: {
     unit: 'medic', name: 'Morphine Syrette', cost: 11, weight: 4,
-    desc: `A man the medic patches up shrugs off the pain: he takes ${Math.round(MEDIC_GUARD_REDUCTION * 100)}% less damage from everything while the dose holds.`,
+    desc: `A man the medic patches up takes ${Math.round(MEDIC_GUARD_REDUCTION * 100)}% less damage while the dose holds.`,
     hooks: {},
   },
   rushorder: {
@@ -1027,19 +1049,19 @@ const CARD_UNIQUES = {
   // maybeOfficerFireMission() once per wave.
   firemission: {
     unit: 'officer', name: 'Fire Mission', cost: 14, weight: 4,
-    desc: `Every wave, a ${Math.round(FIRE_MISSION_CHANCE * 100)}% chance an officer gets a battery on the radio: ${FIRE_MISSION_SHELLS} rounds of 60mm come down on a random enemy out on the field, free — the same weight of shell as a MORTAR STRIKE off the toolbar, in a tighter pattern because he is looking at the target. It takes an officer alive to make the call, and the rounds land where the man stood when he made it.`,
+    desc: `Each wave, a ${Math.round(FIRE_MISSION_CHANCE * 100)}% chance a living officer calls ${FIRE_MISSION_SHELLS} free 60mm rounds down on an enemy.`,
     hooks: {},
   },
   // flag-only: the grenade explosion in update.js reads
   // G.cardsOwned and calls spawnShrapnel when a grenadier's frag goes off.
   fraggrenades: {
     unit: 'grenadier', name: 'Frag Grenades', cost: 11, weight: 4,
-    desc: `Grenadier frags burst into ${FRAG_SHRAPNEL_COUNT} fragments flying in every direction — they tear through anything in their path, so mind your own men.`,
+    desc: `Grenadier frags burst into ${FRAG_SHRAPNEL_COUNT} fragments that tear through anything in their path — your men included.`,
     hooks: {},
   },
   extendedtube: {
     unit: 'shotgunner', name: 'Extended Tube', cost: 9, weight: 3,
-    desc: `${EXTENDED_TUBE_SHELLS} shells per clip; reload takes 3x after emptying.`,
+    desc: `${EXTENDED_TUBE_SHELLS} shells per clip, but a 3x reload once it empties.`,
     hooks: {},
   },
   // flag-only, like Rifled Slugs: braveStandsFast (in tryGoProne) reads
@@ -1047,28 +1069,28 @@ const CARD_UNIQUES = {
   // hits the dirt.
   pointblank: {
     unit: 'shotgunner', name: 'Point Blank', cost: 8, weight: 3,
-    desc: 'The shotgunner refuses to go prone while any enemy stands within his buckshot range — he stays up and keeps blasting.',
+    desc: 'The shotgunner never goes prone while an enemy stands within buckshot range.',
     hooks: {},
   },
   // flag-only, like Point Blank: braveStandsFast keeps a flamer on his feet
   // whenever an enemy is inside flame range.
   trialbyfire: {
     unit: 'flamer', name: 'Trial by Fire', cost: 8, weight: 3,
-    desc: 'The flamer never hits the dirt while an enemy is within reach of his stream — he stands his ground and keeps burning.',
+    desc: 'The flamer never goes prone while an enemy stands within reach of his stream.',
     hooks: {},
   },
   // flag-only, like Rifled Slugs: the mortar fire block in updateFriendly reads
   // G.cardsOwned directly to swap the single shell for a wider, wilder stick
   clusterrounds: {
     unit: 'mortarman', name: 'Cluster Rounds', cost: 12, weight: 5,
-    desc: `The mortarman rushes ${CLUSTER_ROUNDS_SHELLS_MIN}-${CLUSTER_ROUNDS_SHELLS_MAX} shells down the tube per fire order — but hurried crews scatter ${Math.round((CLUSTER_ROUNDS_SCATTER_MULT - 1) * 100)}% wider.`,
+    desc: `The mortarman drops ${CLUSTER_ROUNDS_SHELLS_MIN}-${CLUSTER_ROUNDS_SHELLS_MAX} shells per fire order, scattered ${Math.round((CLUSTER_ROUNDS_SCATTER_MULT - 1) * 100)}% wider.`,
     hooks: {},
   },
   // flag-only, like Cluster Rounds: damageEnemy calls maybeShellShock whenever a
   // hit is credited to a mortarman, and updateEnemy freezes stunned enemies.
   shellshocked: {
     unit: 'mortarman', name: 'Shell Shocked', cost: 11, weight: 4,
-    desc: `Any enemy that survives a hit from the mortarman is stunned for ${SHELLSHOCK_DURATION} second${SHELLSHOCK_DURATION === 1 ? '' : 's'} — no moving, no firing.`,
+    desc: `Any enemy that survives a mortarman's hit is stunned for ${SHELLSHOCK_DURATION} second${SHELLSHOCK_DURATION === 1 ? '' : 's'}.`,
     hooks: {},
   },
   // flag-only, like Cluster Rounds: the mortar fire block in updateFriendly
@@ -1076,7 +1098,7 @@ const CARD_UNIQUES = {
   // margin he keeps off your own men before he'll drop a round
   heavyshells: {
     unit: 'mortarman', name: 'Heavy Shells', cost: 13, weight: 5,
-    desc: `Heavier 60mm rounds: every shell the mortarman drops bursts across ${BIG_BLAST_MULT}x the radius. He holds fire at a proportionally wider margin from your own men — the blast is far too big to drop on a contact fight.`,
+    desc: `Every mortar shell bursts across ${BIG_BLAST_MULT}x the radius, so he holds fire that much farther off your own men.`,
     hooks: {},
   },
   warbonds: {
@@ -1089,21 +1111,21 @@ const CARD_UNIQUES = {
   // G.cardsOwned directly and skips every defense structure's blast damage.
   blastshelter: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Blast Shelter', cost: 16, weight: 6,
-    desc: 'Overhead cover makes every emplacement immune to explosions — sandbags, bunkers, watch towers, camo nests, ammo crates, wire and mines take no blast damage.',
+    desc: 'Overhead cover makes every emplacement immune to blast damage.',
     hooks: {},
   },
   // a third emplacement card, flag-only like the two around it: applyPlacement
   // (js/input.js) runs every structure it creates through prehardenDefense.
   prehardened: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Pre-Hardened', cost: 13, weight: 5,
-    desc: 'Emplacements are dug in reinforced from the start — everything you place arrives at the FORTIFIED tier, with the extra HP, cover, range and holding power an engineer would have spent six seconds on. Engineers skip straight to repairs, or push a piece to HARDENED if you also carry Hardened Works. Minefields have no tier and are unaffected.',
+    desc: 'Everything you place arrives dug in at the FORTIFIED tier, minefields excepted.',
     hooks: {},
   },
   // like Blast Shelter, an emplacement card with no per-unit hook: the enemy
   // movers in update-enemies read G.cardsOwned directly to bite men in the wire.
   razorwire: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Razor Wire', cost: 10, weight: 3,
-    desc: 'Barbed wire is strung with razor tape — enemy infantry dragging through it have a chance to take light cuts every moment they struggle.',
+    desc: 'Razor tape on the wire cuts enemy infantry the whole time they drag through it.',
     hooks: {},
   },
   // the fourth emplacement card, and the camo nest's own. Flag-only like the
@@ -1111,7 +1133,7 @@ const CARD_UNIQUES = {
   // takeAmbushShot, which is also where the scope of the bonus is argued.
   ambush: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Ambush', cost: 9, weight: 3,
-    desc: `A man who opens fire out of a camo nest while the enemy still cannot see him hits for ${AMBUSH_DMG_MULT}x damage. The shot gives his position away, so the bonus only comes back once the nest hides him again — ${CAMONEST_REVEAL}s after his last shot, ${CAMONEST_REVEAL_FORTIFIED}s fortified, ${CAMONEST_REVEAL_HARDENED}s hardened. Aimed fire and buckshot only: grenades, rockets, mortar shells and flame break cover without the ambush.`,
+    desc: `A man firing out of a camo nest while still unseen hits for ${AMBUSH_DMG_MULT}x damage.`,
     hooks: {},
   },
   // the fifth emplacement card, and the watch tower's own. Flag-only like the
@@ -1119,7 +1141,7 @@ const CARD_UNIQUES = {
   // spotterSeesThrough, so every target pick in the game honours it at once.
   forwardobserver: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Forward Observer', cost: 11, weight: 4,
-    desc: `A spotter works the top of every WATCH TOWER and calls targets for the sector below him: your infantry within ${WATCHTOWER_SPOT_R[0]} of a tower pick targets straight through smoke instead of standing blind in it — riflemen, machine guns and the mortar crew alike. Fortifying the tower widens the sector it watches to ${WATCHTOWER_SPOT_R[1]}, hardening it to ${WATCHTOWER_SPOT_R[2]}. Not armour and not the staked guns: a buttoned-up crew and a gunner at his own sights never climbed the ladder. It sees for your side only — the smoke still hides your men from them, and a tower that falls takes its sector's eyes with it.`,
+    desc: `A spotter atop each WATCH TOWER lets your infantry within ${WATCHTOWER_SPOT_R[0]} of it pick targets straight through smoke.`,
     hooks: {},
   },
   // flag-only, like Rifled Slugs: updateAAGun reads G.cardsOwned directly to
@@ -1127,7 +1149,7 @@ const CARD_UNIQUES = {
   // close-range wedge red to mark the depression zone
   leveltbarrels: {
     unit: 'aagun', name: 'Level the Barrels', cost: 11, weight: 4,
-    desc: `The flak mount can depress: enemies on the ground within short range catch a 40mm HE round. It still engages aircraft at full range — the red wedge marks its ground reach.`,
+    desc: `The flak mount depresses to catch ground infantry inside the red wedge with a 40mm HE round.`,
     hooks: {},
   },
   // flag-only, like Level the Barrels above it: updateATGun reads G.cardsOwned
@@ -1135,7 +1157,7 @@ const CARD_UNIQUES = {
   // both range overlays paint the near band in buckshot cream to mark it.
   canistershot: {
     unit: 'atgun', name: 'Canister Shot', cost: 12, weight: 5,
-    desc: `The 57mm carries a tin of lead balls that comes apart the moment it clears the muzzle. Enemy infantry that closes inside ${Math.round(CANISTER_RANGE_FRAC * 100)}% of the gun's reach catches the whole pattern, and canister rams faster than an AP round. Armor is still the first thing the gun answers and the shot does nothing to it — the pale wedge marks the ground the pattern covers.`,
+    desc: `The 57mm answers infantry inside ${Math.round(CANISTER_RANGE_FRAC * 100)}% of its reach with a tin of lead balls, armor permitting.`,
     hooks: {},
   },
   // not tied to a unit type either: `armor` is a pseudo-key covering BOTH armor
@@ -1143,21 +1165,21 @@ const CARD_UNIQUES = {
   // armor branch of applyPlacement reads G.cardsOwned through armorPlatePoints().
   reinforcedplate: {
     unit: 'armor', label: 'ARMOR', name: 'Reinforced Plate', cost: 11, weight: 4,
-    desc: `Heavier steel in the carrier: both BODY ARMOR and FLAK ARMOR fit ${ARMOR_PLATE_MULT}x the plate, ${ARMOR_POINTS * ARMOR_PLATE_MULT} points instead of ${ARMOR_POINTS}, for the same 1 TP. Plate already on a man is unchanged until you re-buy it, and an engineer with Field Armorer patches the thicker bar back to full.`,
+    desc: `BODY and FLAK ARMOR fit ${ARMOR_PLATE_MULT}x the plate — ${ARMOR_POINTS * ARMOR_PLATE_MULT} points instead of ${ARMOR_POINTS} — for the same 1 TP.`,
     hooks: {},
   },
   // not tied to a unit type: carries a `label` so its chip reads HQ. Flag-only —
   // newGame() reads G.cardsOwned once when the run starts and front-loads the TP.
   warchest: {
     unit: 'hq', label: 'HQ', name: 'War Chest', cost: 10, weight: 2,
-    desc: `Requisition a reserve of supplies: begin every endless run with ${WAR_CHEST_TP} extra TP.`,
+    desc: `Begin every endless run with ${WAR_CHEST_TP} extra TP banked.`,
     hooks: {},
   },
   // the other HQ card, and the only one anywhere that heals the run itself
   // rather than a man. Flag-only: spawnWave calls healBreachesBetweenWaves().
   counterattack: {
     unit: 'hq', label: 'HQ', name: 'Counterattack', cost: 14, weight: 1,
-    desc: `Reserves move up between assaults and take back the ground you lost: every new wave scrubs ${BREACH_HEAL_PER_WAVE} breach off the tally, down to none. It cannot save a line that breaks past the limit mid-wave — the run ends the moment the last breach lands.`,
+    desc: `Every new wave scrubs ${BREACH_HEAL_PER_WAVE} breach off the tally, down to none.`,
     hooks: {},
   },
   // not a unit type either: `dummy` is a PLACEABLES key, so it carries a label
@@ -1166,7 +1188,7 @@ const CARD_UNIQUES = {
   // Flag-only: damageDummy reads G.cardsOwned through dummyRicochet.
   ricochet: {
     unit: 'dummy', label: 'DUMMY', name: 'Ricochet', cost: 9, weight: 3,
-    desc: `Something hard under the burlap: every bullet that strikes a decoy has a ${Math.round(DUMMY_RICOCHET_CHANCE * 100)}% chance to deflect straight back at the man who fired it, for the full damage the round did. Small arms only — flame, bayonets and shells don't come back.`,
+    desc: `Every bullet that strikes a decoy has a ${Math.round(DUMMY_RICOCHET_CHANCE * 100)}% chance to deflect straight back at the man who fired it.`,
     hooks: {},
   },
 };
@@ -1573,17 +1595,50 @@ let cardShopMode = 'shop';
 // the chosen endless difficulty waiting on the loadout screen's DEPLOY button
 let pendingLoadoutDiff = null;
 
+function resetCollectionFilters() {
+  collectionFilter = null;
+  collectionCmdFilter = null;
+  collectionStateFilter = null;
+}
+
+// The plan tabs and the command meter have two homes and ONE set of nodes:
+// the right pane in shop mode, where the collection is the screen; the left
+// rail in loadout mode, where the buying half is gone and picking a plan IS
+// the screen. Moved rather than duplicated so buildBattlePlanUI() keeps
+// filling one #plan-tabs and one #plan-command — a second copy would be a
+// second thing to remember to update, and it would be the pre-run screen (the
+// one shown least often) that silently went stale.
 function applyCardShopMode() {
   const loadout = cardShopMode === 'loadout';
   el('card-shop').classList.toggle('cs--loadout', loadout);
   const title = el('card-shop-title');
   if (title) title.textContent = loadout ? 'SELECT LOADOUT' : 'CARD SHOP';
+  const note = el('card-shop-note');
+  if (note) {
+    note.textContent = loadout
+      ? 'ONLY DEPLOYED CARDS TAKE THE FIELD'
+      : 'Every 10th wave banks medals — spend them on permanent unit upgrades.';
+  }
+  // the meter is a strip beside a collection in one mode and the pre-run
+  // screen's headline figure in the other; the label is sized to match
+  el('cs-meter').querySelector('.cs-meter__lab').textContent =
+    loadout ? 'COMMAND IN THE FIELD' : 'COMMAND';
+  const tabs = el('plan-tabs');
+  const meter = el('cs-meter');
+  if (loadout) {
+    el('cs-plan-rail').append(tabs, meter);
+  } else {
+    el('cs-pane-head').appendChild(tabs);
+    // back above the filter bar, which is where the pane wants it: the budget
+    // has to stay in view while cards are being tapped in and out
+    el('cs-loadout-pane').insertBefore(meter, el('plan-filter'));
+  }
 }
 
 function openCardShop(fromScreen) {
   cardShopMode = 'shop';
   pendingLoadoutDiff = null;
-  collectionFilter = null;
+  resetCollectionFilters();
   cardShopReturnScreen = fromScreen || 'intro';
   el(cardShopReturnScreen).classList.add('hidden');
   applyCardShopMode();
@@ -1614,7 +1669,7 @@ function openEndlessLoadout(difficultyId, fromScreen) {
   }
   cardShopMode = 'loadout';
   pendingLoadoutDiff = difficultyId;
-  collectionFilter = null;
+  resetCollectionFilters();
   cardShopReturnScreen = from;
   el(from).classList.add('hidden');
   applyCardShopMode();
@@ -1689,17 +1744,22 @@ function buildCardShopUI() {
     btn.className = 'cs-card' + (card.unique ? ' cs-card--unique' : '');
     btn.disabled = card.cost > data.medals;
     const afford = card.cost <= data.medals;
+    // a wide ROW, not a tall card: name and one-sentence effect on the left,
+    // price over command pips on the right. STANDARD is the absence of the
+    // UNIQUE badge rather than a chip of its own — in a rail this narrow the
+    // second chip was noise on three cards out of four.
     btn.innerHTML =
-      '<div class="cs-card__top">' +
-        '<span class="cs-chip">' + cardUnitLabel(card) + '</span>' +
-        '<span class="cs-rarity ' + (card.unique ? 'cs-rarity--uni">UNIQUE' : 'cs-rarity--std">STANDARD') + '</span>' +
+      '<div class="cs-card__copy">' +
+        '<div class="cs-card__top">' +
+          '<span class="cs-card__name">' + card.name.toUpperCase() + '</span>' +
+          '<span class="cs-chip">' + cardUnitLabel(card) + '</span>' +
+          (card.unique ? '<span class="cs-rarity">UNIQUE</span>' : '') +
+        '</div>' +
+        '<div class="cs-card__effect">' + card.desc + '</div>' +
       '</div>' +
-      '<span class="cs-card__name">' + card.name.toUpperCase() + '</span>' +
-      '<span class="cs-card__effect">' + card.desc + '</span>' +
-      '<div class="cs-card__foot">' +
-        '<span class="cs-cmd"><span class="cs-cmd__lab">COMMAND</span>' +
-          '<span class="cs-pips">' + commandPips(card.weight) + '</span></span>' +
+      '<div class="cs-card__foot" title="' + card.weight + ' command">' +
         '<span class="cs-cost">' + card.cost + '<span class="cs-cost__u">' + (afford ? 'MED' : 'NEED') + '</span></span>' +
+        '<span class="cs-pips">' + commandPips(card.weight) + '</span>' +
       '</div>';
     btn.addEventListener('click', () => {
       if (buyCard(card.id)) {
@@ -1734,10 +1794,109 @@ function buildCardShopUI() {
   buildBattlePlanUI();
 }
 
-// ---- battle plan UI: the collection grid + plan tabs under the shop row
+// ---- battle plan UI: the plan tabs, the command meter and the collection
+
+// the collection filter bar. Three controls, ANDed, all narrowing the one grid:
+// a unit-type select, a command-weight select and a deployed/reserve segment.
+// The type filter used to be a chip per unit type — fine at four cards, an
+// overflowing second row of chips at forty, in a pane that no longer scrolls.
+// Counts are printed on every option because "RIFLEMAN — 3" is the answer to
+// the question the filter is being opened to ask.
+function buildCollectionFilters(host, data, plan, used) {
+  host.replaceChildren();
+
+  // one option per unit type actually owned, plus OTHER for cards with no unit
+  // tie (emplacements, HQ, war surplus on placeables)
+  const counts = new Map();
+  for (const id of data.owned) {
+    const key = cardFilterKey(CARDS[id]);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const types = [...counts.keys()].sort((a, b) =>
+    a === 'other' ? 1 : b === 'other' ? -1 : cardFilterLabel(a).localeCompare(cardFilterLabel(b)));
+  // a filter that can only ever say ALL is not a filter
+  if (types.length < 2) collectionFilter = null;
+  const typeSel = filterSelect(host, 'cs-sel',
+    [{ v: '', label: 'ALL TYPES — ' + data.owned.length + ' CARDS' }].concat(
+      types.map(k => ({ v: k, label: cardFilterLabel(k) + ' — ' + counts.get(k) }))),
+    collectionFilter === null ? '' : collectionFilter,
+    v => { collectionFilter = v || null; });
+  typeSel.disabled = types.length < 2;
+
+  // FITS BUDGET is the one a player actually wants — "what can I still
+  // afford" — so it sits directly under ANY rather than at the end of 1..6
+  const weights = [...new Set(data.owned.map(id => CARDS[id].weight))].sort((a, b) => a - b);
+  const left = data.capacity - used;
+  const cmdOpts = [{ v: '', label: 'ANY COMMAND' }];
+  if (left > 0) cmdOpts.push({ v: 'fits', label: 'FITS BUDGET — \u2264' + left });
+  for (const w of weights) cmdOpts.push({ v: String(w), label: w + ' CMD' });
+  filterSelect(host, 'cs-sel cs-sel--cmd', cmdOpts,
+    collectionCmdFilter === null ? '' : String(collectionCmdFilter),
+    v => { collectionCmdFilter = v === '' ? null : v === 'fits' ? 'fits' : +v; });
+
+  const inField = data.owned.filter(id => plan.includes(id)).length;
+  const toggle = document.createElement('div');
+  toggle.className = 'cs-toggle';
+  const states = [
+    [null, 'ALL', ''],
+    ['field', 'FIELD ' + inField, ' cs-toggle--field'],
+    ['reserve', 'RES ' + (data.owned.length - inField), ''],
+  ];
+  for (const [key, label, extra] of states) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = extra.trim() + (collectionStateFilter === key ? ' cs-toggle--on' : '');
+    b.textContent = label;
+    b.addEventListener('click', () => {
+      if (collectionStateFilter === key) return;
+      collectionStateFilter = key;
+      SFX.click();
+      buildBattlePlanUI();
+    });
+    toggle.appendChild(b);
+  }
+  host.appendChild(toggle);
+}
+
+// a <select> in the shop's chrome: the chevron is a sibling span because the
+// native arrow can't be recoloured, so the control is appearance:none plus our
+// own mark. `onPick` writes the module-level filter; the rebuild is shared.
+function filterSelect(host, cls, options, value, onPick) {
+  const wrap = document.createElement('label');
+  wrap.className = cls;
+  const sel = document.createElement('select');
+  for (const o of options) {
+    const opt = document.createElement('option');
+    opt.value = o.v;
+    opt.textContent = o.label;
+    sel.appendChild(opt);
+  }
+  // a filter whose option vanished (the last card of a type was unequipped
+  // into a state that hides it) falls back to the ALL row rather than showing
+  // a blank control
+  sel.value = options.some(o => o.v === value) ? value : '';
+  sel.addEventListener('change', () => {
+    onPick(sel.value);
+    SFX.click();
+    buildBattlePlanUI();
+  });
+  const chev = document.createElement('span');
+  chev.className = 'cs-sel__chev';
+  chev.textContent = '\u25be';
+  wrap.append(sel, chev);
+  host.appendChild(wrap);
+  return sel;
+}
+
+function cardFilterLabel(key) {
+  return key === 'other' ? 'OTHER' : UNIT_TYPES[key].name.toUpperCase();
+}
 
 function buildBattlePlanUI() {
   const data = loadEndlessCards();
+  const plan = data.plans[data.activePlan];
+  const used = planCommandUsed(plan);
+
   const tabs = el('plan-tabs');
   tabs.replaceChildren();
   for (let i = 0; i < PLAN_SLOTS; i++) {
@@ -1745,7 +1904,7 @@ function buildBattlePlanUI() {
     tab.type = 'button';
     tab.className = 'cs-ptab' + (i === data.activePlan ? ' cs-ptab--active' : '');
     tab.innerHTML = '<span class="cs-ptab__n">' + PLAN_NAMES[i] + '</span>' +
-      '<span class="cs-ptab__c">' + planCommandUsed(data.plans[i]) + ' / ' + data.capacity + ' CMD</span>';
+      '<span class="cs-ptab__c">' + planCommandUsed(data.plans[i]) + ' / ' + data.capacity + '</span>';
     tab.addEventListener('click', () => {
       if (i === data.activePlan) return;
       setActivePlan(i);
@@ -1754,8 +1913,6 @@ function buildBattlePlanUI() {
     });
     tabs.appendChild(tab);
   }
-  const plan = data.plans[data.activePlan];
-  const used = planCommandUsed(plan);
   el('plan-command').textContent = `${used} / ${data.capacity}`;
   // command budget as a segmented bar: `used` of `capacity` cells lit
   const segs = el('plan-segs');
@@ -1765,6 +1922,12 @@ function buildBattlePlanUI() {
     seg.className = 'cs-seg' + (s < used ? ' cs-seg--fill' : '');
     segs.appendChild(seg);
   }
+  // the rail's one line of context under the big readout. Only shown in
+  // loadout mode (CSS), where the rung is what the plan is being picked
+  // against and unspent command is the thing worth a second look.
+  const spare = data.capacity - used;
+  el('plan-note').textContent = (escLabel(data.escalation) || 'NO ESCALATION') + ' · ' +
+    (spare > 0 ? spare + ' command unspent.' : 'Command budget full.');
   const upBtn = el('plan-upgrade');
   if (data.capacity >= MAX_COMMAND_CAP) {
     upBtn.textContent = `COMMAND — MAX (${MAX_COMMAND_CAP})`;
@@ -1774,6 +1937,7 @@ function buildBattlePlanUI() {
     upBtn.textContent = `+1 COMMAND — ${medalLabel(upCost)}`;
     upBtn.disabled = upCost > data.medals;
   }
+
   const grid = el('plan-collection');
   const filterRow = el('plan-filter');
   grid.replaceChildren();
@@ -1781,59 +1945,52 @@ function buildBattlePlanUI() {
   if (!data.owned.length) {
     const none = document.createElement('div');
     none.className = 'cs-chit cs-chit--empty';
-    none.textContent = 'NO CARDS IN THE COLLECTION YET — BUY SOME ABOVE.';
+    none.textContent = 'NO CARDS IN THE COLLECTION YET — BUY SOME ON THE LEFT.';
     grid.appendChild(none);
     return;
   }
-  // one chip per unit type actually owned, plus ALL to clear and OTHER for
-  // cards with no unit tie; skip the row entirely when there's nothing to split
-  const cats = new Map();
-  for (const id of data.owned) {
-    const key = cardFilterKey(CARDS[id]);
-    if (!cats.has(key)) cats.set(key, key === 'other' ? 'OTHER' : UNIT_TYPES[key].name.toUpperCase());
-  }
-  if (cats.size > 1) {
-    const entries = [...cats.entries()].sort((a, b) =>
-      a[0] === 'other' ? 1 : b[0] === 'other' ? -1 : a[1].localeCompare(b[1]));
-    entries.unshift([null, 'ALL']);
-    for (const [key, label] of entries) {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'cs-filter' + (collectionFilter === key ? ' cs-filter--active' : '');
-      chip.textContent = label;
-      chip.addEventListener('click', () => {
-        if (collectionFilter === key) return;
-        collectionFilter = key;
-        SFX.click();
-        buildBattlePlanUI();
-      });
-      filterRow.appendChild(chip);
-    }
-  } else {
-    collectionFilter = null;
-  }
-  const visible = data.owned.filter(id => collectionFilter === null || cardFilterKey(CARDS[id]) === collectionFilter);
+  buildCollectionFilters(filterRow, data, plan, used);
+
+  const visible = data.owned.filter(id => {
+    const card = CARDS[id];
+    if (collectionFilter !== null && cardFilterKey(card) !== collectionFilter) return false;
+    const equipped = plan.includes(id);
+    if (collectionStateFilter === 'field' && !equipped) return false;
+    if (collectionStateFilter === 'reserve' && equipped) return false;
+    // FITS BUDGET is about what can still be ADDED, so a card already in the
+    // plan passes it — it is, by definition, inside the budget
+    if (collectionCmdFilter === 'fits') return equipped || used + card.weight <= data.capacity;
+    if (collectionCmdFilter !== null && card.weight !== collectionCmdFilter) return false;
+    return true;
+  });
   if (!visible.length) {
     const none = document.createElement('div');
     none.className = 'cs-chit cs-chit--empty';
-    none.textContent = 'NO CARDS MATCH THIS FILTER.';
+    none.textContent = 'NO CARDS MATCH THESE FILTERS.';
     grid.appendChild(none);
     return;
   }
   for (const id of visible) {
     const card = CARDS[id];
     const equipped = plan.includes(id);
+    // a reserve card that can't fit the remaining command stays visible but dead
+    const nofit = !equipped && used + card.weight > data.capacity;
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'cs-chit' + (equipped ? ' cs-chit--deployed' : '')
-      + (card.unique ? ' cs-chit--unique' : '');
-    // a reserve card that can't fit the remaining command stays visible but dead
-    btn.disabled = !equipped && used + card.weight > data.capacity;
-    btn.innerHTML = '<span class="cs-chip">' + cardUnitLabel(card) + '</span>' +
-      '<span class="cs-chit__name">' + card.name.toUpperCase() + '</span>' +
+      + (card.unique ? ' cs-chit--unique' : '') + (nofit ? ' cs-chit--nofit' : '');
+    btn.disabled = nofit;
+    // the unit rides in the STATE line rather than as a chip of its own: the
+    // chit is two lines tall in a two-across grid, and a chip on its own row
+    // was costing one of them
+    btn.innerHTML = '<span class="cs-chit__top">' +
+        '<span class="cs-chit__name">' + card.name.toUpperCase() + '</span>' +
+        '<span class="cs-chit__cmd">' + card.weight + ' CMD</span>' +
+      '</span>' +
       '<span class="cs-chit__desc">' + card.desc + '</span>' +
       '<span class="cs-chit__state"><span class="cs-dot"></span>' +
-        (equipped ? 'DEPLOYED' : 'RESERVE') + ' · ' + card.weight + ' CMD</span>';
+        (nofit ? 'NO COMMAND LEFT' : equipped ? 'DEPLOYED' : 'RESERVE') +
+        ' \u00b7 ' + cardUnitLabel(card) + '</span>';
     btn.addEventListener('click', () => {
       if (togglePlanCard(id)) {
         SFX.click();

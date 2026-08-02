@@ -24,6 +24,7 @@ const SFX = (() => {
     cash:         ['cash_1.ogg'],
     promote:      ['promote_1.ogg', 'promote_2.ogg'],
     event:        ['event_1.ogg'],
+    officerCall:  ['officer_call_1.ogg'],
   };
   let master = null;
   let noiseBuf = null;
@@ -259,6 +260,18 @@ const SFX = (() => {
     promote() {
       if (!throttled('promote', 0.15)) return;
       playOrSynth('promote', () => { tone(523, 0.1, 0.12, 'triangle'); tone(659, 0.1, 0.12, 'triangle'); tone(784, 0.18, 0.12, 'triangle'); }, { vol: 0.6, jitter: true });
+    },
+    // an enemy officer winding up a command (banzai order, frenzy shriek). It
+    // is the AUDIBLE half of the telegraph, so it deliberately RISES — the pitch
+    // climbing is the thing that reads as "about to happen" without the player
+    // having to find the mark on screen first. Throttled loosely: two officers
+    // forming orders at once should be two cues, three should not be a chord.
+    officerCall() {
+      if (!throttled('officerCall', 0.35)) return;
+      playOrSynth('officerCall', () => {
+        tone(300, 0.5, 0.11, 'sawtooth', 640);
+        noise(0.3, 0.05, 'bandpass', 1200, 3, 0.4);
+      }, { vol: 0.55, jitter: true });
     },
     // stinger for a battlefield event banner (fog, reinforcements, strafing run)
     event() {

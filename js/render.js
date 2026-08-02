@@ -121,6 +121,9 @@ function draw() {
     }
   }
 
+  // ...and the other thing on the field that is about to go off
+  drawOfficerCommandTelegraph();
+
   // rockets in flight
   for (const r of G.rockets) {
     const ang = Math.atan2(r.ty - r.sy, r.tx - r.sx);
@@ -273,6 +276,31 @@ function draw() {
   }
   for (const e of G.enemies) {
     if (!e.dead && e.t.shotgun && e.shotgunBlastT > 0) drawShotgunBlast(e);
+  }
+
+  // sniper laser sights: a thin red beam from the scope to the current mark,
+  // brightest at the muzzle, ending in an aiming dot on the man it will hit.
+  // _laserTgt is stamped by the sniper branch of updateUnit; a pinned or
+  // running sniper is off his glass, so the stale ref those early returns
+  // leave behind is skipped here rather than cleared there.
+  for (const u of G.units) {
+    if (u.dead || u.type !== 'sniper' || u.prone > 0 || u.moveTo) continue;
+    const m = u._laserTgt;
+    if (!m || !inTheFight(m)) continue;
+    if (cullOn && (Math.max(u.x, m.x) < cullX0 || Math.min(u.x, m.x) > cullX1 ||
+                   Math.max(u.y, m.y) < cullY0 || Math.min(u.y, m.y) > cullY1)) continue;
+    const mx = u.x + Math.cos(u.face) * (u.t.gun + 3);
+    const my = u.y + Math.sin(u.face) * (u.t.gun + 3);
+    const beam = ctx.createLinearGradient(mx, my, m.x, m.y);
+    beam.addColorStop(0, 'rgba(255,45,35,0.5)');
+    beam.addColorStop(1, 'rgba(255,45,35,0.14)');
+    ctx.strokeStyle = beam;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(m.x, m.y); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,70,50,0.3)';
+    ctx.beginPath(); ctx.arc(m.x, m.y, 2.6, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,40,30,0.95)';
+    ctx.beginPath(); ctx.arc(m.x, m.y, 1.2, 0, 7); ctx.fill();
   }
 
   // tracers — the round races from muzzle to impact, then the streak fades
@@ -462,6 +490,49 @@ function draw() {
   drawHoverPanel();
 }
 
+// An enemy officer winding up a command (officerCommand, js/update-enemies.js).
+// Drawn on the GROUND, under the troops, for the same reason the shell markers
+// above are: the men fighting over the marked circle have to stay legible.
+//
+// Two marks, and the split is the point. The dashed circle is WHERE — the
+// ground about to be roused, drawn at the order's own radius so the player can
+// see at a glance which of his approaching problems is inside it. The bright
+// ring swelling out of the officer is WHEN — it reaches that edge exactly as
+// the order lands, and the shockwave the shout fires then continues it outward
+// from the same place, so the telegraph and the payoff are one motion. It is
+// deliberately the same grammar as the V2's contracting ring: a marked area
+// plus a ring closing on a deadline, learned once.
+//
+// The badge over the officer's own head (drawCommandWarning, render-overlays.js)
+// is the other half, and answers WHO — a circle on the ground with a dozen men
+// standing in it doesn't say which one to shoot.
+function drawOfficerCommandTelegraph() {
+  for (const e of G.enemies) {
+    if (!(e.cmdT > 0) || e.dead) continue;
+    const r = e.cmdR || OFFICER_AURA_R;
+    if (!inView(e.x, e.y, r + 8)) continue;
+    const f = clamp(1 - e.cmdT / (e.cmdMax || OFFICER_CMD_WARN), 0, 1);  // 0 forming, 1 landing
+    const rgb = e.cmdRGB || '255,209,90';
+
+    // the ground the order covers: faint fill, dashed edge, both firming up as
+    // the order forms so the circle itself reads as a countdown
+    ctx.fillStyle = `rgba(${rgb},${0.03 + f * 0.05})`;
+    ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = `rgba(${rgb},${0.25 + f * 0.4})`;
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([7, 6]);
+    ctx.lineDashOffset = -G.time * 14;      // a crawling edge, so a held mark never looks frozen
+    ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineDashOffset = 0;
+
+    // ...and the ring racing out to meet it
+    ctx.strokeStyle = `rgba(${rgb},${0.35 + f * 0.5})`;
+    ctx.lineWidth = 1 + f * 1.6;
+    ctx.beginPath(); ctx.arc(e.x, e.y, Math.max(2, r * f), 0, 7); ctx.stroke();
+  }
+}
+
 // pulsing ring around whatever the tutorial wants clicked next
 function drawTutorialHighlights() {
   const T = G && G.tutorial;
@@ -496,16 +567,22 @@ function drawTutorialHighlights() {
       ctx.stroke();
     }
   }
-  // Tutorial 1's yellow "click here" ring for the select/move lessons
-  let target = null, r0 = 0;
-  if (T.step === 'select' && T.rifle && !T.rifle.dead) { target = T.rifle; r0 = 16; }
-  else if (T.step === 'moveToBunker') { target = T.bunker; r0 = 30; }
-  if (target) {
+  // Tutorial 1's yellow "click here" ring for the select/move/multiselect lessons.
+  // 'move' has no ring: the destination is the player's free choice, so there's
+  // nothing specific to point at.
+  let targets = [];
+  if (T.step === 'select' && T.rifle && !T.rifle.dead) targets = [{ u: T.rifle, r0: 16 }];
+  else if (T.step === 'groupMove') targets = [{ u: T.sandbag, r0: 30 }];
+  else if (T.step === 'multiselect') {
+    if (T.rifle && !T.rifle.dead) targets.push({ u: T.rifle, r0: 16 });
+    if (T.buddy && !T.buddy.dead) targets.push({ u: T.buddy, r0: 16 });
+  }
+  for (const { u, r0 } of targets) {
     const pulse = r0 + Math.sin(G.time * 5) * 3;
     ctx.strokeStyle = 'rgba(255,217,74,0.9)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(target.x, target.y, pulse, 0, 7);
+    ctx.arc(u.x, u.y, pulse, 0, 7);
     ctx.stroke();
   }
 }

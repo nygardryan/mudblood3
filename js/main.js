@@ -25,7 +25,6 @@ el('esc-dossier').addEventListener('click', e => {
 el('endless-leaderboard-btn').addEventListener('click', () => openLeaderboardSelect('intro'));
 el('card-shop-btn').addEventListener('click', () => openCardShop('intro'));
 el('card-shop-deploy').addEventListener('click', deployEndlessLoadout);
-el('card-shop-deploy-top').addEventListener('click', deployEndlessLoadout);
 el('card-shop-back').addEventListener('click', closeCardShop);
 // spending medals on capacity changes what the shop row can afford too,
 // so rebuild the whole screen, not just the plan section

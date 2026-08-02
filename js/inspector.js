@@ -256,6 +256,12 @@ function hoverStats(a, own = false) {
   if (plate > 0) parts.push(`${plate}% RESIST`);
   if (t.pounce) parts.push('POUNCE');
   if (t.aura) parts.push('AURA');
+  // an officer who can ORDER as well as radiate, and — while the telegraph is
+  // up — the fact that he is doing it right now. The live line is keyed on the
+  // actor's own clock rather than on his flags, so it needs nothing for a third
+  // officer (officerCommand, js/update-enemies.js)
+  if (t.banzaiCmd || t.frenzyCmd) parts.push('RALLY CMD');
+  if (a.cmdT > 0) parts.push('ORDER FORMING');
   if (t.fixed) parts.push('IMMOBILE');
   // reward is the bounty an attacker collects for killing this unit — only
   // meaningful when it's a target, not the player's own selected trooper
@@ -414,29 +420,30 @@ function drawDragBox() {
 
 function drawForwardLine() {
   if (!showForwardLine()) return;
-  const y = FORWARD_Y;
+  const x = FORWARD_X;
   ctx.strokeStyle = 'rgba(110,100,75,0.55)';
   ctx.lineWidth = 1;
   ctx.setLineDash([6, 8]);
   ctx.beginPath();
-  ctx.moveTo(0, y);
-  ctx.lineTo(W, y);
+  ctx.moveTo(x, 0);
+  ctx.lineTo(x, H);
   ctx.stroke();
   ctx.setLineDash([]);
-  for (let x = 18; x < W; x += 36) {
-    const off = ((x / 36) | 0) % 2 ? -2 : 2;
-    const sy = y + off;
+  for (let y = 18; y < H; y += 36) {
+    const off = ((y / 36) | 0) % 2 ? -2 : 2;
+    const sx = x + off;
+    // stakes are still drawn standing upright on screen — a picket is a post
     ctx.fillStyle = 'rgba(90,72,48,0.85)';
-    ctx.fillRect(x - 1, sy - 5, 2, 6);
+    ctx.fillRect(sx - 1, y - 5, 2, 6);
     ctx.fillStyle = 'rgba(74,58,38,0.9)';
-    ctx.fillRect(x - 3, sy - 6, 6, 2);
+    ctx.fillRect(sx - 3, y - 6, 6, 2);
   }
   ctx.font = '9px "Courier New", monospace';
   ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(0,0,0,0.45)';
-  ctx.fillText('FORWARD LINE', 10, y - 6);
+  ctx.fillText('FORWARD LINE', x + 6, 12);
   ctx.fillStyle = 'rgba(200,190,150,0.55)';
-  ctx.fillText('FORWARD LINE', 9, y - 7);
+  ctx.fillText('FORWARD LINE', x + 5, 11);
 }
 
 // red tint for zones where move orders cannot be issued (matches placement ghost style)
@@ -444,13 +451,13 @@ function drawMoveRestrictedZone() {
   if (!G || !G.selected.length || placing) return;
   if (!G.selected.some(u => !u.t.fixed)) return;
 
-  const minY = moveOrderMinY();
-  const maxY = H - 14;
+  const minX = moveOrderMinX();
+  const maxX = W - 14;
   ctx.fillStyle = 'rgba(200,50,40,0.12)';
-  if (minY > 0) ctx.fillRect(0, 0, W, minY);
-  ctx.fillRect(0, maxY, W, H - maxY);
-  ctx.fillRect(0, minY, 16, maxY - minY);
-  ctx.fillRect(W - 16, minY, 16, maxY - minY);
+  if (minX > 0) ctx.fillRect(0, 0, minX, H);
+  ctx.fillRect(maxX, 0, W - maxX, H);
+  ctx.fillRect(minX, 0, maxX - minX, 16);
+  ctx.fillRect(minX, H - 16, maxX - minX, 16);
 }
 
 function drawMoveDestinations() {
@@ -558,9 +565,40 @@ function drawPlacementDefenseGhost(key, x, y, valid) {
   blitGhostBuffer(buf, x, y);
 }
 
+// red tint over ground where the armed placeable cannot go (same style and
+// edge bands as drawMoveRestrictedZone). Drawn whenever a purchase is armed,
+// not just while the pointer is over the field — touch has no hover, so this
+// is the mobile player's only map of where building is barred.
+function drawPlacementRestrictedZone(p) {
+  if (p.kind !== 'unit' && p.kind !== 'defense') return;
+  const minX = placementMinX(p);
+  const maxX = W - 14;
+  ctx.fillStyle = 'rgba(200,50,40,0.12)';
+  if (minX > 0) ctx.fillRect(0, 0, minX, H);
+  ctx.fillRect(maxX, 0, W - maxX, H);
+  ctx.fillRect(minX, 0, maxX - minX, 16);
+  ctx.fillRect(minX, H - 16, maxX - minX, 16);
+  // engineers extend the build zone forward: carve green pockets into the red
+  // for each engineer's radius, between the forward line and the deploy limit
+  if (p.kind === 'defense' && minX > FORWARD_X) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(FORWARD_X, 0, minX - FORWARD_X, H);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(90,180,110,0.20)';
+    for (const u of G.units) {
+      if (u.dead || u.type !== 'engineer' || u.side !== 'us') continue;
+      ctx.beginPath(); ctx.arc(u.x, u.y, ENGINEER_RANGE, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
 function drawPlacementGhost() {
-  if (!placing || !mouse.inside) return;
+  if (!placing) return;
   const p = placing;
+  drawPlacementRestrictedZone(p);
+  if (!mouse.inside) return;
   const x = mouse.x, y = mouse.y;
   const valid = placementValid(p, x, y);
   ctx.globalAlpha = 0.55;
@@ -593,23 +631,6 @@ function drawPlacementGhost() {
     ctx.moveTo(x, y - 10); ctx.lineTo(x, y + 10);
     ctx.stroke();
   } else {
-    // shade the invalid zone
-    ctx.fillStyle = 'rgba(200,50,40,0.12)';
-    ctx.fillRect(0, 0, W, placementMinY(p));
-    // engineers extend the build zone forward: carve green pockets into the red
-    // for each engineer's radius, between the forward line and the deploy limit
-    if (p.kind === 'defense' && placementMinY(p) > FORWARD_Y) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, FORWARD_Y, W, placementMinY(p) - FORWARD_Y);
-      ctx.clip();
-      ctx.fillStyle = 'rgba(90,180,110,0.20)';
-      for (const u of G.units) {
-        if (u.dead || u.type !== 'engineer' || u.side !== 'us') continue;
-        ctx.beginPath(); ctx.arc(u.x, u.y, ENGINEER_RANGE, 0, 7); ctx.fill();
-      }
-      ctx.restore();
-    }
     const ghostPositions = p.key === 'mine' ? minefieldPositions(x, y) : [{ x, y }];
     for (const pos of ghostPositions) {
       if (p.kind === 'unit') {
@@ -626,23 +647,23 @@ function drawPlacementGhost() {
     const ut = UNIT_TYPES[p.key];
     if (ut && emplacementSpec(ut)) {
       const full = ut.range * fogMult();
-      drawATGunRangeCone(x, y, -Math.PI / 2, emplacementSpec(ut).arc, full, 0.45);
+      drawATGunRangeCone(x, y, Math.PI, emplacementSpec(ut).arc, full, 0.45);
       // preview the red ground-fire wedge when Level the Barrels is deployed
       if (ut.aagun && aaGroundFireEnabled()) {
-        drawAAGroundCone(x, y, -Math.PI / 2, emplacementSpec(ut).arc, AA_GROUND_RANGE * fogMult(), 0.45);
+        drawAAGroundCone(x, y, Math.PI, emplacementSpec(ut).arc, AA_GROUND_RANGE * fogMult(), 0.45);
       }
       // and the canister band when Canister Shot is. A ghost has no rank, so
       // both numbers come off the raw type — same as the AP cone above it.
       if (ut.atgun && canisterShotEnabled()) {
-        drawBuckshotCone(x, y, -Math.PI / 2, Math.max(emplacementSpec(ut).arc, CANISTER_ARC),
+        drawBuckshotCone(x, y, Math.PI, Math.max(emplacementSpec(ut).arc, CANISTER_ARC),
           full * CANISTER_RANGE_FRAC, 0.45);
       }
     } else if (ut && ut.fireCone) {
-      drawFireCone(x, y, -Math.PI / 2, ut.fireCone.arc, ut.range * fogMult(), 0.35);
+      drawFireCone(x, y, Math.PI, ut.fireCone.arc, ut.range * fogMult(), 0.35);
     } else if (ut && ut.flame) {
-      drawFlameRangeCone(x, y, -Math.PI / 2, ut.flame.arc, ut.flame.range * fogMult(), 0.35);
+      drawFlameRangeCone(x, y, Math.PI, ut.flame.arc, ut.flame.range * fogMult(), 0.35);
     } else if (ut && ut.shotgun) {
-      drawBuckshotCone(x, y, -Math.PI / 2, ut.shotgun.arc, ut.shotgun.range * fogMult(), 0.35);
+      drawBuckshotCone(x, y, Math.PI, ut.shotgun.arc, ut.shotgun.range * fogMult(), 0.35);
     } else if (ut && ut.mortar) {
       drawMortarRangeRing(x, y, ut.mortar.min * fogMult(), ut.mortar.range * fogMult(), 0.35);
     } else if (ut && ut.sfx === 'sniper' && ut.range > 200) {

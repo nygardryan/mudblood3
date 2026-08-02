@@ -19,7 +19,7 @@
      fractions of it and shear a few degrees off it, which is what churns them
      against each other: one layer at one speed is moving wallpaper, and reads as
      the camera sliding rather than as air.
-   - It has DEPTH. Near-solid at the top of the field, thin over the player's own
+   - It has DEPTH. Near-solid at the enemy treeline, thin over the player's own
      trench, because the whole point of the event is that the far end of the
      field is where sight is lost. It also keeps the men the player is actually
      commanding legible while the ground they are shooting at dissolves.
@@ -138,19 +138,20 @@ function ensureFogLayer() {
   // in, so the buffer's size is one constant and not a term in the tuning.
   fogCtx.scale(1 / FOG_LAYER_DIV, 1 / FOG_LAYER_DIV);
 
-  // depth: full weight at the treeline, thinning to FOG_DEPTH_NEAR over the
-  // player's own trench. Applied as destination-in, so it scales the cloud's own
-  // alpha rather than adding a second wash of its own.
-  fogDepth = fogCtx.createLinearGradient(0, 0, 0, H);
+  // depth: full weight at the treeline (the left edge), thinning to
+  // FOG_DEPTH_NEAR over the player's own trench on the right. Applied as
+  // destination-in, so it scales the cloud's own alpha rather than adding a
+  // second wash of its own.
+  fogDepth = fogCtx.createLinearGradient(0, 0, W, 0);
   fogDepth.addColorStop(0, 'rgba(255,255,255,1)');
-  fogDepth.addColorStop(FORWARD_Y / H, 'rgba(255,255,255,0.88)');
-  fogDepth.addColorStop(DEPLOY_Y / H, `rgba(255,255,255,${FOG_DEPTH_NEAR + 0.1})`);
+  fogDepth.addColorStop(FORWARD_X / W, 'rgba(255,255,255,0.88)');
+  fogDepth.addColorStop(DEPLOY_X / W, `rgba(255,255,255,${FOG_DEPTH_NEAR + 0.1})`);
   fogDepth.addColorStop(1, `rgba(255,255,255,${FOG_DEPTH_NEAR})`);
 
-  // light: cold and flat at the far end where it is all sky, warmer down where
-  // the ground is lit through it. Opaque colours under source-atop, which tints
-  // what is already there without touching its alpha.
-  fogTint = fogCtx.createLinearGradient(0, 0, 0, H);
+  // light: cold and flat at the far end where it is all sky, warmer down-field
+  // where the ground is lit through it. Opaque colours under source-atop, which
+  // tints what is already there without touching its alpha.
+  fogTint = fogCtx.createLinearGradient(0, 0, W, 0);
   fogTint.addColorStop(0, '#c2cdd0');
   fogTint.addColorStop(0.55, '#cdd2c9');
   fogTint.addColorStop(1, '#d8d4c3');

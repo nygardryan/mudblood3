@@ -32,6 +32,7 @@ const WATCHTOWER_HP = 500;
 const CAMONEST_HP = 280;
 const AMMOCRATE_HP = 320;
 function usBunker(G, x, y, hp = BUNKER_HP){ G.bunkers.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
+function usSandbag(G, x, y, hp = SANDBAG_HP){ G.sandbags.push({ x, y, hp, maxhp: hp, up: false, workProg: 0 }); }
 
 const LEVELS = {
   endless: {
@@ -43,9 +44,13 @@ const LEVELS = {
     placeables: PLACEABLES,
     startTP: 25,
     setup(G) {
-      // you start with two riflemen already dug in
-      G.units.push(makeUnit('rifleman', lx(-70), 470));
-      G.units.push(makeUnit('rifleman', lx(70), 470));
+      // you start with two riflemen already dug in. x is hardcoded rather than
+      // DEPLOY_X-relative, so it carries the same running total offset DEPLOY_X
+      // has accumulated across every rebalance (currently +122, 380 -> 502 —
+      // see the note on it in constants.js) or these two spawn out in
+      // no-man's-land instead of behind the trench.
+      G.units.push(makeUnit('rifleman', 592, ly(-70)));
+      G.units.push(makeUnit('rifleman', 592, ly(70)));
     },
   },
 
@@ -54,7 +59,7 @@ const LEVELS = {
     id: 'tutorial1',
     name: 'TUTORIAL 1: BASIC TRAINING',
     menuName: 'LESSON 1 — BASIC TRAINING',
-    menuDesc: 'Select, move, and buy units.',
+    menuDesc: 'Select, move, multiselect, and build your force.',
     mode: 'endless',
     tutorial: true,
     breachLimit: MAX_BREACH,
@@ -66,9 +71,9 @@ const LEVELS = {
 
   tutorial2: {
     id: 'tutorial2',
-    name: 'TUTORIAL 2: UNDER ATTACK',
-    menuName: 'LESSON 2 — UNDER ATTACK',
-    menuDesc: 'Fortify a weak flank under fire.',
+    name: 'TUTORIAL 2: THE LONG WAR',
+    menuName: 'LESSON 2 — THE LONG WAR',
+    menuDesc: 'What this war is, and what it means to win it.',
     mode: 'endless',
     tutorial: true,
     breachLimit: MAX_BREACH,

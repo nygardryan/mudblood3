@@ -48,10 +48,10 @@ function isVehicleOrGun(a) {
 
 // ---- who is even in the fight ----
 // An actor is engageable when it is alive AND actually on the field: not still
-// in the staging strip above the top edge (`y < 0`), not hanging under a canopy
-// (`chute > 0`), and not rolling in from a flank (`entering` — the Yamato, whose
-// y is on-field while her x is hundreds of pixels off the edge, since nothing in
-// this game gates on x).
+// in the staging strip left of the enemy edge (`x < 0`), not hanging under a
+// canopy (`chute > 0`), and not rolling in from a flank (`entering` — the Yamato,
+// whose x is on-field while her y is hundreds of pixels off the top or bottom
+// edge, since nothing in this game gates on y).
 //
 // Those four terms are ONE rule, and it was written out by hand at sixteen sites
 // across targeting, shooting, input, update and cards. It is extracted because
@@ -70,7 +70,7 @@ function isVehicleOrGun(a) {
 // AA fire hunts `chute > 0` precisely because that is what it shoots, and blast
 // passes UNDER a descending stick. Those keep their own predicates.
 function inTheFight(a) {
-  return !!a && !a.dead && !(a.y < 0) && !a.entering && !(a.chute > 0);
+  return !!a && !a.dead && !(a.x < 0) && !a.entering && !(a.chute > 0);
 }
 
 // ---- multi-actor bosses ----

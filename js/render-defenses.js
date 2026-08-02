@@ -5,9 +5,14 @@
 
 function drawWire(wr) {
   const ext = SPRITES.get(defenseSpriteId('wire', wr.up, wr.up2));
+  // walls stand ACROSS the enemy's advance: the procedural art is authored in
+  // the old wide frame and turned upright by the rotate below. Pack art is
+  // exported already-upright (the exporter runs this same painter), so it
+  // blits unrotated.
   if (ext) { blitSprite(ctx, ext, wr.x, wr.y, 0, 1); return; }
   ctx.save();
   ctx.translate(wr.x, wr.y);
+  ctx.rotate(-Math.PI / 2);
   ctx.strokeStyle = '#2c2820';
   ctx.lineWidth = 2.6;
   ctx.beginPath(); ctx.moveTo(-34, 5); ctx.lineTo(-30, -7); ctx.stroke();
@@ -31,8 +36,16 @@ function drawSandbag(s) {
   if (ext) { blitSprite(ctx, ext, s.x, s.y, 0, 1); return; }
   ctx.save();
   ctx.translate(s.x, s.y);
+  ctx.rotate(-Math.PI / 2);
+  // The shadow's SIZE rides the rotation correctly — it tracks the wall, which
+  // is the point of drawing it in here. Its OFFSET must not: the sun is screen-
+  // fixed like every other shadow in the game (soldiers, vehicles, the mine two
+  // functions down), and an offset authored as local +y came out of the flip
+  // falling sideways, up-field, instead of down-screen. rotate(-PI/2) maps local
+  // (x, y) to screen (y, -x), so a local -x IS a screen +y. Same trick in
+  // drawBunker and drawCamoNestBase.
   ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(0, 4, 24, 9, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-4, 0, 24, 9, 0, 0, 7); ctx.fill();
   // fortified bags get a third row on top
   const rows = s.up ? 3 : 2;
   for (let r = 0; r < rows; r++) {
@@ -86,16 +99,18 @@ function drawBunker(b) {
   if (ext) { blitSprite(ctx, ext, b.x, b.y, 0, 1); return; }
   ctx.save();
   ctx.translate(b.x, b.y);
+  ctx.rotate(-Math.PI / 2);
   if (b.up) {
-    // breastwork bags sit in front; bunker draws on top
+    // breastwork bags sit in front; bunker draws on top. Their shadow sits under
+    // them and 2px down-SCREEN (local -x — see the note in drawSandbag).
     ctx.fillStyle = 'rgba(0,0,0,0.14)';
-    ctx.beginPath(); ctx.ellipse(0, -16, 14, 4, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-2, -15, 14, 4, 0, 0, 7); ctx.fill();
     drawDecorSandbag(-9, -15, 7, 4);
     drawDecorSandbag(9, -15, 7, 4);
   }
-  // drop shadow
+  // drop shadow — offset down-screen (local -x), not up-field
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.beginPath(); ctx.ellipse(0, 5, 30, 11, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-5, 0, 30, 11, 0, 0, 7); ctx.fill();
   // concrete slab body
   ctx.fillStyle = b.up ? '#8d8b80' : '#7f7d72';
   ctx.strokeStyle = '#33322c';
@@ -246,9 +261,11 @@ function drawCamoNestBase(cn) {
   if (ext) { blitSprite(ctx, ext, cn.x, cn.y, 0, 1); return; }
   ctx.save();
   ctx.translate(cn.x, cn.y);
-  // soft ground shadow of the raised net — the gap under it sells the overhead read
+  ctx.rotate(-Math.PI / 2);
+  // soft ground shadow of the raised net — the gap under it sells the overhead
+  // read, so its offset has to be down-SCREEN (local -x — see drawSandbag)
   ctx.fillStyle = 'rgba(0,0,0,0.20)';
-  ctx.beginPath(); ctx.ellipse(0, 7, 30, 11, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-7, 0, 30, 11, 0, 0, 7); ctx.fill();
   // support stakes the net is lashed to, driven in around the rim. Kept sparse
   // so they don't occlude a man standing under the canopy.
   const stake = (x, y, lean) => {
@@ -268,6 +285,7 @@ function drawCamoNestCanopy(cn) {
   if (ext) { blitSprite(ctx, ext, cn.x, cn.y, 0, 1); return; }
   ctx.save();
   ctx.translate(cn.x, cn.y);
+  ctx.rotate(-Math.PI / 2);
   const f = cn.hp / cn.maxhp;
   const edge = CAMONET_EDGE;
   // the net sags toward the ground as it's shot up

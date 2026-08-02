@@ -6,7 +6,7 @@ function officerBuff(u) {
   const officers = G.usOfficers || G.units;
   for (const o of officers) {
     if (o.dead || o === u) continue;
-    if (!(o.type === 'officer' || o.type === 'eoff' || o.t.aura)) continue;
+    if (!o.t.aura) continue;
     if (dist2(o, u) < OFFICER_AURA * OFFICER_AURA) {
       // a veteran officer drives his men harder
       return { rofMult: 0.75 - (o.rank || 0) * 0.03, accBonus: 0.18 + (o.rank || 0) * 0.04 };
@@ -342,6 +342,11 @@ function updateUnit(u, dt) {
     // (which sets u.armed at spawn) gives him a weapon
   } else if (u.type === 'sniper') {
     target = sniperTarget(u, range);
+    // laser sight: track the mark between shots so the beam runs down the
+    // rifle instead of kinking off the last shot's facing. Draw-only ref,
+    // re-stamped every tick and stripped from the run save like _tgt.
+    u._laserTgt = target;
+    if (target) u.face = Math.atan2(target.y - u.y, target.x - u.x);
   } else {
     target = primaryEnemyTarget(u, range);
   }
@@ -643,7 +648,7 @@ function updateEngineer(u, dt) {
 function updateATGun(u, dt) {
   const spec = u.t.atgun;
   const range = unitRange(u, u.t.range) * fogMult();
-  const HOME = -Math.PI / 2;   // staked facing the German end of the field
+  const HOME = Math.PI;   // staked facing the German end of the field (-x)
   const arc = emplacementArc(u);
   const inCone = e => inFireCone(u, e, HOME, arc);
   // Canister Shot: the band is a FRACTION of the reach resolved just above, so
@@ -734,7 +739,7 @@ function updateATGun(u, dt) {
 function updateAAGun(u, dt) {
   const spec = u.t.aagun;
   const range = unitRange(u, u.t.range) * fogMult();
-  const HOME = -Math.PI / 2;   // staked facing north, where the raids come from
+  const HOME = Math.PI;   // staked facing the enemy end (-x), where the raids come from
   const arc = emplacementArc(u);
   const inRange = t => dist(u, t) <= range && inFireCone(u, t, HOME, arc);
 
@@ -1031,7 +1036,7 @@ function updateTankCombat(a, dt) {
 
   if (!aim) {
     // park the turret facing the enemy side of the field
-    const home = a.side === 'us' ? -Math.PI / 2 : Math.PI / 2;
+    const home = a.side === 'us' ? Math.PI : 0;
     a.turret += clamp(angleDiff(home, a.turret), -TURRET_HOME * dt, TURRET_HOME * dt);
     return;
   }

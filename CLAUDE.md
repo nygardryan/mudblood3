@@ -524,7 +524,13 @@ harness placement can never drift from a toolbar placement.
 **Der Schlächter** (`eboss`) is the German final boss: a dark-haired revolver
 man who takes the field every 100th German wave (`spawnGermanBoss` hook at the
 top of `spawnSpecialWave` in `js/waves.js`; replaces that wave's themed
-special, and each return is `w/100 ×` HP). 3150 HP (`noRamp:true` exempts him
+special, and each return is `bossReturnHpMult` × HP — the rule all four faction
+bosses share: **each return carries `BOSS_RETURN_HP_GROWTH` (+50%) of the return
+before it**, compounding (1x, 1.5x, 2.25x, …) rather than adding one base pool
+per return, because the player's own line compounds over another hundred waves
+too. Only the PARENT scales; children stay at base and get their toughness from
+`bossPartDamageMult`, which reads the parent's phase and so tracks the bigger
+pool for free). 3150 HP (`noRamp:true` exempts him
 from `enemyHpRamp`), self-plated body+flak armor, and a three-state AI
 (`updateGermanBoss` in `js/update-enemies.js`): advance down one of five
 `BOSS_LANES` firing 6 revolver shots (190 dmg; `revolver.armorDmg` = flat 490
@@ -713,7 +719,7 @@ routes through `zomWaveComposition` and `ZOM_SPECIAL_WAVES` when
 
 **The Progenitor** (`zprogen`) is the Horde's wave-100 boss — a crawling slab of
 flesh, arriving every 100th `'zo'` wave (`spawnHordeBoss`, hooked in
-`spawnSpecialWave` beside the other two, `w/100 ×` HP on each return). It is the
+`spawnSpecialWave` beside the other two, `bossReturnHpMult` × HP on each return). It is the
 **second multi-actor boss**, reusing the Yamato's parent+parts pattern: a core plus
 five `zpod` "pus module" children, all real entries in `G.enemies`, repositioned
 every tick by `syncProgenitorPods`. **The difference from her is the thing to get
@@ -1049,7 +1055,7 @@ Verify with `TEST.spriteRoundtrip('tank_il3_hull' | 'tank_il3_turret' |
 
 The **Treno Armato** (`itrain`) is the Italian wave-100 boss — an armored war
 train (`spawnItalianBoss`, hooked in `spawnSpecialWave` beside the other three,
-`w/100 ×` HP on each return). It rolls straight down a rail lane (`e.laneY`,
+`bossReturnHpMult` × HP on each return). It rolls straight down a rail lane (`e.laneY`,
 drawn ahead of it all the way to the stop — the telegraph) and **parks at
 `TRAIN_STOP_X`**; it never breaches (skip in update.js's breach loop, like the
 ship and the mass). The **third multi-actor boss**, on the Progenitor's HP rule,

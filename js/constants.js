@@ -350,6 +350,12 @@ const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points
 // move of DEPLOY_X (see the note on it) — same mortar, same margin, just
 // measured off wherever the deploy line currently sits.
 const BOSS_WAVE_INTERVAL = 100;      // arrives at wave 100, 200, 300...
+// Shared by ALL FOUR faction bosses (see bossReturnHpMult in js/waves.js): each
+// return carries 50% more HP than the return before it. Compounding, not a flat
+// multiple of the base pool — 1x, 1.5x, 2.25x, 3.375x — because the player's own
+// line compounds too over another hundred waves (cards, ranks, medal spend all
+// multiply), and one extra base pool per return falls behind and stays behind.
+const BOSS_RETURN_HP_GROWTH = 1.5;
 const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
 // Plate refilled at every backline rally. These have to stay BELOW what a line
 // can put into him in one advance, or the refill silently makes him immortal:

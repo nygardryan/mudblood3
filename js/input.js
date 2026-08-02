@@ -800,7 +800,13 @@ function issueMoveOrder(units, x, y) {
     return;
   }
   const spacing = Math.max(...units.map(u => u.t.tank ? 44 : u.t.vehicle ? 32 : 22));
-  const cols = Math.ceil(Math.sqrt(units.length));
+  // The block's LONG side is the lateral axis (y, screen-vertical), never depth
+  // (x, the axis the enemy marches down): men stacked in depth mask each other's
+  // fire and the rear rank arrives late, so a group order forms a line ACROSS
+  // the field. `floor` on the short side is what makes that hold at every size —
+  // a ceil(sqrt) grid is square wherever it can be, so a small group read as a
+  // column in depth as often as a line.
+  const cols = Math.max(1, Math.floor(Math.sqrt(units.length)));
   const rows = Math.ceil(units.length / cols);
   const slots = [];
   for (let i = 0; i < units.length; i++) {

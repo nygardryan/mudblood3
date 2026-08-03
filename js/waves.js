@@ -200,6 +200,20 @@ function zomWaveComposition(w) {
   // brutes lumber in from the mid game, more of them as it scales
   const bruteChance = (0.10 + Math.max(0, w - 14) * 0.003) * (1 + late * 0.04) * mult;
   if (w >= 14 && Math.random() < bruteChance) out.push('zbrute');
+  // The Jumper vaults the line instead of walking into it — a set piece, held
+  // back until wave 40, by which point the player HAS a line for it to jump
+  // over. Odds are written against `w` and not `late`, which is 0 for this
+  // type's entire wave-40-to-99 window and would have pinned the chance flat.
+  // Like the Abomination below it doesn't take `mult` (the wave-volume knob):
+  // a rare threat gets its own odds rather than arriving in bulk with everyone
+  // else. The cap is TWO on the field — deliberately looser than the
+  // Abomination's one, because two landing in different places is the fight
+  // this unit exists to create, and three is just a rout.
+  const jumpChance = Math.min(0.35, 0.06 + Math.max(0, w - 40) * 0.002);
+  if (w >= 40 && G.enemies.filter(e => !e.dead && e.type === 'zjumper').length < 2
+    && Math.random() < jumpChance) {
+    out.push('zjumper');
+  }
   // the Abomination is the horde's boss — rare, and only once it's already grim
   const abomChance = Math.min(0.4, 0.08 + late * 0.006);
   if (w >= 30 && !G.enemies.some(e => !e.dead && e.type === 'zabom') && Math.random() < abomChance) {

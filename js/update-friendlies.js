@@ -306,10 +306,13 @@ function updateUnit(u, dt) {
   }
 
   if (u.t.flame) {
+    // mid tank-swap: no spraying until the fresh fuel tank is on
+    if (flamerSwappingTank(u, dt)) return;
     const ft = primaryEnemyTarget(u, unitRange(u, u.t.flame.range) * fogMult());
     if (ft) {
       u.face = Math.atan2(ft.y - u.y, ft.x - u.x);
       flameSpray(u, dt);
+      spendFlamerFuel(u, dt);
     }
     return;
   }

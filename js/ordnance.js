@@ -8,9 +8,14 @@ function scheduleShell(x, y, delay, r, dmg, big, by, kind) {
   return s;
 }
 
-function explode(x, y, r, dmg, big, by) {
+// `noMark` suppresses the crater decal for blasts that are not ORDNANCE — the
+// Jumper's landing slam is a body hitting the dirt, and a shell crater under it
+// reads as artillery nobody fired. It is the DECAL only: damage, falloff, sound,
+// shake and every card interaction below are untouched, which is the whole
+// reason this is a flag here rather than a bespoke damage loop at the call site.
+function explode(x, y, r, dmg, big, by, noMark) {
   SFX.boom(big);
-  addGroundMark({ type: 'crater', x, y, r, rot1: rand(0, 3), rot2: rand(0, 3) });
+  if (!noMark) addGroundMark({ type: 'crater', x, y, r, rot1: rand(0, 3), rot2: rand(0, 3) });
   addShake(big ? 7 : 3.5);
 
   // hot core flash plus a shockwave ring that outruns it

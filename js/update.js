@@ -305,6 +305,29 @@ function update(dt) {
   compactInPlace(G.gibs, g => g.ttl > 0);
   compactInPlace(G.groundMarks, m => m.ttl > 0);
 
+  // Deep-run population caps (GROUND_MARK_CAP / CORPSE_CAP, js/damage.js): when
+  // the kill rate outruns the two-minute TTLs, retire the oldest entries by
+  // clamping their remaining life into the fade window — they leave through the
+  // ordinary fade+compaction path above rather than being spliced at full alpha.
+  // Oldest means the front: both arrays are push-ordered at spawn.
+  if (G.groundMarks.length > GROUND_MARK_CAP) {
+    const excess = G.groundMarks.length - GROUND_MARK_CAP;
+    let clamped = false;
+    for (let i = 0; i < excess; i++) {
+      const m = G.groundMarks[i];
+      if (m.ttl > GROUND_MARK_FADE) { m.ttl = GROUND_MARK_FADE; clamped = true; }
+    }
+    // the rebuild pass may be asleep on a horizon computed before these clamps
+    if (clamped) wakeDecalPass();
+  }
+  if (G.corpses.length > CORPSE_CAP) {
+    const excess = G.corpses.length - CORPSE_CAP;
+    for (let i = 0; i < excess; i++) {
+      const cp = G.corpses[i];
+      if (cp.ttl > CORPSE_FADE) cp.ttl = CORPSE_FADE;
+    }
+  }
+
   // the decal layer's rebuild pass runs AFTER compaction, so it never stamps a
   // mark this frame's cleanup has just spliced out
   updateDecals();

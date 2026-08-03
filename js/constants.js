@@ -152,6 +152,21 @@ const DE_OFF_SUP_TIME_MULT = 0.5;     // and the pin that does land runs half as
 const ZOM_PRONE_CHANCE_MULT = 0.15;   // vs everyone else's flinch roll
 const ZOM_PRONE_TIME_MULT = 0.35;     // and it barely stays down
 
+// --- flamethrower fuel -------------------------------------------------------
+// Every FOOT flamethrower — the player's M2 and the eflame/jflame/iflame
+// counterparts alike — carries FLAMER_BURN_TIME seconds of actual spray, then
+// stands silent for FLAMER_RELOAD_TIME while a fresh tank goes on. The pause
+// is the counter-play window the stream never used to give: against the Horde
+// a no-reload flamer was a standing wall (the dps is continuous and the pack
+// is all melee), so the swap is what lets a rush cross the cone. Fuel drains
+// only while actually burning — the jeep .50's belt rule: an empty stretch
+// must not cost it. The L3 flame tankette is deliberately exempt: it tows its
+// own bowser, and its counter is killing the thin-skinned vehicle, not waiting
+// it out. The gate is flamerSwappingTank/spendFlamerFuel (js/shooting.js),
+// called by the two infantry flame branches (update-friendlies/update-enemies).
+const FLAMER_BURN_TIME = 10;    // seconds of spray per tank
+const FLAMER_RELOAD_TIME = 5;   // seconds to swap on a fresh one
+
 // --- difficulty: enemy toughness ramp ---------------------------------------
 // Difficulty used to be income-only (ENDLESS_DIFFICULTIES in js/levels.js), so
 // "hard" meant a slower start rather than a harder war — measurably, it did not
@@ -268,7 +283,7 @@ const UNIT_TYPES = {
     color: '#5a723c', gun: 8, sfx: 'rifle',
     flame: { range: 78, arc: 0.45, dps: 38 },
     blastResist: 0.5, rankHealMult: 3,
-    desc: 'M2 flamethrower and flak vest. Burns everything in the cone — friend or foe.',
+    desc: `M2 flamethrower and flak vest. Burns everything in the cone — friend or foe. ${FLAMER_BURN_TIME}s of fuel per tank, then he pauses to swap on a fresh one.`,
   },
   jeep: {
     name: 'Jeep', hp: 250, range: 221, dmg: 13, acc: 0.42,
@@ -1070,6 +1085,50 @@ Object.assign(ENEMY_TYPES, {
     rof: 1.9, burst: 1, burstGap: 0, reward: 3,
     color: '#5c6242', gun: 9, sfx: 'rifle', priority: 2, faction: 'zo',
   },
+  zjumper: {
+    // The Jumper: the one thing in the Horde that refuses the approach. Every
+    // other corpse walks into the guns from the same end of the field; this one
+    // coils, vaults the trench outright and comes down IN the line, blasting
+    // whoever was standing there. It attacks the player's POSITION, which is
+    // what the faction otherwise can't touch — hence a wave-40 gate.
+    //
+    // boss:true came from the zabom model, but after the harasser retune the
+    // flag is NOT here for the HP tier any more — 348 is a shade over a brute's
+    // 300, and below it once the brute's armor roll is counted. What it still
+    // buys, and the only reason it stays, is the EXEMPTIONS: never prone, never
+    // suppressed, no armor roll, immune to Headshot. A thing whose whole job is
+    // to keep crossing open ground cannot be a thing a single BAR pins down.
+    // Still NOT tank:true, which would route it to updateTank before the
+    // dispatch reached updateZombie and hand it the x0.04 small-arms multiplier
+    // this faction has no business carrying. No noRamp: easy's hpRamp is
+    // 0.00625, so wave 40 is only 1.25x catalog (~435) — against a brute's 375
+    // and an abomination's 1150. Deliberately NOT on the AT gun's or canister's
+    // by-name lists.
+    //
+    // `leap` rather than `pounce`: the flight machinery is shared with the
+    // hound (stepLeapFlight, js/update-enemies.js) but the two specs must stay
+    // distinct, because the hound's is a gap-closer that needs no touchdown
+    // code and this one's whole payload IS the landing. No type carries both.
+    // range/min: the window it will launch from — min is what makes it leap
+    // back OUT of a melee it is already in. dur: flight seconds. lift: peak of
+    // the render-only arc, px. wind: the crouch before the launch, which is the
+    // tell. cdMin/cdMax: recharge. r/dmg: the landing slam, a side-blind
+    // explode() that damages the horde around it too. pack: how many men must
+    // be standing together for a spot to be worth jumping into.
+    name: 'Jumper', hp: 348, speed: 26, range: 0, dmg: 46, acc: 0,
+    rof: 1.6, burst: 1, burstGap: 0, reward: 14,
+    color: '#4d5c3c', gun: 7, sfx: 'scream', priority: 1, faction: 'zo',
+    zombie: true, infect: 0.32, boss: true,
+    // Retuned from a burst threat into a HARASSER: half the reach doubled to
+    // 440 (half the field, and more than the whole deploy zone is deep), the
+    // recharge halved, and the slam cut 60% to pay for both. It now lands often
+    // and lands everywhere instead of hitting once and hitting hard — the slam
+    // is a disruption that scatters a position rather than a blow that deletes
+    // one. `r` is untouched: the blast still covers the same ground, it just
+    // costs less to be standing in.
+    leap: { range: 440, min: 90, dur: 0.75, lift: 34, wind: 0.6,
+      cdMin: 4.5, cdMax: 6.5, r: 54, dmg: 23, pack: 2 },
+  },
   zabom: {
     // the Abomination: a towering mound of fused corpses, the horde's boss-tier
     // threat that stands in for armor. Enormous HP, ground-shaking slow, and a
@@ -1749,6 +1808,7 @@ const ENEMY_INFO = {
   zbloater: 'A gas-swollen corpse that bursts when it dies or reaches you, venting a cloud of infectious rot: area damage and a high infect chance to all caught in it. A walking mine — kill it at range.',
   zscreamer: 'The horde\'s driving force. Its presence enrages the dead around it, and on a cadence it looses a scream that hurls every nearby zombie into a frenzied sprint. It swells for a few seconds first, marked and ringed — put it down inside that window and the pack never breaks into a run.',
   zrevenant: 'A reanimated Wehrmacht soldier that never let go of his Kar98 — the horde\'s only gunman. Undead hands aim poorly and it fires slowly, but a corpse that shoots back is a nasty surprise.',
+  zjumper: 'A corpse rebuilt around its legs — it does not walk into your line, it JUMPS over it. It coils where it stands, vaults clean across no-man\'s-land and comes down in the middle of your men, and the landing itself is the blast: everything nearby is caught, its own dead included. Then it fights where it lands, and leaps again to the next knot of men. It will not launch out of wire, and a body knocked down mid-crouch or mid-air never lands the blow — but nothing else about it is slow. Do not let your men bunch up.',
   zabom: 'The Abomination — a towering mound of fused corpses, the horde\'s boss. Enormous HP, ground-shaking slow, a sweeping blow that flattens men and smashes emplacements, and near-certain infection on survivors. Burn it, shell it, or mine it.',
   zprogen: 'The Progenitor — the mass the whole horde came out of, and the thing waiting at wave 100. It crawls slower than anything on the field and swallows whole any man it reaches. Five pus modules ring its hide, lobbing infectious bile; shoot them off and its reach dies with them. It splits open every few seconds to birth a fresh brood, and every time a third of it dies it calls every corpse nearby back onto its feet — yours included. Do not let bodies pile up around it.',
   zpod: 'A pus module swollen out of the Progenitor\'s hide. Its own flesh, its own HP: burst it and that sac stops spitting bile for good. They sit between you and the mass, so rifles chew through them first.',
@@ -1897,7 +1957,7 @@ const PLACEABLES = [
     { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
       desc: 'Sidearm. Aura boosts nearby soldiers\' fire. Bonus grows with rank. Earns bonus TP. Snipers hunt him.' },
     { key: 'flamer', label: 'FLAMER', cost: 7, kind: 'unit', hotkey: 'F',
-      desc: 'M2 flamethrower. Burns everything in the cone — friend and foe. Rank: more burn damage, tighter stream.' },
+      desc: `M2 flamethrower. Burns everything in the cone — friend and foe. ${FLAMER_BURN_TIME}s of fuel per tank, then a pause to reload. Rank: more burn damage, tighter stream.` },
     { key: 'jeep', label: 'JEEP', cost: 26, kind: 'unit', hotkey: 'J',
       desc: 'Willys jeep, .50 cal HMG, fires on the move. Unarmored. Engineer patches slowly. Rank: faster, deadlier.' },
     { key: 'sherman', label: 'SHERMAN', cost: 50, kind: 'unit', hotkey: 'T',
@@ -2050,6 +2110,8 @@ const TESTING_ZOMBIE_PLACEABLES = [
     desc: 'Enrages the dead around it and screams to hurl them into a frenzied sprint.' },
   { key: 'zrevenant', label: 'REVENANT', cost: 5, kind: 'egerman', hotkey: '',
     desc: 'Reanimated soldier with a Kar98. The horde\'s only gunman — poor aim, slow fire.' },
+  { key: 'zjumper', label: 'JUMPER', cost: 40, kind: 'egerman', hotkey: '',
+    desc: 'Vaults the trench and lands IN your line, blasting whoever is there. Re-leaps to the next knot of men. Wire pins it; kill it mid-air and the blast never lands.' },
   { key: 'zabom', label: 'ABOMINATION', cost: 90, kind: 'egerman', hotkey: '',
     desc: 'Boss mound of fused corpses. Enormous HP, smashes emplacements, near-certain infection.' },
   // the core only — its five pus modules are built by initProgenitor on the first

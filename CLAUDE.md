@@ -710,6 +710,105 @@ interleaved A/B: ~23% → ~7% of the pack down at any moment; per flinch roll,
   with no slot for a pose), and `paintZombieHound` stays PURE — every airborne
   term is scaled by `arc / lift`, so an actor that has never leapt bakes
   pixel-identically for the codex portrait and the exporter (verified 0 diff).
+- `zjumper` (**the Jumper**) — the wave-40 heavy, and **the only thing in the
+  Horde that attacks the player's POSITION rather than his ranks**. Every other
+  corpse walks into the guns from the same end of the field; this one coils,
+  vaults the trench and lands *among* the men, and the landing IS the attack:
+  `jumperSlam` is a side-blind `explode()`, so it catches the shamblers that
+  followed it in as readily as the squad it aimed at. Baiting one into its own
+  pack is the counter-play; the flip side is that the player is PAID for the
+  horde's dead (`damageEnemy` credits the kill and the bounty whoever fired),
+  and blast's ×2.2 vs armor makes this the faction's only real anti-tank weapon
+  — a corpse landing on a Sherman is a crush, not a bite, so that reads, but it
+  is a deliberate break from "no armor, almost no ranged fire". `by = e` is
+  **mandatory** in that call or ESCALATION rung IV silently skips it.
+  It is `boss:true` on the `zabom` model (HP standing in for armor, plus the
+  prone/suppression/armor-roll/Headshot exemptions) and **never `tank:true`**,
+  which would route it to `updateTank` before the dispatch reached
+  `updateZombie`. No `noRamp`: easy's `hpRamp` is 0.00625, so wave 40 is only
+  1.25× catalog — the 3× cap is a *wave-320* figure on the tier anyone actually
+  plays, and tuning against it would have shipped this at a third of its HP.
+  **The reach and the recharge are a trap, and the numbers say so.** It shipped
+  at `range` 220 / `cd` 9-13 / `dmg` 58 and measured, at wave-45 HP against 10
+  defenders and an 8-shambler screen (n=10 interleaved): 0.3 men lost to the
+  screen alone, 7.1 ± 3.1 adding a Brute, **9.2 ± 3.1** adding a Jumper — the
+  hardest thing the faction fields short of a boss. Two retunes since, measured
+  the same way each time:
+
+  | build | men lost | slams | seconds alive |
+  |---|---|---|---|
+  | `hp` 520 `dmg` 58 `range` 220 `cd` 9-13 | 9.2 ± 3.1 | — | — |
+  | `hp` 520 `dmg` 23 `range` 440 `cd` 4.5-6.5 | 3.6 ± 1.0 | 2.2 | — |
+  | `hp` 348 (current) | **2.3 ± 0.9** | 1.5 | 14.6 |
+  | *`zbrute`, for scale* | *6.6 ± 2.8* | — | *48.7* |
+
+  **The reach is what broke it, not the damage.** At 440 it can see a cluster
+  from x≈90 and leaps the instant the cooldown lapses, so it arrives ALONE —
+  ahead of the screen that was supposed to occupy the guns — lands in the middle
+  of an unengaged line and is shot down having landed one or two slams. Doubling
+  the reach did not extend its threat, it detached the thing from its own wave,
+  and the HP cut then shortened the window it had to do anything in: it now
+  lives 14.6s against a Brute's 48.7 and costs a third of what the Brute does.
+  A harasser has to SURVIVE in the backline to harass. If it is ever wanted
+  dangerous again the lever is an approach gate — hold the leap until the pack
+  is in contact, so it lands into a line that is already busy — rather than any
+  of the three numbers above, all of which are now doing what they were set to
+  do. Left as tuned on purpose; this table is here so the next person does not
+  re-derive it.
+  Five things are load-bearing, four of them found by getting them wrong:
+  **The flight is SHARED with the hound** (`stepLeapFlight`), and so are its
+  actor fields — which is the whole reason `abortPounce`, `soldierCacheable`'s
+  `pounceT` term and the run save cover it with no edit. `pounce` and `leap`
+  stay separate SPECS because the dispatch has to tell a gap-closer from a
+  delivery system; `pounce || leap` is safe only because nothing carries both.
+  **It is a pre-step ABOVE `updateZombie`'s target scan**, not beside the
+  hound's row below it, and that placement is the only reason the re-leap
+  works: the hound leaps at the man it is already chasing, so it can test the
+  window against him, but this one picks its own spot and a window test against
+  the man it is currently biting reads ~20px against a 90px floor and refuses
+  every re-leap **forever**.
+  **`jumperLandingSpot` has no lone-target fallback**, on purpose. With one it
+  reliably picks the rear-line mortarman parked near the edge and lands a heavy
+  body a stride from a breach, past every gun in the deploy zone. No cluster, no
+  leap. (`nearestUnitInRange` also runs its pred BEFORE its own range test and
+  returns only the nearest match, so the `min` floor has to live INSIDE the pred
+  and the cluster count has to be distance-guarded — otherwise a man inside the
+  floor wins the call and the leap is refused while a real cluster sits further
+  out, which is the melee case again.)
+  **`abortPounce` rerolls the cooldown for it**, which the hound never needed:
+  `pounceCd` is consumed at launch and otherwise only reset on touchdown, so a
+  swat out of the air left it at ≤0 and the thing relaunched the frame the daze
+  lapsed — turning a cancelled slam into a one-second delay. It is deliberately
+  the *only* thing reset there: the CROUCH freezes rather than resetting, the
+  same rule the officer commands follow, and it gets that for free by sitting
+  below the stun block. Mortar shell-shock is the counter (`maybeShellShock`
+  rejects only `isFinalBoss`/`isBossPart`/`awalker`, so a `boss:true` zombie is
+  stunnable); prone and suppression never reach it.
+  **The arc is NOT the tell** — with a sprite pack installed `drawSoldier` takes
+  the external-sprite path and never reads `pounceArc`, so a pack-equipped
+  player would watch it SLIDE into his backline with nothing drawn at all. The
+  whole warning therefore rests on the **`drawCommandWarning` badge over its
+  head**, which grew optional `f`/`col` args so it is generic over "winding
+  something up" rather than over the officer command clock. That badge is an
+  OVERLAY, outside the sprite, so it is the one part a pack cannot remove — do
+  not move it into the painter. A ground ring at the landing point was built
+  first and cut deliberately: it marked where the blast would land, which is
+  more than this is meant to give away. The badge says a body is coming, not
+  where to stand.
+  The landing blast itself passes `noMark` to `explode()` for the same reason
+  the ring went: nothing was FIRED at that ground, and a shell crater under a
+  corpse reads as artillery nobody launched. That flag is the DECAL only —
+  damage, falloff, sound, shake and every card interaction are untouched, which
+  is why it is a flag on `explode` rather than a bespoke damage loop that would
+  have to re-derive the blast-armor multipliers and the Yamato de-dupe.
+  Wire is the one asymmetry with the hound and it is the DESIGN: it cannot
+  launch out of a band (`inAnyWireBand`, extracted from `wireOnLeap` so both
+  agree where a band is), but its flight crosses them freely — a vault over the
+  whole line is not a dash through the last few yards. Measured: pinned 4.4s
+  until it drags clear, never coiling from inside a band, unaffected by a band
+  on the flight line. Its art is `paintZombieJumper`, PURE on the hound's rule,
+  and the boss sweep in `updateZombie` is gated `!e.t.leap` so it doesn't do
+  area damage in both of its modes.
 `deploy` spawns any of them (they're in `TESTING_ZOMBIE_PLACEABLES`); wave spawning
 routes through `zomWaveComposition` and `ZOM_SPECIAL_WAVES` when
 `G.enemyFaction === 'zo'`, and the paradrop event becomes "the dead rise behind you"
@@ -1516,7 +1615,7 @@ to be **removable** — six `// ATTRACT` call sites and the removal recipe are i
 the file's header comment.
 
 **The GROUND DECAL LAYER** (`js/render-decals.js`) is why the frame no longer grows
-with the run. `G.groundMarks` is uncapped, accrues ~30 marks/s in a sustained fight
+with the run. `G.groundMarks` accrues ~30 marks/s in a sustained fight
 and holds each for `GROUND_MARK_TTL` (120 s), so a 12-minute endless run reaches
 ~1,500 decals — and drawing them per frame took `draw()` from 0.5 ms at wave 2 to
 26 ms at wave 62, tracking the count almost exactly. Each mark is only one or two
@@ -1555,6 +1654,29 @@ never shows a half-built field. It is also the one thing in the renderer holding
 pixels rather than redrawing, so it cannot notice art changing under it — `SPRITES`
 calls `invalidateDecals()` when a pack finishes its async load, is toggled, or is
 registered/unregistered.
+
+Two late-run pathologies were found at wave ~165 (kill rate ~170 marks/s), both
+periodic freezes rather than steady slowdowns, fixed 2026-08-03:
+- **The TTLs alone don't bound the live set.** 120 s of that rate stood ~20,000
+  mark objects and ~600 corpses (each corpse owns a baked canvas), and the
+  major-GC pause that traces that live set — landing every couple of real-time
+  seconds — measured 100–230 ms a hit. `GROUND_MARK_CAP` / `CORPSE_CAP`
+  (js/damage.js, both above anything normal play reaches) now bound them,
+  enforced in `update()`'s cleanup beside the `PARTICLE_CAP` precedent — but by
+  clamping the OLDEST entries' ttl into the fade window, never by splicing, so
+  they leave through the ordinary fade+compaction path instead of popping at
+  full alpha. The clamp calls `wakeDecalPass()`, because the rebuild pass may be
+  asleep on a horizon computed back when that oldest mark had two minutes to
+  live. GC pauses ≥100 ms went from ~12 to 1 per 2,400-frame run; heap 22 → 10 MB.
+- **The progressive rebuild deferred its own rasterization to the swap.** Canvas
+  2D commands rasterize lazily, and nothing READS the back canvas until the swap
+  — so every stamp in the pass piled up unrasterized and the first blit of the
+  swapped front paid for all of them in one frame, a hitch that grew with the
+  mark count and defeated the budget's whole point. `updateDecals` now drains
+  each frame's chunk through a 1×1 `drawImage` (using the canvas as a SOURCE
+  forces the flush; `getImageData` would too, but its readback can permanently
+  kick a canvas off the GPU). Decal-blit p99 held at ~5 ms where swap frames had
+  spiked to ~160 ms.
 
 Marks are the one place sprite art is **free**: a pack's PNG is stamped once per mark,
 exactly like the splat it replaces, so it costs nothing per frame. Three ids cover the

@@ -17,7 +17,7 @@ const SOLDIER_FACINGS = 48;
 // pose that hits the cache.
 function soldierCacheable(a) {
   return !(a.grenThrowT > 0 || a.mortarFireT > 0 || a.shotgunBlastT > 0 || a.flameT > 0 || a.slashT > 0 || a.spitT > 0
-    || a.pounceT > 0);
+    || a.pounceT > 0 || a.leapWindT > 0);
 }
 
 // The cached directional frame for this soldier's type/nation/facing. Baked from
@@ -822,9 +822,22 @@ function drawSoldierOverlays(a) {
     drawActorBar(a, 19, 18, 2, clamp(a.flakArmor / a.maxFlakArmor, 0, 1), '#b7a94e');  // olive = flak armor
   }
 
+  // a flamer swapping on a fresh fuel tank: the stream cutting out mid-fight
+  // needs a tell or a silent flamer reads as broken. Fills as the swap
+  // completes. Own slot above the rot bar — an infected flamer mid-swap is
+  // exactly the Horde fight this feature exists for, so the two can coexist.
+  if (a.flameReload > 0) {
+    drawActorBar(a, 25, 18, 2, clamp(1 - a.flameReload / FLAMER_RELOAD_TIME, 0, 1), '#ffa03c');
+  }
+
   // an enemy officer forming an order — the mark that says shoot THIS man, and
   // the only overlay drawn above the rot/armor stack (js/render-overlays.js)
   if (a.cmdT > 0) drawCommandWarning(a);
+  // ...and a Jumper coiling to spring. Same badge, same reason: the ring on the
+  // ground says where it lands, this says which body to put down before it does.
+  else if (a.leapWindT > 0) {
+    drawCommandWarning(a, clamp(1 - a.leapWindT / (a.leapWindMax || 1), 0, 1), '#96e15a');
+  }
 
   // rank chevrons for veterans (visual nation — US kit only)
   if ((a.nation || a.side) === 'us') drawRankChevrons(a, 17);

@@ -15,6 +15,8 @@ const ZOM_BLOOD = '#7c1a1c';    // old dried gore
 const ZOM_BLOOD_WET = '#a52a24';
 const ZOM_EYE = '#c8e86a';      // faint luminous eye
 const ZOM_BILE = '#8fe06a';     // spitter/bloater rot green
+const JMP_MUSCLE = '#96271f';   // the Jumper's flayed haunches — skinless wet muscle
+const JMP_SINEW = '#dbb694';    // pale tendon striations over that muscle
 
 // clawed hand: a small knot with three splayed fingers reaching outward
 function drawClaw(c, x, y, ang, s) {
@@ -152,8 +154,153 @@ function paintZombieHound(c, a) {
 }
 
 // ---- the main humanoid painter (everything but the hound) ----
+// ---- the Jumper: a corpse rebuilt around its legs --------------------------
+// ONE idea carries the silhouette — HAUNCHES. Two folded slabs of muscle, each
+// bigger than the torso between them, so it reads as coiled at any distance and
+// in any of its three states: standing, crouched, airborne. Everything else is
+// kept deliberately small; the classic outstretched grope is gone, because a
+// thing that leads with its legs must not also lead with its arms.
+//
+// And the haunches are RED — flayed muscle, sinew showing, over bare bone
+// shins. "Rebuilt around its legs" means the legs aren't its own: no skin ever
+// grew over them. That is also the whole 1x read: at field scale the Z-fold
+// collapses into a smudge and the silhouette alone cannot separate it from a
+// shambler, and this roster's distinct types each own one COLOR signal (the
+// bloater's bile green, the screamer's red maw). Large wet-red mass is the
+// signal nothing else carries, on the one corpse the player most needs to
+// pick out of a pack.
+//
+// Its own painter rather than another pair of booleans in paintZombieSoldier,
+// on the hound's precedent: the body plan genuinely differs, and weaving it
+// through eight shared blocks would have produced a re-skinned shambler.
+//
+// PURE, on the hound's rule and for the hound's reason: every moving term is
+// scaled by `air` or `coil`, both of which collapse to 0 on an actor that has
+// never leapt. makeEnemy never seeds pounceArc/leapWindT and exportActor does
+// not zero them, so the `|| 0` guards below are what make the codex portrait
+// and the exported PNG bake from the standing pose.
+function paintZombieJumper(c, a) {
+  const t = a.t;
+  const fx = Math.cos(a.face), fy = Math.sin(a.face);
+  const px = -fy, py = fx;
+  const s = 1.45;
+  const arc = a.pounceArc || 0;
+  const air = arc > 0 ? clamp(arc / ((t.leap && t.leap.lift) || 1), 0, 1) : 0;
+  // the crouch TIGHTENS as it completes — 0 on the first frame of the wind-up,
+  // 1 the instant before it springs
+  const coil = a.leapWindT > 0 ? clamp(1 - a.leapWindT / (a.leapWindMax || 1), 0, 1) : 0;
+
+  c.save();
+
+  // the shadow stays on the GROUND while the body rides up, and tightens under
+  // it — the only cue that reads as "high" rather than "big"
+  c.fillStyle = `rgba(0,0,0,${0.28 * (1 - 0.55 * air)})`;
+  c.beginPath();
+  c.ellipse(0, 3 * s, 8.5 * s * (1 - 0.32 * air), 4 * s * (1 - 0.32 * air), 0, 0, 7);
+  c.fill();
+
+  c.translate(0, -arc);   // the whole body rides the arc; nothing below knows
+
+  // ---- the legs, and they ARE the silhouette. Each is a Z-fold: hip → knee
+  // thrown BACK AND WIDE, then a shin dropping forward again to a foot tucked
+  // under the body. That fold is the whole read — a grasshopper's back leg, not
+  // a man's — and it only works if the knees clear the torso laterally, so the
+  // splay is deliberately wider than the body is. Two masses beside a smaller
+  // one, never three overlapping ellipses.
+  //
+  // Coiling pulls the knees up and out (winding the spring); flight extends the
+  // whole leg straight back, which is what a real jump looks like at take-off.
+  // The feet tuck UNDER the body rather than reaching in front of it: run them
+  // forward and the two shins wrap the torso into a crab, which is the wrong
+  // animal entirely. Under it, the leg folds into a spring — and the extension
+  // in flight then reads as that spring letting go.
+  const kneeBack = -3.4 - coil * 1.6 - air * 3.6;
+  const kneeWide = 5.9 + coil * 1.1 - air * 1.4;
+  const footFwd = -0.2 - coil * 0.8 - air * 7.5;
+  const footWide = 3.3 + coil * 0.4 - air * 1.8;
+  for (const side of [-1, 1]) {
+    const hipX = fx * -0.8 + px * 2.6 * side, hipY = fy * -0.8 + py * 2.6 * side;
+    const kX = fx * kneeBack + px * kneeWide * side, kY = fy * kneeBack + py * kneeWide * side;
+    const ftX = fx * footFwd + px * footWide * side, ftY = fy * footFwd + py * footWide * side;
+    c.lineCap = 'round';
+    // shin FIRST, so the thigh paints over it: bone, thin, and clearly a
+    // different limb — the red spring above lands on a bare white cannon
+    // bone, like a bird's leg. At rest the foot tucks under the body and most
+    // of the shin hides beneath the haunch; in the coil and the flight the
+    // leg opens and the bone shows.
+    c.strokeStyle = 'rgba(14,15,11,0.55)'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(kX, kY); c.lineTo(ftX, ftY); c.stroke();
+    c.strokeStyle = ZOM_BONE; c.lineWidth = 2.4;
+    c.beginPath(); c.moveTo(kX, kY); c.lineTo(ftX, ftY); c.stroke();
+    drawClaw(c, ftX, ftY, a.face + (air > 0.3 ? Math.PI : 0), 1);
+    // thigh: the muscle, and it is FLAYED — dark outline, wet-red mass, two
+    // sinew striations along the pull. A fat round-capped stroke reads as mass
+    // at this size where an ellipse just reads as another blob, and the red is
+    // the type's whole long-range signal (see the header note).
+    c.strokeStyle = 'rgba(14,15,11,0.55)'; c.lineWidth = 7.4 * (1 + 0.1 * coil);
+    c.beginPath(); c.moveTo(hipX, hipY); c.lineTo(kX, kY); c.stroke();
+    c.strokeStyle = JMP_MUSCLE; c.lineWidth = 5.6 * (1 + 0.1 * coil);
+    c.beginPath(); c.moveTo(hipX, hipY); c.lineTo(kX, kY); c.stroke();
+    c.strokeStyle = JMP_SINEW; c.lineWidth = 0.9;
+    for (const lat of [-1.2, 0.8]) {
+      c.beginPath();
+      c.moveTo(hipX + px * lat * side, hipY + py * lat * side);
+      c.lineTo(kX * 0.82 + hipX * 0.18 + px * lat * 0.5 * side,
+               kY * 0.82 + hipY * 0.18 + py * lat * 0.5 * side);
+      c.stroke();
+    }
+    c.lineCap = 'butt';
+  }
+
+  // ---- torso: deliberately narrow, so the knees stay outside it and the
+  // Z-fold above keeps its read. It sinks lower between them as the crouch
+  // tightens, and stretches along the travel axis in flight.
+  const bodyW = 5.2 * (1 + 0.22 * air);
+  const bodyH = 3.9 * (1 - 0.16 * coil - 0.12 * air);
+  c.fillStyle = t.color;
+  c.beginPath();
+  c.ellipse(fx * coil * -0.8, fy * coil * -0.8, bodyW, bodyH, a.face, 0, 7);
+  c.fill();
+  c.strokeStyle = 'rgba(14,15,11,0.6)'; c.lineWidth = 1.1; c.stroke();
+  drawGore(c, bodyW, bodyH, a.face, 4);
+  drawRibs(c, fx, fy, s * 0.8);
+
+  // ---- arms: short, tucked, and they open only as it flies
+  const ax = 4.2 + air * 2.4;
+  c.lineWidth = 2.2 * s;
+  for (const side of [-1, 1]) {
+    const ex = fx * ax + px * (2.4 + air * 1.4) * side;
+    const ey = fy * ax + py * (2.4 + air * 1.4) * side;
+    c.strokeStyle = t.color;
+    c.beginPath(); c.moveTo(px * 2.6 * side, py * 2.6 * side); c.lineTo(ex, ey); c.stroke();
+    drawClaw(c, ex, ey, a.face, 1);
+  }
+
+  // ---- head: pushed well clear of the leg mass and drawn a touch large. Kept
+  // small and tucked it vanished between the knees, and a body with no readable
+  // head is the one thing that stops reading as a body at all.
+  const hd = 2.2 + coil * 0.7 + air * 1.1;
+  c.save();
+  c.translate(fx * hd, fy * hd);
+  drawZombieHead(c, fx, fy, 3, true);
+  c.restore();
+
+  // ---- the bite, in the same grammar as the rest of the roster
+  if (a.slashT > 0) {
+    const tp = clamp(a.slashT / 0.26, 0, 1);
+    c.strokeStyle = `rgba(165,42,36,${0.7 * tp})`;
+    c.lineWidth = 1.8;
+    c.beginPath();
+    c.arc(0, 0, 9 * s, a.face - 0.6 * tp, a.face + 0.6 * tp);
+    c.stroke();
+  }
+
+  c.restore();
+}
+
 function paintZombieSoldier(c, a) {
   if (a.t.hound) { paintZombieHound(c, a); return; }
+  if (a.t.leap) { paintZombieJumper(c, a); return; }
   const t = a.t;
   const type = a.type;
   const fx = Math.cos(a.face), fy = Math.sin(a.face);

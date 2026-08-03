@@ -24,6 +24,18 @@ const GROUND_MARK_TTL = 120; // blood stains and blast craters fade after two mi
 // decal layer's whole rebuild schedule is derived from it (js/render-decals.js):
 // a mark is unchanging, and so needs no work at all, until it enters this window.
 const GROUND_MARK_FADE = 8;
+const CORPSE_FADE = 8;  // the ttl window drawCorpse fades a body out over
+// Population ceilings, because a deep run's kill rate outruns the two-minute
+// TTLs: measured at wave ~165, the field held ~20,000 live marks and ~600
+// corpses (each corpse owning a baked canvas), and the major-GC pause that has
+// to trace that live set every couple of seconds IS the periodic freeze on deep
+// runs. Both caps sit above anything normal play reaches (~30 marks/s sustained
+// stands ~3,600), so they only bind in that saturation regime. Over the cap the
+// oldest entries are not spliced — update() clamps their remaining ttl into the
+// fade window, so they fade out through the ordinary expiry path instead of
+// popping, and the array is bounded at cap + one fade window of accrual.
+const GROUND_MARK_CAP = 4000;
+const CORPSE_CAP = 300;
 
 // Nominal world footprints the sprite art for each mark type is authored at, and
 // what an instance scales off them. A mark rolls its own size, so a pack that
@@ -449,7 +461,7 @@ function paintCorpse(c, cp) {
 }
 
 function drawCorpse(cp) {
-  const alpha = clamp(cp.ttl / 8, 0, 1); // fade out over the last seconds
+  const alpha = clamp(cp.ttl / CORPSE_FADE, 0, 1); // fade out over the last seconds
   // A pack ships one body per army rather than a pose per type, so it is checked
   // before the per-corpse bake — that record carries the same density guard an
   // <img> can never satisfy.

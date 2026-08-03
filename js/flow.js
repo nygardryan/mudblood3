@@ -37,6 +37,7 @@ const FULL_SCREEN_OVERLAYS = [
   'pause', 'boss-victory', 'gameover', 'endless-endgame', 'recap', 'codex',
   'changelog', 'settings', 'esc-dossier', 'leaderboard-select',
   'card-shop', 'tutorial-select', 'loadout-view', 'abandon-confirm',
+  'demo-pitch',
 ];
 
 function hideOverlays() {
@@ -81,6 +82,40 @@ function closePauseSubscreen() {
 
 function bossVictoryOpen() {
   return !el('boss-victory').classList.contains('hidden');
+}
+
+// Android back (called from js/platform.js): close the TOP layer, the way the
+// Escape ladder in js/input.js does — never exit the app from inside a
+// subscreen. True = consumed; false only at the main-menu root, the one place
+// the shell may exitApp(). Same claim order as Escape where the two overlap;
+// the extra rungs are the menu screens Escape leaves to their BACK buttons.
+function handleAndroidBack() {
+  const up = (id) => !el(id).classList.contains('hidden');
+  // DEMO: the boot pitch is the top layer (js/demo.js). First, and above
+  // isPlaying(), for the same reason it is first on Escape — and because
+  // without it a hardware back on the very first screen falls all the way to
+  // `return false` and exits the app.
+  if (demoPitchOpen()) { closeDemoPitch(); return true; }
+  // a live fight: back = pause, so back can never kill a run in progress
+  if (isPlaying()) { pauseGame(); return true; }
+  if (escDossierOpen()) { closeEscalationDossier(); return true; }
+  if (abandonConfirmOpen()) { closeAbandonConfirm(); return true; }
+  if (changelogOpen()) { closeChangelog(); return true; }   // layers over settings
+  if (closePauseSubscreen()) return true;   // codex / settings / loadout
+  if (up('card-shop')) { closeCardShop(); return true; }
+  if (up('leaderboard-select')) { closeLeaderboardSelect(); return true; }
+  if (up('tutorial-select')) { closeTutorialSelect(); return true; }
+  if (up('tutorial-complete')) { backToTutorialSelect(); return true; }
+  // forced question (FIGHT ON / END RUN) — back must not answer it
+  if (bossVictoryOpen()) return true;
+  // the After-Action Report's CONTINUE is the designed handoff — don't skip it
+  if (up('recap')) return true;
+  // the results screens: back is their MENU button
+  if (up('gameover') || up('endless-endgame')) { returnToMenu(); return true; }
+  if (paused) { resumeGame(); return true; }
+  // any other mid-run state (overlays mid-transition): consume, never exit
+  if (running) return true;
+  return false;
 }
 
 // leaving a run: no field, no pointer state, nothing half-issued
@@ -226,6 +261,26 @@ function bossEndRun() {
       `${loadEndlessCards().medals} banked for the card shop.`;
   }
   endRun(true, 'SECTOR HELD', stats);
+}
+
+// Desktop + Android only: a way out of the game without OS chrome, right on
+// the front page — Settings > Desktop already has QUIT GAME, but that's a
+// menu dive away and Steam expects an obvious one. iOS never grows this
+// (Apple's HIG disallows an in-app quit control; PLATFORM.isAndroid, not
+// isMobile, is what keeps it off iOS — see js/platform.js). Built once, the
+// same "never create, don't just hide" rule every other platform-gated
+// control on this sheet follows (see the desktop section in settings.js) —
+// there's no confirm dialog because there's nothing on the front page a
+// misclick could lose.
+if (PLATFORM.isDesktop || PLATFORM.isAndroid) {
+  const quitBtn = document.createElement('button');
+  quitBtn.type = 'button';
+  quitBtn.id = 'intro-quit-btn';
+  quitBtn.className = 'fm-quit';
+  quitBtn.setAttribute('aria-label', 'Quit game');
+  quitBtn.textContent = 'QUIT';
+  quitBtn.addEventListener('click', () => PLATFORM.quit());
+  document.querySelector('#intro .fm').appendChild(quitBtn);
 }
 
 function returnToMenu() {

@@ -1,6 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Oswald:wght@400;500;600;700&family=Barlow+Condensed:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=JetBrains+Mono:wght@400;500;700&display=swap');
+/* bundled webfonts (assets/fonts/) — the game's typography must never reach
+   the network: the shells run offline (Steam offline mode, airplane-mode
+   phones), and these @imports to fonts.googleapis.com were the whole game's
+   only runtime network dependency. See css/fonts.css for regeneration notes. */
+@import url('fonts.css');
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -347,8 +349,13 @@ body {
 
 /* rotate-to-landscape hint — a dispatch plate in the banner's voice, shown
    only while #stage carries .mobile-portrait (portraitMobile(), synced by
-   syncMobileChrome). z-index 12 so it reads over the menu (#intro at 10, the
-   dossier at 11); pointer-events none because portrait is playable (contain
+   syncMobileChrome). z-index 13 so it reads over EVERY screen (#intro at 10,
+   the dossier at 11, the demo pitch at 12) — it was 12 and tied with the pitch,
+   which paints later and so buried it, and the boot screen of a phone demo is
+   the one moment the hint most has to be readable. It has to stay the highest
+   thing in the stage: a screen the player is told to rotate for is a screen he
+   should be told about wherever he is;
+   pointer-events none because portrait is playable (contain
    zoom) — this advises, it never blocks. Sits at 24% down: below the HUD, in
    the letterbox above the contained field strip, clear of #intro's title
    marquee on any phone-tall screen. */
@@ -368,7 +375,7 @@ body {
   border-bottom: 2px solid #e8873a;
   box-shadow: 0 6px 20px rgba(0, 0, 0, .5), inset 0 0 26px rgba(232, 135, 58, .1);
   pointer-events: none;
-  z-index: 12;
+  z-index: 13;
 }
 /* slides in, holds ~7s, fades away — portrait is a choice the game honours, so
    the hint must not nag. display:none -> flex restarts the animations, so each
@@ -545,6 +552,37 @@ body {
   opacity: .38;
   cursor: not-allowed;
 }
+/* demo: full-game-only items stay on the bar as dead, bannered buttons.
+   Doubled class beats the single-class theme re-skins later in the sheet, so
+   the locked look holds in every theme; its own :disabled opacity replaces the
+   .38 unaffordable fade (a locked button is a signpost, not a grey blur). */
+.tool-btn.tool-btn--fglocked {
+  position: relative;
+  overflow: hidden;
+  border-color: #6b5a26;
+  color: #6f6a55;
+  background: rgba(28, 27, 18, .92);
+}
+.tool-btn.tool-btn--fglocked:disabled { opacity: .85; }
+.tool-btn.tool-btn--fglocked .key,
+.tool-btn.tool-btn--fglocked .cost { color: #6f6a55; }
+.tool-fg {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  /* low on the button (over the cost line), so the unit's NAME stays readable
+     — a lock the player can't attribute to a unit is just a broken button */
+  top: 68%;
+  transform: translateY(-50%) rotate(-10deg);
+  background: #b98c2a;
+  color: #14130c;
+  font-size: calc(7px * var(--tool-scale));
+  font-weight: bold;
+  letter-spacing: .6px;
+  text-align: center;
+  padding: 1px 0;
+  pointer-events: none;
+}
 .tool-btn.tut-pulse {
   animation: tutPulse 0.9s ease-in-out infinite;
   border-color: #ff5a3c;
@@ -640,7 +678,7 @@ body {
    no background of its own at all — .fm-scrim inside it carries the gradient,
    so the fade can be top-light/bottom-heavy rather than one flat wash. Deleting
    attract mode means putting #intro back on this line. */
-#tutorial-select, #card-shop,
+#tutorial-select, #card-shop, #demo-pitch,
 #leaderboard-select, #changelog, #settings { background-color: #080804; }
 /* ...and it drops .mm-screen's padding and texture with it: this screen is
    full-bleed to the stage edges, and .fm owns its own inset. */
@@ -1095,6 +1133,28 @@ body {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 #card-shop-row .cs-card--unique:hover:not(:disabled) { border-color: #e7b93d; }
+/* demo: a full-game-only card in an offer slot — content dimmed under a
+   diagonal banner. Shared with the endgame rail (.ee-card carries the same
+   modifier class), hence the bare selectors beside the row-scoped ones. */
+.cs-card--fglocked { position: relative; overflow: hidden; }
+.cs-card--fglocked > :not(.cs-fgbanner) { opacity: .35; }
+#card-shop-row .cs-card--fglocked:disabled { opacity: 1; }   /* the dim lives on the children */
+.cs-fgbanner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-6deg);
+  border: 1px solid #b98c2a;
+  color: #b98c2a;
+  background: rgba(18, 17, 10, .9);
+  padding: 2px 12px;
+  font-weight: bold;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+}
 #card-shop-row .cs-card--empty {
   align-items: center;
   justify-content: center;
@@ -2260,6 +2320,19 @@ input[type="range"]::-moz-range-track {
   padding: 2px 7px;
   white-space: nowrap;
 }
+/* demo: the full-game-only mark on a player item's dossier (codexEntries).
+   Borrowed from the shop slot's FULL GAME ONLY banner rather than the chip row
+   it sits in — a flag that reads as one more stat is not a flag, and this is
+   the same amber the toolbar's band and the dossier's rows use for the same
+   sentence. Boxed where the stat chips are unboxed, for the same reason. */
+.cx-chip--fg {
+  color: #b98c2a;
+  background: rgba(18, 17, 10, .9);
+  border: 1px solid #b98c2a;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 1px 6px;
+}
 .cx-card:not(.open) .cx-open { display: none; }
 .cx-open {
   margin-top: 11px;
@@ -2489,6 +2562,12 @@ input[type="range"]::-moz-range-track {
   border: 1px solid #5a5322;
 }
 #go-leaderboard-entry.hidden, #go-leaderboard.hidden { display: none; }
+/* ...and the CARD SHOP shortcut endRun() toggles on this screen, for the same
+   reason and on the same rule (no generic `.hidden` here either). It is dormant
+   today — every LEVELS entry is `mode: 'endless'`, so `!(G.mode === 'endless')`
+   never fires — which is exactly why it would have been found the hard way,
+   the first time a non-endless mode shipped. */
+#go-shop-btn.hidden { display: none; }
 .go-leaderboard-hint {
   color: #8fbf5a;
   font-size: clamp(12px, 3.2vw, 14px);
@@ -3199,6 +3278,24 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
     rgba(8, 8, 4, .70) 0%, rgba(8, 8, 4, .48) 34%, rgba(8, 8, 4, .95) 100%);
 }
 
+/* Desktop + Android only (js/flow.js never creates it on web or iOS). A child
+   of .fm rather than #intro so it measures in the same cqi container as
+   everything else on this screen — cqi has no ancestor to resolve against
+   once it leaves .fm's container-type: inline-size (see the file-level note
+   on .fm above). .fm is position:relative, so top/right sit off ITS box, not
+   the viewport, matching the safe-area inset the rest of .fm's padding uses. */
+#intro .fm-quit {
+  position: absolute; z-index: 1;
+  top: calc(clamp(8px, 2cqi, 14px) + env(safe-area-inset-top, 0px));
+  right: calc(clamp(8px, 2cqi, 14px) + env(safe-area-inset-right, 0px));
+  min-height: 0; padding: clamp(6px, 1.6cqi, 9px) clamp(10px, 2.2cqi, 14px);
+  font-family: 'Oswald', sans-serif; font-size: clamp(9px, 1.9cqi, 11px);
+  font-weight: 600; letter-spacing: 1.5px; color: #c9c19a;
+  background: rgba(20, 20, 12, .55); border: 1px solid #50512f; border-radius: 6px;
+  cursor: pointer; transition: border-color .16s ease, color .16s ease;
+}
+#intro .fm-quit:hover { border-color: #e8873a; color: #e8873a; }
+
 /* Selectors for anything that is a <button> ARE prefixed with #intro /
    #esc-dossier, for the same reason the card shop's are: they have to outrank
    `.overlay button`, which repaints every button in an overlay gold, centred
@@ -3553,10 +3650,275 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
   }
 }
 
+/* --- DEMO pitch (#demo-pitch) ------------------------------------------- */
+/* The value-proposition screen, opened at boot in demo builds (js/demo.js) on
+   top of BOTH the menu and the attract board. Built on the dossier above, with
+   two differences. It outranks every other overlay (12 against #intro's 10 and
+   the dossier's 11) because nothing may ever bury it. And it is OPAQUE — via
+   the menu-screen list near the top of this sheet — where the dossier sits at
+   .99 over the menu: that one is a sheet you glance at mid-decision, this is a
+   page of dense small type, and reading it over a live firefight is not a
+   thing anyone can do.
+
+   `justify-content: flex-start` PLUS `.dp { margin: auto }` is one idea, not
+   two: .overlay centres its column, and a centred column taller than its
+   scrollport pushes its own head above the scroll origin, out of reach. Auto
+   margins collapse to 0 when there is no free space, so the pair centres a
+   short screen and top-anchors a tall one. This screen is tall on every phone.
+   Everything below measures in cqi off .dp for the reason .fm documents. */
+#demo-pitch { z-index: 12; justify-content: flex-start; animation: escDossierIn .18s ease both; }
+/* ...and the menu under it is taken out of the TAB ORDER, not just covered.
+   Painting over #intro leaves its buttons focusable, so Tab from the pitch's
+   own button lands on PLAY behind an opaque screen and Enter starts a run the
+   player cannot see — which on a controller (Steam Deck) is a plausible first
+   thing to happen. `visibility: hidden` is what removes a subtree from focus
+   and from the a11y tree; nothing under #intro sets `visibility: visible`, so
+   nothing escapes it.
+
+   Written as a :has() off the pitch's own class, the way the run-chrome rule
+   above is written off #intro's, because the alternative — toggling `inert` in
+   openDemoPitch/closeDemoPitch — is state kept OUTSIDE the class, and
+   hideOverlays() closes this screen by writing the class directly. That path
+   would strand #intro inert with no way back. Derived, it cannot desync. */
+#stage:has(> #demo-pitch:not(.hidden)) > #intro { visibility: hidden; }
+.dp {
+  width: 100%; max-width: 720px; margin: auto; text-align: left;
+  container-type: inline-size; container-name: dp;
+}
+/* The head is deliberately SHORT. This screen is two-plus scrollports deep on a
+   landscape phone, and every pixel it spends is a pixel of the argument below
+   the fold: at 844x390 the head used to be ~150px of 390, so the player's first
+   view was a title and one and a bit rows. Dropping the summary figure line
+   (see index.html) and tightening these gaps buys most of a second row. */
+.dp-head {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: clamp(4px, 1.1cqi, 7px);
+  border-bottom: 1px solid #2f3020; padding-bottom: clamp(9px, 2.2cqi, 14px);
+}
+.dp-eyebrow {
+  display: flex; align-items: center; justify-content: center; gap: clamp(8px, 2cqi, 16px);
+  font-family: 'Oswald', sans-serif; font-size: clamp(9px, 1.9cqi, 11px);
+  font-weight: 600; letter-spacing: clamp(3px, 1cqi, 7px); color: #b58a5a;
+}
+/* .fm-rule is shared with the menu's eyebrow; only its mirrored second half is
+   scoped to .fm-eyebrow, so this block re-states that one rather than widening
+   the menu's selector (see the removal recipe at the top of js/demo.js) */
+.dp-eyebrow .fm-rule:last-child { background: linear-gradient(90deg, #6a6444, transparent); }
+/* prefixed to outrank `.overlay h1`, which is 8vw — and vw inside the scaled
+   #stage reads the WINDOW, not the ~600px this panel actually gets */
+#demo-pitch .dp-title {
+  font-family: 'Saira Stencil One', 'Barlow Condensed', sans-serif; font-weight: 400;
+  font-size: clamp(22px, 6cqi, 38px); letter-spacing: 4px;
+  color: #b8352b; text-shadow: 3px 3px 0 #000; margin: 0;
+}
+/* one line now, so it can afford to be legible: it shipped as two lines of
+   8.5px mono at #8a6a3a on #080804, carrying the eight figures the rows below
+   restate — the least readable text on the page saying the most important thing
+   on it, twice. The figures moved into the rows' own meters. */
+.dp-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(9px, 2cqi, 11px); letter-spacing: clamp(1.5px, .5cqi, 3px);
+  color: #a3844f; line-height: 1.6;
+}
+
+.dp-rows {
+  display: flex; flex-direction: column; gap: clamp(7px, 1.6cqi, 10px);
+  padding: clamp(10px, 2.6cqi, 16px) 0 4px;
+}
+/* One column, not the 56px gutter + copy grid it shipped as. The gutter held a
+   single `+N` glyph and cost every row 70px of measure at the width this panel
+   actually gets (~480px inside the scaled #stage), which is where the desc
+   copy's line count came from. The gain moved into the head line, where it
+   aligns down the right edge with the other three and finally reads as a
+   column of comparable figures rather than four numbers floating at four
+   different vertical offsets. */
+.dp-row {
+  display: flex; flex-direction: column; gap: clamp(5px, 1.2cqi, 7px);
+  padding: clamp(10px, 2.2cqi, 13px) clamp(11px, 2.4cqi, 15px); border-radius: 8px;
+  background: linear-gradient(180deg, #2b2c1d, #232418); border: 1px solid #3a3b28;
+}
+/* the ratio takes the free space so the gain glyph pins to the right edge */
+.dp-row__head { display: flex; align-items: baseline; gap: clamp(7px, 1.8cqi, 12px); }
+.dp-row__name {
+  font-family: 'Oswald', sans-serif; font-weight: 600;
+  font-size: clamp(11px, 2.4cqi, 14px); letter-spacing: 2px; color: #efe9d4;
+}
+.dp-row__ratio {
+  flex: 1; white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace; font-size: clamp(8.5px, 1.8cqi, 10px);
+  letter-spacing: 1px; color: #6f6a52;
+}
+.dp-row__ratio b { color: #b7b088; font-weight: 600; }
+.dp-row__ratio i { font-style: normal; letter-spacing: 2px; }
+/* what you GAIN, not what you have — the pitch in one glyph per row */
+.dp-row__gain {
+  font-family: 'Anton', 'Barlow Condensed', sans-serif;
+  font-size: clamp(17px, 4cqi, 24px); line-height: 1;
+  color: #e7b93d; text-shadow: 2px 2px 0 #000;
+}
+
+/* THE METER. The four rows count four incomparable things — 27 toolbar items,
+   4 armies, 172 cards, 10 rungs — so the bare gains (+14, +3, +155, +7) put the
+   ARMIES row, the biggest thing missing from this build, at the bottom of the
+   page's only ranking. A proportion is the one figure all four share.
+
+   The TRACK is lit and the demo's share is the dark inset over it, never the
+   reverse: the lit part of a bar is the part being sold, and a meter filled up
+   to what the player already owns is a bar arguing against the page it is on.
+   The bright edge is where the demo stops. */
+.dp-meter {
+  position: relative; height: clamp(6px, 1.4cqi, 8px); border-radius: 4px;
+  background: linear-gradient(90deg, #8a6a2a, #e7b93d);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .5);
+  overflow: hidden;
+}
+.dp-meter__have {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: #191a10; border-right: 2px solid #f0d789;
+}
+.dp-row__desc {
+  font-family: 'Barlow Semi Condensed', sans-serif;
+  font-size: clamp(11px, 2.3cqi, 13px); line-height: 1.45; color: #bdb68e;
+}
+/* CHIPS, not a monospace run-on. Fourteen item names joined by ` · ` wrap into
+   a justified-looking paragraph whose entries break across lines, so the count
+   the row just claimed is unverifiable by eye; boxed, they are countable and
+   they read as what they are on the toolbar — dead bannered buttons. */
+.dp-row__list {
+  display: flex; flex-wrap: wrap; gap: 4px 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(8.5px, 1.8cqi, 10px); letter-spacing: 1px; color: #9d977a;
+}
+.dp-tag {
+  padding: 2px 6px; border-radius: 3px;
+  background: #1d1e14; border: 1px solid #3d3e2a;
+}
+.dp-tag b { color: #e7b93d; font-weight: 600; }
+/* the armies list is rows, not chips: each entry is a name AND its wave-100
+   boss, and a chip would break the pair apart at a wrap. Two columns so the
+   bosses line up under each other — see the two-cells-per-army note in
+   buildDemoPitch, which is what keeps that alignment true for a fifth army. */
+.dp-row__list--armies {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 3px clamp(8px, 2cqi, 14px); align-items: baseline;
+}
+/* prefixed to outrank `.overlay b`, which paints every b in every overlay
+   #ffd94a — the same trap the .dp-title comment above documents for h1 */
+#demo-pitch .dp-army__name { color: #c9c19a; font-weight: 600; }
+.dp-army__boss { color: #8f8a6a; min-width: 0; }
+.dp-army__boss i {
+  font-style: normal; font-size: .82em; letter-spacing: 1px; color: #6c6650;
+  padding: 1px 5px; margin-left: 6px; border: 1px solid #3d3e2a; border-radius: 3px;
+}
+/* the one army this build fights, dimmed: the row is a list of what you're
+   missing, and the entry you already have must not lead it in brightness */
+#demo-pitch .dp-army__name.dp-army--have { color: #8f8a6a; }
+.dp-army__boss.dp-army--have { color: #6c6650; }
+
+/* STICKY: at 844x390 this screen is a couple of scrollports deep, and the only
+   control that leaves it must not be at the bottom of all of them. The gradient
+   is what stops the rows scrolling visibly out from under the button.
+
+   The scrollport is .overlay itself, and `bottom: 0` pins to its PADDING edge —
+   which left a safe-area-tall strip below the footer where the next row slid
+   past in the clear. So it sticks to minus that padding and pays it back as its
+   own, which puts the opaque band flush with the screen edge while the note
+   still clears a home bar; the negative margin keeps the column's height
+   unchanged. All three read the same expression .overlay's padding does.
+
+   The gradient reaches opaque ABOVE the button rather than under it. At `#080804
+   38%` the button sat in the transparent half, so mid-scroll a row's desc copy
+   ran straight through it and the one control that leaves this screen was the
+   least legible thing on it. The fade is now a short ramp over the gap and the
+   band is solid from the button's own top edge down. */
+.dp-foot {
+  --dp-foot-pad: max(var(--ov-pad), env(safe-area-inset-bottom, 0px));
+  position: sticky; bottom: calc(-1 * var(--dp-foot-pad)); z-index: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: clamp(14px, 3.4cqi, 22px) 0 var(--dp-foot-pad);
+  margin-bottom: calc(-1 * var(--dp-foot-pad));
+  background: linear-gradient(180deg, rgba(8, 8, 4, 0), #080804 clamp(9px, 2.2cqi, 14px));
+}
+#demo-pitch .dp-go {
+  min-height: 0; padding: clamp(11px, 2.4cqi, 14px) clamp(22px, 5cqi, 34px);
+  font-family: 'Oswald', sans-serif; font-size: clamp(11px, 2.4cqi, 14px);
+  font-weight: 600; letter-spacing: 2px; color: #0f0f08;
+  background: linear-gradient(180deg, #f0a24b, #e8873a);
+  border: 1px solid #f6c07a; border-radius: 6px; cursor: pointer;
+  box-shadow: 0 3px 0 #000; transition: filter .16s ease;
+}
+#demo-pitch .dp-go:hover { filter: brightness(1.08); }
+.dp-foot__note {
+  font-family: 'JetBrains Mono', monospace; text-align: center;
+  font-size: clamp(8px, 1.7cqi, 9.5px); letter-spacing: 1px;
+  line-height: 1.5; color: #6c6650;
+}
+/* SHORT: a landscape phone is 390px tall and this head was spending 160 of them
+   before the first row, which is the difference between opening on an argument
+   and opening on a title card. HEIGHT is the one thing a container query cannot
+   ask — @container measures inline-size only — so this is the rare screen where
+   a media query is the right tool rather than the trap the comments above
+   describe. That trap is about WIDTH: #stage is scaled to the canvas aspect, so
+   `vw` and width breakpoints read the window instead of the ~480px the panel
+   gets. Height is not scaled — #stage is the frame's full height — so window
+   height and panel height differ by the letterbox padding alone. Precedent is
+   the --tool-scale block near the top of this sheet. */
+@media (max-height: 480px) {
+  /* ...and the head was NOT the biggest spender, which is why trimming only it
+     left the screen still opening on a title card. Measured at 844x357: head 95,
+     overlay padding 40 top and 40 bottom, sticky footer 134 — 309 of 357 before
+     a word of the argument, leaving an 88px band against a 114px shortest row.
+     So the two paddings come down here too, and the whole gain is real estate
+     the rows get: 88 -> 150, a row and a half instead of half of one.
+
+     --ov-pad is the one lever for BOTH of them and that is the point, not a
+     shortcut. .overlay's padding and .dp-foot's --dp-foot-pad both read it, and
+     the sticky trick above only works while the footer's bottom padding equals
+     the scrollport's — a literal on either one alone silently breaks that. It
+     is a WIDTH-derived clamp (5vw) being spent on the short axis, which is
+     exactly why it is wrong here; #card-shop takes it to 10px for this same
+     reason ("at 390px tall the default clamp() inset was eating a sixth of the
+     screen"), and this screen came later and never got the same look. The
+     env() floors ride along untouched — a notch still gets its inset. */
+  #demo-pitch { --ov-pad: 14px; }
+  #demo-pitch .dp-title { font-size: clamp(20px, 4.6cqi, 29px); letter-spacing: 3px; }
+  .dp-head { gap: 3px; padding-bottom: 8px; }
+  .dp-rows { padding-top: 8px; }
+  /* the gradient still needs a ramp to fade the rows out under, so this is
+     trimmed rather than dropped */
+  .dp-foot { padding-top: 12px; }
+}
+
+/* Narrow: the head's three parts stop fitting on one line — the ratio is what
+   gives way, dropping under the name while the gain stays pinned to the right
+   of it, because the gain is the figure the row is FOR and the ratio is its
+   footnote. The armies grid collapses to one column at the same point: two
+   columns of a name and a boss name inside ~360px leave the boss column
+   wrapping mid-word. */
+@container dp (max-width: 460px) {
+  .dp-row__head { flex-wrap: wrap; column-gap: 8px; row-gap: 3px; }
+  .dp-row__name { flex: 1; }
+  .dp-row__gain { order: 2; }
+  .dp-row__ratio { order: 3; flex-basis: 100%; }
+  .dp-row__list--armies { grid-template-columns: 1fr; gap: 2px; }
+  .dp-army__boss { padding-left: 10px; }
+}
+
 /* --- mid-run loadout sheet (#loadout-view) ------------------------------ */
 /* there is no generic `.hidden` rule in this sheet — every hide is spelled out
-   per element — so the pause button that pauseGame() toggles needs its own */
-#pause-loadout-btn.hidden { display: none; }
+   per element — so BOTH pause buttons pauseGame() toggles need their own.
+   LOADOUT had one and SAVE AND EXIT did not, which is the whole failure mode
+   that convention creates: `saveBtn.classList.toggle('hidden', !saveableRun())`
+   ran, the class landed, and nothing happened. So every tutorial pause menu
+   carried a SAVE AND EXIT that saveAndExit() then refuses (it re-asks
+   saveableRun() as its backstop, and returns without even relabelling) — a
+   dead control, silent on press, on the one screen a first-time player is most
+   likely to open. It is the demo that makes that the common case: TUTORIAL is
+   promoted onto the front page for a fresh save (refreshFrontMenu, js/flow.js)
+   and a demo install is a fresh save by definition. Tutorials are also exactly
+   the runs that must NOT reach a save — G.tutorial holds live actor refs the
+   serializer has no whitelist for (see js/save.js). */
+#pause-loadout-btn.hidden, #pause-save-btn.hidden { display: none; }
 
 /* Built on the dossier above, which is the other read-only reference sheet in
    the game. Two differences, both deliberate: it SWAPS #pause out rather than

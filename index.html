@@ -166,6 +166,35 @@
       </div>
     </div>
 
+    <!-- THE PITCH: the demo's value-proposition screen, opened at boot over the
+         menu by showDemoPitchAtBoot() (js/demo.js) and inert in the full game,
+         where this node just sits hidden. Only the SHELL is here — all four rows
+         are written by buildDemoPitch(), which derives every figure on them from
+         js/demo.js's own gate sets so the screen can never advertise a build
+         this one isn't.
+
+         The head is the one part carrying NO figure, and that is the point: the
+         rows each own a `have / total` of their own now, so a summary line here
+         would be the same eight numbers a second time, set smaller. What is left
+         is the claim that needs no arithmetic — the demo is the whole game,
+         narrowed, not a slice of one. -->
+    <div id="demo-pitch" class="overlay hidden">
+      <div class="dp">
+        <div class="dp-head">
+          <div class="dp-eyebrow"><span class="fm-rule"></span>DEMO EDITION · FRANCE 1944<span class="fm-rule"></span></div>
+          <h1 class="dp-title">THE FULL GAME</h1>
+          <div class="dp-sub">SAME ENGINE · SAME ENDLESS RUN · NO WAVE CAP</div>
+        </div>
+        <div class="dp-rows" id="demo-pitch-rows"></div>
+        <!-- sticky: on a landscape phone this screen is a couple of screens of
+             scroll, and the only way off it must not be at the bottom of them -->
+        <div class="dp-foot">
+          <button type="button" id="demo-pitch-go" class="dp-go">CONTINUE TO DEMO ▸</button>
+          <div class="dp-foot__note">Leaderboards, tutorials, the run save and every medal you bank are the same in both.</div>
+        </div>
+      </div>
+    </div>
+
     <!-- The card shop is TWO PANES that scroll on their own, never a page that
          scrolls: buying is on the left, spending command on the right, and the
          command meter stays visible while you tap cards. See the block comment
@@ -231,7 +260,10 @@
 
     <div id="leaderboard-select" class="overlay hidden">
       <h1>LEADERBOARDS</h1>
-      <p>Furthest wave reached before the line broke — one board per rung of the ladder. Sandbox and Testing don't count, the supply is unlimited.</p>
+      <!-- the caveat half of this line names SANDBOX and TESTING, which a demo
+           build does not have (js/settings.js removes the whole DEV TOOLS
+           section) — buildLeaderboardSelect rewrites it per build. -->
+      <p id="leaderboard-note">Furthest wave reached before the line broke — one board per rung of the ladder. Sandbox and Testing don't count, the supply is unlimited.</p>
       <!-- one chip per ESCALATION rung, '—' plus I..X, built by
            buildLeaderboardRungs(). Same strip, states and styling as the one on
            the endless menu: the rung is the difficulty, so it is what a board is
@@ -398,11 +430,11 @@
         <!-- Artwork section: the sprite-pack seam (js/sprites.js, js/export-sprites.js) -->
         <div class="settings-section">
           <div class="settings-section-title">Artwork</div>
-          <p class="settings-hint">Export every unit, vehicle, emplacement, defense and battlefield in
+          <p class="settings-hint" id="sprite-export-hint">Export every unit, vehicle, emplacement, defense and battlefield in
             the game as transparent PNGs, ready to hand to an artist. Repaint them and drop the folder
             back in as <code>assets/sprites/</code> — anything you don't replace keeps its current art.
             <code>terrain/</code> holds the four theatres' ground, which can be repainted on its own.</p>
-          <div style="display:flex;justify-content:flex-end;gap:8px;margin:2px 0 12px">
+          <div id="sprite-export-row" style="display:flex;justify-content:flex-end;gap:8px;margin:2px 0 12px">
             <button id="settings-export-sprites" class="secondary">EXPORT SPRITE PACK</button>
           </div>
           <div id="sprite-export-status" class="settings-value"></div>
@@ -420,8 +452,13 @@
              the deploy button, where being adjacent to the only real mode made
              them read as modes themselves. They are instruments, so they live
              with the other instruments. The changelog came here for the same
-             reason — it is a thing you consult, not a thing you launch. -->
-        <div class="settings-section">
+             reason — it is a thing you consult, not a thing you launch.
+
+             The id is what js/settings.js anchors on twice: the desktop-only
+             section is inserted directly before this one, and a DEMO build
+             deletes this one outright (all three of these reach past the demo's
+             content gate — see the block in settings.js). -->
+        <div class="settings-section" id="settings-dev-tools">
           <div class="settings-section-title">Dev tools</div>
           <p class="settings-hint">Unlimited-supply sectors for trying things out. Neither banks medals,
             earns an escalation rung, or records a score.</p>
@@ -502,10 +539,15 @@
   </div>
 </div>
 
-<!-- Plain scripts sharing one global scope — load order matters: definitions first, bootstrap (main.js) last. -->
+<!-- Plain scripts sharing one global scope — load order matters: demo marker
+     before the platform shim (PLATFORM.isDemo reads it), then the shim (every
+     shell keys off it), then definitions, bootstrap (main.js) last. -->
+<script src="js/demo-flag.js"></script>
+<script src="js/platform.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/music.js"></script>
 <script src="js/constants.js"></script>
+<script src="js/demo.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/helpers.js"></script>
 <script src="js/state.js"></script>

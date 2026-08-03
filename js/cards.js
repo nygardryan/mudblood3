@@ -67,7 +67,7 @@ const HARDENED_HP_MULT = 1.3;
 // its scatter against the widened spread. The mortar fire block reads both.
 const CLUSTER_ROUNDS_SHELLS_MIN = 1;
 const CLUSTER_ROUNDS_SHELLS_MAX = 3;
-const CLUSTER_ROUNDS_SCATTER_MULT = 1.6;
+const CLUSTER_ROUNDS_SCATTER_MULT = 1.25;
 
 // Frag Grenades: a grenadier's frag now sprays fragments on detonation. Each
 // pellet flies out in a random direction, punches through anyone in its path
@@ -729,6 +729,40 @@ const FRENZY_WEIGHTS = {
   mortarman: 5, bazooka: 6,
 };
 
+// Every generated `desc` below drops a unit name or a toolbar label into
+// mid-sentence, and a bare toLowerCase()/`'s` got both of those wrong on the
+// catalog as it actually stands.
+//
+// ACRONYMS must keep shouting: `AT Gun`/`AA Gun` came out as "the at gun's
+// weapon", "Every aa gun musters" — eight cards across four templates, and two
+// of them (seasonedvet_aagun, costcut_aagun) are in the demo's seventeen, where
+// they are a seventeenth of everything that build sells. A word that is already
+// all-caps is left alone; everything else lowercases as before, so Rifleman is
+// untouched.
+//
+// The two catalogs this runs over are cased DIFFERENTLY, and that is the whole
+// reason for the early-out. UNIT_TYPES names are Title Case, so an all-caps
+// word inside one is real information — `AA` in `AA Gun` means something
+// `Gun` doesn't. PLACEABLES labels are uppercase by DISPLAY convention
+// (MINEFIELD, WATCH TOWER, ARTILLERY STRIKE), so they carry no case
+// information at all and the per-word test reads every one of them as an
+// acronym — which is exactly what it did on the first pass, leaving the shop
+// saying "Cuts the MINEFIELD's TP cost". A string that is entirely uppercase
+// is a label, not a sentence fragment, and lowercases whole.
+function cardNameLower(name) {
+  const s = String(name);
+  if (s === s.toUpperCase()) return s.toLowerCase();
+  return s.split(' ')
+    .map(w => /^[A-Z]{2,}$/.test(w) ? w : w.toLowerCase())
+    .join(' ');
+}
+
+// ...and a name that already ends in `s` takes a bare apostrophe: SANDBAGS is
+// the one label in PLACEABLES that does, and it read "the sandbags's TP cost".
+function cardPossessive(name) {
+  return name + (/s$/i.test(name) ? "'" : "'s");
+}
+
 // commons: stamped out once per eligible unit type. `excludes` drops types
 // the effect can't touch (the flamethrower has no cooldown to reset).
 // `weight` is the card's command weight, 1-6 by impact.
@@ -745,14 +779,14 @@ const CARD_COMMON_TEMPLATES = {
   frenzy: {
     name: 'Frenzy', cost: 5, excludes: ['flamer', 'medic'],
     weight: type => FRENZY_WEIGHTS[type] || 1,
-    desc: t => `A kill instantly reloads the ${t.name.toLowerCase()}'s weapon.`,
+    desc: t => `A kill instantly reloads the ${cardPossessive(cardNameLower(t.name))} weapon.`,
     hooks: type => ({ onKill: frenzyReload(type) }),
   },
   busteddown: {
     name: 'Busted Down', cost: 6,
     // cheating death matters most on the units a run can't afford to replace
     weight: type => ({ jeep: 3, atgun: 3, aagun: 3, sherman: 5 }[type] || 2),
-    desc: t => `Instead of dying, the ${t.name.toLowerCase()} drops 2 ranks.`,
+    desc: t => `Instead of dying, the ${cardNameLower(t.name)} drops 2 ranks.`,
     hooks: type => ({ beforeDeath: cheatDeath }),
   },
   // small-arms accuracy only — the units whose to-hit runs through fireShot.
@@ -794,7 +828,7 @@ const CARD_COMMON_TEMPLATES = {
   // `seasonedvet_<type>` at spawn.
   seasonedvet: {
     name: 'Seasoned Veteran', cost: 5, weight: 2,
-    desc: t => `Every ${t.name.toLowerCase()} musters in one rank higher.`,
+    desc: t => `Every ${cardNameLower(t.name)} musters in one rank higher.`,
     hooks: type => ({}),
   },
   // support units carry weak short-range sidearms; this trades one for a
@@ -807,7 +841,7 @@ const CARD_COMMON_TEMPLATES = {
       'mortarman', 'sniper', 'flamer', 'jeep', 'sherman', 'atgun', 'aagun'],
     desc: (t, type) => type === 'medic'
       ? `Arms the medic with a full M1 rifle — a healer who can fight back.`
-      : `Swaps the ${t.name.toLowerCase()}'s weak sidearm for a full M1 rifle.`,
+      : `Swaps the ${cardPossessive(cardNameLower(t.name))} weak sidearm for a full M1 rifle.`,
     hooks: type => ({}),
   },
   // the four close-in specialists spend most of a fight walking into or out of
@@ -827,7 +861,7 @@ const CARD_COMMON_TEMPLATES = {
     name: 'Emergency Repair', cost: 8, weight: 3,
     excludes: ['rifleman', 'gunner', 'grenadier', 'shotgunner', 'bazooka',
       'mortarman', 'sniper', 'flamer', 'medic', 'engineer', 'officer', 'atgun', 'aagun'],
-    desc: t => `Below 30% HP the ${t.name.toLowerCase()} rapidly regenerates 30% HP, once every ${EMERGENCY_REPAIR_COOLDOWN}s.`,
+    desc: t => `Below 30% HP the ${cardNameLower(t.name)} rapidly regenerates 30% HP, once every ${EMERGENCY_REPAIR_COOLDOWN}s.`,
     hooks: type => ({}),
   },
   // medal price runs opposite the unit's TP cost: a discount on a 3 TP
@@ -840,7 +874,7 @@ const CARD_COMMON_TEMPLATES = {
     weight: type => clamp(Math.round(15 / PLACEABLE_COST_BY_TYPE[type]), 1, 5),
     desc: (t, type) => {
       const tp = PLACEABLE_COST_BY_TYPE[type];
-      return `Cuts the ${t.name.toLowerCase()}'s TP cost by 25%, from ${tp} to ${warSurplusCost(tp)}.`;
+      return `Cuts the ${cardPossessive(cardNameLower(t.name))} TP cost by 25%, from ${tp} to ${warSurplusCost(tp)}.`;
     },
     hooks: type => ({}),
   },
@@ -1221,7 +1255,7 @@ const CARDS = {};
     const cost = clamp(Math.round(60 / p.cost), 5, 20);
     // emplacement/ability discounts are capped at 2 command regardless of price
     const weight = clamp(Math.round(15 / p.cost), 1, 2);
-    const desc = `Cuts the ${p.label.toLowerCase()}'s TP cost by 25%, from ${p.cost} to ${warSurplusCost(p.cost)}.`;
+    const desc = `Cuts the ${cardPossessive(cardNameLower(p.label))} TP cost by 25%, from ${p.cost} to ${warSurplusCost(p.cost)}.`;
     CARDS[id] = { id, name: 'War Surplus', unitType: p.key, label: p.label, unique: false, desc, cost, weight, hooks: {} };
   }
   for (const [id, c] of Object.entries(CARD_UNIQUES)) {
@@ -1314,15 +1348,29 @@ function defaultEndlessCards() {
   };
 }
 
-// total command weight a plan's cards occupy
+// total command weight a plan's cards occupy — the RAW weight of a stored list.
+// loadEndlessCards' normalizer and the v1 migration weigh the blob with this,
+// and must keep doing so: a demo-aware sum there would let a demo session pack
+// a full-game plan past a capacity the full game then silently trims back, and
+// the demo may not write through (see THE ONE RULE, js/demo.js).
 function planCommandUsed(plan) {
   return plan.reduce((sum, id) => sum + CARDS[id].weight, 0);
+}
+
+// ...and the command a plan spends IN THE FIGHT, which is what every budget the
+// player is shown or checked against means. demo: a locked card left in a plan
+// by the shared full-game blob does not deploy (demoOwnedCards, js/demo.js) and
+// so cannot cost command either — charging budget for a card that will not be
+// in the fight would leave a full-game plan reading 20/20 with nothing in it,
+// and no room to equip the demo cards the player just bought.
+function planCommandLive(plan) {
+  return planCommandUsed(demoOwnedCards(plan));
 }
 
 function loadEndlessCards() {
   let data = null;
   try {
-    const raw = localStorage.getItem(ENDLESS_CARDS_KEY);
+    const raw = PLATFORM.storage.get(ENDLESS_CARDS_KEY);
     if (raw) data = JSON.parse(raw);
   } catch { data = null; }
   // migrate: the banked currency 'ribbons' was renamed to 'medals' — carry an
@@ -1367,12 +1415,22 @@ function loadEndlessCards() {
     const seen = new Set();
     const plan = (Array.isArray(rawPlans[i]) ? rawPlans[i] : [])
       .filter(id => CARDS[id] && data.owned.includes(id) && !seen.has(id) && !!seen.add(id));
-    // a tampered save could pack a plan past capacity — shed from the back
-    while (planCommandUsed(plan) > data.capacity) plan.pop();
+    // a tampered save could pack a plan past capacity — shed from the back.
+    // Weighed LIVE, because it is the same budget togglePlanCard checks against
+    // and the two disagreeing means a demo player equips a card that is gone by
+    // the next load. The full game shedding what a demo session appended is the
+    // RIGHT outcome and costs it nothing: locked cards can only be rejected by
+    // togglePlanCard, never spliced, so a plan is always [the full game's own
+    // cards, in their own order] then [whatever the demo pushed] — and popping
+    // from the back takes the demo's additions first.
+    while (planCommandLive(plan) > data.capacity) plan.pop();
     data.plans.push(plan);
   }
   if (fromV1) {
-    // slot as much of the old always-on collection into Plan A as fits
+    // slot as much of the old always-on collection into Plan A as fits. RAW,
+    // unlike the trim above: this is a one-time write over the whole collection,
+    // and it has to build the plan the FULL GAME would have built — a v1 blob
+    // migrated under ?demo=1 must come out the same either way.
     const plan = data.plans[0];
     for (const id of data.owned) {
       if (planCommandUsed(plan) + CARDS[id].weight <= data.capacity) plan.push(id);
@@ -1391,7 +1449,7 @@ function loadEndlessCards() {
 }
 
 function saveEndlessCards(data) {
-  localStorage.setItem(ENDLESS_CARDS_KEY, JSON.stringify(data));
+  PLATFORM.storage.set(ENDLESS_CARDS_KEY, JSON.stringify(data));
 }
 
 // how many cards are neither owned nor already on display — the deck the shop
@@ -1399,19 +1457,26 @@ function saveEndlessCards(data) {
 // this: a reroll that can't turn a single slot over, and a slot that would open
 // onto SOLD OUT, are purchases of nothing, and a completionist would otherwise
 // pay for them (and double the reroll price) with the deck empty.
+// STRICT in demo (no fallback, unlike demoDrawPool): this count is what arms
+// REROLL and +1 CARD SLOT, and once the demo pool is owned a reroll could only
+// shuffle unbuyable banners and a new slot could only sell one — DECK EMPTY is
+// the honest read.
 function undrawnCardCount(data) {
   const taken = new Set([...data.owned, ...data.offer]);
-  return Object.keys(CARDS).filter(id => !taken.has(id)).length;
+  const pool = Object.keys(CARDS).filter(id => !taken.has(id));
+  return demoActive() ? pool.filter(id => DEMO_CARD_IDS.has(id)).length : pool.length;
 }
 
 // a random card the player neither owns nor is currently being offered
 function drawUnofferedCard(data) {
   const taken = new Set([...data.owned, ...data.offer]);
-  const pool = Object.keys(CARDS).filter(id => !taken.has(id));
+  const pool = demoDrawPool(Object.keys(CARDS).filter(id => !taken.has(id)));
   return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 
 function buyCard(id) {
+  // demo: full-game-only cards can sit bannered in an offer slot but never sell
+  if (demoLockedCard(id)) return false;
   const data = loadEndlessCards();
   const card = CARDS[id];
   const slot = data.offer.indexOf(id);
@@ -1420,7 +1485,7 @@ function buyCard(id) {
   data.owned.push(id);
   // a fresh purchase slots straight into the active plan when the command fits
   const plan = data.plans[data.activePlan];
-  if (planCommandUsed(plan) + card.weight <= data.capacity) plan.push(id);
+  if (planCommandLive(plan) + card.weight <= data.capacity) plan.push(id);
   data.offer.splice(slot, 1);
   const repl = drawUnofferedCard(data);
   if (repl) data.offer.splice(slot, 0, repl);   // replacement takes the same slot
@@ -1439,7 +1504,10 @@ function commandUpgradeCost(capacity) {
 
 function buyCommandCapacity() {
   const data = loadEndlessCards();
-  if (data.capacity >= MAX_COMMAND_CAP) return false;
+  // demo: the ceiling is what the DEMO deck can fill, not the whole catalog's —
+  // a point past that is a medal sink with nothing to spend it on, the same
+  // reason REROLL and +1 CARD SLOT go dead on an empty demo deck
+  if (data.capacity >= demoMaxCommandCap()) return false;
   const cost = commandUpgradeCost(data.capacity);
   if (cost > data.medals) return false;
   data.medals -= cost;
@@ -1485,10 +1553,17 @@ function rerollShop() {
   const avoid = new Set([...data.owned, ...data.offer]);
   data.offer = [];
   for (let i = 0; i < data.shopSlots; i++) {
+    // The choice BETWEEN these two lists is made with demoHasDrawable and only
+    // then filtered with demoDrawPool, never the other way round — see the pair
+    // in js/demo.js. Drawing first hands back locked cards the moment the demo
+    // pool is dry, so a raw length test reads "plenty of brand-new cards left"
+    // while every one of them is a dead banner, and the readmit clause below
+    // never fires. In the full game demoHasDrawable IS `pool.length`.
     let pool = Object.keys(CARDS).filter(id => !avoid.has(id) && !data.offer.includes(id));
     // if the deck is too thin to fill every slot with brand-new cards, allow
     // the just-replaced ones back in rather than leaving a slot empty
-    if (!pool.length) pool = Object.keys(CARDS).filter(id => !data.owned.includes(id) && !data.offer.includes(id));
+    if (!demoHasDrawable(pool)) pool = Object.keys(CARDS).filter(id => !data.owned.includes(id) && !data.offer.includes(id));
+    pool = demoDrawPool(pool);
     if (!pool.length) break;
     data.offer.push(pool[Math.floor(Math.random() * pool.length)]);
   }
@@ -1509,13 +1584,19 @@ function resetRerollCost() {
 // equip/unequip an owned card in the active plan; equipping fails when the
 // plan lacks the command room for the card's weight
 function togglePlanCard(id) {
+  // demo: a locked card the shared full-game blob owns is off the collection
+  // rail entirely (buildBattlePlanUI) and would not deploy if it were equipped.
+  // Hard-rejected here the way buyCard hard-rejects the shop's bannered slots —
+  // and a REJECT rather than an unequip, because splicing it out would be the
+  // demo writing through to the full game's own battle plan.
+  if (demoLockedCard(id)) return false;
   const data = loadEndlessCards();
   const card = CARDS[id];
   if (!card || !data.owned.includes(id)) return false;
   const plan = data.plans[data.activePlan];
   const at = plan.indexOf(id);
   if (at !== -1) plan.splice(at, 1);
-  else if (planCommandUsed(plan) + card.weight <= data.capacity) plan.push(id);
+  else if (planCommandLive(plan) + card.weight <= data.capacity) plan.push(id);
   else return false;
   saveEndlessCards(data);
   return true;
@@ -1527,10 +1608,13 @@ function setActivePlan(i) {
   saveEndlessCards(data);
 }
 
-// the cards that actually deploy: the active battle plan, not the collection
+// the cards that actually deploy: the active battle plan, not the collection —
+// and in the demo, only the part of that plan this build sells (demoOwnedCards,
+// js/demo.js). This is THE card gate: newGame stamps G.cardsOwned off it, and
+// every gameplay site in the game reads that Set.
 function equippedEndlessCards() {
   const data = loadEndlessCards();
-  return data.plans[data.activePlan];
+  return demoOwnedCards(data.plans[data.activePlan]);
 }
 
 // per-run hook table: { unitType: { onKill: [fns], beforeShot: [fns], afterShot: [fns],
@@ -1663,7 +1747,9 @@ function openEndlessLoadout(difficultyId, fromScreen) {
     openAbandonConfirm(difficultyId, from);
     return;
   }
-  if (!loadEndlessCards().owned.length) {
+  // demo: a collection made entirely of full-game cards is an EMPTY collection
+  // here — the loadout screen would open on a rail with nothing on it
+  if (!demoOwnedCards(loadEndlessCards().owned).length) {
     startGame('endless', difficultyId);
     return;
   }
@@ -1727,7 +1813,14 @@ function commandPips(w) {
 function buildCardShopUI() {
   const data = loadEndlessCards();
   el('card-shop-medals').textContent = data.medals;
-  el('card-shop-owned').textContent = data.owned.length + ' / ' + Object.keys(CARDS).length + ' COLLECTED';
+  // demo: the deck the player can actually complete is the demo pool, so
+  // counting toward 172 would advertise a collection this build never sells
+  // demoPoolSize(), not DEMO_CARD_IDS.size: the denominator has to be a count of
+  // cards the shop can actually DRAW, or a stale id in the set leaves this line
+  // stuck one short of a deck the player has already completed (js/demo.js)
+  const deckSize = demoActive() ? demoPoolSize() : Object.keys(CARDS).length;
+  const held = demoOwnedCards(data.owned).length;
+  el('card-shop-owned').textContent = held + ' / ' + deckSize + ' COLLECTED';
   const row = el('card-shop-row');
   row.innerHTML = '';
   for (let i = 0; i < data.shopSlots; i++) {
@@ -1741,8 +1834,12 @@ function buildCardShopUI() {
     }
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'cs-card' + (card.unique ? ' cs-card--unique' : '');
-    btn.disabled = card.cost > data.medals;
+    // demo: a full-game card can reach an offer slot once the demo pool is
+    // drained — it shows, bannered and dead (buyCard also hard-rejects it)
+    const lockedDemo = demoLockedCard(card.id);
+    btn.className = 'cs-card' + (card.unique ? ' cs-card--unique' : '') +
+      (lockedDemo ? ' cs-card--fglocked' : '');
+    btn.disabled = lockedDemo || card.cost > data.medals;
     const afford = card.cost <= data.medals;
     // a wide ROW, not a tall card: name and one-sentence effect on the left,
     // price over command pips on the right. STANDARD is the absence of the
@@ -1760,7 +1857,8 @@ function buildCardShopUI() {
       '<div class="cs-card__foot" title="' + card.weight + ' command">' +
         '<span class="cs-cost">' + card.cost + '<span class="cs-cost__u">' + (afford ? 'MED' : 'NEED') + '</span></span>' +
         '<span class="cs-pips">' + commandPips(card.weight) + '</span>' +
-      '</div>';
+      '</div>' +
+      (lockedDemo ? '<span class="cs-fgbanner">FULL GAME ONLY</span>' : '');
     btn.addEventListener('click', () => {
       if (buyCard(card.id)) {
         SFX.click();
@@ -1802,13 +1900,16 @@ function buildCardShopUI() {
 // overflowing second row of chips at forty, in a pane that no longer scrolls.
 // Counts are printed on every option because "RIFLEMAN — 3" is the answer to
 // the question the filter is being opened to ask.
-function buildCollectionFilters(host, data, plan, used) {
+// `owned` is the caller's own collection list rather than data.owned, because
+// under the demo those differ (demoOwnedCards) and every count printed here has
+// to describe the same rail the grid below draws.
+function buildCollectionFilters(host, data, owned, plan, used) {
   host.replaceChildren();
 
   // one option per unit type actually owned, plus OTHER for cards with no unit
   // tie (emplacements, HQ, war surplus on placeables)
   const counts = new Map();
-  for (const id of data.owned) {
+  for (const id of owned) {
     const key = cardFilterKey(CARDS[id]);
     counts.set(key, (counts.get(key) || 0) + 1);
   }
@@ -1817,7 +1918,7 @@ function buildCollectionFilters(host, data, plan, used) {
   // a filter that can only ever say ALL is not a filter
   if (types.length < 2) collectionFilter = null;
   const typeSel = filterSelect(host, 'cs-sel',
-    [{ v: '', label: 'ALL TYPES — ' + data.owned.length + ' CARDS' }].concat(
+    [{ v: '', label: 'ALL TYPES — ' + owned.length + ' CARDS' }].concat(
       types.map(k => ({ v: k, label: cardFilterLabel(k) + ' — ' + counts.get(k) }))),
     collectionFilter === null ? '' : collectionFilter,
     v => { collectionFilter = v || null; });
@@ -1825,7 +1926,7 @@ function buildCollectionFilters(host, data, plan, used) {
 
   // FITS BUDGET is the one a player actually wants — "what can I still
   // afford" — so it sits directly under ANY rather than at the end of 1..6
-  const weights = [...new Set(data.owned.map(id => CARDS[id].weight))].sort((a, b) => a - b);
+  const weights = [...new Set(owned.map(id => CARDS[id].weight))].sort((a, b) => a - b);
   const left = data.capacity - used;
   const cmdOpts = [{ v: '', label: 'ANY COMMAND' }];
   if (left > 0) cmdOpts.push({ v: 'fits', label: 'FITS BUDGET — \u2264' + left });
@@ -1834,13 +1935,13 @@ function buildCollectionFilters(host, data, plan, used) {
     collectionCmdFilter === null ? '' : String(collectionCmdFilter),
     v => { collectionCmdFilter = v === '' ? null : v === 'fits' ? 'fits' : +v; });
 
-  const inField = data.owned.filter(id => plan.includes(id)).length;
+  const inField = owned.filter(id => plan.includes(id)).length;
   const toggle = document.createElement('div');
   toggle.className = 'cs-toggle';
   const states = [
     [null, 'ALL', ''],
     ['field', 'FIELD ' + inField, ' cs-toggle--field'],
-    ['reserve', 'RES ' + (data.owned.length - inField), ''],
+    ['reserve', 'RES ' + (owned.length - inField), ''],
   ];
   for (const [key, label, extra] of states) {
     const b = document.createElement('button');
@@ -1895,7 +1996,7 @@ function cardFilterLabel(key) {
 function buildBattlePlanUI() {
   const data = loadEndlessCards();
   const plan = data.plans[data.activePlan];
-  const used = planCommandUsed(plan);
+  const used = planCommandLive(plan);   // demo: what will actually be in the fight
 
   const tabs = el('plan-tabs');
   tabs.replaceChildren();
@@ -1904,7 +2005,7 @@ function buildBattlePlanUI() {
     tab.type = 'button';
     tab.className = 'cs-ptab' + (i === data.activePlan ? ' cs-ptab--active' : '');
     tab.innerHTML = '<span class="cs-ptab__n">' + PLAN_NAMES[i] + '</span>' +
-      '<span class="cs-ptab__c">' + planCommandUsed(data.plans[i]) + ' / ' + data.capacity + '</span>';
+      '<span class="cs-ptab__c">' + planCommandLive(data.plans[i]) + ' / ' + data.capacity + '</span>';
     tab.addEventListener('click', () => {
       if (i === data.activePlan) return;
       setActivePlan(i);
@@ -1926,11 +2027,15 @@ function buildBattlePlanUI() {
   // loadout mode (CSS), where the rung is what the plan is being picked
   // against and unspent command is the thing worth a second look.
   const spare = data.capacity - used;
-  el('plan-note').textContent = (escLabel(data.escalation) || 'NO ESCALATION') + ' · ' +
+  // the rung the plan is being picked AGAINST — under the demo cap that is the
+  // effective one, or this line names a rung the run will not be played at
+  const planEsc = Math.min(data.escalation, escEffectiveUnlocked(data));
+  el('plan-note').textContent = (escLabel(planEsc) || 'NO ESCALATION') + ' · ' +
     (spare > 0 ? spare + ' command unspent.' : 'Command budget full.');
   const upBtn = el('plan-upgrade');
-  if (data.capacity >= MAX_COMMAND_CAP) {
-    upBtn.textContent = `COMMAND — MAX (${MAX_COMMAND_CAP})`;
+  const capCeil = demoMaxCommandCap();   // demo: the demo deck's own weight
+  if (data.capacity >= capCeil) {
+    upBtn.textContent = `COMMAND — MAX (${Math.max(capCeil, data.capacity)})`;
     upBtn.disabled = true;
   } else {
     const upCost = commandUpgradeCost(data.capacity);
@@ -1942,16 +2047,24 @@ function buildBattlePlanUI() {
   const filterRow = el('plan-filter');
   grid.replaceChildren();
   filterRow.replaceChildren();
-  if (!data.owned.length) {
+  // demo: the collection is the demo collection, the same subset the pane on
+  // the left already counts toward ("n / 17 COLLECTED", buildCardShopUI). A
+  // locked card the shared full-game blob owns is HIDDEN here rather than
+  // bannered like a shop slot or a toolbar button: those are fixed positions a
+  // player would otherwise wonder about, and this is a list — the codex hides
+  // the other three armies' rosters for the same reason. What it must never do
+  // is show one as DEPLOYED, since equippedEndlessCards will not deploy it.
+  const owned = demoOwnedCards(data.owned);
+  if (!owned.length) {
     const none = document.createElement('div');
     none.className = 'cs-chit cs-chit--empty';
     none.textContent = 'NO CARDS IN THE COLLECTION YET — BUY SOME ON THE LEFT.';
     grid.appendChild(none);
     return;
   }
-  buildCollectionFilters(filterRow, data, plan, used);
+  buildCollectionFilters(filterRow, data, owned, plan, used);
 
-  const visible = data.owned.filter(id => {
+  const visible = owned.filter(id => {
     const card = CARDS[id];
     if (collectionFilter !== null && cardFilterKey(card) !== collectionFilter) return false;
     const equipped = plan.includes(id);
@@ -2111,8 +2224,12 @@ function animateMedalCount(node, to, prefix) {
 // one tap-to-expand requisition card for the endgame footlocker
 function buildEndgameCard(card, medals) {
   const afford = card.cost <= medals;
+  // demo: same locked treatment as the main shop — this endgame rail is the
+  // second offer surface and shows the same slots
+  const lockedDemo = demoLockedCard(card.id);
   const btn = document.createElement('div');
-  btn.className = 'ee-card' + (card.unique ? ' ee-card--uni' : '');
+  btn.className = 'ee-card' + (card.unique ? ' ee-card--uni' : '') +
+    (lockedDemo ? ' cs-card--fglocked' : '');
   btn.innerHTML =
     '<div class="ee-card__top">' +
       '<span class="ee-card__unit">' + cardUnitLabel(card) + '</span>' +
@@ -2128,8 +2245,9 @@ function buildEndgameCard(card, medals) {
     '</div>' +
     '<div class="ee-card__body">' +
       '<div class="ee-card__full">Costs ' + card.weight + ' command in your loadout.</div>' +
-      '<button class="ee-buy"' + (afford ? '' : ' disabled') + '>Requisition — ' + medalLabel(card.cost) + '</button>' +
-    '</div>';
+      '<button class="ee-buy"' + (afford && !lockedDemo ? '' : ' disabled') + '>Requisition — ' + medalLabel(card.cost) + '</button>' +
+    '</div>' +
+    (lockedDemo ? '<span class="cs-fgbanner">FULL GAME ONLY</span>' : '');
   // tapping the card body toggles the detail drawer; the chevron flips with it
   const chev = btn.querySelector('.ee-card__chev');
   btn.addEventListener('click', () => {

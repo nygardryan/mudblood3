@@ -17,13 +17,445 @@ it each time. Screen-relative visuals (particles, fake-Z arcs, floating
 text, shadows at +y, HP bars at -y) still treat screen-up as up — never axis-swap
 those. Plain HTML5 Canvas + vanilla JS, **no build step, no
 package.json, no test framework**. Scripts in `js/` share one global scope and
-load in dependency order via `index.html` (`main.js` second-to-last,
-`test-api.js` last). See README.md for gameplay and the per-file map.
+load in dependency order via `index.html` (`main.js` third-to-last, then
+`export-sprites.js`, `test-api.js` last). See README.md for gameplay and the per-file map.
 
 ## Running it
 
 Serve statically — `.claude/launch.json` already defines a `static-server`
 config (python3 http.server). Use the preview/browser tooling, not Bash.
+
+## Shells — desktop (Steam) and mobile
+
+The web version at the repo root IS the game; `shells/desktop/` (Electron, for
+Steam) and `shells/mobile/` (Capacitor) are wrappers that ship the SAME files.
+**Nothing is ever copied or forked into a shell** — build-time staging only.
+The one seam is `js/platform.js`, loaded before every other script:
+`PLATFORM.id` (`'web'`/`'desktop'`/`'mobile'`), `PLATFORM.storage` (used by the
+four durable stores — `twRunSave`/`endlessCards`/`endlessLeaderboard`/
+`campaignProgress` — mirrored into Capacitor Preferences on mobile because iOS
+can evict WKWebView storage; `settings.js` and `sprites.js` stay on raw
+localStorage ON PURPOSE: trivially re-creatable, and sprites reads at top-level
+init before any async restore could land), and `PLATFORM.onReady` (synchronous-
+when-ready — `main.js`'s bootstrap tail runs inside it; on web/desktop it runs
+inline, so web boot order is exactly pre-shim). On the web every PLATFORM
+member is an inert no-op — the shim must stay free when no shell is present,
+the same rule ESCALATION rung 0 follows. Electron serves the root over the
+privileged `tw://` scheme because the core `fetch()`es its audio and sprite
+manifest and Chromium blocks fetch on `file://` — never `loadFile()`.
+`TW_SMOKE=1 npx electron .` (in `shells/desktop`) boots hidden, proves the
+tw:// fetch path plus a save/continue cycle, prints one JSON line and exits.
+The staged file subset lives in ONE place, `shells/file-manifest.json` — read by
+both `shells/desktop/electron-builder.cjs` (glob filter for `extraResources`)
+and `shells/mobile/scripts/sync-www.mjs` (`cpSync` per entry); a new root-level
+file or asset dir the game reads is added there once, not in either consumer.
+Two settings controls
+are runtime-gated the same way and both NEVER CREATE the control rather than
+hiding it (this sheet has no generic `.hidden` rule): the desktop-only
+QUIT/FULLSCREEN section on `PLATFORM.isDesktop`, and the sprite-pack EXPORT
+row, removed by `PLATFORM.isMobile` because its `<a download>` on a `blob:`
+URL is a no-op in both mobile webviews — it would bake every drawable and
+silently produce nothing — and by `demoActive()` for the content reason under
+*DEMO builds* below.
+
+**`PLATFORM.onReady` is gated by a WATCHDOG, and that is not belt-and-braces.**
+Mobile defers the whole bootstrap — menu, layout, the frame loop — behind the
+Preferences restore, so a bridge call that never SETTLES is a black screen with
+no error and no recovery. `finally` does not cover that case (it runs when the
+body settles or throws, never when an await hangs), so `BOOT_GATE_MS` opens the
+gate regardless and `openGate()` is idempotent. A restore that lands *after*
+the watchdog fired is DROPPED on purpose: `refreshMenu` has already read
+storage and decided there is no save, and writing one in behind that menu is a
+save the player can't see. The mirror keeps it for the next launch.
+
+The mirror's contract is "a copy of what localStorage holds", which is what
+lets the restore prefer localStorage unconditionally — so `storage.set` mirrors
+ONLY when the synchronous write succeeded. Mirroring a value localStorage
+rejected on quota would strand the fresher blob in Preferences behind the stale
+one the restore keeps choosing. `DURABLE_KEYS` has to be string literals
+(platform.js loads first, before the four key constants exist), so
+`checkDurableKeys` reconciles it with them on `DOMContentLoaded` — a renamed
+key would otherwise retire that store's durability with no error anywhere.
+
+**Fonts are bundled, not fetched** (`css/fonts.css` + `assets/fonts/`, generated
+by `.claude/vendor-fonts.mjs`): the three `fonts.googleapis.com` `@import`s were
+the game's only runtime network dependency, and a Steam offline launch or an
+airplane-mode phone fell back to system fonts. latin AND latin-ext are kept —
+the leaderboard name field is free text, and a latin-only bundle drops an
+accented name onto a system font mid-word. Each family's LICENSE is vendored
+beside its woff2 and ships in both bundles; bundling the binaries is what makes
+that notice a redistribution requirement where hot-linking was compliant by
+construction. Six families are OFL, Special Elite is Apache-2.0 — the script
+probes upstream for each rather than assuming, and throws rather than shipping
+a font it found no license for.
+
+## DEMO builds
+
+The demo (Steam demo appid, a separate Google Play listing, a deployable web
+variant — **no iOS demo, ever**: App Review guideline 2.2 bars demo apps) is
+the SAME file set with one flag flipped. The chain: `js/demo-flag.js` (loads
+before platform.js; committed `const TW_DEMO_BUILD = false` forever) →
+`PLATFORM.isDemo` (also honours `?demo=1` for in-browser testing) →
+`demoActive()` in **`js/demo.js`, the one gating module** — every restriction
+(placeable locks, the 17-card shop pool, the command ceiling that pool can
+fill, the rung-III escalation cap, the faction pin, the blocked non-'de' /
+dev-tier save)
+is defined there and consumed as 1–2 line call-site edits. Each build flips the flag its own way: desktop
+`main.cjs` SERVES a generated demo-flag.js over tw:// when packaged with
+`twDemo` extraMetadata (`npm run dist:demo`), mobile `sync-www.mjs` overwrites
+the staged copy under `TW_DEMO_BUILD=1` (the one documented exception to its
+zero-transforms rule; pair with the `demo` gradle flavor, whose
+`.demo` applicationId matches `DEMO_APP_ID` in `shells/app-identity.cjs`), and
+`scripts/stage-web-demo.mjs` stages `dist-web-demo/` for the demo's own origin.
+**Locked content the demo SHOWS must be marked, on every surface that shows
+it.** The toolbar's dead bannered button, the shop and endgame slots' `FULL GAME
+ONLY`, the dossier's and the leaderboard header's `FULL GAME` — and the CODEX,
+which was the hole: it lists the player's whole roster (right call — the demo
+advertises what it locks) and printed GUNNER with a cost and a hotkey and no
+flag, the only screen in the build saying he was buyable. `codexEntries` stamps
+`fgLocked` and `buildCodexCard` leads the chip row with it. It keys on
+**`demoBuildLockedPlaceable`**, split out of `demoLockedPlaceable` for this: that
+one exempts tutorials and reads the live `G`, so a dossier opened from tutorial
+3's pause menu would have dropped all fourteen marks. A gate on a BUY asks the
+run; copy describing the PRODUCT asks the build. (The pitch reads
+`DEMO_PLACEABLE_KEYS` more directly still — it has no `demoActive()` term at all,
+so `TEST.demoPitch` can proof it in a full-game tab.)
+
+**The one rule: demo restrictions are READ-SIDE ONLY** — `?demo=1` shares
+localStorage with the full web game, so never prune `CARDS` (MAX_COMMAND_CAP
+derives from it; loadEndlessCards drops unknown ids), never clamp the STORED
+`escUnlocked`, never delete a run save this build refuses to resume (it is
+hidden, and the abandon prompt still guards the slot). Locked toolbar items stay VISIBLE as dead
+bannered buttons (`.tool-btn--fglocked`); once the demo card pool is owned,
+locked cards flow into offer slots bannered `FULL GAME ONLY` (that surfacing is
+`demoDrawPool`'s fallback, not a leak — `buyCard` hard-rejects). Tutorials are
+exempt from placeable locks (tutorial 3 teaches gunner/grenadier/flamer).
+Drive it with `TEST.demo(bool?)`; `TW_SMOKE=1 TW_DEMO_BUILD=1 npx electron .`
+proves the desktop demo end to end. Player-facing docs: README's *The demo*,
+`docs/building.md`'s *Demo builds*.
+
+The one thing in `js/demo.js` that is not a gate is **THE PITCH**
+(`#demo-pitch`), below the `// ====` fence at the bottom: the
+value-proposition screen `showDemoPitchAtBoot()` opens from `main.js`'s
+bootstrap tail, every launch, layered over `#intro` and the attract board.
+Six things about it:
+- **It hides the menu it covers, rather than merely painting over it**
+  (`#stage:has(> #demo-pitch:not(.hidden)) > #intro { visibility: hidden }`).
+  Covered, `#intro`'s buttons stay focusable: Tab from the pitch's own button
+  lands on PLAY behind an opaque screen and Enter starts a run nobody can see —
+  a plausible first thing to happen on a Steam Deck. It is a `:has()` off the
+  pitch's own class and NOT an `inert` toggle in open/close, because
+  `hideOverlays()` closes this screen by writing the class directly and would
+  strand the menu inert. Derived state cannot desync. `#rotate-hint` is the one
+  thing that must still paint over it (z-index 13 against 12 — they were tied,
+  and the pitch, painting later, buried the one prompt a portrait phone boots
+  needing). The price of hiding by VISIBILITY rather than by the class is that
+  code asking "is the menu up" the way everything else does — the `.hidden`
+  test — cannot see this screen, and there is exactly one such reader:
+  **`attractStepping()`** (`js/attract.js`), whose whole job is to stop
+  simulating under an opaque overlay. It read the menu as up, so every demo
+  launch ran the full sim AND a full `draw()` behind a page nobody could see
+  through, for as long as it took to read two screens of it — the first thing a
+  demo does, on the platform that can least afford it. It asks `demoPitchOpen()`
+  outright; a per-frame `getComputedStyle` is the only way to derive it, and
+  `attractRunning()` (the three containment guards) is deliberately untouched —
+  the run still EXISTS while the pitch is up, it just isn't stepped.
+- **Every figure is DERIVED from the sets above it**, never written down —
+  `PLACEABLES.filter(p => !DEMO_PLACEABLE_KEYS.has(p.key))`, `DEMO_CARD_IDS.size`
+  against `Object.keys(CARDS).length`, `ESCALATIONS` past `DEMO_ESC_MAX`, the
+  wave-100 bosses found by walking `ENEMY_TYPES` for `isFinalBoss`. That is the
+  whole reason it lives in the gating module rather than its own file: whoever
+  retunes the gate scrolls past the screen that advertises it. It reads
+  `DEMO_PLACEABLE_KEYS` directly and NOT `demoLockedPlaceable`, which early-outs
+  in tutorials and reads the live `G` — this is a statement about the BUILD.
+  `demoPoolCommandWeight()` had to be split out of `demoMaxCommandCap()` for
+  the same reason: through the gate, a full-game tab proofs "38 to 432" as
+  "432 to 432".
+- **ONE ROW SHAPE, and the meter is the whole layout.** Every row is a
+  `have / total` handed to `row()` in one options object, and the pair drives
+  `.dp-meter` — the demo's share drawn as a DARK inset over a LIT track, never
+  the reverse, because the lit part of a bar is the part being sold and a meter
+  filled up to what the player already owns argues against the page it is on.
+  It shipped as four bare gain figures (+14, +3, +155, +7) counting four
+  incomparable things, which is not a ranking anyone can read and which put THE
+  ARMIES — three rosters, three biomes, three wave-100 bosses, the largest thing
+  this build does not contain — at the bottom of the page's only one. It leads
+  now. The gain glyph survives in the head line but is DERIVED inside `row()` as
+  `total - have` rather than passed, so a row cannot advertise a gain its own
+  meter contradicts. And the head carries **no figure at all**: the summary line
+  it had restated all eight of them in the smallest, dimmest type on the screen.
+  Two CSS notes. The armies list is a two-column grid, so each army must emit
+  exactly its two cells and never a wrapper (a fifth army fielding no boss still
+  emits the empty one). And `@media (max-height: 480px)` trims this screen on a
+  landscape phone — the one place on it a media query is right rather than the
+  trap the rest of the sheet documents, because that trap is about WIDTH
+  (`#stage` is scaled to the canvas aspect) and `#stage` is the frame's full
+  HEIGHT unscaled; `@container` cannot ask about height at all. It shipped
+  trimming only the HEAD, which was not the biggest spender: measured at
+  844x357, head 95 + `--ov-pad` 40 top + 40 bottom + a 134 sticky footer put 309
+  of 357 in front of the argument and left an **88px** band against a 114px
+  shortest row — the title card the block exists to prevent. **`--ov-pad` is the
+  one lever for both paddings and that is the point**: `.overlay`'s padding and
+  `.dp-foot`'s `--dp-foot-pad` both read it, and the footer's sticky
+  `bottom: calc(-1 * …)` only works while its bottom padding EQUALS the
+  scrollport's, so a literal on either alone breaks that silently. It is a
+  5vw clamp spent on the short axis, which is why `#card-shop` already takes it
+  to 10px ("at 390px tall the default clamp() inset was eating a sixth of the
+  screen") — this screen came later and never got the same look. At 14px the
+  band goes 88 → 150, and above 480px nothing changes at all.
+- **`js/demo.js` is script #6** — before `helpers.js`, `state.js`, `hud.js`,
+  `escalation.js`, `save.js`. Everything the pitch touches (`el`, `SFX`, `CARDS`,
+  `ESC_ROMAN`, `ENEMY_FACTIONS`, `SAVE_FACTION_NAMES`, …) resolves at CALL time;
+  a top-level `el(...)` down there black-screens the demo at parse.
+- **No store link, and nothing persisted.** The repo has no outbound links at
+  all and the store differs per shell, so the screen is dismiss-only and returns
+  next launch. It claims Escape and Android back FIRST, above the dossier — at
+  boot nothing below can be true, but `TEST.demoPitch` can raise it over a live
+  run, where falling through would resume a hidden fight.
+- It **names rungs IV–X**, which the dossier deliberately withholds
+  (`escRowStateLabel` prints `FULL GAME`). There the name is the reward for
+  earning the rung; here the screen's whole job is to say what the product
+  contains, and a page headed THE FULL GAME cannot send anyone off to farm for a
+  rung this build will never unlock. Removal recipe is in the fence's header.
+
+Ten traps, all found by shipping them:
+- **A build order this build can't fill must be FOLDED, never dropped — and two
+  things in the game shop for themselves.** `TEST.autoplay`'s `_defaultPlan`
+  already knew it; `attractSpendPass` (js/attract.js) did not, and it is the one
+  that matters, because the attract board is what a demo player looks at before
+  he has pressed anything. Eight of `attractWishlist`'s orders name locked types
+  (gunner ×3, officer, bunker, grenadier, watch tower, mortarman, Sherman, AT
+  gun) and it `continue`d past each, which does not merely field a thinner line:
+  the dropped orders are the ones the income curve was sized against, so the TP
+  piles up unspent and the board collapses. Measured over 300 sim-seconds, 3 runs
+  a side: the full game fielded 17–19 men on 38–44 TP with no breaches, the demo
+  9–12 on 55–74 with three breaches, one run collapsing and restarting at wave 6.
+  Folded onto stand-ins it is 16.5 ± 2.6 men against 15.5 ± 3.7, n=12 interleaved
+  — the demo now spends what it earns. **`demoStandIn(key)` is the one resolver**
+  and it lives in js/demo.js beside the gate set it reads, not in either caller:
+  it hands the key straight back when this build sells it (so the full game takes
+  no branch and a caller can ask unconditionally), and otherwise WALKS
+  `DEMO_PLACEABLE_SUB` to the first link that isn't locked. Walking is what keeps
+  it from rotting — two rows point backwards (officer → rifleman, atgun →
+  bazooka), so a stand-in that later became locked itself could be folded before
+  the want that lands on it. The POSITION is a wish-list entry's whole content,
+  so a fold keeps it; the rifle line is the terminus. `checkDemoSets` reconciles
+  both sides of every row against `PLACEABLES` for the reason it reconciles the
+  other two sets: a renamed target sends `demoStandIn` to a key that no longer
+  exists, which reads as unlocked and is handed back to a caller that will fail
+  to find it — the dropped order again, with the fold in place and doing nothing.
+- **Refusing to SELL a card is not refusing to RUN it.** `demoDrawPool` and
+  `buyCard` gate the shop, but nothing gated the collection the shop writes
+  into — and on the web `?demo=1` shares localStorage with the full game, so a
+  full-game collection AND the battle plan built out of it arrive already
+  owned. `newGame` stamps `G.cardsOwned` straight off `equippedEndlessCards`,
+  so the build whose pitch reads "17 OF 172 CARDS" ran all 172 (War Chest's
+  opening TP included), and one SAVE AND EXIT in the full game carried the
+  whole deck into a demo resume, since a `'de'` save is deliberately resumable.
+  `demoOwnedCards` is the counterpart to `demoDrawPool` — the filter on a list
+  the player already HOLDS, with **no fallback**, because there is nothing to
+  surface here, only cards to keep out of the fight. Three reads:
+  `equippedEndlessCards` (the gate — every gameplay site reads that Set),
+  `deserializeRun`'s `cards` (same reasoning as the rung it resumes clamped),
+  and the collection rail in `buildBattlePlanUI`. The rail HIDES a locked card
+  rather than bannering it the way a shop slot or a toolbar button does — those
+  are fixed positions a player would wonder about, this is a list, and the codex
+  hides the other three armies' rosters on the same rule. What it must never do
+  is print one as DEPLOYED. `togglePlanCard` hard-rejects like `buyCard`, and a
+  REJECT rather than an unequip: splicing it out would be the demo writing
+  through to the full game's own plan.
+  The command budget then had to SPLIT in two, and getting that backwards costs
+  the demo player his loadout either way. **`planCommandUsed` is the raw weight
+  of a stored list; `planCommandLive` is what the plan spends in the fight.**
+  Every budget the player is shown or checked against is live — the meter, the
+  plan tabs, `togglePlanCard`, `buyCard`'s auto-equip — or a full-game plan
+  reading 12/12 with nothing in it leaves him no room to equip the cards he just
+  bought, and no way to clear it. `loadEndlessCards`' over-capacity trim is live
+  **for the same reason**: raw there and the fit check that let him equip a card
+  disagrees with the normalizer that sheds it, so the card is gone by the next
+  load. That trim shedding what a demo session appended is the RIGHT outcome and
+  costs the full game nothing — locked cards can only be rejected, never
+  spliced, so a plan is always [the full game's own cards, in their own order]
+  then [whatever the demo pushed], and it pops from the back. The **v1
+  migration** is the one that stays RAW: a one-time write over the whole
+  collection has to build the plan the full game would have built.
+- **`demoDrawPool` answers a DRAINED pool with the locked fallback, so its
+  length can never be used to ask whether the demo has cards left.** That is
+  right for a slot which must not sit empty and wrong for a caller choosing
+  BETWEEN pools, and `rerollShop` is the one such caller: "if the deck is too
+  thin to fill every slot with brand-new cards, allow the just-replaced ones
+  back in rather than leaving a slot empty" tested the DRAWN pool, which the
+  fallback had already made non-empty out of locked cards. The clause therefore
+  could not fire in the demo — a paid reroll with four demo cards still unowned
+  came back with one buyable slot and two dead `FULL GAME ONLY` banners, and the
+  cards it had just swept off the shelf were the ones the clause exists to put
+  back (measured 3 buyable slots → 1; 3 → 3 after). **`demoHasDrawable` picks
+  the list, `demoDrawPool` filters it** — in that order, never the reverse. The
+  two are a pair and live beside each other in `js/demo.js`; in the full game
+  `demoHasDrawable` IS the `pool.length` test it replaces, so this is a demo
+  branch with no full-game term. `drawUnofferedCard` has one pool and no choice
+  to make, so it keeps asking `demoDrawPool` directly.
+- **The placeable gate keys on IDENTITY (`DEMO_SHOP_ITEMS`, a Set over
+  `PLACEABLES`), never on `p.kind`.** The testing rosters reuse the player
+  kinds — `TESTING_ABILITIES`' RANK UP and PURGE are `kind: 'support'` — so a
+  kind test locks two DEV TOOLS while believing it locks game content. Identity
+  also makes the allowlist safe to keep: a new `PLACEABLES` entry is demo-locked
+  by default, which is the right default for a demo.
+- **Read-clamping the ladder means EVERY read, not just `buildEscMods`.** The
+  stored rung can legitimately sit above `demoEscMax()` (a full-game blob, or
+  `TEST.escalation`), so anything that displays or steps from it must go through
+  `escEffectiveUnlocked`/`Math.min` first — `stepEscalation` (stepping from a
+  stored IX under a III cap clamps straight back and SWALLOWS the press), the
+  slab and its `EARNED n / max` line (printing `/ X` sends a capped player off
+  to farm a rung that can never unlock), `plan-note`, `openLeaderboardSelect`'s
+  default board, `buildLeaderboardRungs`' strip (read raw, it drew seven boards
+  the build can never record on as browsable, two screens from the dossier strip
+  drawing the same seven locked — the has-entries clause, not the unlocked
+  figure, is what keeps a banked record readable), the CONTINUE card's `ESC n`
+  (a full-game **'de'** save resumes in the demo — only the other three armies
+  are blocked — and `deserializeRun` rebuilds its mods through `buildEscMods`,
+  so the card printing the stored IX named a rung the resume would not run at),
+  and `TEST.escalation()`'s report. `buildEscMods` alone gets the RUN right and
+  every surface around it wrong.
+  The subtlest of them is `pickEscalation`'s **no-op early-out**, which is where
+  the clamp got WRITTEN DOWN — the one thing this whole gate exists not to do.
+  It compared the incoming rung against the raw stored `escalation`, so under a
+  III cap a full-game blob storing IX made a tap on the III row (labelled `IN
+  EFFECT`) or the III chip (drawn `--on`) read `3 !== 9` and fall through to
+  `setEscalationLevel(3)`: one tap that changed nothing on screen, and the
+  full-game player came back set to III. It compares
+  `Math.min(data.escalation, escEffectiveUnlocked(data))` now — the same
+  expression `stepEscalation` steps from and every surface above displays. A tap
+  that changes nothing visible must change nothing in storage; picking a
+  DIFFERENT rung still writes, because that is a choice the player made. In the
+  full game the two spellings are identical (`loadEndlessCards` already clamps
+  `escalation` to `escUnlocked`), so it is a demo branch with no full-game term.
+  Clamping a rung's NUMBER is only half of it: past the cap the dossier also
+  withholds the modifier's NAME (`escRowStateLabel` prints `FULL GAME`, and
+  `buildEscRungs`' chips say `Full game`), and the leaderboard screen was
+  printing it in both of its own places — `buildLeaderboardRungs`' chip titles
+  and `buildLeaderboardHead`'s `lb-board-name`, on chips drawn in the dossier
+  strip's own style two screens away. Both are keyed on the CAP
+  (`demoActive() && rung > demoEscMax()`) and deliberately NOT on the chip's
+  locked/idle state, which is the only version that cannot disagree with the
+  other: a board above the cap stays browsable while it HOLDS a record, and a
+  chip that gave the name away exactly when its own header stopped would be
+  worse than not withholding it at all. Below the cap both are untouched — an
+  unearned rung in the full game is a "not yet", not content the build lacks,
+  which is why this is a demo branch and not a change to the full game's strip.
+- **The RUN SAVE carries a DIFFICULTY, and it walked DEV TOOLS back in through
+  the front door.** `demoBlockedSave` asked one question — is the army one of
+  the three this build doesn't ship — and a `'de'` save passed it whatever tier
+  it was made on. But the single slot is shared on the web, so a full-game
+  **TESTING** save resumed straight off the demo's own CONTINUE card, and
+  `enterField` (js/flow.js) appends the three enemy rosters to the toolbar for
+  `difficulty.testing`: measured, one tap grew JAPANESE / HORDE / ITALIAN /
+  GERMANS / EVENTS category tabs and `deploy('jyamato')` worked — every roster
+  the codex hides plus all four wave-100 bosses, in the build whose headline
+  restriction is ONE ENEMY ARMY. That is the *exact* leak `js/settings.js`
+  deletes `#settings-dev-tools` to close, arriving by the one route that gate
+  cannot see; SANDBOX's unlimited TP and wave-skip is the same hole one size
+  down. It keys on **`difficulty.sandbox`** — `medalsEligible()`'s own term —
+  resolved through `ENDLESS_DIFFICULTIES` rather than matched against a list of
+  ids in js/demo.js, because an id that catalog does not have is CORRUPTION,
+  not a tier this build lacks, and must fall through to
+  `readRunSave`/`deserializeRun`'s blanket discard instead of hiding behind a
+  card that can never be pressed. `medium`/`hard` are deliberately NOT blocked:
+  they left the menu in both builds, so they are not content the demo is
+  missing. Still read-side — the blob is hidden, never deleted, and the abandon
+  prompt falls back to its generic line for the same reason it does on a
+  non-`'de'` save.
+- **EVERY medal sink needs the demo term, and there are three.** A sink that
+  can still be bought once the demo pool is exhausted sells nothing at full
+  price, and a completionist will buy it — the rule the shop already followed
+  for REROLL and +1 CARD SLOT (both go dead off `undrawnCardCount`, which is
+  STRICT in demo with no `demoDrawPool` fallback for exactly this reason).
+  +1 COMMAND was the one that got missed: `MAX_COMMAND_CAP` sums the whole
+  172-card catalog (432), so the demo sold points up to 432 against a 17-card
+  pool that tops out at 38 — every point past that unspendable. It reads
+  `demoMaxCommandCap()` now, which DERIVES the ceiling from `DEMO_CARD_IDS` the
+  same way `MAX_COMMAND_CAP` derives its own from `CARDS`. The gate is the sell
+  and the label only: `loadEndlessCards` still clamps the STORED capacity
+  against `MAX_COMMAND_CAP`, so a full-game blob opened under `?demo=1` keeps
+  every point it paid for (and the button prints its real number, not the cap).
+- **Copy that names an army owes `demoActive()` a look** — the demo pins the
+  roll and hides the other three rosters from the codex, so a line that names
+  one promises a player content this build doesn't contain. Three did. The
+  dossier's standing "ENEMY: ROLLED AT RANDOM" note is the only line in the game
+  that claims anything about the roll, and it shipped unbranched. The abandon
+  prompt described the very save the demo HIDES ("wave 40 vs the horde — will be
+  lost"), contradicting the menu it was launched from; it falls back to the
+  generic line now, and still fires, because the slot is still being overwritten
+  and that guard is what makes the loss the player's own choice. And the codex's
+  Air Attack card carried the kamikaze clause, which is why `EVENT_INFO` entries
+  may now carry a `descDemo` the events tab prefers — a variant, never a prune.
+  The rule is not only about ARMIES: copy that names anything the demo REMOVES
+  owes the same look, and the fourth line was on the leaderboards. Its standing
+  note explained why a run might be missing from a board by naming the two tiers
+  `medalsEligible()` excludes — "Sandbox and Testing don't count, the supply is
+  unlimited" — against a build where `#settings-dev-tools` is deleted and
+  neither mode exists anywhere, so the one paragraph on the screen sent a demo
+  player hunting two things he cannot find, in the same breath as telling him
+  it was why his run was not there. `leaderboardNoteText` (js/leaderboards.js)
+  drops the caveat and keeps the lead, written from `buildLeaderboardSelect` so
+  it tracks `TEST.demo()`; the id on the `<p>` is the only markup change. Read-
+  side as ever — `ENDLESS_DIFFICULTIES` keeps both tiers and `medalsEligible()`
+  still excludes them. Nothing else in the shipped HTML names a removed control:
+  the other two mentions are the DEV TOOLS section's own hint (deleted with it)
+  and the sprite hint's "four theatres' ground" (already replaced).
+- **Both gate sets are hand-written ids over GENERATED catalogs, and nothing
+  else checks either coupling** — `DEMO_CARD_IDS` against `CARDS` (stamped out
+  by the card templates), `DEMO_PLACEABLE_KEYS` against `PLACEABLES`. Neither
+  drift shows up as a fault: a renamed card id shrinks the pool and its command
+  ceiling, a renamed placeable key silently demo-LOCKS that item (the set is an
+  allowlist), and THE PITCH DERIVES FROM THE SAME SETS — so a demo that quietly
+  lost a card still advertises exactly what it now ships. `checkDemoSets`
+  reconciles both on `DOMContentLoaded`, the same guard and the same reasoning
+  as `checkDurableKeys`. `demoPool()` also skips an id `CARDS`
+  doesn't have rather than dereferencing it, and sums into a local: the memo
+  LATCHES, so the throw left a partial ceiling cached with nothing saying so,
+  and the first caller at boot is the pitch — a black screen in demo builds only.
+  It memoizes the pool's SIZE beside its weight, and both figures are read
+  through it (`demoPoolSize` / `demoPoolCommandWeight`), because the two must
+  not disagree: a count taken off `DEMO_CARD_IDS.size` while the weight skipped
+  a stale id left the shop counting toward a card it could never draw
+  (`16 / 17 COLLECTED`, forever) and the pitch selling a deck one card bigger
+  than the ceiling printed in the same sentence.
+- **Two SETTINGS controls reached past the gate rather than through it, and
+  neither is in a demo build.** The first is **DEV TOOLS**. `TESTING` appends the three enemy
+  rosters to the toolbar (`difficulty.testing`, js/flow.js), so it grew
+  JAPANESE / HORDE / ITALIAN category tabs and handed over every roster the
+  codex hides plus all four wave-100 bosses, under a tipbar naming all four
+  armies — against a demo whose headline restriction is ONE ENEMY ARMY, two
+  taps from its own main menu. `SANDBOX`'s unlimited TP undersells the economy
+  the demo exists to sell. And `CHANGELOG` is the full game's whole development
+  history in prose: the Yamato, the Progenitor, the Treno Armato, the Alien
+  Walker, and rungs **VI and X by name** — the very thing `escRowStateLabel` and
+  `buildLeaderboardHead` go out of their way to withhold. That last one is the
+  "copy that names an army owes `demoActive()` a look" rule, on the one screen
+  nobody had asked it. The section is REMOVED and not hidden (this sheet has no
+  generic `.hidden`), the same rule the desktop QUIT section and the sprite
+  EXPORT row follow — and it is still read-side: `ENDLESS_DIFFICULTIES` keeps
+  both tiers (`TEST.start` is keyed on those ids) and `#changelog` keeps its
+  overlay. The removal is on `DOMContentLoaded` for a LOAD-ORDER reason:
+  `js/changelog.js` loads after `js/settings.js` and wires `#changelog-btn` at
+  its own file eval, so deleting the node at eval would throw there and abandon
+  the rest of that file (the trap `PAUSE_SUBSCREENS` documents). `#settings-dev-tools`
+  is also what the desktop section anchors its `beforebegin` insert on, so a
+  desktop demo keeps QUIT/FULLSCREEN and loses only this.
+  The second is the **sprite-pack EXPORT row**, and it is the same leak with the
+  pictures attached: `spriteDefs()` walks `UNIT_TYPES`/`ENEMY_TYPES` BY FLAG and
+  the demo prunes neither (read-side only), so the ZIP ships the Japanese, Horde
+  and Italian rosters, all four wave-100 bosses, the Alien Walker and the three
+  biome plates the codex hides — as PNGs, in a manifest naming every one. The
+  trade `PLATFORM.isMobile` already makes applies for a second reason here: a
+  demo player has nowhere to INSTALL a pack either (the web demo's origin is not
+  his, the desktop copy lives in the installed game's resources), so the row's
+  only realizable output in a shipped demo was that ZIP. Its HINT went with it —
+  it named "the four theatres' ground" to a build that ships one, which is the
+  "copy that names an army" rule again. `ART OFF/ON` stays (a demo can ship with
+  a pack baked in) and `TEST.exportSprites()` is untouched, the same read-side
+  stance `ENDLESS_DIFFICULTIES` takes above.
 
 ## Testing — use `window.TEST`
 
@@ -92,7 +524,13 @@ harness placement can never drift from a toolbar placement.
 **Der Schlächter** (`eboss`) is the German final boss: a dark-haired revolver
 man who takes the field every 100th German wave (`spawnGermanBoss` hook at the
 top of `spawnSpecialWave` in `js/waves.js`; replaces that wave's themed
-special, and each return is `w/100 ×` HP). 3150 HP (`noRamp:true` exempts him
+special, and each return is `bossReturnHpMult` × HP — the rule all four faction
+bosses share: **each return carries `BOSS_RETURN_HP_GROWTH` (+50%) of the return
+before it**, compounding (1x, 1.5x, 2.25x, …) rather than adding one base pool
+per return, because the player's own line compounds over another hundred waves
+too. Only the PARENT scales; children stay at base and get their toughness from
+`bossPartDamageMult`, which reads the parent's phase and so tracks the bigger
+pool for free). 3150 HP (`noRamp:true` exempts him
 from `enemyHpRamp`), self-plated body+flak armor, and a three-state AI
 (`updateGermanBoss` in `js/update-enemies.js`): advance down one of five
 `BOSS_LANES` firing 6 revolver shots (190 dmg; `revolver.armorDmg` = flat 490
@@ -281,7 +719,7 @@ routes through `zomWaveComposition` and `ZOM_SPECIAL_WAVES` when
 
 **The Progenitor** (`zprogen`) is the Horde's wave-100 boss — a crawling slab of
 flesh, arriving every 100th `'zo'` wave (`spawnHordeBoss`, hooked in
-`spawnSpecialWave` beside the other two, `w/100 ×` HP on each return). It is the
+`spawnSpecialWave` beside the other two, `bossReturnHpMult` × HP on each return). It is the
 **second multi-actor boss**, reusing the Yamato's parent+parts pattern: a core plus
 five `zpod` "pus module" children, all real entries in `G.enemies`, repositioned
 every tick by `syncProgenitorPods`. **The difference from her is the thing to get
@@ -617,7 +1055,7 @@ Verify with `TEST.spriteRoundtrip('tank_il3_hull' | 'tank_il3_turret' |
 
 The **Treno Armato** (`itrain`) is the Italian wave-100 boss — an armored war
 train (`spawnItalianBoss`, hooked in `spawnSpecialWave` beside the other three,
-`w/100 ×` HP on each return). It rolls straight down a rail lane (`e.laneY`,
+`bossReturnHpMult` × HP on each return). It rolls straight down a rail lane (`e.laneY`,
 drawn ahead of it all the way to the stop — the telegraph) and **parks at
 `TRAIN_STOP_X`**; it never breaches (skip in update.js's breach loop, like the
 ship and the mass). The **third multi-actor boss**, on the Progenitor's HP rule,
@@ -897,6 +1335,14 @@ off-screen. Negative x left of the enemy edge is valid *staging* for `spawnEnemy
 To fast-forward a whole difficulty read, `autoplay` runs a scaling default build
 (pass a `plan: (G) => [{type,x,y},...]` for a custom one) — it pumps the sim like
 `step`, so it returns immediately with a per-interval `log`, no wall-clock wait.
+Four of the nine types it wants are demo-locked, and a dropped order is not just
+a thinner line — it is TP that never gets SPENT (a demo run died holding 32),
+which reads the demo as far harder than it is. `_defaultPlan` folds each locked
+want onto a stand-in (`demoStandIn`, js/demo.js — shared with attract mode's own
+wish list; see the trap under *DEMO builds*) before the deficits are read, so the
+stand-in's own count still applies; the fallback is the rifle line. It can only
+fire on a type `demoLockedPlaceable` actually rejects, so the full game is
+untouched and re-opening one of the four retires its row with no edit.
 
 The only modes are **endless** and the three **tutorial** lessons
 (`tutorial1`/`2`/`3`), which are just `endless`-mode levels with a scripted intro.
@@ -1001,7 +1447,9 @@ LEADERBOARDS, CODEX, SETTINGS, and TUTORIAL. **SANDBOX, TESTING and CHANGELOG
 moved into Settings** under a DEV TOOLS heading: sitting next to the only real
 mode was making them read as modes. `openEndlessLoadout`/`openAbandonConfirm`
 therefore take a `fromScreen` — the two dev buttons swap `#settings` out, not
-`#intro`.
+`#intro`. That whole section (`#settings-dev-tools`) is NOT CREATED in a demo
+build — all three of its controls reach past the content gate; see the trap in
+*DEMO builds*.
 
 `refreshMenu()` (`js/flow.js`) rebuilds everything the front page reads from
 storage — the save slot, the rung, the medal count — and is called from
@@ -1027,7 +1475,11 @@ dossier's locked rows both branch on it). Unlike the card shop and the
 leaderboards, the dossier **layers over** the menu rather than swapping it out
 (z-index 11 over 10, own scrim, own fade). It closes on ✕, on a backdrop click
 (`e.target` check, so a row click still selects), and on Escape, which it claims
-first in `js/input.js`'s handler via `escDossierOpen()`.
+second in `js/input.js`'s handler via `escDossierOpen()` — the demo's pitch
+(`#demo-pitch`, z-index 12, see *DEMO builds*) is the other layering overlay and
+takes the first claim on both Escape and Android back. That one is dismiss-only
+and has NO backdrop handler: the dossier is a sheet you glance at, the pitch is a
+page you read, and a stray tap beside it losing your place is a loss.
 
 Three CSS notes. Everything measures in `cqi` off a container declared on
 `#intro .fm`, because an overlay lives inside the scaled `#stage` and
@@ -1137,7 +1589,7 @@ so the rotation each site already passes is the rotation the sprite wants; the m
 records that per sprite, plus `gunTip` (the type's `gun`, where rounds actually spawn —
 sprites don't change it, so a barrel must end there).
 
-The exporter renders all **183** drawables to transparent PNGs at `EXPORT_SS` 4 px/world
+The exporter renders all **187** drawables to transparent PNGs at `EXPORT_SS` 4 px/world
 unit and ships them as one ZIP with the manifest the loader reads (`TEST.exportSprites()`,
 or the Artwork section in settings). Three things about it:
 - **`SPRITES.suspend()` wraps every bake.** Some recipes call the game's own `draw*`
@@ -1163,7 +1615,13 @@ ground layer) must not be looked up under three tier names. Verify with
 
 **The RUN SAVE** (`js/save.js`) is the single-slot save/continue: SAVE AND EXIT on the
 pause menu (endless only — `pauseGame` hides it for tutorials, which also carry live
-actor refs in `G.tutorial` that must never reach a save), CONTINUE on the main menu
+actor refs in `G.tutorial` that must never reach a save; **that hide needs its own
+CSS rule and did not have one** — the sheet has no generic `.hidden`, so
+`saveBtn.classList.toggle('hidden', …)` landed the class and changed nothing, and
+every tutorial pause menu carried a SAVE AND EXIT that `saveAndExit`'s own
+`saveableRun()` backstop then silently refused. `#pause-loadout-btn.hidden` beside
+it was correct, which is why one of the two buttons looked right. A JS-toggled
+`.hidden` on anything that is not an `.overlay` is a CSS edit, always), CONTINUE on the main menu
 (`refreshContinueUI` toggles the card off `readRunSave()`). It is a **whitelist
 serializer, never `JSON.stringify(G)`**: the boss parent/part links are true cycles
 (stringify throws), every actor's `t` is a shared type record, and the Sets

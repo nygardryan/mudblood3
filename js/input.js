@@ -241,6 +241,9 @@ function findNearestValidRadial(p, x, y) {
 }
 
 function place(p, x, y) {
+  // demo backstop: selectPlaceable already rejects, but this covers TEST.buy
+  // and any future caller that reaches place() directly
+  if (demoLockedPlaceable(p)) { SFX.error(); return; }
   if (!placementValid(p, x, y)) {
     const fallback = (p.kind === 'unit' || p.kind === 'defense') ? findNearestValidRadial(p, x, y) : null;
     if (!fallback) { SFX.error(); mobileVibrate(14); return; }
@@ -797,7 +800,13 @@ function issueMoveOrder(units, x, y) {
     return;
   }
   const spacing = Math.max(...units.map(u => u.t.tank ? 44 : u.t.vehicle ? 32 : 22));
-  const cols = Math.ceil(Math.sqrt(units.length));
+  // The block's LONG side is the lateral axis (y, screen-vertical), never depth
+  // (x, the axis the enemy marches down): men stacked in depth mask each other's
+  // fire and the rear rank arrives late, so a group order forms a line ACROSS
+  // the field. `floor` on the short side is what makes that hold at every size —
+  // a ceil(sqrt) grid is square wherever it can be, so a small group read as a
+  // column in depth as often as a line.
+  const cols = Math.max(1, Math.floor(Math.sqrt(units.length)));
   const rows = Math.ceil(units.length / cols);
   const slots = [];
   for (let i = 0; i < units.length; i++) {
@@ -864,12 +873,23 @@ canvas.addEventListener('contextmenu', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    // the escalation dossier is the only overlay here that layers over another
-    // one, so it gets first claim on Escape
+    // Two overlays here layer over another one instead of swapping it out, and
+    // the topmost claims Escape first. The demo's boot pitch (js/demo.js) sits
+    // over the menu AND over the dossier; at boot nothing below can be true, but
+    // TEST.demoPitch can raise it over a live run, where Escape must close IT
+    // rather than fall through to the paused branch and resume a hidden fight.
+    if (demoPitchOpen()) { closeDemoPitch(); return; }
+    // then the escalation dossier, which layers over the menu
     if (escDossierOpen()) { closeEscalationDossier(); return; }
     // the abandon-save prompt swaps out the screen that launched it; Escape means BACK,
     // never fall-through (the paused branch below would resume a hidden fight)
     if (abandonConfirmOpen()) { closeAbandonConfirm(); return; }
+    // the changelog layers over settings the same way settings layers over
+    // pause — it hides #settings when it opens, so settingsOpen() reads false
+    // and closePauseSubscreen() below would miss it, falling through to the
+    // paused branch and resuming the fight behind it (see handleAndroidBack,
+    // js/flow.js, which already has to make this same check)
+    if (changelogOpen()) { closeChangelog(); return; }
     // codex / settings / loadout — see PAUSE_SUBSCREENS (js/flow.js). They swap
     // #pause out but leave `paused` true, so they have to be closed here or the
     // line below resumes the fight behind a screen that's still on top of it.

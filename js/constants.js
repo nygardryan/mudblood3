@@ -239,8 +239,8 @@ const UNIT_TYPES = {
     desc: 'Portable 60mm mortar. Indirect fire at range.',
   },
   sniper: {
-    name: 'Sniper', hp: 85, range: 274, dmg: 46, acc: 0.72,
-    rof: 5.2, burst: 1, burstGap: 0, speed: 38,
+    name: 'Sniper', hp: 85, range: 288, dmg: 46, acc: 0.72,
+    rof: 4.73, burst: 1, burstGap: 0, speed: 38,
     color: '#3f5730', gun: 12, sfx: 'sniper',
     desc: 'Springfield scoped rifle. Picks off officers, snipers, bazookas, and mortar teams first.',
   },
@@ -350,6 +350,12 @@ const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points
 // move of DEPLOY_X (see the note on it) — same mortar, same margin, just
 // measured off wherever the deploy line currently sits.
 const BOSS_WAVE_INTERVAL = 100;      // arrives at wave 100, 200, 300...
+// Shared by ALL FOUR faction bosses (see bossReturnHpMult in js/waves.js): each
+// return carries 50% more HP than the return before it. Compounding, not a flat
+// multiple of the base pool — 1x, 1.5x, 2.25x, 3.375x — because the player's own
+// line compounds too over another hundred waves (cards, ranks, medal spend all
+// multiply), and one extra base pool per return falls behind and stays behind.
+const BOSS_RETURN_HP_GROWTH = 1.5;
 const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
 // Plate refilled at every backline rally. These have to stay BELOW what a line
 // can put into him in one advance, or the refill silently makes him immortal:
@@ -666,7 +672,7 @@ const ENEMY_TYPES = {
     supResist: true,
   },
   esniper: {
-    // counterpart: sniper (range 274, speed 38)
+    // counterpart: sniper (range 288, speed 38)
     name: 'Sniper', hp: 70, speed: 14, range: 209, dmg: 44, acc: 0.70,
     rof: 6.0, burst: 1, burstGap: 0, reward: 4,
     color: '#4a515c', gun: 12, sfx: 'sniper', priority: 4,
@@ -822,7 +828,7 @@ Object.assign(ENEMY_TYPES, {
     color: '#5c5c33', gun: 11, sfx: 'mg', priority: 3, faction: 'jp',
   },
   jsniper: {
-    // counterpart: sniper (range 274, speed 38) — Type 97 in the treeline.
+    // counterpart: sniper (range 288, speed 38) — Type 97 in the treeline.
     name: 'Nest Sniper', hp: 68, speed: 13, range: 205, dmg: 44, acc: 0.70,
     rof: 6.0, burst: 1, burstGap: 0, reward: 4,
     color: '#565a30', gun: 12, sfx: 'sniper', priority: 4, faction: 'jp',
@@ -1345,7 +1351,7 @@ Object.assign(ENEMY_TYPES, {
     garrison: true, garrisonPrefer: 'bunker',
   },
   icecc: {
-    // counterpart: sniper (range 274, speed 38) — scoped Carcano. He makes for a
+    // counterpart: sniper (range 288, speed 38) — scoped Carcano. He makes for a
     // watch tower, and from a hardened one his 200 reach becomes 300: further
     // than most of the player's line can answer. Shell the tower.
     name: 'Cecchino', hp: 66, speed: 12, range: 200, dmg: 44, acc: 0.70,
@@ -1793,6 +1799,12 @@ const EVENT_INFO = [
     name: 'Air Attack',
     wave: 4,
     desc: 'Aircraft cross the field out of the enemy treeline toward your line. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Against the Imperial Japanese Army it is a kamikaze attack instead: twice as many aircraft, no bombs, each one picking a defender and flying into him for a single blast exactly where it lands. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
+    // the demo fights only the Wehrmacht and hides the other three rosters from
+    // the codex, so the kamikaze clause is the one player-facing line left that
+    // names an army this build doesn't contain. Same rule as the escalation
+    // dossier's enemy note: copy that describes a faction owes demoActive() a
+    // look. Read-side only — codexEntries picks the variant, nothing prunes.
+    descDemo: 'Aircraft cross the field out of the enemy treeline toward your line. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
   },
   {
     key: 'paradrop',

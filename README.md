@@ -5,6 +5,31 @@ No frameworks, no build step.
 Sound effects come from curated CC0 / open-licensed samples in `assets/sounds/`
 (see attribution file there); a few cues still use lightweight WebAudio synthesis.
 
+## Where it ships
+
+One codebase, three targets, with the game itself never forked or copied
+between them:
+
+- **Web** — the repo root, exactly as described below. The dev/test surface,
+  and playable as-is in any modern browser.
+- **Desktop (Steam)** — `shells/desktop/`, an Electron wrapper that serves this
+  same `index.html`/`js`/`css`/`assets` over a custom protocol, adds a
+  fullscreen window and a Steamworks integration seam. See
+  `shells/desktop/package.json` (`npm start`, `npm run dist`).
+- **Mobile (iOS/Android)** — `shells/mobile/`, a Capacitor wrapper that stages
+  the same files into a build folder for the native app. See
+  `shells/mobile/README.md`.
+
+The seam between the game and whichever shell it's running under is exactly
+one file, `js/platform.js`, loaded before everything else — it tells the game
+which shell it's in (or none, on the web) and gives it a couple of
+shell-specific hooks (persistent storage, quit/fullscreen). Everything else in
+`js/` doesn't know or care which target it's running on.
+
+There is also a **demo edition** of each of those targets (Steam demo, a
+separate free Google Play listing, and a web build) — the same files with one
+flag flipped at build time, never a fork. See [The demo](#the-demo) below.
+
 ## How to run
 
 Just open `index.html` in any modern browser (double-clicking it works), or serve
@@ -14,6 +39,21 @@ it locally:
 python3 -m http.server 8000
 # then visit http://localhost:8000
 ```
+
+**To run the demo edition on the web, add `?demo=1`:**
+
+```bash
+python3 -m http.server 8000
+# then visit http://localhost:8000/?demo=1
+```
+
+No build or staging step — the query param is the whole switch, and it works on
+any served copy. From the console, `TEST.demo()` reports the live state and
+`TEST.demo(true)` / `TEST.demo(false)` / `TEST.demo(null)` flip it at runtime.
+Note that `?demo=1` shares one browser origin — and therefore one save, one card
+collection and one escalation ladder — with the full game served from the same
+address; the shipped web demo lives on its own origin instead. Build details are
+in [`docs/building.md`](docs/building.md#demo-builds).
 
 For automated or console-driven testing there is a small in-page harness on
 `window.TEST` (`js/test-api.js`): validated game starts, free unit placement,
@@ -259,6 +299,49 @@ soldier to select him, tap ground to move; **DESELECT** and **SHOP** appear when
 men are selected. The purchase toolbar works the same way — tap a category, then
 an item, then the field. Hold on the field to cancel placement.
 
+## The demo
+
+The demo edition is the full game with content gated off, not a cut-down build:
+same engine, same waves, same endless run with no wave cap. What changes is how
+much of the arsenal and the ladder is available.
+
+It opens on a screen listing exactly that — what this build ships against what
+the full game adds — and one button back to the menu. The screen counts itself
+from the gate, so it always matches the build it's on.
+
+- **One enemy army.** The demo always fights the **Germans** — the endless
+  faction roll is pinned, and the codex only lists the Wehrmacht roster.
+- **A reduced arsenal.** Buyable: rifleman, shotgunner, bazooka, sniper, medic,
+  engineer, jeep and AA gun; barbed wire, sandbags and mines; mortar and
+  artillery strikes. The gunner, grenadier, mortarman, flamer, officer, Sherman
+  and AT gun — plus bunkers, watchtowers, ammo crates, camo nests, dummies and
+  both armor abilities — still appear in the toolbar, greyed out under a
+  **FULL GAME** banner, so you can see what the full game adds. Their codex
+  dossiers carry the same flag.
+- **A 17-card shop.** One cheap upgrade card per available unit and
+  emplacement, plus four signature cards (Rifled Slugs, HEAT Rounds, Crack
+  Shot, Morphine Syrette). Once you've collected them all, full-game cards
+  start turning up in the shop behind a **FULL GAME ONLY** banner.
+- **Escalation I–III.** The first three rungs of the difficulty ladder unlock
+  normally by putting the wave-100 boss down; IV–X are listed in the dossier as
+  full-game content.
+- **No dev tools.** Settings has no DEV TOOLS section: sandbox and testing
+  sectors hand out unlimited supply and let you spawn any enemy in the game —
+  including the three armies the demo doesn't fight — and the changelog is the
+  full game's development history. None of the three banked anything, so the
+  demo loses no progress by not having them. Settings' **EXPORT SPRITE PACK**
+  goes with them: it bakes every drawable in the game, hidden rosters and
+  bosses included, and there is nowhere in a demo build to install a pack
+  anyway. Turning custom art off and on again stays.
+
+Medals, the card shop, battle plans, leaderboards, tutorials and the run save
+all work exactly as they do in the full game.
+
+To play it on the web, add `?demo=1` to the URL (see [How to run](#how-to-run)).
+Build instructions for the Steam, Google Play and web demo packages are in
+[`docs/building.md`](docs/building.md#demo-builds). There is no iOS demo —
+Apple's App Store guidelines don't permit demo apps.
+
 ## Files
 
 - `index.html` — page, HUD, toolbar, overlays
@@ -267,11 +350,21 @@ an item, then the field. Hold on the field to cancel placement.
 - `js/audio.js` — sample playback with WebAudio synthesis fallback
 - `js/music.js` — music playback
 - `docs/axis-units.md` — design notes for tuning German unit stats and AI
+- `docs/building.md` — build/run instructions for web, desktop, iOS, and Android,
+  plus the demo builds
+- `scripts/stage-web-demo.mjs` — stages the deployable web demo into `dist-web-demo/`
 
 The game code lives in `js/` as plain scripts sharing one global scope; they
-load in dependency order via `index.html` (definitions first, `main.js` last):
+load in dependency order via `index.html` (`js/platform.js` first, definitions
+next, `main.js` third-to-last, then `export-sprites.js`, `test-api.js` last):
 
+- `js/demo-flag.js` — the demo build marker (committed `false`; flipped only by
+  a demo build, or overridden with `?demo=1`)
+- `js/platform.js` — the shell seam: which of web/desktop/mobile the game is
+  running under, whether this is a demo build, and its storage/quit/fullscreen hooks
 - `js/constants.js` — tuning constants & placeable catalog
+- `js/demo.js` — everything the demo edition restricts, in one place, plus the
+  value-proposition screen it opens at boot
 - `js/levels.js` — level definitions
 - `js/helpers.js` — small shared helpers
 - `js/state.js` — canvas setup & global game state
@@ -322,3 +415,8 @@ load in dependency order via `index.html` (definitions first, `main.js` last):
 - `js/main.js` — event wiring, frame loop & bootstrap
 - `js/export-sprites.js` — bakes every drawable to PNGs + a manifest (a sprite-pack starter kit)
 - `js/test-api.js` — `window.TEST` console/automation harness (inert during play)
+
+`shells/desktop/` and `shells/mobile/` are the Steam and app-store wrappers
+described in [Where it ships](#where-it-ships) above — each has its own
+`package.json`/tooling and stages or serves this same code rather than
+duplicating any of it.

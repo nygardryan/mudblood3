@@ -165,11 +165,20 @@ function defaultEscMods() {
   };
 }
 
+// The rungs the current build can actually stand on. In the demo the ladder
+// tops out at DEMO_ESC_MAX; clamped at READ everywhere (here and the pickers),
+// never written down — the stored escUnlocked is shared with the full game.
+function escEffectiveUnlocked(data) {
+  return Math.min(data.escUnlocked, demoEscMax());
+}
+
 // fold every rung from 1 to `level` into one mods object. Compounding is the
 // whole point: rung N is rungs 1..N, never rung N alone.
 function buildEscMods(level) {
   const m = defaultEscMods();
-  const n = clamp(Math.floor(level || 0), 0, ESC_MAX);
+  // demo cap applies to the RUN even if a full-game blob has a higher rung
+  // selected — read-side clamp, zero writes
+  const n = clamp(Math.floor(level || 0), 0, demoEscMax());
   if (!n) return m;
   m.level = n;
   m.medalMult = escMedalMult(n);
@@ -215,7 +224,9 @@ function setEscalationLevel(n) {
 // this re-enters on wave 200/300 of a run that already unlocked its rung.
 function unlockEscalation(n) {
   const data = loadEndlessCards();
-  const next = clamp(Math.floor(n), 0, ESC_MAX);
+  // demoEscMax caps what a demo boss kill can bank; it never lowers what the
+  // full game already banked (the <= guard below returns false instead)
+  const next = clamp(Math.floor(n), 0, demoEscMax());
   if (next <= data.escUnlocked) return false;
   data.escUnlocked = next;
   saveEndlessCards(data);
@@ -271,7 +282,9 @@ function buildEscRungs(sel, unlocked, hostId) {
     chip.className = 'esc-rung esc-rung--' + state;
     chip.disabled = state === 'locked';
     chip.title = i === 0 ? 'No modifiers'
-      : state === 'locked' ? 'Locked' : ESCALATIONS[i - 1].name;
+      : state === 'locked'
+        ? (demoActive() && i > demoEscMax() ? 'Full game' : 'Locked')
+        : ESCALATIONS[i - 1].name;
     if (standing) continue;
     chip.type = 'button';
     chip.textContent = ESC_ROMAN[i];
@@ -289,7 +302,8 @@ function buildEscalationUI() {
   const slab = el('esc-deploy');
   if (!slab) return;
   const data = loadEndlessCards();
-  const level = data.escalation, unlocked = data.escUnlocked;
+  const unlocked = escEffectiveUnlocked(data);
+  const level = Math.min(data.escalation, unlocked);
   const mod = level > 0 ? ESCALATIONS[level - 1] : null;
 
   // what PLAY deploys at, printed inside the button
@@ -304,8 +318,11 @@ function buildEscalationUI() {
   el('esc-newest-name').textContent = mod ? mod.name : 'CLEAN SECTOR';
   el('esc-newest-desc').textContent = mod ? mod.desc.toLowerCase()
     : 'nothing stacked against you, and nothing extra in the pay packet.';
+  // the denominator is the ladder THIS BUILD can climb: printing / X under the
+  // demo cap sends a capped player back to farm boss kills for a rung that
+  // will never unlock. The dossier's FULL GAME rows carry the rest of it.
   el('esc-earned').textContent = 'EARNED ' + (unlocked > 0 ? ESC_ROMAN[unlocked] : '—') +
-    ' / ' + ESC_ROMAN[ESC_MAX];
+    ' / ' + ESC_ROMAN[demoEscMax()];
 }
 
 // ---------------------------------------------------------------------------
@@ -322,29 +339,41 @@ function escDossierSubText(sel, unlocked) {
   const next = sel < ESC_MAX ? ESCALATIONS[sel] : null;
   const climb = !next
     ? 'TOP OF THE LADDER'
+    // demo: the rung past the cap isn't earnable here, so "put the boss down
+    // to earn IV" would be a lie — name where the rest of the ladder lives
+    : demoActive() && next.level > demoEscMax()
+      ? 'RUNGS ' + ESC_ROMAN[demoEscMax() + 1] + '–' + ESC_ROMAN[ESC_MAX] + ' IN THE FULL GAME'
     : sel < unlocked
       ? 'NEXT ▸ ' + ESC_ROMAN[next.level] + ' · ' + next.name
       // rung 0 has no numeral to name, so it drops the "ON —" that would read
       // as a typo to the one player who most needs this line: a new one
       : 'LOCKED ▸ PUT THE BOSS DOWN' + (sel > 0 ? ' ON ' + ESC_ROMAN[sel] : '') +
         ' TO EARN ' + ESC_ROMAN[next.level];
+  // the standing note that the ladder never picks your enemy. The DEMO pins the
+  // roll to the Wehrmacht (rollEnemyFaction, js/state.js), so "rolled at random"
+  // there promises three armies this build does not ship — and it is the only
+  // line in the game that makes a claim about the roll.
+  const enemy = demoActive() ? 'ENEMY: WEHRMACHT' : 'ENEMY: ROLLED AT RANDOM';
   return ESC_MAX + ' RUNGS · ' + sel + ' IN EFFECT · ' +
     (unlocked > 0 ? ESC_ROMAN[unlocked] + ' EARNED' : 'NONE EARNED') + ' · ' +
-    escMultLabel(sel) + ' MEDALS\n' + climb + ' · ENEMY: ROLLED AT RANDOM';
+    escMultLabel(sel) + ' MEDALS\n' + climb + ' · ' + enemy;
 }
 
 // what the side of a row says. The rung you are set to is IN EFFECT; anything
 // below it is in effect too but tapping DROPS you to it, and saying so is the
 // whole reason a IX→II move is one tap here.
 function escRowStateLabel(level, sel, state) {
-  if (state === 'locked') return 'LOCKED';
+  if (state === 'locked') {
+    return demoActive() && level > demoEscMax() ? 'FULL GAME' : 'LOCKED';
+  }
   if (level === sel) return 'IN EFFECT';
   return state === 'on' ? 'IN EFFECT · SET ▸' : 'SET ▸';
 }
 
 function buildEscDossier() {
   const data = loadEndlessCards();
-  const sel = data.escalation, unlocked = data.escUnlocked;
+  const unlocked = escEffectiveUnlocked(data);
+  const sel = Math.min(data.escalation, unlocked);
   el('esc-dossier-sub').textContent = escDossierSubText(sel, unlocked);
   buildEscRungs(sel, unlocked, 'esc-dossier-rungs');
 
@@ -353,6 +382,9 @@ function buildEscDossier() {
   for (const mod of ESCALATIONS) {
     const state = escStateFor(mod.level, sel, unlocked);
     const locked = state === 'locked';
+    // demo: rungs past the cap aren't CLASSIFIED (that promises they can be
+    // earned here) — they name the full game instead
+    const fgLocked = locked && demoActive() && mod.level > demoEscMax();
     // a locked row has no briefing to expand and no rung to set, so it is not a
     // button at all
     const row = document.createElement(locked ? 'div' : 'button');
@@ -363,12 +395,14 @@ function buildEscDossier() {
       '<span class="escd-row__num">' + ESC_ROMAN[mod.level] + '</span>' +
       '<span class="escd-row__copy">' +
         '<span class="escd-row__line">' +
-          '<span class="escd-row__name">' + (locked ? 'CLASSIFIED' : mod.name) + '</span>' +
+          '<span class="escd-row__name">' + (fgLocked ? 'FULL GAME' : locked ? 'CLASSIFIED' : mod.name) + '</span>' +
           '<span class="escd-row__cat">' + mod.cat + '</span>' +
         '</span>' +
         // rung I is earned off rung 0, which has no numeral — naming it would
         // print "on Escalation —"
-        '<span class="escd-row__desc">' + (locked
+        '<span class="escd-row__desc">' + (fgLocked
+          ? 'This rung is available in the full version.'
+          : locked
           ? 'Put the boss down' + (mod.level > 1 ? ' on Escalation ' + ESC_ROMAN[mod.level - 1] : '') +
             ' to read these orders.'
           : mod.desc) + '</span>' +
@@ -398,7 +432,8 @@ function buildEscDossier() {
 // be earned from this screen), so only the state classes and labels can differ.
 function refreshEscDossierStates() {
   const data = loadEndlessCards();
-  const sel = data.escalation, unlocked = data.escUnlocked;
+  const unlocked = escEffectiveUnlocked(data);
+  const sel = Math.min(data.escalation, unlocked);
   el('esc-dossier-sub').textContent = escDossierSubText(sel, unlocked);
   buildEscRungs(sel, unlocked, 'esc-dossier-rungs');
   for (const row of el('esc-dossier-rows').children) {
@@ -439,8 +474,19 @@ function escDossierOpen() {
 // rebuilt) whenever it is the thing that made the pick.
 function pickEscalation(n) {
   const data = loadEndlessCards();
-  const next = clamp(Math.floor(n), 0, data.escUnlocked);
-  if (next === data.escalation) return;
+  const unlocked = escEffectiveUnlocked(data);
+  const next = clamp(Math.floor(n), 0, unlocked);
+  // The no-op test compares the rung the screen is SHOWING, not the stored one —
+  // the same distinction stepEscalation makes below, and the last place the demo
+  // clamp could escape READ-side. Under the cap a full-game blob still stores IX
+  // while every surface reads III, so a tap on the III row (labelled IN EFFECT)
+  // or the III chip (drawn --on) was `3 !== 9` and wrote the clamp straight
+  // through to a blob ?demo=1 shares with the full game: one tap that changes
+  // nothing on screen, and the full-game player comes back set to III. Picking a
+  // DIFFERENT rung still writes — that is a choice the player made. In the full
+  // game the two spellings are identical (the normalizer already clamps
+  // escalation to escUnlocked), so this is a demo branch with no full-game term.
+  if (next === Math.min(data.escalation, unlocked)) return;
   setEscalationLevel(next);
   SFX.click();
   buildEscalationUI();
@@ -448,5 +494,9 @@ function pickEscalation(n) {
 }
 
 function stepEscalation(delta) {
-  pickEscalation(loadEndlessCards().escalation + delta);
+  // step from the rung the slab is SHOWING, which under the demo cap is not
+  // necessarily the stored one — stepping from a stored IX under a III cap
+  // clamps straight back to III and swallows the press
+  const data = loadEndlessCards();
+  pickEscalation(Math.min(data.escalation, escEffectiveUnlocked(data)) + delta);
 }

@@ -1,2 +1,8 @@
 .tmp/
 node_modules/
+shells/*/node_modules/
+shells/desktop/dist/
+shells/desktop/dist-demo/
+shells/desktop/steam_appid.txt
+shells/mobile/www/
+dist-web-demo/

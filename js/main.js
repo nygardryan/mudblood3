@@ -21,6 +21,10 @@ el('esc-dossier-close').addEventListener('click', closeEscalationDossier);
 el('esc-dossier').addEventListener('click', e => {
   if (e.target === el('esc-dossier')) closeEscalationDossier();
 });
+// DEMO: the boot pitch (js/demo.js). One dismiss control and NO backdrop
+// handler — the dossier has one because it is a layer you glance at, this is a
+// page you read, and a stray tap beside it losing your place is a loss.
+el('demo-pitch-go').addEventListener('click', closeDemoPitch);
 // no rung argument: it opens on the one you're set to play (see openLeaderboardSelect)
 el('endless-leaderboard-btn').addEventListener('click', () => openLeaderboardSelect('intro'));
 el('card-shop-btn').addEventListener('click', () => openCardShop('intro'));
@@ -141,20 +145,39 @@ function frame(now) {
   }
 }
 
-buildToolbar(PLACEABLES);
-applySavedSettings();
-refreshMenu();   // surface the save, the rung and the medal count from page load
-fitLayout();
-startAttract();   // ATTRACT: the menu is the first thing up (js/attract.js)
-const hudEl = el('hud');
-if (hudEl && typeof ResizeObserver !== 'undefined') {
-  new ResizeObserver(() => syncToolbarLayout()).observe(hudEl);
-}
-window.addEventListener('resize', fitLayout);
-window.addEventListener('orientationchange', () => {
-  setTimeout(() => {
-    fitLayout();
-    if (G && mobileViewActive()) resetViewCam(G.mode);
-  }, 100);
+// PLATFORM.onReady runs inline on web/desktop (identical boot to before the
+// shim existed); on mobile it waits for the durable-save restore, so nothing
+// below reads storage before the mirror has been folded back in.
+PLATFORM.onReady(() => {
+  buildToolbar(PLACEABLES);
+  applySavedSettings();
+  refreshMenu();   // surface the save, the rung and the medal count from page load
+  fitLayout();
+  startAttract();   // ATTRACT: the menu is the first thing up (js/attract.js)
+  const hudEl = el('hud');
+  if (hudEl && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => syncToolbarLayout()).observe(hudEl);
+  }
+  window.addEventListener('resize', fitLayout);
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      fitLayout();
+      if (G && mobileViewActive()) resetViewCam(G.mode);
+    }, 100);
+  });
+  requestAnimationFrame(frame);
+  // DEMO: the boot pitch goes on top of the menu, every launch (js/demo.js; a
+  // no-op in the full game). Three orderings matter and they all point here.
+  // AFTER refreshMenu, so the menu it uncovers is already final — the
+  // first-launch tutorial promotion reparents a button, and doing that under
+  // the screen is what keeps the menu from jumping on dismiss. After fitLayout,
+  // because the screen's container queries want a stage that has already been
+  // scaled. And LAST of all, below the frame loop, because everything above is
+  // the game: buildDemoPitch reads six catalogs at call time and a throw in it
+  // would otherwise take the rest of this callback with it — no rAF, no frame
+  // loop, a black screen in demo builds only, which is the exact failure the
+  // memo latch and the file-eval rule in js/demo.js already guard from the
+  // other side. Scheduling is not running, so the pitch still opens before the
+  // first frame paints and attractStepping() sees it on frame one, as before.
+  showDemoPitchAtBoot();
 });
-requestAnimationFrame(frame);

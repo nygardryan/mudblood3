@@ -57,6 +57,8 @@ const TEST = {
         'exportSprites(opts?)': 'render every drawable to a transparent PNG. opts {download=true} — pass {download:false} to render and report without a file. Returns {ok, count, bytes, ids, blank, errors}',
         'spriteRoundtrip(id)': 'bake one sprite, encode it as PNG, load it back and diff against the procedural draw. Returns {litPixels, meanChannelDiff, ...} — a large diff means a wrong anchor or a clipped box',
         'terrain()': 'ground art for the running biome: {faction, available:{field,trench}, live:{...}, ids, repaintable}. `live` is what the baked field was painted from; `available` is what the pack holds now',
+        'demo(on?)': 'demo-mode gate (js/demo.js): no arg reports {active, build, override, escMax, lockedPlaceables, cardPool, pitchOpen} — `build` is the shipped flag (null if js/demo-flag.js went missing in staging) and `override` this session\'s TEST forcing, so the two together say WHY active reads the way it does; true/false overrides PLATFORM.isDemo for this session, null restores it',
+        'demoPitch(on?)': "the demo's value-proposition screen, shown at boot (js/demo.js): true opens it, false closes it — works in a full-game tab too, so the derived copy can be proofed without ?demo=1",
       },
       levels: Object.keys(LEVELS),
       // 'medium'/'hard' left the menu when ESCALATION shipped but still start
@@ -293,6 +295,11 @@ const TEST = {
         Object.keys(this._toolbarMap()).join(', ') };
     }
     const px = this._coord(x, W), py = this._coord(y, H);
+    // demo: place() would refuse anyway (its own backstop) — report why
+    if (demoLockedPlaceable(p)) {
+      return { ok: false, reason: 'demo locked — full game only', demoLocked: true,
+        tpBefore: +G.tp.toFixed(2), tpAfter: +G.tp.toFixed(2), spent: 0 };
+    }
     // events fire in place — no placement, no cost
     if (p.kind === 'event') {
       if (p.key === 'random') triggerEvent(); else runEvent(p.key, G.wave);
@@ -342,8 +349,44 @@ const TEST = {
       const cost = placeableCost(p);
       const atCap = p.key === 'officer' && officerCount() >= officerLimit();
       return { key: p.key, label: p.label, kind: p.kind, cost,
-        affordable: canAffordTP(cost), ...(atCap ? { atCap: true } : {}) };
+        affordable: canAffordTP(cost), ...(atCap ? { atCap: true } : {}),
+        ...(demoLockedPlaceable(p) ? { demoLocked: true } : {}) };
     });
+  },
+
+  // Demo-mode inspection and a runtime toggle for verification. No arg:
+  // report. With a boolean: override PLATFORM.isDemo for this session (null
+  // restores the platform flag) and refresh whatever UI is live.
+  demo(on) {
+    if (on !== undefined) {
+      TW_DEMO_OVERRIDE = on === null ? null : !!on;
+      if (typeof running !== 'undefined' && running && G) renderToolbar();
+      else if (typeof refreshMenu === 'function') refreshMenu();
+      refreshContinueUI();
+    }
+    return {
+      active: demoActive(),
+      // typeof-guarded exactly as PLATFORM.isDemo is (js/platform.js): a
+      // staging bug that drops js/demo-flag.js degrades to the full game rather
+      // than crashing, and a bare read here would throw ReferenceError in that
+      // one case — on the API you would reach for to diagnose it.
+      build: typeof TW_DEMO_BUILD !== 'undefined' ? TW_DEMO_BUILD : null,
+      override: TW_DEMO_OVERRIDE,
+      escMax: demoEscMax(),
+      lockedPlaceables: PLACEABLES.filter(p => demoLockedPlaceable(p)).map(p => p.key),
+      cardPool: [...DEMO_CARD_IDS],
+      pitchOpen: demoPitchOpen(),
+    };
+  },
+
+  // The value-proposition screen the demo opens at boot (js/demo.js). Raised
+  // through openDemoPitch rather than showDemoPitchAtBoot on purpose, so the
+  // copy can be proofed in a FULL-GAME tab — which is the case that catches a
+  // figure derived through a gate instead of through the pool behind it.
+  demoPitch(on) {
+    if (on === false) closeDemoPitch();
+    else if (on === true) openDemoPitch();
+    return { open: demoPitchOpen(), demoActive: demoActive() };
   },
 
   // Hover-panel data for whatever sits under a point — the same name, HP, rank,
@@ -421,13 +464,19 @@ const TEST = {
       saveEndlessCards(data);
     }
     const data = loadEndlessCards();
+    // report what a run would actually GET: the demo caps the ladder at read,
+    // so the stored rung and the played rung differ under it
+    const eff = Math.min(data.escalation, escEffectiveUnlocked(data));
     return {
       ok: true,
-      level: data.escalation,
-      unlocked: data.escUnlocked,
-      faction: '(rolled per run at every rung)',
-      mods: buildEscMods(data.escalation),
-      active: ESCALATIONS.slice(0, data.escalation).map(m => m.name),
+      level: eff,
+      unlocked: escEffectiveUnlocked(data),
+      ...(eff !== data.escalation || escEffectiveUnlocked(data) !== data.escUnlocked
+        ? { demoCapped: { max: demoEscMax(), stored: data.escalation, storedUnlocked: data.escUnlocked } }
+        : {}),
+      faction: demoActive() ? "'de' (demo: pinned)" : '(rolled per run at every rung)',
+      mods: buildEscMods(eff),
+      active: ESCALATIONS.slice(0, eff).map(m => m.name),
       note: n != null ? 'takes effect on the next TEST.start()' : undefined,
     };
   },
@@ -462,11 +511,38 @@ const TEST = {
       atgun: w >= 24 ? 1 : 0,
       engineer: w >= 15 ? 1 : 0,
     };
+    // shotgunner carries no want of its own — it is here only as a slot for the
+    // gunner's, and reads (0 - have) = nothing in the full game. It sits right
+    // after the type it stands in for so a folded want keeps its priority.
+    const order = ['rifleman', 'gunner', 'shotgunner', 'sniper', 'officer', 'medic',
+      'mortarman', 'bazooka', 'atgun', 'engineer'];
+    // DEMO: ...then move every want this build can't buy onto its stand-in
+    // (demoStandIn, js/demo.js — shared with attract mode's own wish list, which
+    // has the same problem for the same reason), BEFORE the deficits are read,
+    // so the stand-in's own `have` count still applies: folding two locked wants
+    // onto the bazooka must not queue two bazookas the line already has.
+    //
+    // Four of the nine wants above are full-game-only (gunner, officer,
+    // mortarman, AT gun) and buy() refuses each, so an unadjusted plan does not
+    // merely field a thinner line — it stops SPENDING. The orders it drops are
+    // the ones the economy was sized against, and a demo run dies holding TP
+    // (measured 32 at the end of one, ~ten riflemen), which reads the demo as
+    // far harder than it is: the one thing autoplay exists to measure.
+    // demoStandIn hands the key straight back in the full game, so this loop
+    // costs it nothing but the lookup.
+    for (const type of order) {
+      if (!want[type]) continue;
+      const sub = demoStandIn(type);
+      if (sub === type) continue;                     // this build sells it
+      if (!sub) { want[type] = 0; continue; }         // nowhere to put it
+      want[sub] = (want[sub] || 0) + want[type];
+      want[type] = 0;
+    }
     const lats = [0.15, 0.3, 0.45, 0.6, 0.75, 0.88, 0.22, 0.68];   // spread across the front (y)
     const back = ['sniper', 'mortarman', 'bazooka', 'atgun'];
     const queue = [];
     let i = 0;
-    for (const type of ['rifleman', 'gunner', 'sniper', 'officer', 'medic', 'mortarman', 'bazooka', 'atgun', 'engineer']) {
+    for (const type of order) {
       let deficit = (want[type] || 0) - (have[type] || 0);
       while (deficit-- > 0) {
         queue.push({ type, x: back.includes(type) ? 0.92 : 0.8, y: lats[i % lats.length] });

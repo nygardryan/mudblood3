@@ -298,9 +298,152 @@ function paintZombieJumper(c, a) {
   c.restore();
 }
 
+// ---- the Charger: a tank-sized bull of fused corpses -----------------------
+// ONE idea carries the silhouette — the BONE RAM: the front third is a slab of
+// grown, fused bone lowered like a bull's boss, and it is the palest thing on
+// the actor. That is the roster's one-color-signal rule (the Jumper's wet red,
+// the bloater's bile green): a large pale mass leading a dark bulk is what
+// says "this one answers to shells, not rifles" at field scale. Everything
+// else follows the vehicle painters' VALUE ladder: near-black outline and
+// limbs, mid rotted-flesh mass, bone lightest at the front.
+//
+// It knuckle-walks on two huge forelimbs — the body plan genuinely differs
+// from the humanoids (the hound's precedent for a painter of its own), and a
+// quadruped stance is what makes tank-sized read as MASS rather than as a
+// scaled-up shambler.
+//
+// PURE, on the hound's rule: every moving term is scaled by `coil` (the
+// wind-up) or `run` (the flight), both of which collapse to 0 on an actor
+// that has never charged, so the codex portrait and the exporter bake the
+// standing pose. Max extent stays inside ±24 — the live sprite cache bakes
+// every soldier into the 48-unit SOLDIER_SPR box (the exporter's 76 boss box
+// is wider, but the cache's is the binding one).
+const CHG_DK = '#3d452c';   // limb/hip flesh — a step DOWN the ladder from the body
+function paintZombieCharger(c, a) {
+  const t = a.t;
+  const fx = Math.cos(a.face), fy = Math.sin(a.face);
+  const px = -fy, py = fx;
+  // the coil TIGHTENS as the wind-up completes, like the Jumper's crouch
+  const coil = a.ramWindT > 0 ? clamp(1 - a.ramWindT / (a.ramWindMax || 1), 0, 1) : 0;
+  const run = a.ramT > 0 ? 1 : 0;
+  const stretch = 1 - 0.10 * coil + 0.14 * run;
+  c.save();
+
+  // shadow: a tank-sized footprint on the ground
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  c.beginPath(); c.ellipse(0, 4, 18, 8, 0, 0, 7); c.fill();
+
+  // a bone talon: three short dark-keyed spikes. drawClaw's pale knuckle knot
+  // reads as a paw pad at this mass — the first draft was a turtle because of
+  // exactly that, so the feet end in points, not pads.
+  const talon = (x, y, ang, s2) => {
+    for (const off of [-0.42, 0, 0.42]) {
+      const tx2 = x + Math.cos(ang + off) * 3.4 * s2, ty2 = y + Math.sin(ang + off) * 3.4 * s2;
+      c.strokeStyle = 'rgba(14,15,11,0.8)'; c.lineWidth = 2.2;
+      c.beginPath(); c.moveTo(x, y); c.lineTo(tx2, ty2); c.stroke();
+      c.strokeStyle = ZOM_BONE; c.lineWidth = 1.1;
+      c.beginPath(); c.moveTo(x, y); c.lineTo(tx2, ty2); c.stroke();
+    }
+  };
+
+  // ---- limbs first, so the body mass paints over their roots
+  c.lineCap = 'round';
+  for (const side of [-1, 1]) {
+    // hind leg: shorter, tucked — it drives, it doesn't reach. Extends back
+    // as the run stretches the whole animal.
+    const hipX = fx * -9 + px * 5.5 * side, hipY = fy * -9 + py * 5.5 * side;
+    const ftB = -16 - 2.5 * run, ftW = 9.5 + 1 * coil;
+    const ftX = fx * ftB + px * ftW * side, ftY = fy * ftB + py * ftW * side;
+    c.strokeStyle = 'rgba(14,15,11,0.7)'; c.lineWidth = 5.4;
+    c.beginPath(); c.moveTo(hipX, hipY); c.lineTo(ftX, ftY); c.stroke();
+    c.strokeStyle = CHG_DK; c.lineWidth = 3.8;
+    c.beginPath(); c.moveTo(hipX, hipY); c.lineTo(ftX, ftY); c.stroke();
+    talon(ftX, ftY, a.face + Math.PI + 0.5 * side, 0.65);
+    // forelimb: the knuckle-walker's arm — a fat column from the shoulder to
+    // a fist ahead and wide of the ram. Splays wider in the coil, sweeps back
+    // along the body in flight. Dark flesh, not body color: the limbs sit a
+    // step down the value ladder so the mass reads over them.
+    const shX = fx * 5 + px * 6.5 * side, shY = fy * 5 + py * 6.5 * side;
+    const kF = 12.5 - 3.5 * run - 1.5 * coil, kW = 11.5 + 1.5 * coil - 2.5 * run;
+    const kX = fx * kF + px * kW * side, kY = fy * kF + py * kW * side;
+    c.strokeStyle = 'rgba(14,15,11,0.75)'; c.lineWidth = 6.8;
+    c.beginPath(); c.moveTo(shX, shY); c.lineTo(kX, kY); c.stroke();
+    c.strokeStyle = CHG_DK; c.lineWidth = 5.2;
+    c.beginPath(); c.moveTo(shX, shY); c.lineTo(kX, kY); c.stroke();
+    talon(kX, kY, a.face + 0.35 * side, 1.15);
+  }
+  c.lineCap = 'butt';
+
+  // ---- body: TAPERED, never one ellipse — a heavy shoulder mass behind the
+  // plate and a narrower hip mass trailing it. The taper is the whole bull
+  // read: an even ellipse with limbs is a frog, and LENGTH plus a front-heavy
+  // silhouette is what separates a battering ram from a blob (the German
+  // boss's girth lesson, sideways).
+  const shW = 12 * (1 + 0.07 * coil - 0.05 * run);
+  // hips: darker and clearly smaller, stretching back in flight
+  c.fillStyle = CHG_DK;
+  c.beginPath();
+  c.ellipse(-fx * 10 * stretch, -fy * 10 * stretch, 9.5 * stretch, 6.6, a.face, 0, 7);
+  c.fill();
+  c.strokeStyle = 'rgba(14,15,11,0.7)'; c.lineWidth = 1.3; c.stroke();
+  // shoulders: the mass, slung just behind the plate
+  c.fillStyle = t.color;
+  c.beginPath(); c.ellipse(fx * 1.5, fy * 1.5, 9.2 * stretch, shW, a.face, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(14,15,11,0.7)'; c.lineWidth = 1.3; c.stroke();
+  drawGore(c, 10.5, shW, a.face, 4);
+
+  // ---- the bone ram: a half-ellipse D-BLADE across the front — the flat
+  // chord buried in the shoulders, only the leading crescent showing. A full
+  // pale oval up front is a cartoon face no matter what is drawn on it; a
+  // blade with its back edge under the flesh is a thing that GREW there. It
+  // pulls in as the coil tightens and thrusts forward in flight.
+  const ramF = 8.5 + 2.5 * run - 1.5 * coil;
+  const ramX = fx * ramF, ramY = fy * ramF;
+  c.fillStyle = ZOM_BONE;
+  c.beginPath();
+  c.ellipse(ramX, ramY, 7.2, 10.8, a.face, -Math.PI / 2, Math.PI / 2);
+  c.closePath();
+  c.fill();
+  c.strokeStyle = 'rgba(14,15,11,0.75)'; c.lineWidth = 1.4; c.stroke();
+  // four short teeth broken out of the leading edge — chipped blade, not mane
+  c.fillStyle = ZOM_BONE;
+  c.strokeStyle = 'rgba(14,15,11,0.75)'; c.lineWidth = 0.8;
+  for (const lat of [-6.8, -2.4, 2.4, 6.8]) {
+    const edge = 7.2 * Math.sqrt(Math.max(0, 1 - (lat / 10.8) * (lat / 10.8)));
+    const ex = ramX + fx * edge + px * lat, ey = ramY + fy * edge + py * lat;
+    const tip = 2.6 - Math.abs(lat) * 0.12;
+    c.beginPath();
+    c.moveTo(ex + fx * tip, ey + fy * tip);
+    c.lineTo(ex - fx * 0.6 + px * 1.4, ey - fy * 0.6 + py * 1.4);
+    c.lineTo(ex - fx * 0.6 - px * 1.4, ey - fy * 0.6 - py * 1.4);
+    c.closePath(); c.fill(); c.stroke();
+  }
+  // fused-bone suture cracks — what keeps the blade reading as grown bone
+  // rather than as a fitted shield
+  c.strokeStyle = 'rgba(96,88,66,0.8)'; c.lineWidth = 0.9;
+  for (const lat of [-5, -0.5, 4]) {
+    c.beginPath();
+    c.moveTo(ramX + fx * 4.5 + px * lat * 0.8, ramY + fy * 4.5 + py * lat * 0.8);
+    c.lineTo(ramX + px * lat * 1.15, ramY + py * lat * 1.15);
+    c.stroke();
+  }
+  // ---- the bite, in the roster's shared grammar
+  if (a.slashT > 0) {
+    const tp = clamp(a.slashT / 0.26, 0, 1);
+    c.strokeStyle = `rgba(165,42,36,${0.7 * tp})`;
+    c.lineWidth = 2.2;
+    c.beginPath();
+    c.arc(0, 0, 16, a.face - 0.6 * tp, a.face + 0.6 * tp);
+    c.stroke();
+  }
+
+  c.restore();
+}
+
 function paintZombieSoldier(c, a) {
   if (a.t.hound) { paintZombieHound(c, a); return; }
   if (a.t.leap) { paintZombieJumper(c, a); return; }
+  if (a.t.ram) { paintZombieCharger(c, a); return; }
   const t = a.t;
   const type = a.type;
   const fx = Math.cos(a.face), fy = Math.sin(a.face);

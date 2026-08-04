@@ -214,6 +214,18 @@ function zomWaveComposition(w) {
     && Math.random() < jumpChance) {
     out.push('zjumper');
   }
+  // The Charger — the horde's battering ram, held back to wave 70+: by then the
+  // player's line is dense enough that a straight-line trample through it means
+  // something, and his AT battery is established enough that "only anti-tank
+  // weapons really hurt it" is a fight rather than a wall. Same shape as the
+  // Jumper's gate: odds off `w` (late is 0 for the whole 70-99 window), no
+  // `mult` (a rare threat gets its own odds, not the wave-volume knob), capped
+  // at one on the field — two 2000-HP rams is an AT-battery check, not a fight.
+  const chgChance = Math.min(0.3, 0.05 + Math.max(0, w - 70) * 0.002);
+  if (w >= 70 && !G.enemies.some(e => !e.dead && e.type === 'zcharger')
+    && Math.random() < chgChance) {
+    out.push('zcharger');
+  }
   // the Abomination is the horde's boss — rare, and only once it's already grim
   const abomChance = Math.min(0.4, 0.08 + late * 0.006);
   if (w >= 30 && !G.enemies.some(e => !e.dead && e.type === 'zabom') && Math.random() < abomChance) {

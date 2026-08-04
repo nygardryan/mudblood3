@@ -17,7 +17,7 @@ const SOLDIER_FACINGS = 48;
 // pose that hits the cache.
 function soldierCacheable(a) {
   return !(a.grenThrowT > 0 || a.mortarFireT > 0 || a.shotgunBlastT > 0 || a.flameT > 0 || a.slashT > 0 || a.spitT > 0
-    || a.pounceT > 0 || a.leapWindT > 0);
+    || a.pounceT > 0 || a.leapWindT > 0 || a.ramWindT > 0 || a.ramT > 0);
 }
 
 // The cached directional frame for this soldier's type/nation/facing. Baked from
@@ -829,6 +829,12 @@ function drawSoldierOverlays(a) {
   // ground says where it lands, this says which body to put down before it does.
   else if (a.leapWindT > 0) {
     drawCommandWarning(a, clamp(1 - a.leapWindT / (a.leapWindMax || 1), 0, 1), '#96e15a');
+  }
+  // ...and a Charger dragging backward into its wind-up. The badge is an
+  // OVERLAY, outside the sprite, so it is the one warning a sprite pack cannot
+  // remove — the backward drag itself never draws under an installed pack.
+  else if (a.ramWindT > 0) {
+    drawCommandWarning(a, clamp(1 - a.ramWindT / (a.ramWindMax || 1), 0, 1), '#e19a5a');
   }
 
   // rank chevrons for veterans (visual nation — US kit only)

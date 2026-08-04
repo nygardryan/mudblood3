@@ -201,6 +201,9 @@ function draw() {
     if (e.t.awalker) continue;
     if (!inView(e.x, e.y, 64)) continue;   // canopy/hull margin
     if (e.chute > 0) drawParatrooper(e);
+    // the Horde's Charger carries tank:true for targeting only — it is flesh,
+    // and paints through the zombie roster's own painter, not as a hull
+    else if (e.t.ram) drawSoldier(e);
     else if (e.t.tank) drawTank(e);
     else if (e.t.bike) drawBike(e);
     else if (e.t.apc) drawHalftrack(e);

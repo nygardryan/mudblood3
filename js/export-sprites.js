@@ -163,6 +163,11 @@ function spriteDefs() {
     const t = ENEMY_TYPES[key];
     if (isBossPart(t)) continue;                             // handled with their parent below
     if (t.ship || t.hordeBoss || t.itaBoss || t.awalker) continue;
+    // the Horde's Charger carries tank:true for TARGETING only — it draws
+    // through drawSoldier, which asks for soldier_zcharger, so it must export
+    // as a soldier (its boss flag already buys the wider 76 box) and not as a
+    // bogus tank_*_hull no draw site would ever read
+    if (t.ram) { soldierDef(key, 'de', false); continue; }
     if (t.tank) { tankDefs(key, 'de'); continue; }
     if (t.vehicle && !t.apc && !t.bike) { jeepDefs(key, 'de'); continue; }
     if (t.apc) {

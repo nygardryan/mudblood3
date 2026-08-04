@@ -1145,6 +1145,39 @@ Object.assign(ENEMY_TYPES, {
     leap: { range: 440, min: 90, dur: 0.75, lift: 34, wind: 0.6,
       cdMin: 4.5, cdMax: 6.5, r: 54, dmg: 23, pack: 2 },
   },
+  zcharger: {
+    // The Charger: a tank-sized bull of fused corpses that answers only to the
+    // player's anti-tank weapons — the wave-70+ heavy. Once it closes on the
+    // line it stops walking and RAMS: a 2s wind-up where it drags backward
+    // (the tell), then it flies down a straight line trampling every man it
+    // passes over, then picks a new line and does it again.
+    //
+    // tank:true is the whole targeting story, and it is deliberate where the
+    // Jumper's comment forbids it: THIS unit is the one thing in the Horde
+    // that small arms are supposed to bounce off (fireShot's x0.04), and the
+    // flag buys every AT channel in one stroke — the AT gun's tier 1, the
+    // bazooka's, the Sherman cannon's, canister and MG exclusion, blast's
+    // x2.2 (the "bonus damage from explosives"), and the 26px hit radius.
+    // The costs are paid at four sites, each keyed on `ram`: updateEnemy
+    // dispatches it ABOVE the tank row (updateTank would drive it like a
+    // vehicle), render.js sends it to drawSoldier instead of drawTank, and
+    // damage.js gives it blood and a corpse where a hull gets sparks and a
+    // wreck. boss:true is the zabom model — never prone, never suppressed,
+    // no armor vest, immune to Headshot — and it stays stunnable, so a
+    // mortar's shell shock freezing the wind-up is the counter-play.
+    //
+    // ram spec: range = how close a unit must be to trigger a charge.
+    // wind: the backward wind-up, seconds. back: how fast it drags backward
+    // during it, px/s. speed: flight px/s. over: how far past the committed
+    // spot the line runs. hitR: trample radius (tank-sized, matches
+    // actorHitRadius). cdMin/cdMax: recharge between charges.
+    name: 'Charger', hp: 2000, speed: 20, range: 0, dmg: 48, acc: 0,
+    rof: 1.7, burst: 1, burstGap: 0, reward: 30,
+    color: '#57623f', gun: 8, sfx: 'scream', priority: 3, faction: 'zo',
+    zombie: true, infect: 0.35, boss: true, tank: true,
+    ram: { range: 190, wind: 2.0, back: 9, speed: 320, over: 120, hitR: 24,
+      cdMin: 2.5, cdMax: 4.5 },
+  },
   zabom: {
     // the Abomination: a towering mound of fused corpses, the horde's boss-tier
     // threat that stands in for armor. Enormous HP, ground-shaking slow, and a
@@ -1825,6 +1858,7 @@ const ENEMY_INFO = {
   zscreamer: 'The horde\'s driving force. Its presence enrages the dead around it, and on a cadence it looses a scream that hurls every nearby zombie into a frenzied sprint. It swells for a few seconds first, marked and ringed — put it down inside that window and the pack never breaks into a run.',
   zrevenant: 'A reanimated Wehrmacht soldier that never let go of his Kar98 — the horde\'s only gunman. Undead hands aim poorly and it fires slowly, but a corpse that shoots back is a nasty surprise.',
   zjumper: 'A corpse rebuilt around its legs — it does not walk into your line, it JUMPS over it. It coils where it stands, vaults clean across no-man\'s-land and comes down in the middle of your men, and the landing itself is the blast: everything nearby is caught, its own dead included. Then it fights where it lands, and leaps again to the next knot of men. It will not launch out of wire, and a body knocked down mid-crouch or mid-air never lands the blow — but nothing else about it is slow. Do not let your men bunch up.',
+  zcharger: 'A tank-sized bull of fused corpses behind a slab of grown bone. Rifle fire rings off it like off a hull — only anti-tank weapons and explosives really hurt it, and explosives hurt it badly. When it closes on your line it drags backward for a long moment, then flies down a straight line trampling every man on it, picks a new line, and does it again. The wind-up is the warning: shell it then, or step your men off the line it is facing.',
   zabom: 'The Abomination — a towering mound of fused corpses, the horde\'s boss. Enormous HP, ground-shaking slow, a sweeping blow that flattens men and smashes emplacements, and near-certain infection on survivors. Burn it, shell it, or mine it.',
   zprogen: 'The Progenitor — the mass the whole horde came out of, and the thing waiting at wave 100. It crawls slower than anything on the field and swallows whole any man it reaches. Five pus modules ring its hide, lobbing infectious bile; shoot them off and its reach dies with them. It splits open every few seconds to birth a fresh brood, and every time a third of it dies it calls every corpse nearby back onto its feet — yours included. Do not let bodies pile up around it.',
   zpod: 'A pus module swollen out of the Progenitor\'s hide. Its own flesh, its own HP: burst it and that sac stops spitting bile for good. They sit between you and the mass, so rifles chew through them first.',
@@ -2128,6 +2162,8 @@ const TESTING_ZOMBIE_PLACEABLES = [
     desc: 'Reanimated soldier with a Kar98. The horde\'s only gunman — poor aim, slow fire.' },
   { key: 'zjumper', label: 'JUMPER', cost: 40, kind: 'egerman', hotkey: '',
     desc: 'Vaults the trench and lands IN your line, blasting whoever is there. Re-leaps to the next knot of men. Wire pins it; kill it mid-air and the blast never lands.' },
+  { key: 'zcharger', label: 'CHARGER', cost: 60, kind: 'egerman', hotkey: '',
+    desc: 'Tank-sized bone-plated bull. Small arms bounce; AT weapons and explosives hurt it. Winds backward, then rams a straight line through your men — repeatedly.' },
   { key: 'zabom', label: 'ABOMINATION', cost: 90, kind: 'egerman', hotkey: '',
     desc: 'Boss mound of fused corpses. Enormous HP, smashes emplacements, near-certain infection.' },
   // the core only — its five pus modules are built by initProgenitor on the first

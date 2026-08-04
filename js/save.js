@@ -60,6 +60,9 @@ const SAVE_STRIP = new Set([
   '_tgt', '_tgtUntil', '_laserTgt', '_camoNest', '_camoFrame', '_buffs', '_buffsFrame',
   '_spotted', '_spotFrame', '_repairCount', '_repairCountFrame',
   'flameTarget', 'mgTarget', 'awHit',
+  // the Charger's once-per-charge trample Set — live unit refs, rebuilt lazily
+  // by stepChargerRam on resume (a mid-charge save may clip a man twice)
+  'ramHit',
   // boss parent/part links and work links — re-encoded as indices
   'parts', 'turrets', 'mounts', 'pods', 'wagon', 'arty',
   'shipOf', 'trainOf', 'bossOf', 'garrison', 'work',

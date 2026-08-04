@@ -639,9 +639,9 @@ block in `js/constants.js`; art is `js/render-yamato.js` (`drawYamatoPass` runs
 before the enemy loop so escorts paint over her deck). Note `TEST.state().enemies`
 total and HP are **inflated by her parts** — 11 actors, and the belt mirrors her pool.
 
-**The Horde** is the third endless foe (`faction:'zo'` in `ENEMY_TYPES`, 12 keys:
+**The Horde** is the third endless foe (`faction:'zo'` in `ENEMY_TYPES`, 14 keys:
 `zshambler`/`zrunner`/`zcrawler`/`zhound`/`zbrute`/`zspitter`/`zbloater`/
-`zscreamer`/`zrevenant`/`zabom`, plus the boss and its pods below) — the only foe
+`zscreamer`/`zrevenant`/`zjumper`/`zcharger`/`zabom`, plus the boss and its pods below) — the only foe
 that isn't a national army, and
 the only one built around **infection** rather than a discipline mechanic. Most of
 the roster is melee (`zombie:true`, routed to `updateZombie` in
@@ -809,6 +809,37 @@ interleaved A/B: ~23% → ~7% of the pack down at any moment; per flinch roll,
   on the flight line. Its art is `paintZombieJumper`, PURE on the hound's rule,
   and the boss sweep in `updateZombie` is gated `!e.t.leap` so it doesn't do
   area damage in both of its modes.
+- `zcharger` (**the Charger**) — the wave-70+ heavy: a tank-sized bull of fused
+  corpses that walks in like a zombie and, with a unit inside `ram.range`, stops
+  and RAMS — a 2s wind-up dragging BACKWARD along the line it is facing (the
+  tell; plus the shared `drawCommandWarning` badge), then a 320px/s flight down
+  a straight line trampling every unit on it once (`chargerTrample`; blunt
+  trauma, no infection roll), then a new line. **It carries `tank:true` for the
+  TARGETING channel only** — that one flag buys the AT gun's tier 1, the
+  bazooka's, the Sherman cannon's, canister/MG/small-arms exclusion (fireShot's
+  ×0.04 is the "super tanky"), blast's ×2.2 (the explosives weakness) and the
+  26px hit radius — and the flag's costs are paid at four `ram`-keyed sites:
+  the dispatch sits ABOVE the tank row in `updateEnemy` (updateTank would
+  drive it), render.js sends it to `drawSoldier` not `drawTank`, damage.js
+  gives it blood + a corpse instead of sparks + a wreck, and the sprite
+  exporter classifies it a soldier or the pack would ship a bogus
+  `tank_zcharger_hull` no draw site reads (`drawSoldier` asks for
+  `soldier_zcharger`). `boss:true` is the zabom model (never prone/suppressed,
+  no armor vest, no Headshot) but it stays STUNNABLE — shell shock freezing
+  the wind-up is the counter-play, and it freezes rather than resets because
+  the dispatch sits below the stun block (the officer-command rule). The
+  charge commits to the spot where the man stood when the wind-up OPENED
+  (the Jumper's rule — stepping off the line makes it charge empty ground),
+  runs THROUGH it by `ram.over`, and is shortened along the ray (never
+  endpoint-clamped per-axis, which would bend the direction) so it can't
+  leave the field or breach — walking in is how it breaches, like anything
+  else. `ramHit` (the once-per-charge Set of trampled units) is in
+  `SAVE_STRIP` and rebuilt lazily in `stepChargerRam`. Its art is
+  `paintZombieCharger` — a tapered two-mass body (an even ellipse plus limbs
+  reads as a FROG, found by shipping three drafts of one) behind a half-ellipse
+  bone D-blade, dark limbs a step DOWN the value ladder from the mass (note
+  `ZOM_SKIN_DK` is *lighter* than this body color — hence the local `CHG_DK`),
+  PURE on the hound's rule via `coil`/`run` collapsing to 0.
 `deploy` spawns any of them (they're in `TESTING_ZOMBIE_PLACEABLES`); wave spawning
 routes through `zomWaveComposition` and `ZOM_SPECIAL_WAVES` when
 `G.enemyFaction === 'zo'`, and the paradrop event becomes "the dead rise behind you"

@@ -126,6 +126,13 @@ function updateEnemy(e, dt) {
   // his own — men move only on orders and fight from where they stand
   const command = G.mode === 'hitsquad';
 
+  // The Horde's Charger carries tank:true for the TARGETING channel only (AT
+  // guns, bazookas and Sherman cannons prioritize it; small arms bounce), so it
+  // must dispatch ABOVE the tank row — updateTank would drive it like a vehicle
+  // and throw in updateTankCombat on a gun spec it doesn't have. It sits BELOW
+  // the stun block on purpose: shell shock freezing the wind-up (and the run)
+  // is the mortarman's counter-play to it.
+  if (e.t.ram) { updateZombieCharger(e, dt, buffed, command); return; }
   if (e.t.tank) { updateTank(e, dt); return; }
   if (e.t.bike) { updateBike(e, dt); return; }
   if (e.t.apc) { updateHalftrack(e, dt); return; }
@@ -2227,6 +2234,150 @@ function jumperLandingSpot(e, p) {
 function jumperSlam(e) {
   const p = e.t.leap;
   explode(e.x, e.y, p.r, p.dmg, false, e, true);
+}
+
+// ---- the Charger ------------------------------------------------------------
+// The Horde's battering ram: a tank-sized mass that walks in like any zombie,
+// and once the line is close enough stops biting and CHARGES — a 2s wind-up
+// where it drags backward (the tell, and the player's window), then a flight
+// down a straight line trampling every man it passes over, then a new line.
+//
+// The shape deliberately mirrors the Jumper's three beats (crouch, flight,
+// payload), but the machinery is its own: a leap is an arc to a point, this is
+// a grounded run whose PAYLOAD is the path. It shares no pounce fields, so
+// abortPounce never touches it — a stun freezes the wind-up and the run where
+// they stand (the officer-command rule: the blow is still coming, you bought
+// time) because the whole dispatch sits below the stun block in updateEnemy.
+function updateZombieCharger(e, dt, buffed, command) {
+  zombieGroan(e, dt);
+  // A run already underway is COMMITTED and needs no target to finish — the
+  // leap-flight rule: stepped above every other check, or a charger whose
+  // line died mid-run would fall to advance() and stall at full stretch.
+  if (e.ramT > 0) { stepChargerRam(e, dt); return; }
+  if (command) { if (e.moveTo) advance(e, dt, buffed); return; }
+  // the wind-up and the launch own the frame — below the command escape for
+  // the Jumper's reason: a commandeered one should walk, not coil
+  if (chargerRam(e, dt)) return;
+  // grounded and recharging: an ordinary (enormous) melee zombie
+  const target = primaryUnitTarget(e, 4000);
+  if (!target) { advance(e, dt, buffed); return; }
+  const reach = ZOMBIE_REACH + 16 + (target.t.tank || target.t.vehicle ? 9 : 0);
+  if (dist(e, target) > reach) {
+    pursuePoint(e, target.x, target.y, e.t.speed * (buffed ? 1.2 : 1), dt);
+    return;
+  }
+  e.face = Math.atan2(target.y - e.y, target.x - e.x);
+  e.cd -= dt;
+  if (e.cd <= 0) {
+    e.cd = e.t.rof * rand(0.85, 1.15);
+    zombieBite(e, target);
+  }
+}
+
+// Wind-up and launch. Returns true while either owns the frame; a charger on
+// cooldown or with nobody in trigger range falls through to the melee above.
+function chargerRam(e, dt) {
+  const rm = e.t.ram;
+  if (e.ramWindT > 0) {
+    e.ramWindT -= dt;
+    // the wind-up IS the backward motion: it drags away from the line it is
+    // about to fly down, facing it the whole time — direction and timing in
+    // one read, plus the badge drawSoldierOverlays hangs over its head
+    e.x = clamp(e.x - Math.cos(e.face) * rm.back * dt, 12, W - 12);
+    e.y = clamp(e.y - Math.sin(e.face) * rm.back * dt, 14, H - 14);
+    if (e.ramWindT > 0) return true;
+    e.ramWindT = 0;
+    launchChargerRam(e, dt);
+    return true;
+  }
+  // grounded: recharge. Seeded lazily on first read, like pounceCd and spitCd.
+  e.ramCd = (e.ramCd == null ? rand(rm.cdMin, rm.cdMax) : e.ramCd) - dt;
+  if (e.ramCd > 0) return false;
+  const target = nearestUnitInRange(e, rm.range);
+  if (!target) return false;
+  // Commit to the spot where the man stands when the wind-up OPENS, not a
+  // fresh one at launch — the Jumper's rule: men who step off the line
+  // meanwhile make it charge empty ground, and that is the counter-play
+  // working, not a telegraph resolving into nothing.
+  e.rtx = target.x; e.rty = target.y;
+  e.ramWindT = rm.wind;
+  e.ramWindMax = rm.wind;
+  e.face = Math.atan2(e.rty - e.y, e.rtx - e.x);
+  SFX.scream();
+  return true;
+}
+
+function launchChargerRam(e, dt) {
+  const rm = e.t.ram;
+  // re-aim from wherever the backward drag left it, through the committed spot
+  const dir = Math.atan2(e.rty - e.y, e.rtx - e.x);
+  const dx = Math.cos(dir), dy = Math.sin(dir);
+  // the line runs THROUGH the spot and out the far side — "going through all
+  // units", not skidding to a stop on the first one
+  let len = dist(e, { x: e.rtx, y: e.rty }) + rm.over;
+  // ...shortened so it never leaves the field (and never breaches — the run
+  // stops well short of update.js's W + 10 line; walking in is how it
+  // breaches, like anything else). Shortening along the ray rather than
+  // clamping the endpoint per-axis, which would bend the direction.
+  if (dx > 0) len = Math.min(len, (W - 30 - e.x) / dx);
+  else if (dx < 0) len = Math.min(len, (12 - e.x) / dx);
+  if (dy > 0) len = Math.min(len, (H - 14 - e.y) / dy);
+  else if (dy < 0) len = Math.min(len, (14 - e.y) / dy);
+  // cornered against an edge with nowhere to run: stand down, recharge.
+  // Also the divide-by-zero guard for ramDur below.
+  if (!(len > 8)) { e.ramCd = rand(rm.cdMin, rm.cdMax); return; }
+  e.rsx = e.x; e.rsy = e.y;
+  e.rex = e.x + dx * len; e.rey = e.y + dy * len;
+  e.ramDur = len / rm.speed;
+  e.ramT = e.ramDur;
+  e.ramHit = new Set();
+  e.face = dir;
+  SFX.scream();
+  stepChargerRam(e, dt);   // moves on the frame it launches (the hound's rule)
+}
+
+function stepChargerRam(e, dt) {
+  const rm = e.t.ram;
+  e.ramT -= dt;
+  const f = clamp(1 - e.ramT / e.ramDur, 0, 1);
+  e.x = e.rsx + (e.rex - e.rsx) * f;
+  e.y = e.rsy + (e.rey - e.rsy) * f;
+  // Everyone the mass passes over is hit ONCE per charge. The Set can't ride a
+  // save (SAVE_STRIP), so it is rebuilt lazily here — a run resumed mid-charge
+  // may clip a man twice, the same self-healing tolerance the frame caches get.
+  // No tunnelling check needed: dt is clamped to 0.05 (main.js), so a step is
+  // at most 16px against a 24px trample radius.
+  if (!e.ramHit) e.ramHit = new Set();
+  const hitR2 = rm.hitR * rm.hitR;
+  for (const u of G.units) {
+    if (u.dead || e.ramHit.has(u) || dist2(e, u) > hitR2) continue;
+    e.ramHit.add(u);
+    chargerTrample(e, u);
+  }
+  // dust kicked off the churned ground
+  G.particles.push({
+    x: e.x + rand(-8, 8), y: e.y + rand(-2, 8), vx: rand(-20, 20), vy: rand(-30, -8),
+    ttl: rand(0.2, 0.45), grav: 60, size: rand(1.5, 2.8),
+    color: pick(['#57492f', '#6e6046', '#3c3325']),
+  });
+  if (e.ramT <= 0) {
+    e.ramT = 0;
+    e.ramHit = null;
+    e.ramCd = rand(rm.cdMin, rm.cdMax);
+  }
+}
+
+// One trampled man. A ram is blunt trauma, not a bite: no infection roll, and
+// armor is shoved rather than gored. tryGoProne at long odds — men are bowled
+// off their feet, which reads and halves what the NEXT charge does to them.
+function chargerTrample(e, u) {
+  bloodSplat(u.x, u.y, 6);
+  G.flashes.push({ x: u.x, y: u.y, r: 6, ttl: 0.08, max: 0.08 });
+  let dmg = e.t.dmg * rand(0.85, 1.15);
+  if (u.t.tank) dmg *= 0.3;
+  else if (u.t.apc || u.t.vehicle) dmg *= 0.5;
+  damageUnit(u, dmg, e, 'melee');
+  tryGoProne(u, 0.9);
 }
 
 // one maul: instant, no projectile. Bypasses body/flak armor like any melee, does

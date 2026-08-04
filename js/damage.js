@@ -889,7 +889,8 @@ function damageEnemy(e, dmg, from, kind) {
     return;
   }
   e.hp -= dmg;
-  if (e.t.tank || e.t.vehicle || e.t.v2) {
+  // the Charger's tank flag is targeting-only: it bleeds, it doesn't spark
+  if ((e.t.tank && !e.t.ram) || e.t.vehicle || e.t.v2) {
     G.particles.push({
       x: e.x + rand(-10, 10), y: e.y + rand(-10, 10), vx: 0, vy: -20,
       ttl: 0.4, grav: 0, size: 2, color: '#c8b872',
@@ -981,6 +982,13 @@ function damageEnemy(e, dmg, from, kind) {
       // easter egg, not a rung on the ESCALATION ladder — it just dies.
       stampWreck(e);
       explode(e.x, e.y, 75, 110, true);
+    } else if (e.t.ram) {
+      // the Charger dies as the flesh it is — above the tank row, which its
+      // targeting-only tank flag would otherwise send it down, leaving a
+      // burning steel wreck under a mound of meat
+      spawnCorpse(e);
+      bloodSplat(e.x, e.y, 18);
+      SFX.scream();
     } else if (e.t.tank) {
       stampWreck(e);
       explode(e.x, e.y, 50, 60, true);

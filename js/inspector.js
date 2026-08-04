@@ -257,6 +257,8 @@ function hoverStats(a, own = false) {
   // Keyed on the mult rather than the part flags, so a fifth boss needs nothing here.
   const plate = Math.round((1 - bossPartDamageMult(a)) * 100);
   if (plate > 0) parts.push(`${plate}% RESIST`);
+  // the Progenitor mid-rampage — live clock, same pattern as COILING below
+  if (a.rampageT > 0) parts.push('RAMPAGE');
   if (t.pounce) parts.push('POUNCE');
   // the Jumper's leap carries a landing blast, so it reads as its own thing
   // rather than as a longer pounce — and while the crouch is up, the fact that

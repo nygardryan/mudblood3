@@ -859,6 +859,11 @@ function damageEnemy(e, dmg, from, kind) {
   // for any of the three. Below the belt redirect on purpose: a hit on her armor
   // is a hit on HER, and must not be plated by her own health.
   dmg *= bossPartDamageMult(e);
+  // Progenitor rampage: for PROG_RAMPAGE_TIME after a segment break the mass
+  // shrugs off half of everything (see the PROG_RAMPAGE_ block in constants.js).
+  // Keyed on hordeBoss, so the pods stay on their ordinary plate — same spot as
+  // bossPartDamageMult and for the same reason: every source routes through it.
+  if (e.rampageT > 0 && e.t.hordeBoss) dmg *= 1 - PROG_RAMPAGE_RESIST;
   const incoming = dmg;
   // Body/Flak Armor (endless: some enemies spawn plated — see armorEnemy).
   // Bullets chip body armor, explosions chip flak; a hit bigger than the bar

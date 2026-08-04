@@ -822,14 +822,6 @@ function drawSoldierOverlays(a) {
     drawActorBar(a, 19, 18, 2, clamp(a.flakArmor / a.maxFlakArmor, 0, 1), '#b7a94e');  // olive = flak armor
   }
 
-  // a flamer swapping on a fresh fuel tank: the stream cutting out mid-fight
-  // needs a tell or a silent flamer reads as broken. Fills as the swap
-  // completes. Own slot above the rot bar — an infected flamer mid-swap is
-  // exactly the Horde fight this feature exists for, so the two can coexist.
-  if (a.flameReload > 0) {
-    drawActorBar(a, 25, 18, 2, clamp(1 - a.flameReload / FLAMER_RELOAD_TIME, 0, 1), '#ffa03c');
-  }
-
   // an enemy officer forming an order — the mark that says shoot THIS man, and
   // the only overlay drawn above the rot/armor stack (js/render-overlays.js)
   if (a.cmdT > 0) drawCommandWarning(a);

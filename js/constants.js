@@ -200,9 +200,12 @@ const OFFICER_AURA_R = 140;
 // Tuned against the window it has to buy: a gunner at 179 range needs ~1.5s to
 // put an officer down from full once he's acquired, and the player needs a
 // beat to SEE the mark and tap it first. Under ~2s the telegraph is honest but
-// unanswerable, which is the same as no telegraph; much over 3s and an officer
-// spends most of his life flashing and the mark stops meaning "now".
-const OFFICER_CMD_WARN = 2.6;      // seconds between the order forming and landing
+// unanswerable, which is the same as no telegraph. It sat at 2.6 for a while;
+// 5s is a deliberate generosity trade — the mark means "soon" rather than
+// "now", and an officer spends more of his life flashing, but even a walked-up
+// rifleman can answer it. The cd ranges below are widened to compensate, so a
+// surviving officer doesn't spend the majority of his time mid-telegraph.
+const OFFICER_CMD_WARN = 5;        // seconds between the order forming and landing
 // ...and if there is nobody in radius to rouse he re-checks on this instead of
 // burning a full cooldown, so a telegraph that resolves into nothing — the one
 // thing that would teach the player to ignore the next one — never gets drawn.
@@ -570,6 +573,19 @@ const PROG_SEGMENTS = 3;             // ONE pool; the phase boundaries are the b
 // thing on the field and repositioning is always an answer to it.
 const PROG_SPEED = 7;
 const PROG_SAFE_X = W - 80;          // hard clamp, mirrors BOSS_SAFE_X: it can never breach
+// RAMPAGE: the moment a health segment breaks, the mass thrashes — moves
+// faster and shrugs off half of all incoming damage for a few seconds
+// (updateProgenitor sets rampageT in the segment poll; the resist is scaled in
+// damageEnemy beside bossPartDamageMult). It exists to stop a shell barrage
+// from blowing straight through a break: the resurrection the break just fired
+// deserves its moment on the field. This is NOT the blastResist the note below
+// says never to add — that was a STANDING tax on the one workable answer; this
+// is a 4-second window per break, 8 seconds across the whole fight, and it
+// taxes every source alike. The speed still keeps the fight's hard promise
+// (see PROG_SPEED): 7 × 1.3 = 9.1, far under any man's walk.
+const PROG_RAMPAGE_TIME = 4;
+const PROG_RAMPAGE_SPEED_MULT = 1.3;
+const PROG_RAMPAGE_RESIST = 0.5;     // fraction of incoming damage shrugged off
 // NOTE: it deliberately carries NO blastResist. A 0.25 was tried and removed: the
 // brood screens the mass so completely that small arms almost never reach it (a
 // 20-man line fired for 55s and took it to 97.5%), which makes explosives the one

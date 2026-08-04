@@ -878,7 +878,7 @@ first is the whole counter-play to an officer, and there is no killing a thing
 that gives no notice: the order and the sprinting men arrived together. Both now
 run through `officerCommand` + the `OFFICER_COMMANDS` table
 (`js/update-enemies.js`), where the cooldown opens a WIND-UP (`OFFICER_CMD_WARN`,
-2.6s, on `e.cmdT`) and the shout lands only if he is still alive at the end of
+5s, on `e.cmdT`) and the shout lands only if he is still alive at the end of
 it. Cancelling costs nothing anywhere — a dead officer is spliced out of
 `G.enemies` the frame he falls and his telegraph goes with him. Tuning is the
 officer-command block in `js/constants.js` (which is also where the two radii

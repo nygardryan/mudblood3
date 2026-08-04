@@ -1092,7 +1092,7 @@ const OFFICER_COMMANDS = {
   banzai: {
     roster: isJapaneseInfantry,      // chute/staging: the roster's own gate
     radius: BANZAI_CMD_RADIUS,
-    open: [6, 12], cd: [12, 18], charge: [2.2, 3.6],
+    open: [4, 14], cd: [8, 22], charge: [2.2, 3.6],
     warn: 'ORDERS!', shout: 'BANZAI!', color: '#ffd15a', rgb: '255,209,90',
   },
   // the Screamer's answer to the horde having no discipline: the same command,
@@ -1100,7 +1100,7 @@ const OFFICER_COMMANDS = {
   frenzy: {
     roster: isZombie,
     radius: FRENZY_CMD_RADIUS,
-    open: [6, 11], cd: [11, 17], charge: [2.4, 3.8],
+    open: [4, 13], cd: [7, 21], charge: [2.4, 3.8],
     warn: 'INHALES!', shout: 'SKREEE!', color: '#c8e08a', rgb: '182,232,138',
   },
 };
@@ -2506,7 +2506,11 @@ function updateProgenitor(e, dt) {
       && e.hp <= e.maxhp * (1 - (e.phase + 1) / PROG_SEGMENTS)) {
     e.phase++;
     progenitorResurrection(e);
+    // rampage rides the break (see PROG_RAMPAGE_ in constants.js). A double
+    // break just restarts the same window — the two abilities stay in step.
+    e.rampageT = PROG_RAMPAGE_TIME;
   }
+  if (e.rampageT > 0) e.rampageT -= dt;
 
   e.spawnCd -= dt;
   if (e.spawnCd <= 0) {
@@ -2528,8 +2532,10 @@ function updateProgenitor(e, dt) {
     // NOTE: e.chargeT is deliberately never read. A Screamer's frenzy will still
     // set it on the core (it has no `fixed` flag, so isZombie accepts it), and
     // honouring it would let the boss sprint — which breaks the one hard promise
-    // of this fight, that a player can always walk away from it.
-    pursuePoint(e, target.x, target.y, PROG_SPEED, dt);
+    // of this fight, that a player can always walk away from it. The rampage
+    // mult below keeps that promise too — 9.1 is still slower than any man.
+    pursuePoint(e, target.x, target.y,
+      PROG_SPEED * (e.rampageT > 0 ? PROG_RAMPAGE_SPEED_MULT : 1), dt);
   } else if (e.devourCd <= 0) {
     e.devourCd = PROG_DEVOUR_CD;
     e.face = Math.atan2(target.y - e.y, target.x - e.x);

@@ -9,4 +9,16 @@ contextBridge.exposeInMainWorld('__TW_SHELL__', {
   id: 'desktop',
   quit() { ipcRenderer.send('tw:quit'); },
   toggleFullscreen() { ipcRenderer.send('tw:fullscreen'); },
+  // Durability mirror for the four durable stores — desktop's analog of the
+  // mobile Preferences mirror (see js/platform.js and main.cjs's handlers).
+  storage: {
+    // one sendSync at js/platform.js eval: synchronous so the restore lands
+    // before any script reads storage and onReady stays inline on desktop
+    readAllSync() {
+      try { return ipcRenderer.sendSync('tw:mirror-read-all') || {}; } catch (err) { return {}; }
+    },
+    // fire-and-forget; the main process serializes writes per key.
+    // value === null deletes the key's mirror file.
+    write(key, value) { ipcRenderer.send('tw:mirror-write', key, value); },
+  },
 });

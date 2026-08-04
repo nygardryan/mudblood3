@@ -433,6 +433,38 @@ function deserializeRun(run) {
 
 // ---- entry points --------------------------------------------------------
 
+// The mobile lifecycle autosave. A backgrounded app can be killed by the OS
+// at any moment with no further notice — iOS especially — and SAVE AND EXIT
+// is a menu the OS never opens, so before this existed a phone call mid-run
+// lost the run. platform.js's mobile shell wires Capacitor's
+// appStateChange(isActive:false) here (typeof-guarded, the handleAndroidBack
+// pattern); it fires on iOS willResignActive / Android onStop, early enough
+// that the synchronous localStorage write always lands and the async
+// Preferences mirror almost always does.
+//
+// saveableRun() is the whole gate: menus, tutorials, ended runs and ATTRACT
+// MODE (which never sets `running` — its no-localStorage invariant must hold)
+// all fall through without a write. The pause is not just courtesy — the
+// webview's rAF is about to be throttled to a standstill anyway, so pausing
+// makes the freeze honest and the player returns to PAUSED instead of to
+// mid-combat; it is a no-op when already paused (the boss-victory freeze
+// included, which sets `paused` via freezeField).
+//
+// This deliberately does NOT delete the slot on foreground return. The slot
+// already outlives a resumed run (continueRun never deletes it; only endRun
+// and the abandon prompt do), so its contract is "the latest checkpoint" —
+// an OS-initiated write is the same contract with a fresher blob. A failed
+// write stays a console.warn: nobody is looking at a backgrounded screen,
+// and the run itself is still live.
+function handleAppBackground() {
+  // pause first and unconditionally: pauseGame guards itself (no-op unless a
+  // live, unpaused fight), so tutorials get the courtesy pause too even
+  // though only endless runs pass the save gate below
+  pauseGame();
+  if (!saveableRun()) return;
+  writeRunSave();
+}
+
 function saveAndExit() {
   if (!paused || !saveableRun()) return;
   if (writeRunSave()) {

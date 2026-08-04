@@ -32,6 +32,22 @@ const WEB_ROOT = app.isPackaged
 const DEMO = process.env.TW_DEMO_BUILD === '1' ||
   (() => { try { return !!require('./package.json').twDemo; } catch { return false; } })();
 
+// The app name derives the userData path — where Chromium keeps the game's
+// localStorage AND where the save mirror below lives. Electron takes it from
+// package.json's productName, which keeps the display colon ("Trenchworks:
+// WW2") — and a colon is illegal in a Windows directory name, so on the one
+// platform Steam mostly ships to, %APPDATA%\Trenchworks: WW2 is not a path
+// that can exist and nothing persists. The FS-safe form is exactly the
+// productName with the colon stripped (shells/app-identity.cjs
+// PRODUCT_NAME_FS / DEMO_PRODUCT_NAME_FS — that file is NOT in the asar, the
+// `files:` list packs only this directory, hence derived rather than
+// required). Must run before 'ready': the path is fixed on first use, and
+// changing this string after release relocates userData and orphans every
+// player's save.
+app.setName(String((() => {
+  try { return require('./package.json').productName; } catch { return null; }
+})() || 'Trenchworks WW2').replace(/:/g, ''));
+
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml',
@@ -84,17 +100,19 @@ function initSteam() {
 let win = null;
 
 // TW_SMOKE=1 electron . — boots the game in a hidden window, proves the tw://
-// fetch path and a save/continue cycle through the game's own TEST harness,
-// prints one JSON line and exits (0 on pass). A dev/CI affordance; inert in
-// normal launches.
+// fetch path plus the whole save durability loop through the game's own TEST
+// harness: save → mirror file lands → localStorage wiped raw → reload →
+// platform.js restores from the mirror → continue resumes. Prints one JSON
+// line and exits (0 on pass). A dev/CI affordance; inert in normal launches.
 const SMOKE = !!process.env.TW_SMOKE;
 
 function runSmoke() {
   // a smoke run that never loads must still exit — CI hangs are worse than reds
   setTimeout(() => { console.error('SMOKE TIMEOUT'); app.exit(2); }, 60000);
+  const smokeFail = (err) => { console.error('SMOKE FAIL ' + err); app.exit(1); };
   win.webContents.once('did-finish-load', async () => {
     try {
-      const r = await win.webContents.executeJavaScript(`(async () => {
+      const p1 = await win.webContents.executeJavaScript(`(async () => {
         const sfx = await fetch('assets/sounds/rifle_1.ogg');
         // the bundled webfonts (css/fonts.css) are how the game stays offline —
         // a miss here means the typography silently falls back to system fonts
@@ -119,22 +137,54 @@ function runSmoke() {
         TEST.step(10);
         const saved = TEST.save().ok;
         TEST.reset();
-        // .resumed, not .ok — TEST.continue() reports ok:true even when the
-        // resume was discarded; resumed is the bit that proves the cycle
-        const resumed = TEST.continue().resumed;
-        TEST.reset();
+        // the mirror write is fire-and-forget IPC + async fs — poll until the
+        // file reads back EQUAL to the blob just saved. Equality, not mere
+        // existence: a stale mirror left by a crashed earlier smoke would
+        // otherwise pass the poll before this run's write ever landed.
+        const savedBlob = localStorage.getItem('twRunSave');
+        let mirrored = false;
+        for (let i = 0; i < 100 && !mirrored; i++) {
+          mirrored = __TW_SHELL__.storage.readAllSync().twRunSave === savedBlob;
+          if (!mirrored) await new Promise((res) => setTimeout(res, 50));
+        }
+        // raw removeItem, NOT PLATFORM.storage.remove — the point is to fake
+        // an evicted/corrupted localStorage while the mirror file survives
+        localStorage.removeItem('twRunSave');
         return { ok: !!(window.__TW_SHELL__ && PLATFORM.id === 'desktop' && sfx.ok && font.ok &&
-                        licence.ok && saved && resumed && demoOk),
+                        licence.ok && saved && mirrored && demoOk),
                  platform: PLATFORM.id, demo: PLATFORM.isDemo, demoOk, faction,
                  sfxStatus: sfx.status, fontStatus: font.status,
-                 licenceStatus: licence.status, manifestStatus: manifest, saved, resumed };
+                 licenceStatus: licence.status, manifestStatus: manifest, saved, mirrored };
       })()`, true);
-      console.log('SMOKE ' + JSON.stringify(r));
-      app.exit(r && r.ok ? 0 : 1);
-    } catch (err) {
-      console.error('SMOKE FAIL ' + err);
-      app.exit(1);
-    }
+      // phase 2: reload — js/platform.js must restore the wiped blob from the
+      // mirror before the menu reads storage, and the save must then resume
+      win.webContents.once('did-finish-load', async () => {
+        try {
+          const p2 = await win.webContents.executeJavaScript(`(async () => {
+            const restored = !!TEST.hasSave();
+            // .resumed, not .ok — TEST.continue() reports ok:true even when the
+            // resume was discarded; resumed is the bit that proves the cycle
+            const resumed = TEST.continue().resumed;
+            TEST.reset();
+            // and the delete path: a remove must take the mirror file with it,
+            // or a finished run's save resurrects at the next boot's restore
+            PLATFORM.storage.remove('twRunSave');
+            let mirrorCleared = false;
+            for (let i = 0; i < 100 && !mirrorCleared; i++) {
+              const m = __TW_SHELL__.storage.readAllSync();
+              mirrorCleared = !('twRunSave' in m);
+              if (!mirrorCleared) await new Promise((res) => setTimeout(res, 50));
+            }
+            return { restored, resumed, mirrorCleared };
+          })()`, true);
+          const r = { ...p1, ...p2,
+            ok: !!(p1 && p1.ok && p2.restored && p2.resumed && p2.mirrorCleared) };
+          console.log('SMOKE ' + JSON.stringify(r));
+          app.exit(r.ok ? 0 : 1);
+        } catch (err) { smokeFail(err); }
+      });
+      win.webContents.reload();
+    } catch (err) { smokeFail(err); }
   });
 }
 
@@ -179,6 +229,59 @@ function createWindow() {
 ipcMain.on('tw:quit', () => app.quit());
 ipcMain.on('tw:fullscreen', () => {
   if (win && !win.isDestroyed()) win.setFullScreen(!win.isFullScreen());
+});
+
+// ---- durability mirror (see js/platform.js) --------------------------------
+// Desktop's analog of the mobile Preferences mirror: Chromium's localStorage
+// is a LevelDB under userData, and a hard power cut mid-compaction can take
+// the whole origin — every store at once, no second copy. The four durable
+// keys are mirrored write-through into one plain file per key under
+// userData/saves, and restored (localStorage wins when present) at
+// js/platform.js eval. Plain per-key files on purpose: they're what Steam
+// Auto-Cloud can track when cloud saves hook in, and a player hunting a save
+// to back up can find them.
+const KEY_RE = /^[A-Za-z0-9_-]+$/;         // defense in depth — the renderer only sends DURABLE_KEYS
+const mirrorDir = () => path.join(app.getPath('userData'), 'saves');
+const mirrorFile = (key) => path.join(mirrorDir(), key + '.json');
+
+// Serialized per key, exactly like platform.js's Preferences chain: two saves
+// in quick succession must land in write order, or a restore could hand back
+// the older blob. A failed write is a durability gap, not an error — the
+// synchronous localStorage write already succeeded (platform.js mirrors only
+// then), so the chain runs on both settle paths and never throws upward.
+const mirrorTail = Object.create(null);
+ipcMain.on('tw:mirror-write', (event, key, value) => {
+  if (typeof key !== 'string' || !KEY_RE.test(key)) return;
+  if (value !== null && typeof value !== 'string') return;
+  const file = mirrorFile(key);
+  const run = value === null
+    ? () => fs.promises.rm(file, { force: true })
+    : async () => {
+        // tmp + rename so a crash mid-write leaves the previous mirror intact
+        // rather than a truncated one — the whole point of a second copy
+        await fs.promises.mkdir(mirrorDir(), { recursive: true });
+        const tmp = file + '.tmp';
+        await fs.promises.writeFile(tmp, value, 'utf8');
+        await fs.promises.rename(tmp, file);
+      };
+  mirrorTail[key] = (mirrorTail[key] || Promise.resolve()).then(run, run);
+  mirrorTail[key].catch(() => {});
+});
+
+// Synchronous on purpose: the preload calls this once, at js/platform.js eval,
+// so the restore finishes before any script reads storage and desktop's
+// onReady stays inline — no mobile-style boot gate, no watchdog.
+ipcMain.on('tw:mirror-read-all', (event) => {
+  const out = {};
+  try {
+    for (const f of fs.readdirSync(mirrorDir())) {
+      if (!f.endsWith('.json')) continue;
+      const key = f.slice(0, -'.json'.length);
+      if (!KEY_RE.test(key)) continue;
+      try { out[key] = fs.readFileSync(path.join(mirrorDir(), f), 'utf8'); } catch (err) { /* one unreadable mirror is just absent */ }
+    }
+  } catch (err) { /* no mirror dir yet — first launch */ }
+  event.returnValue = out;
 });
 
 if (!app.requestSingleInstanceLock()) {

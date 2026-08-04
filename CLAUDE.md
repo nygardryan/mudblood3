@@ -34,7 +34,11 @@ The one seam is `js/platform.js`, loaded before every other script:
 `PLATFORM.id` (`'web'`/`'desktop'`/`'mobile'`), `PLATFORM.storage` (used by the
 four durable stores — `twRunSave`/`endlessCards`/`endlessLeaderboard`/
 `campaignProgress` — mirrored into Capacitor Preferences on mobile because iOS
-can evict WKWebView storage; `settings.js` and `sprites.js` stay on raw
+can evict WKWebView storage, and on desktop into per-key files under Electron's
+`userData/saves` because localStorage there is one LevelDB a hard power cut can
+corrupt whole; the desktop restore is one synchronous `sendSync` at platform.js
+eval, so unlike mobile it needs no boot gate and `onReady` stays inline.
+`settings.js` and `sprites.js` stay on raw
 localStorage ON PURPOSE: trivially re-creatable, and sprites reads at top-level
 init before any async restore could land), and `PLATFORM.onReady` (synchronous-
 when-ready — `main.js`'s bootstrap tail runs inside it; on web/desktop it runs
@@ -42,9 +46,15 @@ inline, so web boot order is exactly pre-shim). On the web every PLATFORM
 member is an inert no-op — the shim must stay free when no shell is present,
 the same rule ESCALATION rung 0 follows. Electron serves the root over the
 privileged `tw://` scheme because the core `fetch()`es its audio and sprite
-manifest and Chromium blocks fetch on `file://` — never `loadFile()`.
+manifest and Chromium blocks fetch on `file://` — never `loadFile()`. Desktop's
+`main.cjs` also pins `app.setName` to the FS-safe name (package.json's
+productName minus the colon — `%APPDATA%\Trenchworks: WW2` is not a creatable
+Windows path, so without it nothing on Windows would persist); that name fixes
+the userData path, so changing it after release orphans every player's save.
 `TW_SMOKE=1 npx electron .` (in `shells/desktop`) boots hidden, proves the
-tw:// fetch path plus a save/continue cycle, prints one JSON line and exits.
+tw:// fetch path plus the whole durability loop — save, mirror file lands, raw
+localStorage wipe, reload-restore, continue, and remove deleting the mirror —
+prints one JSON line and exits.
 The staged file subset lives in ONE place, `shells/file-manifest.json` — read by
 both `shells/desktop/electron-builder.cjs` (glob filter for `extraResources`)
 and `shells/mobile/scripts/sync-www.mjs` (`cpSync` per entry); a new root-level
@@ -1767,7 +1777,16 @@ ground layer) must not be looked up under three tier names. Verify with
 `meanChannelDiff` is resampling, tens mean a wrong anchor or a clipped box.
 
 **The RUN SAVE** (`js/save.js`) is the single-slot save/continue: SAVE AND EXIT on the
-pause menu (endless only — `pauseGame` hides it for tutorials, which also carry live
+pause menu, plus `handleAppBackground` — the mobile lifecycle autosave, wired in
+platform.js's mobile block to Capacitor `appStateChange(isActive:false)` on the
+`handleAndroidBack` typeof-guard pattern, because a backgrounded app can be killed with
+no further notice and SAVE AND EXIT is a menu the OS never opens. It pauses any live
+fight (tutorials included — `pauseGame` guards itself) and then writes the slot only
+through `saveableRun()`, so menus, tutorials and attract (never `running`) write
+nothing, and it never deletes on foreground return: the slot already outlives a
+resumed run (`continueRun` never deletes it), so its contract is "latest checkpoint"
+and an OS-initiated write is the same contract with a fresher blob. (endless only —
+`pauseGame` hides the button for tutorials, which also carry live
 actor refs in `G.tutorial` that must never reach a save; **that hide needs its own
 CSS rule and did not have one** — the sheet has no generic `.hidden`, so
 `saveBtn.classList.toggle('hidden', …)` landed the class and changed nothing, and

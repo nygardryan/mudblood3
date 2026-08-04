@@ -6,7 +6,13 @@
      web     — this file is inert no-ops; boot order is identical to a build
                of the game that predates it.
      desktop — the Electron preload exposes window.__TW_SHELL__ (quit,
-               toggleFullscreen); nothing else changes. See shells/desktop/.
+               toggleFullscreen, storage). localStorage is a LevelDB under
+               Electron's userData and a hard power cut can corrupt the whole
+               origin, so the same four DURABLE keys are mirrored write-through
+               into per-key files (userData/saves, written by the main
+               process) and restored from there at this file's eval. The
+               restore is one synchronous sendSync, so unlike mobile there is
+               no boot gate: onReady still runs inline. See shells/desktop/.
      mobile  — Capacitor. localStorage stays the synchronous store the 27
                call sites expect, but iOS can evict WKWebView data under
                storage pressure, so the four DURABLE keys (the player's
@@ -105,9 +111,18 @@ const PLATFORM = (() => {
   // fire-and-forget durability mirror — never awaited, never throws into the
   // sim. Serialized per key: two saves in quick succession must land in the
   // mirror in write order, or an eviction could restore the older blob.
+  // (On desktop the per-key serialization lives in the main process — see
+  // shells/desktop/main.cjs — so the routing here stays fire-and-forget too.)
   const mirrorTail = Object.create(null);
   function mirror(key, value) {
-    if (!capacitor || !DURABLE_KEYS.includes(key)) return;
+    if (!DURABLE_KEYS.includes(key)) return;
+    if (shell && shell.storage) {
+      // a failed IPC send is a durability gap, not an error — same stance as
+      // the Preferences chain below
+      try { shell.storage.write(key, value); } catch (err) { /* gap */ }
+      return;
+    }
+    if (!capacitor) return;
     const p = prefs();
     if (!p) return;
     const run = () => value === null
@@ -143,6 +158,25 @@ const PLATFORM = (() => {
       mirror(key, null);
     },
   };
+
+  // ---- desktop boot: restore the file mirror, synchronously -----------------
+  // The desktop analog of the mobile restore below, minus the gate: the
+  // preload's readAllSync is one ipcRenderer.sendSync, so the restore
+  // completes right here at eval — before any other script has even parsed —
+  // and onReady keeps its inline, boot-order-identical-to-web promise. Same
+  // preference rule as mobile: localStorage wins when present, because writes
+  // are write-through and the mirror can never be fresher.
+  if (shell && shell.storage) {
+    let vals = {};
+    try { vals = shell.storage.readAllSync() || {}; } catch (err) { /* mirror unreadable — boot memoryless */ }
+    for (const key of DURABLE_KEYS) {
+      try {
+        if (localStorage.getItem(key) !== null) continue;
+        const v = vals[key];
+        if (typeof v === 'string') localStorage.setItem(key, v);
+      } catch (err) { /* a key that can't be restored is just absent */ }
+    }
+  }
 
   // ---- mobile boot: restore, then release the bootstrap ---------------------
   if (capacitor) {
@@ -186,6 +220,15 @@ const PLATFORM = (() => {
           plugins.App.addListener('backButton', () => {
             if (typeof handleAndroidBack === 'function' && handleAndroidBack()) return;
             plugins.App.exitApp();
+          });
+          // Backgrounding is the last JS the app may ever run — the OS can
+          // kill it from there with no further notice. The core owns the
+          // semantics (handleAppBackground, js/save.js: pause + autosave
+          // through the ordinary writeRunSave path, gated on saveableRun);
+          // same typeof guard as backButton so a boot where the core failed
+          // to load never throws inside a native listener.
+          plugins.App.addListener('appStateChange', ({ isActive }) => {
+            if (!isActive && typeof handleAppBackground === 'function') handleAppBackground();
           });
         }
       } finally {

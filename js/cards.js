@@ -313,13 +313,14 @@ function canisterShotEnabled() {
 // resolve against five times over. Every other multi-actor part (her gun tubs,
 // the train's gun posts, the Progenitor's pods) owns its HP, so catching several
 // in one pattern is the same legitimate reward that shelling the cluster pays.
-// The Abomination carries no armour flag but IS a tier-one AP target in
-// updateATGun, so the same rule applies to it by name: it walks straight into
-// the canister band, and without this the gun would swap its 403-point shell for
-// a tin of buckshot at exactly the moment the thing arrived.
+// The Abomination and the Charger carry no armour flag but ARE tier-one AP
+// targets in updateATGun, so the same rule applies to them: either walks
+// straight into the canister band, and without this the gun would swap its
+// 403-point shell for a tin of buckshot at exactly the moment the thing
+// arrived. The Charger keys on `ram` — same flag the AT gun's tier 1 reads.
 function canisterHittable(e) {
   const t = e.t;
-  return !(t.tank || t.apc || t.vehicle || t.bike || t.v2 || e.type === 'zabom');
+  return !(t.tank || t.apc || t.vehicle || t.bike || t.v2 || t.ram || e.type === 'zabom');
 }
 
 // Reinforced Plate: a unique card on the two armor abilities, and the only one

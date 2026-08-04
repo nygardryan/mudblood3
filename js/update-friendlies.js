@@ -672,10 +672,12 @@ function updateATGun(u, dt) {
     // the walker carries no `tank` flag (that would hand it the ×0.04 armor
     // multiplier this gun exists to bypass), so it is named here explicitly —
     // its codex entry already promises AT guns are one of the two things that
-    // reach it. The Abomination is here for the same reason and one more: the
-    // Horde fields no armour at all, so without it an AT gun has literally
-    // nothing to shoot for a whole faction.
-    e => (e.t.tank || e.t.awalker || e.type === 'zabom') && inCone(e),
+    // reach it. The Abomination and the Charger are here for the same reason
+    // and one more: the Horde fields no armour at all, so without them an AT
+    // gun has literally nothing to shoot for a whole faction. The Charger
+    // keys on `ram` (not type) — that is the flag its other AT-channel sites
+    // share, and the one its comment in ENEMY_TYPES promises.
+    e => (e.t.tank || e.t.awalker || e.t.ram || e.type === 'zabom') && inCone(e),
     e => (e.t.vehicle || e.t.bike || e.t.v2) && inCone(e),
   ];
   if (canisterOn) tiers.push(e => canisterHittable(e) && dist2(u, e) <= cR2 && inCone(e));
@@ -723,7 +725,7 @@ function updateATGun(u, dt) {
   // AP shells drift at range; armor is a forgiving target but this isn't a laser
   const d = dist(u, target);
   let scatter = (24 + d * 0.11) * rankScatterMult(u);
-  if (target.t.tank) scatter *= 0.80;
+  if (target.t.tank || target.t.ram) scatter *= 0.80;
   else scatter *= 0.90;
   scatter = Math.max(11, scatter * 0.8 * (spec.scatterMult || 1));
   scheduleShell(

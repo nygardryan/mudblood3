@@ -29,13 +29,16 @@ const CORPSE_FADE = 8;  // the ttl window drawCorpse fades a body out over
 // TTLs: measured at wave ~165, the field held ~20,000 live marks and ~600
 // corpses (each corpse owning a baked canvas), and the major-GC pause that has
 // to trace that live set every couple of seconds IS the periodic freeze on deep
-// runs. Both caps sit above anything normal play reaches (~30 marks/s sustained
-// stands ~3,600), so they only bind in that saturation regime. Over the cap the
-// oldest entries are not spliced — update() clamps their remaining ttl into the
-// fade window, so they fade out through the ordinary expiry path instead of
-// popping, and the array is bounded at cap + one fade window of accrual.
+// runs. Caps sit above anything normal play reaches (~30 marks/s sustained
+// stands ~3,600; gibs are ~14% of deaths × 1–2 parts), so they only bind in
+// that saturation regime. Over the cap the oldest entries are not spliced —
+// update() clamps their remaining ttl into the fade window, so they fade out
+// through the ordinary expiry path instead of popping, and the array is
+// bounded at cap + one fade window of accrual.
 const GROUND_MARK_CAP = 4000;
 const CORPSE_CAP = 300;
+const GIB_CAP = 500;
+const GIB_FADE = 8;  // drawGib fades a landed part over this ttl window
 
 // Nominal world footprints the sprite art for each mark type is authored at, and
 // what an instance scales off them. A mark rolls its own size, so a pack that
@@ -390,7 +393,7 @@ function updateGib(g, dt) {
 }
 
 function drawGib(g) {
-  const alpha = clamp(g.ttl / 8, 0, 1);
+  const alpha = clamp(g.ttl / GIB_FADE, 0, 1);
   const c = ctx;
   c.save();
   c.globalAlpha = alpha;
@@ -492,6 +495,31 @@ function stampSandbagRubble(s) {
   gctx.beginPath();
   gctx.ellipse(s.x, s.y, 9, 20, 0, 0, 7);   // the wall stood across the advance
   gctx.fill();
+}
+
+// Drop a retired decoy id out of every actor's see-through memory. Dummy ids
+// are monotonic and never reused (js/input.js), so without this a living enemy
+// would retain every decoy it ever evaluated for the rest of the run — harmless
+// at a handful of rebuilds, but unbounded under sandbox spam, and every id
+// rides the run save (js/save.js).
+function forgetDummyId(id) {
+  if (id == null) return;
+  for (const e of G.enemies) {
+    if (e.dummySeen) e.dummySeen.delete(id);
+    if (e.dummyBlind) e.dummyBlind.delete(id);
+  }
+  for (const u of G.units) {
+    if (u.dummySeen) u.dummySeen.delete(id);
+    if (u.dummyBlind) u.dummyBlind.delete(id);
+  }
+}
+
+// compactDefenses' onDestroy for decoys: forget the id, then stamp the ground.
+// Split from stampDummyRubble so ground-stamp replay (which has no id) stays a
+// pure paint.
+function destroyDummy(d) {
+  forgetDummyId(d.id);
+  stampDummyRubble(d);
 }
 
 // a shot-apart scarecrow leaves a scatter of straw and a snapped post

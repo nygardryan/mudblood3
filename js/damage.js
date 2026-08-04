@@ -34,7 +34,9 @@ const CORPSE_FADE = 8;  // the ttl window drawCorpse fades a body out over
 // that saturation regime. Over the cap the oldest entries are not spliced —
 // update() clamps their remaining ttl into the fade window, so they fade out
 // through the ordinary expiry path instead of popping, and the array is
-// bounded at cap + one fade window of accrual.
+// bounded at cap + one fade window of accrual. Corpses also drop their private
+// `_sprite` bake on clamp — drawCorpse paints those through a shared scratch
+// so the heap cannot hold more corpse canvases than CORPSE_CAP.
 const GROUND_MARK_CAP = 4000;
 const CORPSE_CAP = 300;
 const GIB_CAP = 500;
@@ -463,6 +465,26 @@ function paintCorpse(c, cp) {
   c.globalCompositeOperation = 'source-over';
 }
 
+// Shared scratch for CAP-retired corpses (update.js drops their private bake
+// when clamping ttl into the fade window). paintCorpse's source-atop dirt wash
+// cannot run on the main canvas, so the fade still goes through a bitmap —
+// just one reused across every body that has already been told to leave, so
+// the heap cannot hold more corpse canvases than CORPSE_CAP.
+let _corpseScratch = null;
+function corpseScratchRec() {
+  const ss = spriteSupersample();
+  if (!_corpseScratch || _corpseScratch.ss !== ss) {
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.ceil(CORPSE_SPR_W * ss));
+    cv.height = Math.max(1, Math.ceil(CORPSE_SPR_H * ss));
+    _corpseScratch = {
+      img: cv, w: CORPSE_SPR_W, h: CORPSE_SPR_H,
+      ax: CORPSE_SPR_AX, ay: CORPSE_SPR_AY, ss,
+    };
+  }
+  return _corpseScratch;
+}
+
 function drawCorpse(cp) {
   const alpha = clamp(cp.ttl / CORPSE_FADE, 0, 1); // fade out over the last seconds
   // A pack ships one body per army rather than a pose per type, so it is checked
@@ -470,6 +492,19 @@ function drawCorpse(cp) {
   // <img> can never satisfy.
   const ext = SPRITES.get(corpseSpriteId(cp));
   if (ext) { blitSprite(ctx, ext, cp.x, cp.y, cp.rot, alpha); return; }
+  // CAP-retired: no private bitmap. Paint through the shared scratch for the
+  // fade window so releasing _sprite in update() actually frees the heap.
+  if (!cp._sprite && cp.ttl <= CORPSE_FADE) {
+    const scratch = corpseScratchRec();
+    const c = scratch.img.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, scratch.img.width, scratch.img.height);
+    c.setTransform(scratch.ss, 0, 0, scratch.ss,
+      CORPSE_SPR_AX * scratch.ss, CORPSE_SPR_AY * scratch.ss);
+    paintCorpse(c, cp);
+    blitSprite(ctx, scratch, cp.x, cp.y, cp.rot, alpha);
+    return;
+  }
   // (re)bake if missing or the display density changed under us
   if (!cp._sprite || cp._sprite.ss !== spriteSupersample()) {
     cp._sprite = makeSprite(CORPSE_SPR_W, CORPSE_SPR_H, CORPSE_SPR_AX, CORPSE_SPR_AY,

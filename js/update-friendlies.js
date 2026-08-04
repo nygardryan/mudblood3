@@ -986,6 +986,10 @@ function updateTankCombat(a, dt) {
   const mgSpec = a.t.mg;
   const TURRET_TRACK = 0.18; // rad/s — glacial traverse onto new targets
   const TURRET_HOME = 0.14;
+  // dead targets fail the !dead guards below but still pin the actor until the
+  // next burst reassigns — drop them the tick they fall
+  if (a.mgTarget && a.mgTarget.dead) a.mgTarget = null;
+  if (a.flameTarget && a.flameTarget.dead) a.flameTarget = null;
 
   // an MG burst in progress finishes before anything else
   if (a.burstLeft > 0) {

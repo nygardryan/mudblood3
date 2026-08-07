@@ -10,6 +10,10 @@ const MUSIC = (() => {
     'the-long-march-home.mp3',
     'the-last-march-home.mp3',
     'the-last-letter-home.mp3',
+    'the-long-campaign.mp3',
+    'the-front-lines.mp3',
+    'the-ash-and-iron.mp3',
+    'the-final-stand.mp3',
   ];
 
   let audio = null;

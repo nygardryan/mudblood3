@@ -125,6 +125,24 @@ function saveMusicMuted(muted) {
   localStorage.setItem(MUSIC_MUTED_KEY, String(on));
 }
 
+// The NOW PLAYING line. MUSIC.track is null when there is nothing to name — no
+// user gesture yet, an empty playlist, or every file failed to load — and the
+// dash is deliberately the one answer for all three: none of them is a fault
+// the player can act on, and the mute button beside it already says whether the
+// music is off. It reports the TRACK, not the mute state, because a muted
+// playlist is still advancing and NEXT still moves it.
+function syncMusicTrack() {
+  const label = el('music-track-label');
+  if (!label) return;
+  const t = MUSIC.track;
+  label.textContent = t || '—';
+  // the line truncates at the panel's width, so keep the full title reachable
+  if (t) label.title = t; else label.removeAttribute('title');
+}
+// Playback advances on its own while the panel sits open, so the line is driven
+// by MUSIC rather than only read when Settings opens.
+MUSIC.onChange(syncMusicTrack);
+
 function clampShakeAmount(pct) {
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
@@ -167,6 +185,7 @@ function applySavedSettings() {
   applySoundMuted(loadSoundMuted());
   applyMusicVolume(loadMusicVolume());
   applyMusicMuted(loadMusicMuted());
+  syncMusicTrack();
   applyShakeAmount(loadShakeAmount());
 }
 

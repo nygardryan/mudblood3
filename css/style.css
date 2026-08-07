@@ -2039,6 +2039,24 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* NOW PLAYING: the one .settings-value holding free text rather than a number
+   or ON/OFF, so it needs the room to shrink that a 36px numeric readout never
+   did (min-width there is a floor the flex line can't go under). A title is set
+   a shade smaller and looser than a value, and truncates rather than wrapping —
+   the row's label must stay on one line beside it. */
+.settings-row #music-track-label {
+  min-width: 0;
+  font-size: clamp(12px, 3.2vw, 15px);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#music-track-row {
+  /* the music hint above is :last-of-type, so it carries no bottom margin */
+  margin: 10px 0 4px;
+}
+
 .settings-label {
   display: block;
   font-size: clamp(13px, 3.5vw, 15px);

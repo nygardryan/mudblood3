@@ -22,6 +22,31 @@ const MUSIC = (() => {
   let muted = false;
   let volume = 60;
   let failures = 0; // consecutive load failures; stop after a full failed cycle
+  let dead = false; // a whole cycle failed — nothing is playing and nothing will
+  const listeners = []; // settings' NOW PLAYING line; see onChange below
+
+  // Words a title keeps lowercase unless they open it. Only 'and' occurs in the
+  // shipped playlist, but a title-caser that writes "The Ash And Iron" is the
+  // kind of thing nobody notices until it is on screen.
+  const MINOR = new Set(['a', 'an', 'and', 'the', 'of', 'or', 'in', 'on', 'at',
+    'to', 'for', 'from', 'with', 'vs']);
+
+  // Display name DERIVED from the filename, so dropping a track into
+  // assets/music/ and listing it above is still the whole job — a parallel
+  // table of titles is one more thing to forget to update.
+  function titleOf(file) {
+    return file.replace(/\.[^.]*$/, '').split(/[-_\s]+/).filter(Boolean)
+      .map((w, i) => (i > 0 && MINOR.has(w.toLowerCase()))
+        ? w.toLowerCase()
+        : w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
+
+  // Fired whenever the answer to "what is playing" changes. Listeners must not
+  // throw into the playback path: a broken UI is not worth silencing the music.
+  function emit() {
+    for (const fn of listeners) { try { fn(); } catch (e) { /* keep playing */ } }
+  }
 
   function applyVolume() {
     if (!audio) return;
@@ -33,6 +58,7 @@ const MUSIC = (() => {
     index = ((i % TRACKS.length) + TRACKS.length) % TRACKS.length;
     audio.src = BASE + TRACKS[index];
     audio.play().catch(() => { /* autoplay blocked or unsupported — stay silent */ });
+    emit();
   }
 
   function start() {
@@ -45,7 +71,7 @@ const MUSIC = (() => {
     audio.addEventListener('ended', () => playTrack(index + 1));
     audio.addEventListener('error', () => {
       failures++;
-      if (failures >= TRACKS.length) return; // every track failed — give up quietly
+      if (failures >= TRACKS.length) { dead = true; emit(); return; } // all failed — give up quietly
       playTrack(index + 1);
     });
     playTrack(0);
@@ -70,9 +96,21 @@ const MUSIC = (() => {
       if (!started) start();
       if (!audio) return index;
       failures = 0;
+      dead = false;
       playTrack(index + 1);
       return index;
     },
+    // The current track's display title, or null when there is nothing to name —
+    // no gesture yet (start() hasn't run), an empty playlist, or a whole cycle of
+    // load failures. The caller owns the copy for that case; this reports state.
+    get track() {
+      if (!started || !audio || dead || TRACKS.length === 0) return null;
+      return titleOf(TRACKS[index]);
+    },
+    // Subscribe to track changes. Playback advances on its own (the `ended`
+    // handler) while Settings sits open, so a panel that only read `track` when
+    // it opened would go stale about four minutes in.
+    onChange(fn) { if (typeof fn === 'function') listeners.push(fn); },
     setVolume(pct) { volume = Math.max(0, Math.min(100, Math.round(pct))); applyVolume(); return volume; },
     get volume() { return volume; },
     setMuted(on) { muted = !!on; applyVolume(); return muted; },

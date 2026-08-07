@@ -15,6 +15,16 @@ function cycleSpeed() {
   SFX.click();
 }
 
+// +/- hotkeys (input.js): walk one step along SPEED_STEPS, clamped at the ends
+// rather than wrapping — "faster" must never mean "suddenly half speed".
+function stepSpeed(dir) {
+  const idx = SPEED_STEPS.indexOf(gameSpeed) + dir;
+  if (idx < 0 || idx >= SPEED_STEPS.length) { SFX.error(); return; }
+  gameSpeed = SPEED_STEPS[idx];
+  syncSpeedButton();
+  SFX.click();
+}
+
 // Freeze the field under an overlay: stop the sim, then drop every piece of
 // in-progress input with it — a half-made placement, a drag, a pinch, the
 // selection — because none of it survives the screen the player is about to

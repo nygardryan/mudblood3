@@ -263,6 +263,38 @@ let toolbarCollapsedForSelection = false;
 // remembers scroll position per category so the user picks up where they left off
 const _catScrollPos = {};
 
+// MENU HOTKEYS are positional, not per-item: [1] is always the BACK button, and
+// entries take keyboard-grid keys in reading order — Q,W,E,R / A,S,D,F / Z,X,C,V,
+// widened a column at a time (QWERT/ASDFG/ZXCVB, …) whenever the menu on screen
+// holds more than 12 entries, so every entry keeps a key. renderToolbar rebuilds
+// toolbarKeyTargets from the same lists it draws the [chips] from, and input.js
+// resolves a keypress by CLICKING the rendered button — one path, so the chip,
+// the key and the click can never disagree.
+const MENU_KEY_ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
+let toolbarKeyTargets = [];
+
+function menuEntryKeys(count) {
+  const width = Math.max(4, Math.ceil(count / MENU_KEY_ROWS.length));
+  const keys = [];
+  for (const row of MENU_KEY_ROWS) keys.push(...row.slice(0, width));
+  return keys.slice(0, count);
+}
+
+function menuKeyChip(key) {
+  return key ? `<span class="key">[${key}]</span>` : '';
+}
+
+// keydown → menu control (input.js). A disabled button (can't afford, demo lock,
+// officer cap) errors instead of silently doing nothing, matching what clicking
+// it through updateHUD's disable would feel like.
+function toolbarKeyPress(k) {
+  const t = toolbarKeyTargets.find(t => t.key === k);
+  if (!t) return false;
+  if (t.el.disabled) { SFX.error(); return true; }
+  t.el.click();
+  return true;
+}
+
 function placeablesForCategory(categoryId) {
   const cat = TOOLBAR_CATEGORIES.find(c => c.id === categoryId);
   if (!cat) return [];
@@ -319,16 +351,18 @@ function appendToolbarBack(bar, onClick, title) {
   const back = document.createElement('button');
   back.type = 'button';
   back.className = 'tool-btn tool-back-btn';
-  back.textContent = '← BACK';
+  back.innerHTML = `${menuKeyChip('1')}← BACK`;
   if (title) back.title = title;
   back.addEventListener('click', onClick);
   bar.appendChild(back);
+  toolbarKeyTargets.push({ key: '1', el: back });
 }
 
 function renderToolbar() {
   const bar = el('toolbar');
   bar.innerHTML = '';
   toolButtons = [];
+  toolbarKeyTargets = [];
   toolbarCollapsedForSelection = toolbarSelectionCollapsed();
 
   if (!toolbarPlaceables.length) {
@@ -369,11 +403,13 @@ function renderToolbar() {
     b.type = 'button';
     b.className = 'tool-btn active';
     b.title = active.desc;
-    const activeKey = active.hotkey ? `<span class="key">[${active.hotkey}]</span>` : '';
-    b.innerHTML = `${activeKey}${active.label}<span class="cost">${cost} TP</span>`;
+    // the active item is the menu's only entry, so it takes the first grid key
+    const activeKey = menuEntryKeys(1)[0];
+    b.innerHTML = `${menuKeyChip(activeKey)}${active.label}<span class="cost">${cost} TP</span>`;
     b.addEventListener('click', () => selectPlaceable(active));
     bar.appendChild(b);
     toolButtons.push({ p: active, el: b });
+    toolbarKeyTargets.push({ key: activeKey, el: b });
 
     syncToolbarVisibility();
     syncToolbarLayout();
@@ -383,12 +419,14 @@ function renderToolbar() {
   bar.classList.remove('toolbar-placing');
 
   if (toolbarView === 'categories') {
-    for (const cat of visibleToolbarCategories()) {
+    const cats = visibleToolbarCategories();
+    const catKeys = menuEntryKeys(cats.length);
+    cats.forEach((cat, i) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'tool-btn tool-cat-btn';
       b.dataset.catId = cat.id;
-      b.textContent = cat.label;
+      b.innerHTML = `${menuKeyChip(catKeys[i])}${cat.label}`;
       b.addEventListener('click', () => {
         toolbarView = cat.id;
         SFX.click();
@@ -396,7 +434,8 @@ function renderToolbar() {
         syncToolbarVisibility();
       });
       bar.appendChild(b);
-    }
+      if (catKeys[i]) toolbarKeyTargets.push({ key: catKeys[i], el: b });
+    });
   } else {
     appendToolbarBack(bar, () => {
       placing = null;
@@ -406,7 +445,9 @@ function renderToolbar() {
       syncToolbarVisibility();
     });
 
-    for (const p of placeablesForCategory(toolbarView)) {
+    const items = placeablesForCategory(toolbarView);
+    const itemKeys = menuEntryKeys(items.length);
+    items.forEach((p, i) => {
       const cost = placeableCost(p);
       const b = document.createElement('button');
       b.type = 'button';
@@ -415,15 +456,15 @@ function renderToolbar() {
       const lockedDemo = demoLockedPlaceable(p);
       b.className = 'tool-btn' + (lockedDemo ? ' tool-btn--fglocked' : '');
       b.title = lockedDemo ? 'Available in the full game' : p.desc;
-      const key = p.hotkey ? `<span class="key">[${p.hotkey}]</span>` : '';
       // events are free and instant — a "0 TP" tag would just be noise
       const costTag = p.kind === 'event' ? '' : `<span class="cost">${cost} TP</span>`;
-      b.innerHTML = `${key}${p.label}${costTag}` +
+      b.innerHTML = `${menuKeyChip(itemKeys[i])}${p.label}${costTag}` +
         (lockedDemo ? '<span class="tool-fg">FULL GAME</span>' : '');
       b.addEventListener('click', () => selectPlaceable(p));
       bar.appendChild(b);
       toolButtons.push({ p, el: b });
-    }
+      if (itemKeys[i]) toolbarKeyTargets.push({ key: itemKeys[i], el: b });
+    });
     // restore scroll position where the user left off
     const saved = _catScrollPos[toolbarView];
     if (saved) {
@@ -481,10 +522,6 @@ function buildToolbar(placeables) {
   toolbarView = 'categories';
   renderToolbar();
   fitLayout();
-}
-
-function activePlaceables() {
-  return (G && G.level) ? G.level.placeables : PLACEABLES;
 }
 
 function selectPlaceable(p) {

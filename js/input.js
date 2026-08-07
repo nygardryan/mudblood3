@@ -245,7 +245,12 @@ function place(p, x, y) {
   // and any future caller that reaches place() directly
   if (demoLockedPlaceable(p)) { SFX.error(); return; }
   if (!placementValid(p, x, y)) {
-    const fallback = (p.kind === 'unit' || p.kind === 'defense') ? findNearestValidRadial(p, x, y) : null;
+    // testing-mode enemy units get the same nearest-open-spot search the player's
+    // own troops do — they fail validation for the same reason (a body already on
+    // that ground, or the field edge), and a tap that silently errors out is worse
+    // for forcing a board state than one that lands the man a few pixels over.
+    const fallback = (p.kind === 'unit' || p.kind === 'defense' || p.kind === 'egerman')
+      ? findNearestValidRadial(p, x, y) : null;
     if (!fallback) { SFX.error(); mobileVibrate(14); return; }
     x = fallback.x;
     y = fallback.y;
@@ -909,7 +914,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   // give up the rest of a tutorial box's read time (WCAG 2.2 SC 2.2.1). Space and
-  // Enter are safe here: no placeable hotkey is either, and dismiss is a no-op
+  // Enter are safe here: neither is a menu hotkey, and dismiss is a no-op
   // outside a running tutorial script.
   if (e.key === ' ' || e.key === 'Enter') {
     if (dismissTutorialMsg()) { e.preventDefault(); return; }
@@ -917,9 +922,20 @@ document.addEventListener('keydown', e => {
   if (isSandbox() && isPlaying()) {
     if (e.key === ']') { jumpSandboxWave(e.shiftKey ? 5 : e.ctrlKey ? 10 : 1); return; }
   }
-  const k = e.key.toUpperCase();
-  const p = activePlaceables().find(pl => pl.hotkey === k);
-  if (p) selectPlaceable(p);
+  // MENU HOTKEYS are positional (see toolbarKeyTargets, js/hud.js): [1] is the
+  // BACK button, entries take Q,W,E,R / A,S,D,F / Z,X,C,V grid keys for whatever
+  // menu the toolbar is showing, resolved by clicking the rendered button. The
+  // modifier guard keeps browser chords (Ctrl+R, Ctrl+T…) from placing troops.
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  // +/- step the sim speed ('=' counts as + for the unshifted key). Gated on
+  // the speed button's own visibility condition — a live run, paused included —
+  // not isPlaying(), so it works from the pause screen like the button does.
+  if (e.key === '+' || e.key === '=' || e.key === '-') {
+    if (running && G && !G.over) stepSpeed(e.key === '-' ? -1 : 1);
+    return;
+  }
+  if (!isPlaying()) return;
+  toolbarKeyPress(e.key.toUpperCase());
 });
 
 // the tutorial box itself is the click target for skipping its read time

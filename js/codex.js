@@ -1157,7 +1157,7 @@ function formatUnitStats(p, ut) {
   // throwing. The inspector carries the card-aware chips instead.
   if (ut.atgun) parts.push('AP SHELL', 'VEHICLES ONLY', 'IMMOBILE');
   if (ut.aagun) parts.push('FLAK', 'AIRCRAFT ONLY', 'IMMOBILE');
-  parts.push(`${p.cost} TP`, `[${p.hotkey}]`);
+  parts.push(`${p.cost} TP`);
   return parts.join(' · ');
 }
 
@@ -1193,10 +1193,7 @@ function codexEntries(tab) {
       code: CODEX_CODE[p.key],
       kind: p.kind.toUpperCase(),
       name: p.label,
-      // the two armor supports carry no hotkey (they're bought onto a man, not
-      // dropped on the field), so the bracket is dropped rather than printed empty
-      stats: [`${p.cost} TP`, p.hotkey ? `[${p.hotkey}]` : null, p.kind.toUpperCase()]
-        .filter(Boolean).join(' · '),
+      stats: [`${p.cost} TP`, p.kind.toUpperCase()].join(' · '),
       desc: p.desc,
       fgLocked: demoBuildLockedPlaceable(p),
     }));
@@ -1322,7 +1319,7 @@ function buildCodexCard(entry, tab) {
 
   const chips = document.createElement('div');
   chips.className = 'cx-chips';
-  // demo: FIRST, ahead of the stats it qualifies — a cost and a hotkey for
+  // demo: FIRST, ahead of the stats it qualifies — a cost and full stats for
   // something this build won't sell are a promise, and the flag has to land
   // before the reader takes them at face value
   if (entry.fgLocked) {

@@ -14,6 +14,9 @@ const MUSIC = (() => {
     'the-front-lines.mp3',
     'the-ash-and-iron.mp3',
     'the-final-stand.mp3',
+    'the-weight-of-war.mp3',
+    'the-broken-ground.mp3',
+    'the-distant-drums.mp3',
   ];
 
   let audio = null;

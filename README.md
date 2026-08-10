@@ -177,9 +177,11 @@ you have a saved run. Sandbox and Testing live in **SETTINGS**, under Dev tools.
 - **Tactical Points (TP)** are your only currency. You earn them from kills, **+1 TP
   every 3 s**, and living officers (**+1 TP / 30 s** each — up to **3 TP** for a
   max-rank officer; **5 officers** max on the field). The supply trickle and officer
-  pay hold their rate all run; it is the **kill bounties** that thin out, decaying
-  smoothly per wave to a hard 10% floor by wave 200 (the War Bonds card stretches
-  that curve to wave 400).
+  pay hold their rate all run; **kill bounties** are a hill. They hold their rate
+  through the first hundred waves, so the money climbs steadily as the waves
+  themselves grow, crest somewhere around **wave 130**, and then fall away to
+  almost nothing by wave 300–400 as the war exhausts itself (the War Bonds card
+  pays a fifth more and softens that collapse).
 - Open **Units**, **Abilities**, or **Emplacements** on the left toolbar, pick an
   item (each shows its hotkey), then click the field to deploy. Right-click or
   **Esc** cancels placement.

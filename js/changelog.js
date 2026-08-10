@@ -3,6 +3,16 @@
 // Add a new object to the TOP of this array whenever you ship changes.
 const CHANGELOG = [
   {
+    date: '2026-08-10',
+    title: 'The War Economy Peaks and Falls',
+    changes: [
+      'KILL BOUNTIES ARE A HILL. They hold their full rate through the first hundred waves, so the money climbs steadily as the waves themselves grow; past that the rate falls away faster than the waves rise, and by wave 300 the dead are barely worth stopping for. The peak lands somewhere around wave 130 and it is the richest your army will ever be.',
+      'What that replaced was a curve that bottomed out at wave 200 and then never moved again, while the waves kept getting bigger — so the deepest runs were also the wealthiest, by a wide margin, and the fight stopped being about supply. A deep run is now fought on the supply trickle and your officers, which do not care how big the waves have got.',
+      'The mid-game is the part that gained. Waves 25 through 130 pay noticeably better than they used to, where the old curve sagged through the seventies and eighties before its late runaway.',
+      'WAR BONDS is re-cut to match: bounties pay a fifth more and their late-war collapse comes on gentler, instead of stretching a decay curve that no longer exists.',
+    ],
+  },
+  {
     date: '2026-07-29',
     title: 'The Field Turns: Landscape',
     changes: [

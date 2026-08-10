@@ -789,8 +789,13 @@ function updateAAGun(u, dt) {
   u.face = u.turret;
   if (u.cd > 0 || Math.abs(diff) > 0.2) return;
 
-  if (ground) fireFlakGround(u, target, best);
-  else fireFlakBurst(u, target, spec, best);
+  if (ground) {
+    fireFlakGround(u, target, best);
+    // its own slower cycle — see AA_GROUND_ROF (js/cards.js)
+    u.cd = AA_GROUND_ROF * rankCdMult(u) * rand(0.85, 1.15);
+    return;
+  }
+  fireFlakBurst(u, target, spec, best);
   u.cd = u.t.rof * rankCdMult(u) * rand(0.85, 1.15);
 }
 

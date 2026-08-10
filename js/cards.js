@@ -271,6 +271,11 @@ function maybeOfficerFireMission() {
 const AA_GROUND_RANGE = 200;
 const AA_GROUND_HITR = 20;
 const AA_GROUND_DMG = 55;
+// direct-fire HE is a slower cycle than the cyclic anti-air rate (aagun's own
+// 0.55 rof): at that pace a depressed Bofors mows down infantry faster than
+// an AT gun's canister sweep for a fraction of the cost. 2.5 leaves a real
+// gap between ground rounds without touching the gun's rate against aircraft.
+const AA_GROUND_ROF = 2.5;
 
 // flag-only card: true when this run deployed Level the Barrels, so the AA gun
 // may swing its wedge down onto ground infantry inside AA_GROUND_RANGE

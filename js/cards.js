@@ -11,6 +11,12 @@
 
 const ENDLESS_CARDS_KEY = 'endlessCards';
 const ENDLESS_CARDS_VERSION = 2;
+// milestone payout is uncapped by wave depth (base = wave/10, so a wave-500
+// milestone alone would pay 50) — MEDAL_MILESTONE_CAP holds the BASE rate to
+// this ceiling before escalation's medalMult is applied, so a long run's
+// medal income stays bounded by wave count while a harder rung still pays
+// more (10 at rung 0, up to 20 at rung X's ×2).
+const MEDAL_MILESTONE_CAP = 10;
 // the shop starts offering three cards at once and can be widened a slot at a
 // time up to six (two rows of three); each extra slot costs 10 medals, then
 // doubles (10, 20, 40). The current width lives in the save as data.shopSlots.
@@ -1663,8 +1669,11 @@ function awardWaveMedals() {
   // the ESCALATION pay modifier (js/escalation.js) scales the milestone. Rounded
   // and floored at the base rate, so a rung can only ever pay MORE than no rung —
   // at ×1.1 the early milestones round back down to the base, which is right:
-  // ten percent of one medal is not a medal.
-  const base = G.wave / 10;
+  // ten percent of one medal is not a medal. The cap applies to the base BEFORE
+  // the mult, so a harder rung still pays more than an easier one at the cap
+  // (10 at rung 0, up to 20 at rung X's ×2) rather than flattening every rung
+  // to the same payout past wave 100.
+  const base = Math.min(MEDAL_MILESTONE_CAP, G.wave / 10);
   const n = Math.max(base, Math.round(base * (G.esc ? G.esc.medalMult : 1)));
   const data = loadEndlessCards();
   data.medals += n;

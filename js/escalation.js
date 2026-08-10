@@ -308,16 +308,17 @@ function buildEscalationUI() {
 
   // what PLAY deploys at, printed inside the button
   el('esc-level').textContent = level > 0 ? 'ESCALATION ' + ESC_ROMAN[level] : 'NO ESCALATION';
-  el('esc-mult').textContent = escMultLabel(level) + ' MEDALS';
   el('esc-prev').disabled = level <= 0;
   el('esc-next').disabled = level >= unlocked;
 
-  // the status line: the modifier this rung just added, then how far up the
-  // ladder you have actually earned. One card's worth of copy on one line —
-  // the other nine are what the dossier is for.
-  el('esc-newest-name').textContent = mod ? mod.name : 'CLEAN SECTOR';
-  el('esc-newest-desc').textContent = mod ? mod.desc.toLowerCase()
-    : 'nothing stacked against you, and nothing extra in the pay packet.';
+  // the rung card: the modifier this rung just added, in full — number, name,
+  // medal pay and what it does. One card's worth of copy; the other nine
+  // rungs are what the dossier is for.
+  el('esc-rung-num').textContent = level > 0 ? ESC_ROMAN[level] : '0';
+  el('esc-rung-name').textContent = mod ? mod.name : 'CLEAN SECTOR';
+  el('esc-mult').textContent = escMultLabel(level) + ' MEDALS';
+  el('esc-rung-desc').textContent = mod ? mod.desc
+    : 'Nothing stacked against you, and nothing extra in the pay packet.';
   // the denominator is the ladder THIS BUILD can climb: printing / X under the
   // demo cap sends a capped player back to farm boss kills for a rung that
   // will never unlock. The dossier's FULL GAME rows carry the rest of it.

@@ -340,7 +340,7 @@ function refreshFrontMenu() {
   const stack = el('fm-deploy-stack');
   const home = firstLaunch ? stack : chips;
   if (el('start-tutorial').parentElement !== home) {
-    if (firstLaunch) home.insertBefore(el('start-tutorial'), el('fm-play-slab'));
+    if (firstLaunch) home.insertBefore(el('start-tutorial'), el('esc-deploy'));
     else home.appendChild(el('start-tutorial'));
   }
 }

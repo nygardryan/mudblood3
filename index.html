@@ -77,8 +77,13 @@
 
     <!-- THE MENU. One screen: the title owns the top, the deploy stack owns the
          bottom, nothing competes. There is no mode picker because there is one
-         mode — PLAY *is* the deploy control, and the rung it deploys at is
-         printed inside it with EASIER / HARDER recessed into its ends.
+         mode — PLAY *is* the deploy control. It used to weld EASIER / HARDER
+         into its own ends with the rung printed inside it; that read the rung
+         as decoration on the button rather than as a decision the player
+         still has to make. The arrows now flank a card of their own,
+         underneath PLAY, holding the rung number, its name, its medal pay and
+         what it does — PLAY keeps only the rung NUMBER, since that's the one
+         fact that has to survive onto the button you press to deploy.
          Everything the old #endless-select held now lives here or in Settings.
          The escalation half is written by buildEscalationUI() (js/escalation.js);
          the medal count and the first-launch promotion by refreshFrontMenu()
@@ -106,30 +111,35 @@
                refreshFrontMenu() moves it back there -->
           <button id="start-tutorial" class="fm-chip" type="button">TUTORIAL</button>
 
-          <!-- the welded slab: one control, two recessed ends -->
-          <div class="fm-play" id="fm-play-slab">
-            <button id="esc-prev" class="fm-play__arrow fm-play__arrow--down" type="button" aria-label="Lower escalation">
-              <span class="fm-play__chev">◀</span><span class="fm-play__arrowlab">EASIER</span>
+          <button id="esc-deploy" class="fm-play" type="button">
+            <span class="fm-play__word">PLAY</span>
+            <span class="fm-play__lvl" id="esc-level">NO ESCALATION</span>
+          </button>
+
+          <!-- the rung card: EASIER / HARDER flank the modifier PLAY will
+               deploy at — its number, name, medal pay and what it does -->
+          <div class="fm-rung">
+            <button id="esc-prev" class="fm-rung__arrow fm-rung__arrow--down" type="button" aria-label="Lower escalation">
+              <span class="fm-rung__chev">◀</span><span class="fm-rung__arrowlab">EASIER</span>
             </button>
-            <button id="esc-deploy" class="fm-play__go" type="button">
-              <span class="fm-play__word">PLAY</span>
-              <span class="fm-play__read">
-                <span class="fm-play__lvl" id="esc-level">NO ESCALATION</span>
-                <span class="fm-play__mult" id="esc-mult">×1.0 MEDALS</span>
-              </span>
-            </button>
-            <button id="esc-next" class="fm-play__arrow fm-play__arrow--up" type="button" aria-label="Raise escalation">
-              <span class="fm-play__chev">▶</span><span class="fm-play__arrowlab">HARDER</span>
+            <div class="fm-rung__card">
+              <div class="fm-rung__head">
+                <span class="fm-rung__num" id="esc-rung-num"></span>
+                <span class="fm-rung__name" id="esc-rung-name"></span>
+                <span class="fm-medal fm-rung__medal"><span class="fm-medal__disc">★</span><span id="esc-mult"></span></span>
+              </div>
+              <div class="fm-rung__desc" id="esc-rung-desc"></div>
+            </div>
+            <button id="esc-next" class="fm-rung__arrow fm-rung__arrow--up" type="button" aria-label="Raise escalation">
+              <span class="fm-rung__chev">▶</span><span class="fm-rung__arrowlab">HARDER</span>
             </button>
           </div>
 
-          <!-- one line under the slab: the modifier this rung just added, how far
-               up the ladder you have earned, and the way into all ten -->
+          <!-- one line under the card: how far up the ladder you have earned,
+               and the way into all ten -->
           <div class="fm-status">
-            <span class="fm-status__name" id="esc-newest-name"></span>
-            <span class="fm-status__desc" id="esc-newest-desc"></span>
-            <span class="fm-status__dot">·</span>
             <span class="fm-status__earned" id="esc-earned"></span>
+            <span class="fm-status__dot">·</span>
             <button type="button" class="fm-status__link" id="esc-dossier-open">ALL 10 ▸</button>
           </div>
 

@@ -3386,78 +3386,94 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
   letter-spacing: 1px; color: #b7b088;
 }
 
-/* ---- the welded slab ----
-   ONE control with two recessed ends, not three buttons in a row. The shared
-   orange body and the single drop-shadow are what say "this is the play button
-   and these adjust it"; broken into three chips the arrows read as their own
-   destinations. overflow:hidden is what lets the children square off against
-   the rounded corners. */
-.fm-play {
-  display: flex; align-items: stretch;
-  background: #e8873a; border: 1px solid #f2a45f; border-radius: 12px;
-  box-shadow: 0 6px 0 #7a4415; overflow: hidden;
-}
-#intro .fm-play__arrow {
-  flex: 0 0 auto; width: clamp(50px, 9.4cqi, 78px); min-height: 0; padding: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: clamp(4px, 1cqi, 5px);
-  font-family: 'Oswald', sans-serif; letter-spacing: normal;
-  background: rgba(23, 20, 15, .14); border: 0; border-radius: 0; cursor: pointer;
-  color: rgba(23, 20, 15, .55);
-  transition: background .12s ease, color .12s ease;
-}
-#intro .fm-play__arrow--down { border-right: 1px solid rgba(23, 20, 15, .28); }
-/* the raise end is the live one while there's a rung left to take — same
-   asymmetry the old stepper had, kept because a ladder is climbed */
-#intro .fm-play__arrow--up:not(:disabled) { color: #17140f; }
-#intro .fm-play__arrow:hover:not(:disabled) { background: rgba(23, 20, 15, .24); }
-#intro .fm-play__arrow--up { border-left: 1px solid rgba(23, 20, 15, .28); }
-#intro .fm-play__arrow:disabled { color: rgba(23, 20, 15, .26); cursor: not-allowed; }
-.fm-play__chev { font-size: clamp(16px, 3.2cqi, 24px); line-height: 1; }
-.fm-play__arrowlab { font-size: clamp(7.5px, 1.6cqi, 9.5px); font-weight: 700; letter-spacing: .5px; }
-
-#intro .fm-play__go {
-  flex: 1 1 auto; min-width: 0; min-height: 0;
+/* ---- PLAY ----
+   A clean deploy button: the word, and the rung it deploys at. It used to
+   weld EASIER / HARDER into its own ends, but that made adjusting the rung
+   read as part of pressing PLAY rather than a separate decision — the arrows
+   now flank a card of their own below it (`.fm-rung`), and PLAY keeps only
+   the one fact that has to survive onto the button you actually press. */
+/* prefixed with #intro (not just .fm-play) because this is now the <button>
+   itself, and it has to outrank `.overlay button`'s gold repaint */
+#intro .fm-play {
   display: flex; flex-direction: column; align-items: center;
-  gap: clamp(5px, 1.2cqi, 9px);
+  gap: clamp(5px, 1.2cqi, 9px); width: 100%; min-height: 0;
   /* vertical metrics are vh-capped: cqi reads the container's WIDTH, and a
-     landscape phone is wide but short — width-only clamps rendered the slab
+     landscape phone is wide but short — width-only clamps rendered the button
      at its desktop max on a 375px-tall screen */
   padding: clamp(10px, 3.2vh, 22px) clamp(8px, 2.6cqi, 22px);
-  background: transparent; border: 0; border-radius: 0; cursor: pointer;
+  background: #e8873a; border: 1px solid #f2a45f; border-radius: 12px;
+  box-shadow: 0 6px 0 #7a4415; cursor: pointer;
   letter-spacing: normal; font-weight: normal;
   transition: background .12s ease;
 }
-#intro .fm-play__go:hover { background: rgba(255, 255, 255, .10); }
+#intro .fm-play:hover { background: #ec9855; }
 #intro .fm-play:active { box-shadow: 0 3px 0 #7a4415; transform: translateY(3px); }
 .fm-play__word {
   font-family: 'Saira Stencil One', 'Barlow Condensed', sans-serif;
   font-size: min(clamp(32px, 8cqi, 56px), 11vh); line-height: .84;
   letter-spacing: clamp(2px, 1.1cqi, 9px); color: #17140f;
 }
-/* the rung is printed INSIDE the button, so the thing you press states the
-   thing it does. It wraps to two lines on a narrow stage rather than shrinking. */
-.fm-play__read {
-  display: flex; align-items: baseline; justify-content: center;
-  gap: clamp(4px, 1.8cqi, 9px); flex-wrap: wrap;
-}
 .fm-play__lvl {
   font-family: 'Oswald', sans-serif; font-size: clamp(12px, 2.8cqi, 17px);
   font-weight: 700; letter-spacing: 1.5px; color: #17140f;
 }
-.fm-play__mult {
-  font-family: 'JetBrains Mono', monospace; font-size: clamp(8.5px, 1.8cqi, 10px);
-  letter-spacing: 1.2px; color: rgba(23, 20, 15, .72);
+
+/* ---- the rung card ----
+   EASIER / HARDER stand apart from PLAY now, flanking the one card that
+   carries the rung's whole story: its number, name, medal pay and what it
+   does. Standalone buttons rather than recessed ends, so each gets its own
+   rounded corners instead of squaring off against a shared parent. */
+.fm-rung { display: flex; align-items: stretch; gap: 8px; }
+#intro .fm-rung__arrow {
+  flex: 0 0 auto; width: clamp(58px, 10cqi, 86px); min-height: 0; padding: 8px 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px;
+  font-family: 'Oswald', sans-serif; letter-spacing: normal;
+  background: rgba(20, 19, 11, .92); border: 1px solid #55502f; border-radius: 7px;
+  cursor: pointer; color: #c9c19a;
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+/* the raise end is the live one while there's a rung left to take — same
+   asymmetry the old stepper had, kept because a ladder is climbed */
+#intro .fm-rung__arrow--up { border-color: #7d6a38; color: #e8cbab; }
+#intro .fm-rung__arrow:hover:not(:disabled) { background: rgba(32, 30, 17, .95); border-color: #e0b93e; }
+#intro .fm-rung__arrow:disabled { color: rgba(201, 193, 154, .25); border-color: #3a3b28; cursor: not-allowed; }
+.fm-rung__chev { font-size: clamp(16px, 3.2cqi, 20px); line-height: 1; color: #e6dfb8; }
+#intro .fm-rung__arrow--up .fm-rung__chev { color: #f2a45f; }
+#intro .fm-rung__arrow:disabled .fm-rung__chev { color: rgba(201, 193, 154, .25); }
+.fm-rung__arrowlab { font-size: clamp(7.5px, 1.6cqi, 9.5px); font-weight: 700; letter-spacing: .5px; }
+
+.fm-rung__card {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
+  align-items: center; gap: 5px; text-align: center; padding: 11px 16px;
+  background: rgba(14, 14, 8, .94); border: 1px solid #55502f; border-radius: 7px;
+}
+.fm-rung__head { display: flex; align-items: baseline; justify-content: center; gap: 9px; flex-wrap: wrap; }
+.fm-rung__num {
+  font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 1.5px;
+  color: #17140f; background: #f2c53d; border-radius: 4px; padding: 2px 8px;
+}
+.fm-rung__name {
+  font-family: 'Oswald', sans-serif; font-size: clamp(13px, 2.6cqi, 15px);
+  font-weight: 700; letter-spacing: 2px; color: #f2c53d;
+}
+.fm-rung__medal {
+  gap: 5px; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  letter-spacing: 1.2px; color: #e0b93e;
+}
+.fm-rung__medal .fm-medal__disc { width: 14px; height: 14px; font-size: 9px; }
+.fm-rung__desc {
+  font-family: 'JetBrains Mono', monospace; font-size: clamp(10.5px, 2cqi, 12px);
+  line-height: 1.45; letter-spacing: .6px; color: #ddd6b4; text-wrap: pretty;
 }
 
-/* ---- the status line: one modifier's worth of copy, then the climb ---- */
+/* ---- the status line: how far up the ladder you have earned, and the climb ---- */
 .fm-status {
   display: flex; align-items: baseline; justify-content: center;
   gap: clamp(6px, 1.6cqi, 10px); flex-wrap: wrap;
   font-family: 'JetBrains Mono', monospace;
   font-size: clamp(8.5px, 1.8cqi, 10px); letter-spacing: 1.2px; color: #6c6650;
 }
-.fm-status__name { color: #e7b93d; }
 .fm-status__dot { color: #3a3b28; }
 #intro .fm-status__link {
   min-height: 0; padding: 2px 4px; border: 0; background: none;

@@ -369,11 +369,11 @@ const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points
 // measured off wherever the deploy line currently sits.
 const BOSS_WAVE_INTERVAL = 100;      // arrives at wave 100, 200, 300...
 // Shared by ALL FOUR faction bosses (see bossReturnHpMult in js/waves.js): each
-// return carries 50% more HP than the return before it. Compounding, not a flat
-// multiple of the base pool — 1x, 1.5x, 2.25x, 3.375x — because the player's own
+// return carries 100% more HP than the return before it. Compounding, not a flat
+// multiple of the base pool — 1x, 2x, 4x, 8x — because the player's own
 // line compounds too over another hundred waves (cards, ranks, medal spend all
 // multiply), and one extra base pool per return falls behind and stays behind.
-const BOSS_RETURN_HP_GROWTH = 1.5;
+const BOSS_RETURN_HP_GROWTH = 2;
 const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
 // Plate refilled at every backline rally. These have to stay BELOW what a line
 // can put into him in one advance, or the refill silently makes him immortal:
@@ -566,12 +566,17 @@ const PROG_WAVE_INTERVAL = 100;
 // five 260-HP sacs to shut the bile off.
 // If the fight needs moving again, move THIS. See the flame note above for the
 // one knob not to reach for instead.
-const PROG_HP = 3500;
+// Bumped +25% off that 3500 baseline (2026-08-14, on request) to 4375; the
+// artillery-strike comparison above was measured at 3500 and hasn't been
+// re-run at this value.
+const PROG_HP = 4375;
 const PROG_SEGMENTS = 3;             // ONE pool; the phase boundaries are the bar's tick marks
 // Requirement, not flavour: the player must always be able to walk away from it.
-// Rifleman 42, medic 46, Sherman 14, the Abomination 9 — at 7 it is the slowest
-// thing on the field and repositioning is always an answer to it.
-const PROG_SPEED = 7;
+// Rifleman 42, medic 46, Sherman 14, the Abomination 9 — bumped +15% off a 7
+// baseline (2026-08-14, on request) to 8.05; still under the Abomination's 9,
+// so it stays the slowest thing on the field and repositioning is still an
+// answer to it.
+const PROG_SPEED = 8.05;
 const PROG_SAFE_X = W - 80;          // hard clamp, mirrors BOSS_SAFE_X: it can never breach
 // RAMPAGE: the moment a health segment breaks, the mass thrashes — moves
 // faster and shrugs off half of all incoming damage for a few seconds

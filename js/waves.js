@@ -221,7 +221,12 @@ function zomWaveComposition(w) {
   // Jumper's gate: odds off `w` (late is 0 for the whole 70-99 window), no
   // `mult` (a rare threat gets its own odds, not the wave-volume knob), capped
   // at one on the field — two 2000-HP rams is an AT-battery check, not a fight.
-  const chgChance = Math.min(0.3, 0.05 + Math.max(0, w - 70) * 0.002);
+  // The old curve (+0.002/wave, capped at 0.3) topped out by wave 195 and then
+  // sat flat for however much of the run was left — a run reaching wave 400+
+  // saw the Charger no more often than one at 200. Stretched so it keeps
+  // climbing much deeper into a run (cap now hit around wave 370) and tops out
+  // higher, so the battering ram stays a rising threat rather than a plateau.
+  const chgChance = Math.min(0.5, 0.05 + Math.max(0, w - 70) * 0.0015);
   if (w >= 70 && !G.enemies.some(e => !e.dead && e.type === 'zcharger')
     && Math.random() < chgChance) {
     out.push('zcharger');
@@ -755,7 +760,7 @@ function bossReturnHpMult(w, interval) {
 // the boss walks on from staging at centre field with a modest rifle screen.
 // armorEnemy skips boss:true, so his plate comes from initGermanBoss (he
 // refills it himself at every rally). Each hundredth-wave return is tougher:
-// wave 200 fields him at 1.5x HP, wave 300 at 2.25x, and so on.
+// wave 200 fields him at 2x HP, wave 300 at 4x, and so on.
 function spawnGermanBoss(w) {
   showBanner('DER SCHLÄCHTER — HE COMES FOR THE LINE!');
   SFX.event();

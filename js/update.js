@@ -130,10 +130,11 @@ function update(dt) {
     }
     if (s.timer <= 0) {
       s.done = true;
-      if (s.kind === 'v2') explodeV2(s.x, s.y, s.r, s.dmg, s.by);
+      const by = s.by; s.by = null;   // drop the firer pin once consumed
+      if (s.kind === 'v2') explodeV2(s.x, s.y, s.r, s.dmg, by);
       // a smoke round carries no charge: it cracks open into a burning pot
       else if (s.kind === 'smoke') plantSmokePot(s.x, s.y, s.burn);
-      else explode(s.x, s.y, s.r, s.dmg, s.big, s.by);
+      else explode(s.x, s.y, s.r, s.dmg, s.big, by);
     }
   }
 
@@ -143,6 +144,7 @@ function update(dt) {
     if (f.timer <= 0) {
       f.done = true;
       burstFlak(f);
+      f.by = null;
     }
   }
 
@@ -162,7 +164,11 @@ function update(dt) {
         color: pick(['#9a9384', '#7d766a', '#b0a898']),
       });
     }
-    if (f >= 1) { r.done = true; explode(r.tx, r.ty, r.r, r.dmg, false, r.by); }
+    if (f >= 1) {
+      r.done = true;
+      const by = r.by; r.by = null;
+      explode(r.tx, r.ty, r.r, r.dmg, false, by);
+    }
   }
 
   // Spitter bile globs: a lobbed corrosive shot that bursts where it lands. `arc`
@@ -180,7 +186,11 @@ function update(dt) {
         ttl: rand(0.2, 0.45), grav: 40, size: rand(1, 2), color: pick(['#7fbf4a', '#9fd66a']),
       });
     }
-    if (f >= 1) { b.done = true; bileBurst(b.tx, b.ty, b.r, b.dmg, b.infect, b.by); }
+    if (f >= 1) {
+      b.done = true;
+      const by = b.by; b.by = null;
+      bileBurst(b.tx, b.ty, b.r, b.dmg, b.infect, by);
+    }
   }
 
   // grenades in flight, then a 3-second fuse once they hit the ground
@@ -193,7 +203,12 @@ function update(dt) {
       }
     } else {
       g.fuse -= dt;
-      if (g.fuse <= 0) { g.done = true; explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by); maybeFragShrapnel(g); }
+      if (g.fuse <= 0) {
+        g.done = true;
+        explode(g.tx, g.ty, g.r || 38, g.dmg || 60, false, g.by);
+        maybeFragShrapnel(g);   // reads g.by (grenadier gate) before we drop it
+        g.by = null;
+      }
     }
   }
 
@@ -205,7 +220,12 @@ function update(dt) {
     sh.x += sh.vx * dt;
     sh.y += sh.vy * dt;
     sh.dist += step;
-    if (sh.dist >= sh.maxDist) { sh.done = true; continue; }
+    if (sh.dist >= sh.maxDist) {
+      sh.done = true;
+      sh.hit = null;
+      sh.by = null;
+      continue;
+    }
     if (Math.random() < 0.5) {
       G.particles.push({
         x: sh.x, y: sh.y, vx: rand(-6, 6), vy: rand(-6, 6),
@@ -253,6 +273,10 @@ function update(dt) {
     if (isMultiActorBoss(e.t)) continue;
     if (!e.dead && e.x > W + 10) {
       e.dead = true; e.breached = true;
+      // same selection clear damageEnemy does — a breach skips that path
+      const si = G.selected.indexOf(e);
+      if (si !== -1) G.selected.splice(si, 1);
+      if (G.focusTarget === e) G.focusTarget = null;
       G.breaches++;
       showBanner(factionAdjUpper() + ' BREAKTHROUGH! (' + G.breaches + '/' + G.level.breachLimit + ')');
       if (G.breaches >= G.level.breachLimit) gameOver();
@@ -283,7 +307,7 @@ function update(dt) {
   compactDefenses(G.watchtowers, stampWatchtowerRubble);
   compactDefenses(G.camoNests, stampCamoNestRubble);
   compactDefenses(G.ammoCrates, stampAmmoCrateRubble);
-  compactDefenses(G.dummies, stampDummyRubble);
+  compactDefenses(G.dummies, destroyDummy);
   compactDefenses(G.itWorks, stampItalianWorkRubble);
   compactInPlace(G.wires, w => w.hp > 0);
   compactInPlace(G.mines, m => !m.dead);
@@ -304,6 +328,41 @@ function update(dt) {
   compactInPlace(G.corpses, c => c.ttl > 0);
   compactInPlace(G.gibs, g => g.ttl > 0);
   compactInPlace(G.groundMarks, m => m.ttl > 0);
+
+  // Deep-run population caps (GROUND_MARK_CAP / CORPSE_CAP / GIB_CAP,
+  // js/damage.js): when the kill rate outruns the two-minute TTLs, retire the
+  // oldest entries by clamping their remaining life into the fade window —
+  // they leave through the ordinary fade+compaction path above rather than
+  // being spliced at full alpha. Oldest means the front: all three arrays are
+  // push-ordered at spawn.
+  if (G.groundMarks.length > GROUND_MARK_CAP) {
+    const excess = G.groundMarks.length - GROUND_MARK_CAP;
+    let clamped = false;
+    for (let i = 0; i < excess; i++) {
+      const m = G.groundMarks[i];
+      if (m.ttl > GROUND_MARK_FADE) { m.ttl = GROUND_MARK_FADE; clamped = true; }
+    }
+    // the rebuild pass may be asleep on a horizon computed before these clamps
+    if (clamped) wakeDecalPass();
+  }
+  if (G.corpses.length > CORPSE_CAP) {
+    const excess = G.corpses.length - CORPSE_CAP;
+    for (let i = 0; i < excess; i++) {
+      const cp = G.corpses[i];
+      if (cp.ttl > CORPSE_FADE) cp.ttl = CORPSE_FADE;
+      // free the private bake — drawCorpse paints these through a shared
+      // scratch for the fade window, so the heap can't hold more corpse
+      // canvases than the cap (each bake is a ~40×36×ss bitmap)
+      cp._sprite = null;
+    }
+  }
+  if (G.gibs.length > GIB_CAP) {
+    const excess = G.gibs.length - GIB_CAP;
+    for (let i = 0; i < excess; i++) {
+      const g = G.gibs[i];
+      if (g.ttl > GIB_FADE) g.ttl = GIB_FADE;
+    }
+  }
 
   // the decal layer's rebuild pass runs AFTER compaction, so it never stamps a
   // mark this frame's cleanup has just spliced out

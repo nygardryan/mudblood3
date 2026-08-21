@@ -29,7 +29,8 @@ const CODEX_CODE = {
   jhmg: 'T92', jsniper: 'SNP', jknee: 'KNE', jmortar: 'MTR', jlunge: 'LNG',
   joff: 'OFF', jflame: 'FLM', jhago: 'HGO', jtank: 'CHI', jchinu: 'CHN', jyamato: 'YMT',
   zshambler: 'SHM', zrunner: 'RUN', zcrawler: 'CRW', zhound: 'HND', zbrute: 'BRT',
-  zspitter: 'SPT', zbloater: 'BLT', zscreamer: 'SCR', zrevenant: 'REV', zabom: 'ABM',
+  zspitter: 'SPT', zbloater: 'BLT', zscreamer: 'SCR', zrevenant: 'REV',
+  zjumper: 'JMP', zabom: 'ABM',
   zprogen: 'PRG', zpod: 'POD',
   ifante: 'FNT', iuff: 'OFF', ibersa: 'BRS', iguast: 'GUA', imed: 'PTF',
   imosch: 'MSC', ibreda: 'BRD', ifiat: 'FIA', icecc: 'CEC', ibrixia: 'BRX',
@@ -1156,11 +1157,21 @@ function formatUnitStats(p, ut) {
   // throwing. The inspector carries the card-aware chips instead.
   if (ut.atgun) parts.push('AP SHELL', 'VEHICLES ONLY', 'IMMOBILE');
   if (ut.aagun) parts.push('FLAK', 'AIRCRAFT ONLY', 'IMMOBILE');
-  parts.push(`${p.cost} TP`, `[${p.hotkey}]`);
+  parts.push(`${p.cost} TP`);
   return parts.join(' · ');
 }
 
 function codexEntries(tab) {
+  // demo: the player's own roster is LISTED in full — the demo advertises what
+  // it locks, the same call the toolbar makes by leaving a locked item on the
+  // bar as a dead bannered button rather than removing it. But it has to be
+  // MARKED, and this was the one surface where it wasn't: every other place a
+  // locked item can appear says so (the toolbar's FULL GAME band, the shop and
+  // endgame slots' FULL GAME ONLY banner, the dossier's and the leaderboard
+  // header's FULL GAME), so a reference book printing GUNNER with full stats
+  // and no flag was the only screen in the build claiming he was buyable.
+  // Off the BUILD predicate, never demoLockedPlaceable: this overlay opens from
+  // the pause menu, and that one exempts tutorials (see js/demo.js).
   if (tab === 'troops') {
     return PLACEABLES.filter(p => p.kind === 'unit').map(p => {
       const ut = UNIT_TYPES[p.key];
@@ -1171,6 +1182,7 @@ function codexEntries(tab) {
         name: ut.name,
         stats: formatUnitStats(p, ut),
         desc: p.desc,
+        fgLocked: demoBuildLockedPlaceable(p),
       };
     });
   }
@@ -1181,19 +1193,22 @@ function codexEntries(tab) {
       code: CODEX_CODE[p.key],
       kind: p.kind.toUpperCase(),
       name: p.label,
-      // the two armor supports carry no hotkey (they're bought onto a man, not
-      // dropped on the field), so the bracket is dropped rather than printed empty
-      stats: [`${p.cost} TP`, p.hotkey ? `[${p.hotkey}]` : null, p.kind.toUpperCase()]
-        .filter(Boolean).join(' · '),
+      stats: [`${p.cost} TP`, p.kind.toUpperCase()].join(' · '),
       desc: p.desc,
+      fgLocked: demoBuildLockedPlaceable(p),
     }));
   }
   if (tab === 'enemies') {
     // the Yamato's belt sections, batteries and gun tubs are all real ENEMY_TYPES
     // entries, but they're parts of her — not foes in their own right, and three
     // extra cards would just clutter the roster
-    // (and the Progenitor's pus modules and the train's wagons, for the same reason)
-    return Object.entries(ENEMY_TYPES).filter(([, t]) => !isBossPart(t)).map(([key, t]) => {
+    // (and the Progenitor's pus modules and the train's wagons, for the same reason).
+    // The demo fights only the Germans, so it doesn't reveal the other three
+    // armies here either — German types carry no `faction` field (default 'de'),
+    // and the faction-less Alien Walker stays listed because it CAN appear.
+    // Tab record counts derive from this filter automatically.
+    return Object.entries(ENEMY_TYPES).filter(([, t]) =>
+      !isBossPart(t) && (!demoActive() || (t.faction || 'de') === 'de')).map(([key, t]) => {
       const parts = [`${t.hp} HP`, `${t.reward} TP REWARD`];
       if (t.dmg > 0) parts.splice(1, 0, `${t.dmg} DMG`);
       if (t.range > 0) parts.splice(t.dmg > 0 ? 2 : 1, 0, `${t.range} RNG`);
@@ -1227,7 +1242,9 @@ function codexEntries(tab) {
     code: CODEX_CODE[ev.key],
     name: ev.name,
     stats: `FROM WAVE ${ev.wave}`,
-    desc: ev.desc,
+    // demo: an entry may carry a variant of its copy with the other three
+    // armies' behaviour left out (see descDemo on 'airraid' in constants.js)
+    desc: (demoActive() && ev.descDemo) || ev.desc,
   }));
 }
 
@@ -1302,6 +1319,15 @@ function buildCodexCard(entry, tab) {
 
   const chips = document.createElement('div');
   chips.className = 'cx-chips';
+  // demo: FIRST, ahead of the stats it qualifies — a cost and full stats for
+  // something this build won't sell are a promise, and the flag has to land
+  // before the reader takes them at face value
+  if (entry.fgLocked) {
+    const fg = document.createElement('span');
+    fg.className = 'cx-chip cx-chip--fg';
+    fg.textContent = 'FULL GAME';
+    chips.appendChild(fg);
+  }
   for (const part of String(entry.stats).split(' · ')) {
     const chip = document.createElement('span');
     chip.className = 'cx-chip';

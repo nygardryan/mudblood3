@@ -2,10 +2,13 @@
    Part of a set of plain scripts sharing one global scope; load order is set in index.html.
 
    Blood and craters are the single biggest cost in the frame, and the reason a
-   long run gets slower the longer it lasts: `G.groundMarks` is uncapped, accrues
-   at ~30 marks/s in a sustained fight and holds them for GROUND_MARK_TTL, so a
+   long run gets slower the longer it lasts: `G.groundMarks` accrues at ~30
+   marks/s in a sustained fight and holds them for GROUND_MARK_TTL, so a
    12-minute endless run reaches ~1,500 decals and `draw()` climbs from 0.5 ms to
-   26 ms tracking that count almost exactly. Each mark is only one or two ellipse
+   26 ms tracking that count almost exactly. (Deep runs outrun even the TTL —
+   ~170 marks/s at wave ~165 stood 20,000 live objects, and the major-GC pause
+   tracing them was a periodic freeze — so update() retires the oldest past
+   GROUND_MARK_CAP by clamping their ttl into the fade window; see js/damage.js.) Each mark is only one or two ellipse
    fills — the cost is the ~2,500 separate draw CALLS, 70% of everything the frame
    issues, not what is inside them. (That is also why the sprite migration cannot
    fix it: a per-mark blit trades one ellipse for one drawImage and measured
@@ -48,6 +51,7 @@ let decalPass = null;            // snapshot of G.groundMarks being stamped, or 
 let decalPassI = 0;
 let decalPassMinTtl = Infinity;  // lowest ttl seen this pass — schedules the next one
 let decalNextPass = 0;           // G.time the next pass may start
+let decalDrain = null;           // 1×1 scratch target that forces per-chunk rasterization
 
 function makeDecalCanvas(ss) {
   const cv = document.createElement('canvas');
@@ -126,6 +130,15 @@ function invalidateDecals() {
   decalNextPass = 0;
 }
 
+// The population cap in update() clamps the oldest marks' ttl into the fade
+// window when a deep run's kill rate outruns expiry. The pass may be asleep on
+// a horizon computed back when that oldest mark had two minutes to live, so the
+// cap nudges it — without this the clamped marks would expire out of the array
+// while their stamps sat on the layer at full alpha until the horizon lapsed.
+function wakeDecalPass() {
+  if (G) decalNextPass = Math.min(decalNextPass, G.time + DECAL_PASS_INTERVAL);
+}
+
 // Called at the end of update(), AFTER compaction, so a pass never stamps a mark
 // the same frame's cleanup has just spliced out.
 function updateDecals() {
@@ -146,6 +159,16 @@ function updateDecals() {
     if (m.ttl < decalPassMinTtl) decalPassMinTtl = m.ttl;
     drawGroundMark(m, decalBackCtx);
   }
+  // Rasterize this chunk NOW. Canvas 2D commands are recorded and rasterized
+  // lazily — nothing reads the back canvas until the swap, so without this the
+  // whole pass's stamps pile up unrasterized and the first blit of the swapped
+  // front pays for all of them in one frame: a periodic hitch that grows with
+  // the mark count, which is the very artefact the progressive pass exists to
+  // prevent. Using the canvas as a drawImage SOURCE (1px, onto a 1×1 scratch)
+  // forces the flush without getImageData's readback, which can permanently
+  // kick a canvas off the GPU.
+  if (!decalDrain) decalDrain = document.createElement('canvas').getContext('2d');
+  decalDrain.drawImage(decalBack, 0, 0, 1, 1, 0, 0, 1, 1);
   if (decalPassI < decalPass.length) return;
 
   const cv = decalFront, c = decalFrontCtx;

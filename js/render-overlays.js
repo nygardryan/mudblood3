@@ -65,10 +65,15 @@ function drawRankChevrons(a, dy) {
 // corner of an eye without having to parse a bar. The bar under it is the exact
 // time left, for the player who has already found him and is deciding whether
 // there's room for one more burst.
+// `f` and `col` may be passed explicitly by a caller that is warning about
+// something other than an officer's order — the Jumper's crouch is the second
+// one — so the badge stays generic over "this actor is winding something up"
+// rather than over the command clock specifically. Omit both and it reads the
+// officer fields as it always has.
 const CMD_WARN_DY = 27;   // bar sits clear of the rot bar at 22
-function drawCommandWarning(a) {
-  const f = clamp(1 - a.cmdT / (a.cmdMax || OFFICER_CMD_WARN), 0, 1);
-  const col = a.cmdColor || '#ffd15a';
+function drawCommandWarning(a, f, col) {
+  if (f == null) f = clamp(1 - a.cmdT / (a.cmdMax || OFFICER_CMD_WARN), 0, 1);
+  col = col || a.cmdColor || '#ffd15a';
   drawActorBar(a, CMD_WARN_DY, 18, 2, f, col);
 
   // warning triangle, growing and blinking faster as the order lands

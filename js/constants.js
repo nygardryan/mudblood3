@@ -152,6 +152,21 @@ const DE_OFF_SUP_TIME_MULT = 0.5;     // and the pin that does land runs half as
 const ZOM_PRONE_CHANCE_MULT = 0.15;   // vs everyone else's flinch roll
 const ZOM_PRONE_TIME_MULT = 0.35;     // and it barely stays down
 
+// --- flamethrower fuel -------------------------------------------------------
+// Every FOOT flamethrower — the player's M2 and the eflame/jflame/iflame
+// counterparts alike — carries FLAMER_BURN_TIME seconds of actual spray, then
+// stands silent for FLAMER_RELOAD_TIME while a fresh tank goes on. The pause
+// is the counter-play window the stream never used to give: against the Horde
+// a no-reload flamer was a standing wall (the dps is continuous and the pack
+// is all melee), so the swap is what lets a rush cross the cone. Fuel drains
+// only while actually burning — the jeep .50's belt rule: an empty stretch
+// must not cost it. The L3 flame tankette is deliberately exempt: it tows its
+// own bowser, and its counter is killing the thin-skinned vehicle, not waiting
+// it out. The gate is flamerSwappingTank/spendFlamerFuel (js/shooting.js),
+// called by the two infantry flame branches (update-friendlies/update-enemies).
+const FLAMER_BURN_TIME = 10;    // seconds of spray per tank
+const FLAMER_RELOAD_TIME = 5;   // seconds to swap on a fresh one
+
 // --- difficulty: enemy toughness ramp ---------------------------------------
 // Difficulty used to be income-only (ENDLESS_DIFFICULTIES in js/levels.js), so
 // "hard" meant a slower start rather than a harder war — measurably, it did not
@@ -185,9 +200,12 @@ const OFFICER_AURA_R = 140;
 // Tuned against the window it has to buy: a gunner at 179 range needs ~1.5s to
 // put an officer down from full once he's acquired, and the player needs a
 // beat to SEE the mark and tap it first. Under ~2s the telegraph is honest but
-// unanswerable, which is the same as no telegraph; much over 3s and an officer
-// spends most of his life flashing and the mark stops meaning "now".
-const OFFICER_CMD_WARN = 2.6;      // seconds between the order forming and landing
+// unanswerable, which is the same as no telegraph. It sat at 2.6 for a while;
+// 5s is a deliberate generosity trade — the mark means "soon" rather than
+// "now", and an officer spends more of his life flashing, but even a walked-up
+// rifleman can answer it. The cd ranges below are widened to compensate, so a
+// surviving officer doesn't spend the majority of his time mid-telegraph.
+const OFFICER_CMD_WARN = 5;        // seconds between the order forming and landing
 // ...and if there is nobody in radius to rouse he re-checks on this instead of
 // burning a full cooldown, so a telegraph that resolves into nothing — the one
 // thing that would teach the player to ignore the next one — never gets drawn.
@@ -239,8 +257,8 @@ const UNIT_TYPES = {
     desc: 'Portable 60mm mortar. Indirect fire at range.',
   },
   sniper: {
-    name: 'Sniper', hp: 85, range: 274, dmg: 46, acc: 0.72,
-    rof: 5.2, burst: 1, burstGap: 0, speed: 38,
+    name: 'Sniper', hp: 85, range: 288, dmg: 46, acc: 0.72,
+    rof: 4.73, burst: 1, burstGap: 0, speed: 38,
     color: '#3f5730', gun: 12, sfx: 'sniper',
     desc: 'Springfield scoped rifle. Picks off officers, snipers, bazookas, and mortar teams first.',
   },
@@ -268,7 +286,7 @@ const UNIT_TYPES = {
     color: '#5a723c', gun: 8, sfx: 'rifle',
     flame: { range: 78, arc: 0.45, dps: 38 },
     blastResist: 0.5, rankHealMult: 3,
-    desc: 'M2 flamethrower and flak vest. Burns everything in the cone — friend or foe.',
+    desc: `M2 flamethrower and flak vest. Burns everything in the cone — friend or foe. ${FLAMER_BURN_TIME}s of fuel per tank, then he pauses to swap on a fresh one.`,
   },
   jeep: {
     name: 'Jeep', hp: 250, range: 221, dmg: 13, acc: 0.42,
@@ -350,6 +368,12 @@ const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points
 // move of DEPLOY_X (see the note on it) — same mortar, same margin, just
 // measured off wherever the deploy line currently sits.
 const BOSS_WAVE_INTERVAL = 100;      // arrives at wave 100, 200, 300...
+// Shared by ALL FOUR faction bosses (see bossReturnHpMult in js/waves.js): each
+// return carries 100% more HP than the return before it. Compounding, not a flat
+// multiple of the base pool — 1x, 2x, 4x, 8x — because the player's own
+// line compounds too over another hundred waves (cards, ranks, medal spend all
+// multiply), and one extra base pool per return falls behind and stays behind.
+const BOSS_RETURN_HP_GROWTH = 2;
 const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
 // Plate refilled at every backline rally. These have to stay BELOW what a line
 // can put into him in one advance, or the refill silently makes him immortal:
@@ -542,13 +566,31 @@ const PROG_WAVE_INTERVAL = 100;
 // five 260-HP sacs to shut the bile off.
 // If the fight needs moving again, move THIS. See the flame note above for the
 // one knob not to reach for instead.
-const PROG_HP = 3500;
+// Bumped +25% off that 3500 baseline (2026-08-14, on request) to 4375; the
+// artillery-strike comparison above was measured at 3500 and hasn't been
+// re-run at this value.
+const PROG_HP = 4375;
 const PROG_SEGMENTS = 3;             // ONE pool; the phase boundaries are the bar's tick marks
 // Requirement, not flavour: the player must always be able to walk away from it.
-// Rifleman 42, medic 46, Sherman 14, the Abomination 9 — at 7 it is the slowest
-// thing on the field and repositioning is always an answer to it.
-const PROG_SPEED = 7;
+// Rifleman 42, medic 46, Sherman 14, the Abomination 9 — bumped +15% off a 7
+// baseline (2026-08-14, on request) to 8.05; still under the Abomination's 9,
+// so it stays the slowest thing on the field and repositioning is still an
+// answer to it.
+const PROG_SPEED = 8.05;
 const PROG_SAFE_X = W - 80;          // hard clamp, mirrors BOSS_SAFE_X: it can never breach
+// RAMPAGE: the moment a health segment breaks, the mass thrashes — moves
+// faster and shrugs off half of all incoming damage for a few seconds
+// (updateProgenitor sets rampageT in the segment poll; the resist is scaled in
+// damageEnemy beside bossPartDamageMult). It exists to stop a shell barrage
+// from blowing straight through a break: the resurrection the break just fired
+// deserves its moment on the field. This is NOT the blastResist the note below
+// says never to add — that was a STANDING tax on the one workable answer; this
+// is a 4-second window per break, 8 seconds across the whole fight, and it
+// taxes every source alike. The speed still keeps the fight's hard promise
+// (see PROG_SPEED): 7 × 1.3 = 9.1, far under any man's walk.
+const PROG_RAMPAGE_TIME = 4;
+const PROG_RAMPAGE_SPEED_MULT = 1.3;
+const PROG_RAMPAGE_RESIST = 0.5;     // fraction of incoming damage shrugged off
 // NOTE: it deliberately carries NO blastResist. A 0.25 was tried and removed: the
 // brood screens the mass so completely that small arms almost never reach it (a
 // 20-man line fired for 55s and took it to 97.5%), which makes explosives the one
@@ -666,7 +708,7 @@ const ENEMY_TYPES = {
     supResist: true,
   },
   esniper: {
-    // counterpart: sniper (range 274, speed 38)
+    // counterpart: sniper (range 288, speed 38)
     name: 'Sniper', hp: 70, speed: 14, range: 209, dmg: 44, acc: 0.70,
     rof: 6.0, burst: 1, burstGap: 0, reward: 4,
     color: '#4a515c', gun: 12, sfx: 'sniper', priority: 4,
@@ -822,7 +864,7 @@ Object.assign(ENEMY_TYPES, {
     color: '#5c5c33', gun: 11, sfx: 'mg', priority: 3, faction: 'jp',
   },
   jsniper: {
-    // counterpart: sniper (range 274, speed 38) — Type 97 in the treeline.
+    // counterpart: sniper (range 288, speed 38) — Type 97 in the treeline.
     name: 'Nest Sniper', hp: 68, speed: 13, range: 205, dmg: 44, acc: 0.70,
     rof: 6.0, burst: 1, burstGap: 0, reward: 4,
     color: '#565a30', gun: 12, sfx: 'sniper', priority: 4, faction: 'jp',
@@ -1063,6 +1105,83 @@ Object.assign(ENEMY_TYPES, {
     name: 'Revenant', hp: 82, speed: 22, range: 148, dmg: 9, acc: 0.30,
     rof: 1.9, burst: 1, burstGap: 0, reward: 3,
     color: '#5c6242', gun: 9, sfx: 'rifle', priority: 2, faction: 'zo',
+  },
+  zjumper: {
+    // The Jumper: the one thing in the Horde that refuses the approach. Every
+    // other corpse walks into the guns from the same end of the field; this one
+    // coils, vaults the trench outright and comes down IN the line, blasting
+    // whoever was standing there. It attacks the player's POSITION, which is
+    // what the faction otherwise can't touch — hence a wave-40 gate.
+    //
+    // boss:true came from the zabom model, but after the harasser retune the
+    // flag is NOT here for the HP tier any more — 348 is a shade over a brute's
+    // 300, and below it once the brute's armor roll is counted. What it still
+    // buys, and the only reason it stays, is the EXEMPTIONS: never prone, never
+    // suppressed, no armor roll, immune to Headshot. A thing whose whole job is
+    // to keep crossing open ground cannot be a thing a single BAR pins down.
+    // Still NOT tank:true, which would route it to updateTank before the
+    // dispatch reached updateZombie and hand it the x0.04 small-arms multiplier
+    // this faction has no business carrying. No noRamp: easy's hpRamp is
+    // 0.00625, so wave 40 is only 1.25x catalog (~435) — against a brute's 375
+    // and an abomination's 1150. Deliberately NOT on the AT gun's or canister's
+    // by-name lists.
+    //
+    // `leap` rather than `pounce`: the flight machinery is shared with the
+    // hound (stepLeapFlight, js/update-enemies.js) but the two specs must stay
+    // distinct, because the hound's is a gap-closer that needs no touchdown
+    // code and this one's whole payload IS the landing. No type carries both.
+    // range/min: the window it will launch from — min is what makes it leap
+    // back OUT of a melee it is already in. dur: flight seconds. lift: peak of
+    // the render-only arc, px. wind: the crouch before the launch, which is the
+    // tell. cdMin/cdMax: recharge. r/dmg: the landing slam, a side-blind
+    // explode() that damages the horde around it too. pack: how many men must
+    // be standing together for a spot to be worth jumping into.
+    name: 'Jumper', hp: 348, speed: 26, range: 0, dmg: 46, acc: 0,
+    rof: 1.6, burst: 1, burstGap: 0, reward: 14,
+    color: '#4d5c3c', gun: 7, sfx: 'scream', priority: 1, faction: 'zo',
+    zombie: true, infect: 0.32, boss: true,
+    // Retuned from a burst threat into a HARASSER: half the reach doubled to
+    // 440 (half the field, and more than the whole deploy zone is deep), the
+    // recharge halved, and the slam cut 60% to pay for both. It now lands often
+    // and lands everywhere instead of hitting once and hitting hard — the slam
+    // is a disruption that scatters a position rather than a blow that deletes
+    // one. `r` is untouched: the blast still covers the same ground, it just
+    // costs less to be standing in.
+    leap: { range: 440, min: 90, dur: 0.75, lift: 34, wind: 0.6,
+      cdMin: 4.5, cdMax: 6.5, r: 54, dmg: 23, pack: 2 },
+  },
+  zcharger: {
+    // The Charger: a tank-sized bull of fused corpses that answers only to the
+    // player's anti-tank weapons — the wave-70+ heavy. Once it closes on the
+    // line it stops walking and RAMS: a 2s wind-up where it drags backward
+    // (the tell), then it flies down a straight line trampling every man it
+    // passes over, then picks a new line and does it again.
+    //
+    // It shipped with tank:true (small arms bounced at x0.04 AND never even
+    // targeted it) and that was retuned out as too strong — bullets now hit it
+    // for full damage, on the zabom/awalker model: enormous HP standing in for
+    // armor, NO tank flag, and the AT channel wired explicitly instead of
+    // bought by the flag. The sites, all keyed on `ram`: the AT gun's tier 1
+    // and the bazooka's and the Sherman cannon's (update-friendlies.js),
+    // canisterHittable's exclusion (cards.js — AP is the right round for a
+    // 2000 HP mass, buckshot isn't), actorHitRadius's 26px (helpers.js), and
+    // `blastVuln` below, which explode() reads because blast's x2.2 keys on
+    // the tank flag it no longer carries. boss:true is the zabom model —
+    // never prone, never suppressed, no armor vest, immune to Headshot — and
+    // it stays stunnable, so a mortar's shell shock freezing the wind-up is
+    // the counter-play.
+    //
+    // ram spec: range = how close a unit must be to trigger a charge.
+    // wind: the backward wind-up, seconds. back: how fast it drags backward
+    // during it, px/s. speed: flight px/s. over: how far past the committed
+    // spot the line runs. hitR: trample radius (tank-sized, matches
+    // actorHitRadius). cdMin/cdMax: recharge between charges.
+    name: 'Charger', hp: 1000, speed: 20, range: 0, dmg: 48, acc: 0,
+    rof: 1.7, burst: 1, burstGap: 0, reward: 30,
+    color: '#4e5a38', gun: 8, sfx: 'scream', priority: 3, faction: 'zo',
+    zombie: true, infect: 0.35, boss: true, blastVuln: 2.2,
+    ram: { range: 190, wind: 2.0, back: 9, speed: 320, over: 120, hitR: 24,
+      cdMin: 2.5, cdMax: 4.5 },
   },
   zabom: {
     // the Abomination: a towering mound of fused corpses, the horde's boss-tier
@@ -1345,7 +1464,7 @@ Object.assign(ENEMY_TYPES, {
     garrison: true, garrisonPrefer: 'bunker',
   },
   icecc: {
-    // counterpart: sniper (range 274, speed 38) — scoped Carcano. He makes for a
+    // counterpart: sniper (range 288, speed 38) — scoped Carcano. He makes for a
     // watch tower, and from a hardened one his 200 reach becomes 300: further
     // than most of the player's line can answer. Shell the tower.
     name: 'Cecchino', hp: 66, speed: 12, range: 200, dmg: 44, acc: 0.70,
@@ -1743,6 +1862,8 @@ const ENEMY_INFO = {
   zbloater: 'A gas-swollen corpse that bursts when it dies or reaches you, venting a cloud of infectious rot: area damage and a high infect chance to all caught in it. A walking mine — kill it at range.',
   zscreamer: 'The horde\'s driving force. Its presence enrages the dead around it, and on a cadence it looses a scream that hurls every nearby zombie into a frenzied sprint. It swells for a few seconds first, marked and ringed — put it down inside that window and the pack never breaks into a run.',
   zrevenant: 'A reanimated Wehrmacht soldier that never let go of his Kar98 — the horde\'s only gunman. Undead hands aim poorly and it fires slowly, but a corpse that shoots back is a nasty surprise.',
+  zjumper: 'A corpse rebuilt around its legs — it does not walk into your line, it JUMPS over it. It coils where it stands, vaults clean across no-man\'s-land and comes down in the middle of your men, and the landing itself is the blast: everything nearby is caught, its own dead included. Then it fights where it lands, and leaps again to the next knot of men. It will not launch out of wire, and a body knocked down mid-crouch or mid-air never lands the blow — but nothing else about it is slow. Do not let your men bunch up.',
+  zcharger: 'A tank-sized siege bull of fused corpses behind a horned bone plow. Rifle fire rings off it like off a hull — only anti-tank weapons and explosives really hurt it, and explosives hurt it badly. When it closes on your line it drags backward for a long moment, then flies down a straight line trampling every man on it, picks a new line, and does it again. The wind-up is the warning: shell it then, or step your men off the line it is facing.',
   zabom: 'The Abomination — a towering mound of fused corpses, the horde\'s boss. Enormous HP, ground-shaking slow, a sweeping blow that flattens men and smashes emplacements, and near-certain infection on survivors. Burn it, shell it, or mine it.',
   zprogen: 'The Progenitor — the mass the whole horde came out of, and the thing waiting at wave 100. It crawls slower than anything on the field and swallows whole any man it reaches. Five pus modules ring its hide, lobbing infectious bile; shoot them off and its reach dies with them. It splits open every few seconds to birth a fresh brood, and every time a third of it dies it calls every corpse nearby back onto its feet — yours included. Do not let bodies pile up around it.',
   zpod: 'A pus module swollen out of the Progenitor\'s hide. Its own flesh, its own HP: burst it and that sac stops spitting bile for good. They sit between you and the mass, so rifles chew through them first.',
@@ -1793,6 +1914,12 @@ const EVENT_INFO = [
     name: 'Air Attack',
     wave: 4,
     desc: 'Aircraft cross the field out of the enemy treeline toward your line. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Against the Imperial Japanese Army it is a kamikaze attack instead: twice as many aircraft, no bombs, each one picking a defender and flying into him for a single blast exactly where it lands. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
+    // the demo fights only the Wehrmacht and hides the other three rosters from
+    // the codex, so the kamikaze clause is the one player-facing line left that
+    // names an army this build doesn't contain. Same rule as the escalation
+    // dossier's enemy note: copy that describes a faction owes demoActive() a
+    // look. Read-side only — codexEntries picks the variant, nothing prunes.
+    descDemo: 'Aircraft cross the field out of the enemy treeline toward your line. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
   },
   {
     key: 'paradrop',
@@ -1864,59 +1991,59 @@ const RANK_SPREAD_FLOOR = 0.4;
 const RANK_ARC_RATE = 0.05236;    // +3 degrees of traverse per rank, in radians
 
 const PLACEABLES = [
-  { key: 'rifleman', label: 'RIFLEMAN', cost: 3, kind: 'unit', hotkey: '1',
+  { key: 'rifleman', label: 'RIFLEMAN', cost: 3, kind: 'unit',
     desc: 'M1 Garand rifleman. Cheap and reliable. Ranking up makes him shoot faster, straighter, and harder.' },
-  { key: 'gunner', label: 'GUNNER', cost: 9, kind: 'unit', hotkey: '2',
+  { key: 'gunner', label: 'GUNNER', cost: 9, kind: 'unit',
     desc: 'BAR gunner. Long-range automatic fire. Ranking up makes him shoot faster, straighter, and harder.' },
-  { key: 'grenadier', label: 'GRENADIER', cost: 7, kind: 'unit', hotkey: '3',
+  { key: 'grenadier', label: 'GRENADIER', cost: 7, kind: 'unit',
       desc: 'Carbine + frag grenades. Blast can hit your men. Can catch and return enemy grenades. Rank: more frequent, accurate, harder grenades.' },
-    { key: 'shotgunner', label: 'SHOTGUN', cost: 5, kind: 'unit', hotkey: 'G',
+    { key: 'shotgunner', label: 'SHOTGUN', cost: 5, kind: 'unit',
       desc: 'M97 trench gun and body armor. High HP; each blast hits every enemy in the cone. Rank: tighter spread, extended range.' },
-    { key: 'bazooka', label: 'BAZOOKA', cost: 13, kind: 'unit', hotkey: 'B',
+    { key: 'bazooka', label: 'BAZOOKA', cost: 13, kind: 'unit',
       desc: 'M1A1 rocket launcher. Inaccurate at range; splash hurts friendlies. Excels vs armor. Rank: faster reloads, tighter rockets.' },
-    { key: 'mortarman', label: 'MORTARMAN', cost: 11, kind: 'unit', hotkey: 'M',
+    { key: 'mortarman', label: 'MORTARMAN', cost: 11, kind: 'unit',
       desc: 'Portable 60mm mortar. Long-range indirect fire; useless up close. Rank: faster reloads, tighter shells.' },
-    { key: 'sniper', label: 'SNIPER', cost: 10, kind: 'unit', hotkey: '4',
+    { key: 'sniper', label: 'SNIPER', cost: 10, kind: 'unit',
       desc: 'Springfield scoped rifle. Picks officers, snipers, bazookas, and mortar teams first. Rank: faster, straighter, harder.' },
-    { key: 'medic', label: 'MEDIC', cost: 12, kind: 'unit', hotkey: '5',
+    { key: 'medic', label: 'MEDIC', cost: 12, kind: 'unit',
       desc: 'Unarmed. Heals the most wounded nearby soldier. Faster with rank. Snipers hunt him. Can\'t repair vehicles or fortifications.' },
-    { key: 'engineer', label: 'ENGINEER', cost: 14, kind: 'unit', hotkey: 'E',
+    { key: 'engineer', label: 'ENGINEER', cost: 14, kind: 'unit',
       desc: 'Repairs and upgrades fortifications, and lets you build emplacements forward of the deploy line within his radius. Slowly patches vehicles and AT guns. SMG close range. Rank: faster repairs, extended range.' },
-    { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit', hotkey: '6',
+    { key: 'officer', label: 'OFFICER', cost: 15, kind: 'unit',
       desc: 'Sidearm. Aura boosts nearby soldiers\' fire. Bonus grows with rank. Earns bonus TP. Snipers hunt him.' },
-    { key: 'flamer', label: 'FLAMER', cost: 7, kind: 'unit', hotkey: 'F',
-      desc: 'M2 flamethrower. Burns everything in the cone — friend and foe. Rank: more burn damage, tighter stream.' },
-    { key: 'jeep', label: 'JEEP', cost: 26, kind: 'unit', hotkey: 'J',
+    { key: 'flamer', label: 'FLAMER', cost: 7, kind: 'unit',
+      desc: `M2 flamethrower. Burns everything in the cone — friend and foe. ${FLAMER_BURN_TIME}s of fuel per tank, then a pause to reload. Rank: more burn damage, tighter stream.` },
+    { key: 'jeep', label: 'JEEP', cost: 26, kind: 'unit',
       desc: 'Willys jeep, .50 cal HMG, fires on the move. Unarmored. Engineer patches slowly. Rank: faster, deadlier.' },
-    { key: 'sherman', label: 'SHERMAN', cost: 50, kind: 'unit', hotkey: 'T',
+    { key: 'sherman', label: 'SHERMAN', cost: 50, kind: 'unit',
       desc: 'M4 Sherman. 75mm turret cannon. Shrugs off small arms. Engineer repairs slowly. Rank: sharper aim, faster reloads.' },
-    { key: 'atgun', label: 'AT GUN', cost: 21, kind: 'unit', hotkey: 'P',
+    { key: 'atgun', label: 'AT GUN', cost: 21, kind: 'unit',
       desc: '57mm AT gun. Immobile; fires at vehicles in its cone. Engineer repairs slowly. Rank: wider arc, faster reloads, more damage.' },
-    { key: 'aagun', label: 'AA GUN', cost: 21, kind: 'unit', hotkey: 'V',
+    { key: 'aagun', label: 'AA GUN', cost: 21, kind: 'unit',
       desc: '40mm Bofors flak gun. Immobile; shoots bombers and paratroopers. Engineer repairs slowly. Rank: wider arc, faster reloads, tighter aim.' },
-  { key: 'wire', label: 'WIRE', cost: 3, kind: 'defense', hotkey: '7',
+  { key: 'wire', label: 'WIRE', cost: 3, kind: 'defense',
     desc: 'Barbed wire. Slows the German advance until it wears out.' },
-  { key: 'sandbags', label: 'SANDBAGS', cost: 4, kind: 'defense', hotkey: '8',
+  { key: 'sandbags', label: 'SANDBAGS', cost: 4, kind: 'defense',
     desc: 'Cover. Soldiers behind it dodge half of incoming fire.' },
-  { key: 'dummy', label: 'DUMMY', cost: 8, kind: 'defense', hotkey: 'D',
+  { key: 'dummy', label: 'DUMMY', cost: 8, kind: 'defense',
     desc: 'Straw decoy. Half the enemy never falls for it at all (50%); the rest waste fire on it, but each hit they may see the ruse and move on (40%). Fortify for a helmet, harden for body armor — a better disguise both takes in more of them (35%/25% ignore it) and holds their attention longer (30%/20%), and each tier adds another decoy\'s worth of HP.' },
-  { key: 'bunker', label: 'BUNKER', cost: 15, kind: 'defense', hotkey: 'K',
+  { key: 'bunker', label: 'BUNKER', cost: 15, kind: 'defense',
     desc: 'Concrete pillbox. Soldiers inside dodge 75% of incoming fire. Shrugs off shellfire.' },
-  { key: 'watchtower', label: 'WATCH TOWER', cost: 10, kind: 'defense', hotkey: 'W',
+  { key: 'watchtower', label: 'WATCH TOWER', cost: 10, kind: 'defense',
     desc: 'Wooden lookout. +25% range for nearby soldiers (+35% fortified). Mortars, guns and vehicles ignore it. Frail.' },
-  { key: 'camonest', label: 'CAMO NEST', cost: 4, kind: 'defense', hotkey: 'C',
+  { key: 'camonest', label: 'CAMO NEST', cost: 4, kind: 'defense',
     desc: 'Concealed position. Hidden until firing; exposed 3 s after last shot (1.5 s fortified). No dodge bonus. Weak to explosives.' },
-  { key: 'ammocrate', label: 'AMMO CRATE', cost: 8, kind: 'defense', hotkey: 'X',
+  { key: 'ammocrate', label: 'AMMO CRATE', cost: 8, kind: 'defense',
     desc: 'Ammunition cache. Nearby soldiers fire and reload 10% faster (+20% fortified, +30% hardened). Frail.' },
-  { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense', hotkey: '9',
+  { key: 'mine', label: 'MINEFIELD', cost: 6, kind: 'defense',
     desc: 'Cluster of 5 anti-personnel mines. Hurts tanks too. The enemy can\'t see them.' },
-  { key: 'mortar', label: 'MORTAR STRIKE', cost: 5, kind: 'support', hotkey: '0',
+  { key: 'mortar', label: 'MORTAR STRIKE', cost: 5, kind: 'support',
     desc: '6 mortar shells on target. DANGER CLOSE — friendly fire is real.' },
-  { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 12, kind: 'support', hotkey: 'A',
+  { key: 'artillery', label: 'ARTILLERY STRIKE', cost: 12, kind: 'support',
     desc: '105mm barrage: 16 heavy shells, wide spread. Devastating. Indiscriminate.' },
-  { key: 'bodyarmor', label: 'BODY ARMOR', cost: 2, kind: 'support', hotkey: '',
+  { key: 'bodyarmor', label: 'BODY ARMOR', cost: 2, kind: 'support',
     desc: 'Straps a plate carrier on one infantryman. Its own bar soaks up bullet damage until it breaks — HP is untouched while it holds. Re-buy to refill.' },
-  { key: 'flakarmor', label: 'FLAK ARMOR', cost: 2, kind: 'support', hotkey: '',
+  { key: 'flakarmor', label: 'FLAK ARMOR', cost: 2, kind: 'support',
     desc: 'Fits a flak vest on one infantryman. Its own bar soaks up explosion damage until it breaks — HP is untouched while it holds. Re-buy to refill.' },
 ];
 
@@ -1925,47 +2052,47 @@ const PLACEABLES = [
 // closest allied PLACEABLES counterpart (rifleman, gunner, grenadier,
 // shotgunner, sniper, flamer, officer, jeep, sherman, artillery).
 const AXIS_PLACEABLES = [
-  { key: 'erifle', label: 'RIFLEMAN', cost: 4, kind: 'eunit', hotkey: '1',
+  { key: 'erifle', label: 'RIFLEMAN', cost: 4, kind: 'eunit',
     desc: 'Wehrmacht rifleman. Slow, steady, expendable.' },
-  { key: 'esmg', label: 'STORMTROOP', cost: 4, kind: 'eunit', hotkey: '2',
+  { key: 'esmg', label: 'STORMTROOP', cost: 4, kind: 'eunit',
     desc: 'MP40 assault trooper. Fast mover, deadly up close.' },
-  { key: 'egren', label: 'GRENADIER', cost: 10, kind: 'eunit', hotkey: '3',
+  { key: 'egren', label: 'GRENADIER', cost: 10, kind: 'eunit',
     desc: 'Carries stick grenades into the fray. Blast ignores friend and foe.' },
-  { key: 'emg', label: 'MG42 TEAM', cost: 9, kind: 'eunit', hotkey: '4',
+  { key: 'emg', label: 'MG42 TEAM', cost: 9, kind: 'eunit',
     desc: 'MG42 gunner. Pins the Americans down from long range.' },
-  { key: 'esniper', label: 'SNIPER', cost: 10, kind: 'eunit', hotkey: '5',
+  { key: 'esniper', label: 'SNIPER', cost: 10, kind: 'eunit',
     desc: 'Camouflaged marksman. Picks off gunners and medics from afar.' },
-  { key: 'eflame', label: 'FLAMMEN', cost: 6, kind: 'eunit', hotkey: 'F',
+  { key: 'eflame', label: 'FLAMMEN', cost: 6, kind: 'eunit',
     desc: 'Flammenwerfer operator in a flak vest. Burns through wire, sandbags and flesh alike.' },
-  { key: 'eoff', label: 'OFFICER', cost: 15, kind: 'eunit', hotkey: '6',
+  { key: 'eoff', label: 'OFFICER', cost: 15, kind: 'eunit',
     desc: 'Leutnant. Nearby troops fight harder; earns +1 TP every 30 s while alive.' },
-  { key: 'emortar', label: 'GRANATWERFER', cost: 14, kind: 'eunit', hotkey: 'M',
+  { key: 'emortar', label: 'GRANATWERFER', cost: 14, kind: 'eunit',
     desc: '81mm mortar team. Long-range indirect fire; blind inside 147 px.' },
-  { key: 'ebazooka', label: 'PANZERFAUST', cost: 18, kind: 'eunit', hotkey: 'B',
+  { key: 'ebazooka', label: 'PANZERFAUST', cost: 18, kind: 'eunit',
     desc: 'Panzerfaust operator. Prioritizes armor; scatter is brutal at range.' },
-  { key: 'ebike', label: 'KRAD', cost: 15, kind: 'eunit', hotkey: 'K',
+  { key: 'ebike', label: 'KRAD', cost: 15, kind: 'eunit',
     desc: 'Kradschützen motorcycle team. Blazing speed — races for the breach.' },
-  { key: 'ejeep', label: 'KÜBELWAGEN', cost: 30, kind: 'eunit', hotkey: 'J',
+  { key: 'ejeep', label: 'KÜBELWAGEN', cost: 30, kind: 'eunit',
     desc: 'Gun car with a mounted MG. Mobile fire support, lightly armored.' },
-  { key: 'ehalftrack', label: 'HALFTRACK', cost: 80, kind: 'eunit', hotkey: 'H',
+  { key: 'ehalftrack', label: 'HALFTRACK', cost: 80, kind: 'eunit',
     desc: 'Sd.Kfz. 251. Heavy armor, bow MG, and a squad that dismounts at the line.' },
-  { key: 'panzer', label: 'PANZER IV', cost: 80, kind: 'eunit', hotkey: 'T',
+  { key: 'panzer', label: 'PANZER IV', cost: 80, kind: 'eunit',
     desc: '75mm cannon and thick armor. The American line\'s worst nightmare.' },
-  { key: 'ebarrage', label: 'ARTILLERY', cost: 16, kind: 'support', hotkey: 'A',
+  { key: 'ebarrage', label: 'ARTILLERY', cost: 16, kind: 'support',
     desc: 'German 105mm barrage: 10 heavy shells on target. Indiscriminate.' },
 ];
 
 // endless testing mode: the German roster dropped in freely anywhere on the
-// field (kind 'egerman'). No hotkeys — this list is merged onto the endless
-// toolbar alongside PLACEABLES, and reusing those hotkeys would just shadow
-// the US units that already claim them.
+// field (kind 'egerman'). Merged onto the endless toolbar alongside PLACEABLES;
+// hotkeys are positional per menu (see toolbarKeyTargets, js/hud.js), so the
+// merge costs nothing.
 const TESTING_GERMAN_PLACEABLES = [
-  ...AXIS_PLACEABLES.filter(p => p.kind === 'eunit').map(p => ({ ...p, kind: 'egerman', hotkey: '' })),
+  ...AXIS_PLACEABLES.filter(p => p.kind === 'eunit').map(p => ({ ...p, kind: 'egerman' })),
   // ev2 is an endless-only set piece that otherwise doesn't show up until wave
   // 140. Testing mode is exactly where you'd want to drop one in on demand.
-  { key: 'ev2', label: 'V2 BATTERY', cost: 100, kind: 'egerman', hotkey: '',
+  { key: 'ev2', label: 'V2 BATTERY', cost: 100, kind: 'egerman',
     desc: 'A20 rocket battery. Normally locked behind wave 140 in endless — testing mode lets you place one immediately.' },
-  { key: 'eboss', label: 'SCHLÄCHTER', cost: 200, kind: 'egerman', hotkey: '',
+  { key: 'eboss', label: 'SCHLÄCHTER', cost: 200, kind: 'egerman',
     desc: 'The German final boss. Normally arrives at wave 100 — testing mode drops him in on demand.' },
   // The Alien Walker isn't German — it belongs to no faction at all. It lives
   // on this list anyway because a fifth TESTING_*_PLACEABLES array would cost
@@ -1973,7 +2100,7 @@ const TESTING_GERMAN_PLACEABLES = [
   // hud.js toolbar category, all to move one entry between tabs on a test-only
   // surface. With no `faction` field enemyPlaceableFaction falls back to 'de',
   // so it shows under GERMANS. TEST.deploy('awalker', ...) is what this is for.
-  { key: 'awalker', label: 'ALIEN WALKER', cost: 250, kind: 'egerman', hotkey: '',
+  { key: 'awalker', label: 'ALIEN WALKER', cost: 250, kind: 'egerman',
     desc: 'The wave-666 easter egg: a striding tripod with a sweeping laser lance. Belongs to no faction and appears against all of them — testing mode walks one on early.' },
 ];
 
@@ -1981,68 +2108,72 @@ const TESTING_GERMAN_PLACEABLES = [
 // 'egerman' kind (which just routes placement through makeEnemy as an attacker);
 // makeEnemy reads each type's faction:'jp', so these spawn as Japanese units.
 const TESTING_JAPANESE_PLACEABLES = [
-  { key: 'jrifle', label: 'ARISAKA', cost: 4, kind: 'egerman', hotkey: '',
+  { key: 'jrifle', label: 'ARISAKA', cost: 4, kind: 'egerman',
     desc: 'Imperial rifleman with an Arisaka and long bayonet. Fanatical — never goes prone.' },
-  { key: 'jbanzai', label: 'BANZAI', cost: 4, kind: 'egerman', hotkey: '',
+  { key: 'jbanzai', label: 'BANZAI', cost: 4, kind: 'egerman',
     desc: 'Melee shock trooper. Sprints in and bayonets defenders — no ranged attack.' },
-  { key: 'jsmg', label: 'SNLF SMG', cost: 4, kind: 'egerman', hotkey: '',
+  { key: 'jsmg', label: 'SNLF SMG', cost: 4, kind: 'egerman',
     desc: 'Naval landing trooper with a Type 100 SMG. Fast close-assault.' },
-  { key: 'jgren', label: 'JP GREN', cost: 10, kind: 'egerman', hotkey: '',
+  { key: 'jgren', label: 'JP GREN', cost: 10, kind: 'egerman',
     desc: 'Grenadier. Lobs Type 97 frags; the blast ignores friend and foe.' },
-  { key: 'jlmg', label: 'NAMBU LMG', cost: 9, kind: 'egerman', hotkey: '',
+  { key: 'jlmg', label: 'NAMBU LMG', cost: 9, kind: 'egerman',
     desc: 'Type 99 light machine gun. Long-range suppressive fire.' },
-  { key: 'jhmg', label: 'TYPE 92 HMG', cost: 9, kind: 'egerman', hotkey: '',
+  { key: 'jhmg', label: 'TYPE 92 HMG', cost: 9, kind: 'egerman',
     desc: 'Type 92 heavy MG on a tripod. Slow, long-range, heavy suppression.' },
-  { key: 'jsniper', label: 'NEST SNIPER', cost: 10, kind: 'egerman', hotkey: '',
+  { key: 'jsniper', label: 'NEST SNIPER', cost: 10, kind: 'egerman',
     desc: 'Camouflaged marksman lashed into the treeline.' },
-  { key: 'jknee', label: 'KNEE MORTAR', cost: 14, kind: 'egerman', hotkey: '',
+  { key: 'jknee', label: 'KNEE MORTAR', cost: 14, kind: 'egerman',
     desc: 'Type 89 grenade discharger. Short-ranged but very fast-firing.' },
-  { key: 'jmortar', label: 'MORTAR TEAM', cost: 14, kind: 'egerman', hotkey: '',
+  { key: 'jmortar', label: 'MORTAR TEAM', cost: 14, kind: 'egerman',
     desc: 'Type 97 81mm mortar. Long-range indirect fire; blind up close.' },
-  { key: 'jlunge', label: 'LUNGE MINE', cost: 18, kind: 'egerman', hotkey: '',
+  { key: 'jlunge', label: 'LUNGE MINE', cost: 18, kind: 'egerman',
     desc: 'Suicide anti-tank charge. Rams armor and emplacements, detonating on contact.' },
-  { key: 'joff', label: 'JP OFFICER', cost: 15, kind: 'egerman', hotkey: '',
+  { key: 'joff', label: 'JP OFFICER', cost: 15, kind: 'egerman',
     desc: 'Sword officer. Aura buff plus a banzai-charge command.' },
-  { key: 'jflame', label: 'JP FLAMER', cost: 6, kind: 'egerman', hotkey: '',
+  { key: 'jflame', label: 'JP FLAMER', cost: 6, kind: 'egerman',
     desc: 'Type 100 flamethrower. Burns everything in the cone.' },
-  { key: 'jhago', label: 'HA-GO', cost: 55, kind: 'egerman', hotkey: '',
+  { key: 'jhago', label: 'HA-GO', cost: 55, kind: 'egerman',
     desc: 'Type 95 Ha-Go light tank. Fast, thin-skinned, 37mm gun.' },
-  { key: 'jtank', label: 'CHI-HA', cost: 80, kind: 'egerman', hotkey: '',
+  { key: 'jtank', label: 'CHI-HA', cost: 80, kind: 'egerman',
     desc: 'Type 97 Chi-Ha. Lighter, quicker armor with a 57mm gun.' },
-  { key: 'jchinu', label: 'CHI-NU', cost: 120, kind: 'egerman', hotkey: '',
+  { key: 'jchinu', label: 'CHI-NU', cost: 120, kind: 'egerman',
     desc: 'Type 3 Chi-Nu. Heavy armor and a 75mm gun. Slow and late.' },
   // the hull only — her eleven parts are built by initYamato on the first tick,
   // so deploying the ship deploys the whole thing
-  { key: 'jyamato', label: 'YAMATO', cost: 400, kind: 'egerman', hotkey: '',
+  { key: 'jyamato', label: 'YAMATO', cost: 400, kind: 'egerman',
     desc: 'The Japanese final boss: a land battleship. Normally arrives at wave 100 — testing mode drives one in on demand.' },
 ];
 
 // endless testing/deploy roster for The Horde. Same 'egerman' routing as the other
 // alternate factions (makeEnemy reads faction:'zo' off each type).
 const TESTING_ZOMBIE_PLACEABLES = [
-  { key: 'zshambler', label: 'SHAMBLER', cost: 3, kind: 'egerman', hotkey: '',
+  { key: 'zshambler', label: 'SHAMBLER', cost: 3, kind: 'egerman',
     desc: 'Slow walking corpse. Claws to the line and bites — the bite can infect.' },
-  { key: 'zrunner', label: 'RUNNER', cost: 3, kind: 'egerman', hotkey: '',
+  { key: 'zrunner', label: 'RUNNER', cost: 3, kind: 'egerman',
     desc: 'Fast fresh corpse. Sprints and lunges; low HP. Bite spreads infection.' },
-  { key: 'zcrawler', label: 'CRAWLER', cost: 3, kind: 'egerman', hotkey: '',
+  { key: 'zcrawler', label: 'CRAWLER', cost: 3, kind: 'egerman',
     desc: 'Half a body dragging along the dirt. Small, quick, swarms.' },
-  { key: 'zhound', label: 'HOUND', cost: 4, kind: 'egerman', hotkey: '',
+  { key: 'zhound', label: 'HOUND', cost: 4, kind: 'egerman',
     desc: 'Infected war dog. Blazing fast, tiny HP, pounces the last few yards.' },
-  { key: 'zbrute', label: 'BRUTE', cost: 12, kind: 'egerman', hotkey: '',
+  { key: 'zbrute', label: 'BRUTE', cost: 12, kind: 'egerman',
     desc: 'Swollen bruiser. High HP, slow, heavy bite with a strong infect chance.' },
-  { key: 'zspitter', label: 'SPITTER', cost: 10, kind: 'egerman', hotkey: '',
+  { key: 'zspitter', label: 'SPITTER', cost: 10, kind: 'egerman',
     desc: 'Lobs corrosive bile — area damage plus infection in the splash. Blind up close.' },
-  { key: 'zbloater', label: 'BLOATER', cost: 9, kind: 'egerman', hotkey: '',
+  { key: 'zbloater', label: 'BLOATER', cost: 9, kind: 'egerman',
     desc: 'Bursts on death into a cloud of infectious rot. A walking mine.' },
-  { key: 'zscreamer', label: 'SCREAMER', cost: 15, kind: 'egerman', hotkey: '',
+  { key: 'zscreamer', label: 'SCREAMER', cost: 15, kind: 'egerman',
     desc: 'Enrages the dead around it and screams to hurl them into a frenzied sprint.' },
-  { key: 'zrevenant', label: 'REVENANT', cost: 5, kind: 'egerman', hotkey: '',
+  { key: 'zrevenant', label: 'REVENANT', cost: 5, kind: 'egerman',
     desc: 'Reanimated soldier with a Kar98. The horde\'s only gunman — poor aim, slow fire.' },
-  { key: 'zabom', label: 'ABOMINATION', cost: 90, kind: 'egerman', hotkey: '',
+  { key: 'zjumper', label: 'JUMPER', cost: 40, kind: 'egerman',
+    desc: 'Vaults the trench and lands IN your line, blasting whoever is there. Re-leaps to the next knot of men. Wire pins it; kill it mid-air and the blast never lands.' },
+  { key: 'zcharger', label: 'CHARGER', cost: 60, kind: 'egerman',
+    desc: 'Tank-sized bone-plated bull. Small arms bounce; AT weapons and explosives hurt it. Winds backward, then rams a straight line through your men — repeatedly.' },
+  { key: 'zabom', label: 'ABOMINATION', cost: 90, kind: 'egerman',
     desc: 'Boss mound of fused corpses. Enormous HP, smashes emplacements, near-certain infection.' },
   // the core only — its five pus modules are built by initProgenitor on the first
   // tick, so deploying the boss deploys the whole thing
-  { key: 'zprogen', label: 'PROGENITOR', cost: 300, kind: 'egerman', hotkey: '',
+  { key: 'zprogen', label: 'PROGENITOR', cost: 300, kind: 'egerman',
     desc: 'The Horde final boss: a crawling mass that devours men, births broods, and raises the dead. Normally arrives at wave 100 — testing mode drags one in on demand.' },
 ];
 
@@ -2051,52 +2182,52 @@ const TESTING_ZOMBIE_PLACEABLES = [
 // mirror the closest allied counterpart named in each type's comment — rifleman,
 // officer, shotgunner — the same rule AXIS_PLACEABLES follows.
 const TESTING_ITALIAN_PLACEABLES = [
-  { key: 'iguast', label: 'GUASTATORE', cost: 5, kind: 'egerman', hotkey: '',
+  { key: 'iguast', label: 'GUASTATORE', cost: 5, kind: 'egerman',
     desc: 'Assault sapper. Digs sandbags, bunkers and watch towers further down the field each time, then picks up his rifle.' },
-  { key: 'ifante', label: 'FANTE', cost: 4, kind: 'egerman', hotkey: '',
+  { key: 'ifante', label: 'FANTE', cost: 4, kind: 'egerman',
     desc: 'Line infantryman with a Carcano and folding bayonet. Unremarkable in the open, stubborn once he has a parapet in front of him.' },
-  { key: 'ibersa', label: 'BERSAGLIERE', cost: 5, kind: 'egerman', hotkey: '',
+  { key: 'ibersa', label: 'BERSAGLIERE', cost: 5, kind: 'egerman',
     desc: 'Plumed close-assault shotgunner. Runs the open ground to get inside buckshot range, then holds and fights. Never digs in.' },
-  { key: 'imed', label: 'PORTAFERITI', cost: 12, kind: 'egerman', hotkey: '',
+  { key: 'imed', label: 'PORTAFERITI', cost: 12, kind: 'egerman',
     desc: 'Stretcher-bearer. Walks to the worst-hit man near him and patches him up, one at a time. Never digs in.' },
-  { key: 'imosch', label: 'MOSCHETTIERE', cost: 5, kind: 'egerman', hotkey: '',
+  { key: 'imosch', label: 'MOSCHETTIERE', cost: 5, kind: 'egerman',
     desc: 'MAB 38 SMG. Fast enough to reach a forward work before the line does, deadly in short bursts.' },
-  { key: 'ibreda', label: 'BREDA GUNNER', cost: 6, kind: 'egerman', hotkey: '',
+  { key: 'ibreda', label: 'BREDA GUNNER', cost: 6, kind: 'egerman',
     desc: 'Breda 30 LMG. Slow and unremarkable in the open; rakes the field from behind a parapet.' },
-  { key: 'ifiat', label: 'FIAT HMG', cost: 8, kind: 'egerman', hotkey: '',
+  { key: 'ifiat', label: 'FIAT HMG', cost: 8, kind: 'egerman',
     desc: 'Fiat-Revelli M35. Heads for a bunker and pins a line from inside it.' },
-  { key: 'icecc', label: 'CECCHINO', cost: 9, kind: 'egerman', hotkey: '',
+  { key: 'icecc', label: 'CECCHINO', cost: 9, kind: 'egerman',
     desc: 'Sniper. Climbs a watch tower; from a hardened one he reaches 300 and outranges your line.' },
-  { key: 'ibrixia', label: 'BRIXIA MORTAR', cost: 8, kind: 'egerman', hotkey: '',
+  { key: 'ibrixia', label: 'BRIXIA MORTAR', cost: 8, kind: 'egerman',
     desc: 'Light 45mm mortar. Short reach, fires often, and it fires from cover.' },
-  { key: 'imortaio', label: 'MORTAIO 81', cost: 10, kind: 'egerman', hotkey: '',
+  { key: 'imortaio', label: 'MORTAIO 81', cost: 10, kind: 'egerman',
     desc: '81mm mortar team. Long reach and a heavy shell from behind the works.' },
-  { key: 'ifolgore', label: 'FOLGORE', cost: 9, kind: 'egerman', hotkey: '',
+  { key: 'ifolgore', label: 'FOLGORE', cost: 9, kind: 'egerman',
     desc: 'Elite paratrooper. Tough, fast, grenade-armed, and never digs in — the spearhead of the AVANTI.' },
-  { key: 'iardito', label: 'ARDITI', cost: 10, kind: 'egerman', hotkey: '',
+  { key: 'iardito', label: 'ARDITI', cost: 10, kind: 'egerman',
     desc: 'Demolition man. Hunts YOUR emplacements and plants a fused charge on them, then does it again.' },
-  { key: 'iflame', label: 'LANCIAFIAMME', cost: 9, kind: 'egerman', hotkey: '',
+  { key: 'iflame', label: 'LANCIAFIAMME', cost: 9, kind: 'egerman',
     desc: 'Flamethrower. Cracks a dug-in line open; burns wire, sandbags and men alike.' },
-  { key: 'il3', label: 'L3 LF TANKETTE', cost: 16, kind: 'egerman', hotkey: '',
+  { key: 'il3', label: 'L3 LF TANKETTE', cost: 16, kind: 'egerman',
     desc: 'Flame tankette — the only flame-throwing armour anywhere. Thin, fast, early, and it swarms.' },
-  { key: 'im13', label: 'M13/40', cost: 24, kind: 'egerman', hotkey: '',
+  { key: 'im13', label: 'M13/40', cost: 24, kind: 'egerman',
     desc: 'Medium tank. Riveted and slow, with a 47mm gun and a hull MG.' },
-  { key: 'isemo', label: 'SEMOVENTE', cost: 24, kind: 'egerman', hotkey: '',
+  { key: 'isemo', label: 'SEMOVENTE', cost: 24, kind: 'egerman',
     desc: 'Casemate assault gun. Stands off and shells bunkers and armour with a 75mm.' },
-  { key: 'iuff', label: 'UFFICIALE', cost: 15, kind: 'egerman', hotkey: '',
+  { key: 'iuff', label: 'UFFICIALE', cost: 15, kind: 'egerman',
     desc: 'Officer. Aura stiffens nearby troops, and every one of him alive brings the AVANTI charge sooner.' },
   // the engine only — its seven wagon/crew parts are built by initWarTrain on
   // the first tick, so deploying the boss deploys the whole consist
-  { key: 'itrain', label: 'TRENO ARMATO', cost: 400, kind: 'egerman', hotkey: '',
+  { key: 'itrain', label: 'TRENO ARMATO', cost: 400, kind: 'egerman',
     desc: 'The Italian final boss: an armored war train that parks deep inside your sector. Normally arrives at wave 100 — testing mode rolls one in on demand.' },
   // The field works. Their own kind ('itwork') because they aren't units — they
   // route through applyPlacement's G.itWorks branch, not makeEnemy. `workKind`
   // indexes IT_WORK_KINDS; the key only has to be unique in the toolbar.
-  { key: 'itwork_sandbags', workKind: 'sandbags', label: 'IT PARAPET', cost: 4, kind: 'itwork', hotkey: '',
+  { key: 'itwork_sandbags', workKind: 'sandbags', label: 'IT PARAPET', cost: 4, kind: 'itwork',
     desc: 'An Italian sandbag parapet. Rifles can\'t touch it — shell it, or grind it down by making it stop rounds.' },
-  { key: 'itwork_bunker', workKind: 'bunker', label: 'IT BUNKER', cost: 15, kind: 'itwork', hotkey: '',
+  { key: 'itwork_bunker', workKind: 'bunker', label: 'IT BUNKER', cost: 15, kind: 'itwork',
     desc: 'An Italian bunker. The toughest thing the sappers put up, and it holds three men.' },
-  { key: 'itwork_watchtower', workKind: 'watchtower', label: 'IT TOWER', cost: 10, kind: 'itwork', hotkey: '',
+  { key: 'itwork_watchtower', workKind: 'watchtower', label: 'IT TOWER', cost: 10, kind: 'itwork',
     desc: 'An Italian watch tower. Holds one man and lengthens his reach — a Cecchino up one outranges your line.' },
 ];
 
@@ -2153,9 +2284,9 @@ const SMOKE_SPRITE_FIT = 2.06;
 // testing-mode-only ability: an instant field promotion for every unit —
 // American and German alike — caught inside the blast-style radius.
 const TESTING_ABILITIES = [
-  { key: 'rankup', label: 'RANK UP', cost: 10, kind: 'support', hotkey: '',
+  { key: 'rankup', label: 'RANK UP', cost: 10, kind: 'support',
     desc: 'Instantly promotes every unit — American and German alike — within a wide radius by one rank. Testing mode only.' },
-  { key: 'purge', label: 'PURGE', cost: 5, kind: 'support', hotkey: '',
+  { key: 'purge', label: 'PURGE', cost: 5, kind: 'support',
     desc: 'Instantly destroys every unit and emplacement — American and German alike — within a wide radius. Testing mode only.' },
 ];
 
@@ -2164,20 +2295,20 @@ const TESTING_ABILITIES = [
 // 'event' skips placement mode entirely. Wave-gating is ignored: the whole
 // point is to see any event at any wave.
 const TESTING_EVENTS = [
-  { key: 'random', label: 'RANDOM', cost: 0, kind: 'event', hotkey: '',
+  { key: 'random', label: 'RANDOM', cost: 0, kind: 'event',
     desc: 'Rolls the wave-appropriate random event, exactly as the game would.' },
-  { key: 'fog', label: 'FOG', cost: 0, kind: 'event', hotkey: '',
+  { key: 'fog', label: 'FOG', cost: 0, kind: 'event',
     desc: 'Rolls fog across the field — everyone shoots worse until it lifts.' },
-  { key: 'smokescreen', label: 'SMOKE', cost: 0, kind: 'event', hotkey: '',
+  { key: 'smokescreen', label: 'SMOKE', cost: 0, kind: 'event',
     desc: 'Drops a smoke round that screens the field downwind — nobody can target through it.' },
-  { key: 'fng', label: 'FNG', cost: 0, kind: 'event', hotkey: '',
+  { key: 'fng', label: 'FNG', cost: 0, kind: 'event',
     desc: 'A replacement rifleman reports to the back line.' },
-  { key: 'paradrop', label: 'PARADROP', cost: 0, kind: 'event', hotkey: '',
+  { key: 'paradrop', label: 'PARADROP', cost: 0, kind: 'event',
     desc: 'Fallschirmjäger drop into the field. Stick size scales with the current wave.' },
-  { key: 'airraid', label: 'AIR RAID', cost: 0, kind: 'event', hotkey: '',
+  { key: 'airraid', label: 'AIR RAID', cost: 0, kind: 'event',
     desc: 'Whatever the current enemy sends: bombers crossing from their treeline over your line, or kamikaze against the Imperial Japanese Army. Formation and payload scale with the current wave.' },
-  { key: 'kamikaze', label: 'KAMIKAZE', cost: 0, kind: 'event', hotkey: '',
+  { key: 'kamikaze', label: 'KAMIKAZE', cost: 0, kind: 'event',
     desc: 'Forces the Japanese half of the air raid against any enemy. Twice the aircraft of a bombing run, each picking a defender at random and diving into him for one blast.' },
-  { key: 'airstrike', label: 'STRAFING RUN', cost: 0, kind: 'event', hotkey: '',
+  { key: 'airstrike', label: 'STRAFING RUN', cost: 0, kind: 'event',
     desc: 'A P-47 strafes a lane of the field.' },
 ];

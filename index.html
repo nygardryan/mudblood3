@@ -77,8 +77,13 @@
 
     <!-- THE MENU. One screen: the title owns the top, the deploy stack owns the
          bottom, nothing competes. There is no mode picker because there is one
-         mode — PLAY *is* the deploy control, and the rung it deploys at is
-         printed inside it with EASIER / HARDER recessed into its ends.
+         mode — PLAY *is* the deploy control. It used to weld EASIER / HARDER
+         into its own ends with the rung printed inside it; that read the rung
+         as decoration on the button rather than as a decision the player
+         still has to make. The arrows now flank a card of their own,
+         underneath PLAY, holding the rung number, its name, its medal pay and
+         what it does — PLAY keeps only the rung NUMBER, since that's the one
+         fact that has to survive onto the button you press to deploy.
          Everything the old #endless-select held now lives here or in Settings.
          The escalation half is written by buildEscalationUI() (js/escalation.js);
          the medal count and the first-launch promotion by refreshFrontMenu()
@@ -106,30 +111,35 @@
                refreshFrontMenu() moves it back there -->
           <button id="start-tutorial" class="fm-chip" type="button">TUTORIAL</button>
 
-          <!-- the welded slab: one control, two recessed ends -->
-          <div class="fm-play" id="fm-play-slab">
-            <button id="esc-prev" class="fm-play__arrow fm-play__arrow--down" type="button" aria-label="Lower escalation">
-              <span class="fm-play__chev">◀</span><span class="fm-play__arrowlab">EASIER</span>
+          <button id="esc-deploy" class="fm-play" type="button">
+            <span class="fm-play__word">PLAY</span>
+            <span class="fm-play__lvl" id="esc-level">NO ESCALATION</span>
+          </button>
+
+          <!-- the rung card: EASIER / HARDER flank the modifier PLAY will
+               deploy at — its number, name, medal pay and what it does -->
+          <div class="fm-rung">
+            <button id="esc-prev" class="fm-rung__arrow fm-rung__arrow--down" type="button" aria-label="Lower escalation">
+              <span class="fm-rung__chev">◀</span><span class="fm-rung__arrowlab">EASIER</span>
             </button>
-            <button id="esc-deploy" class="fm-play__go" type="button">
-              <span class="fm-play__word">PLAY</span>
-              <span class="fm-play__read">
-                <span class="fm-play__lvl" id="esc-level">NO ESCALATION</span>
-                <span class="fm-play__mult" id="esc-mult">×1.0 MEDALS</span>
-              </span>
-            </button>
-            <button id="esc-next" class="fm-play__arrow fm-play__arrow--up" type="button" aria-label="Raise escalation">
-              <span class="fm-play__chev">▶</span><span class="fm-play__arrowlab">HARDER</span>
+            <div class="fm-rung__card">
+              <div class="fm-rung__head">
+                <span class="fm-rung__num" id="esc-rung-num"></span>
+                <span class="fm-rung__name" id="esc-rung-name"></span>
+                <span class="fm-medal fm-rung__medal"><span class="fm-medal__disc">★</span><span id="esc-mult"></span></span>
+              </div>
+              <div class="fm-rung__desc" id="esc-rung-desc"></div>
+            </div>
+            <button id="esc-next" class="fm-rung__arrow fm-rung__arrow--up" type="button" aria-label="Raise escalation">
+              <span class="fm-rung__chev">▶</span><span class="fm-rung__arrowlab">HARDER</span>
             </button>
           </div>
 
-          <!-- one line under the slab: the modifier this rung just added, how far
-               up the ladder you have earned, and the way into all ten -->
+          <!-- one line under the card: how far up the ladder you have earned,
+               and the way into all ten -->
           <div class="fm-status">
-            <span class="fm-status__name" id="esc-newest-name"></span>
-            <span class="fm-status__desc" id="esc-newest-desc"></span>
-            <span class="fm-status__dot">·</span>
             <span class="fm-status__earned" id="esc-earned"></span>
+            <span class="fm-status__dot">·</span>
             <button type="button" class="fm-status__link" id="esc-dossier-open">ALL 10 ▸</button>
           </div>
 
@@ -163,6 +173,35 @@
              buildEscRungs(). -->
         <div class="esc-rungs" id="esc-dossier-rungs"></div>
         <div class="escd-rows" id="esc-dossier-rows"></div>
+      </div>
+    </div>
+
+    <!-- THE PITCH: the demo's value-proposition screen, opened at boot over the
+         menu by showDemoPitchAtBoot() (js/demo.js) and inert in the full game,
+         where this node just sits hidden. Only the SHELL is here — all four rows
+         are written by buildDemoPitch(), which derives every figure on them from
+         js/demo.js's own gate sets so the screen can never advertise a build
+         this one isn't.
+
+         The head is the one part carrying NO figure, and that is the point: the
+         rows each own a `have / total` of their own now, so a summary line here
+         would be the same eight numbers a second time, set smaller. What is left
+         is the claim that needs no arithmetic — the demo is the whole game,
+         narrowed, not a slice of one. -->
+    <div id="demo-pitch" class="overlay hidden">
+      <div class="dp">
+        <div class="dp-head">
+          <div class="dp-eyebrow"><span class="fm-rule"></span>DEMO EDITION · FRANCE 1944<span class="fm-rule"></span></div>
+          <h1 class="dp-title">THE FULL GAME</h1>
+          <div class="dp-sub">SAME ENGINE · SAME ENDLESS RUN · NO WAVE CAP</div>
+        </div>
+        <div class="dp-rows" id="demo-pitch-rows"></div>
+        <!-- sticky: on a landscape phone this screen is a couple of screens of
+             scroll, and the only way off it must not be at the bottom of them -->
+        <div class="dp-foot">
+          <button type="button" id="demo-pitch-go" class="dp-go">CONTINUE TO DEMO ▸</button>
+          <div class="dp-foot__note">Leaderboards, tutorials, the run save and every medal you bank are the same in both.</div>
+        </div>
       </div>
     </div>
 
@@ -231,7 +270,10 @@
 
     <div id="leaderboard-select" class="overlay hidden">
       <h1>LEADERBOARDS</h1>
-      <p>Furthest wave reached before the line broke — one board per rung of the ladder. Sandbox and Testing don't count, the supply is unlimited.</p>
+      <!-- the caveat half of this line names SANDBOX and TESTING, which a demo
+           build does not have (js/settings.js removes the whole DEV TOOLS
+           section) — buildLeaderboardSelect rewrites it per build. -->
+      <p id="leaderboard-note">Furthest wave reached before the line broke — one board per rung of the ladder. Sandbox and Testing don't count, the supply is unlimited.</p>
       <!-- one chip per ESCALATION rung, '—' plus I..X, built by
            buildLeaderboardRungs(). Same strip, states and styling as the one on
            the endless menu: the rung is the difficulty, so it is what a board is
@@ -378,6 +420,10 @@
           </div>
           <input type="range" id="music-volume-slider" min="0" max="100" step="5" value="60">
           <p class="settings-hint">Background music. Independent of sound effects.</p>
+          <div class="settings-row" id="music-track-row">
+            <label class="settings-label">Now playing</label>
+            <div id="music-track-label" class="settings-value">&mdash;</div>
+          </div>
           <div style="display:flex;justify-content:flex-end;gap:8px;margin:2px 0 0">
             <button id="settings-music-btn" class="secondary">MUS OFF</button>
             <button id="settings-music-next" class="secondary">NEXT</button>
@@ -398,11 +444,11 @@
         <!-- Artwork section: the sprite-pack seam (js/sprites.js, js/export-sprites.js) -->
         <div class="settings-section">
           <div class="settings-section-title">Artwork</div>
-          <p class="settings-hint">Export every unit, vehicle, emplacement, defense and battlefield in
+          <p class="settings-hint" id="sprite-export-hint">Export every unit, vehicle, emplacement, defense and battlefield in
             the game as transparent PNGs, ready to hand to an artist. Repaint them and drop the folder
             back in as <code>assets/sprites/</code> — anything you don't replace keeps its current art.
             <code>terrain/</code> holds the four theatres' ground, which can be repainted on its own.</p>
-          <div style="display:flex;justify-content:flex-end;gap:8px;margin:2px 0 12px">
+          <div id="sprite-export-row" style="display:flex;justify-content:flex-end;gap:8px;margin:2px 0 12px">
             <button id="settings-export-sprites" class="secondary">EXPORT SPRITE PACK</button>
           </div>
           <div id="sprite-export-status" class="settings-value"></div>
@@ -420,8 +466,13 @@
              the deploy button, where being adjacent to the only real mode made
              them read as modes themselves. They are instruments, so they live
              with the other instruments. The changelog came here for the same
-             reason — it is a thing you consult, not a thing you launch. -->
-        <div class="settings-section">
+             reason — it is a thing you consult, not a thing you launch.
+
+             The id is what js/settings.js anchors on twice: the desktop-only
+             section is inserted directly before this one, and a DEMO build
+             deletes this one outright (all three of these reach past the demo's
+             content gate — see the block in settings.js). -->
+        <div class="settings-section" id="settings-dev-tools">
           <div class="settings-section-title">Dev tools</div>
           <p class="settings-hint">Unlimited-supply sectors for trying things out. Neither banks medals,
             earns an escalation rung, or records a score.</p>
@@ -502,10 +553,15 @@
   </div>
 </div>
 
-<!-- Plain scripts sharing one global scope — load order matters: definitions first, bootstrap (main.js) last. -->
+<!-- Plain scripts sharing one global scope — load order matters: demo marker
+     before the platform shim (PLATFORM.isDemo reads it), then the shim (every
+     shell keys off it), then definitions, bootstrap (main.js) last. -->
+<script src="js/demo-flag.js"></script>
+<script src="js/platform.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/music.js"></script>
 <script src="js/constants.js"></script>
+<script src="js/demo.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/helpers.js"></script>
 <script src="js/state.js"></script>

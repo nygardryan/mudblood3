@@ -7,7 +7,7 @@ const PROGRESS_VERSION = 1;
 
 function loadProgress() {
   try {
-    const raw = localStorage.getItem(PROGRESS_KEY);
+    const raw = PLATFORM.storage.get(PROGRESS_KEY);
     if (!raw) return { version: PROGRESS_VERSION, completed: {} };
     const data = JSON.parse(raw);
     if (!data || typeof data !== 'object' || data.version !== PROGRESS_VERSION) {
@@ -20,7 +20,7 @@ function loadProgress() {
 }
 
 function saveProgress(progress) {
-  localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+  PLATFORM.storage.set(PROGRESS_KEY, JSON.stringify(progress));
 }
 
 function markLevelComplete(id) {

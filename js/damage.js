@@ -24,6 +24,23 @@ const GROUND_MARK_TTL = 120; // blood stains and blast craters fade after two mi
 // decal layer's whole rebuild schedule is derived from it (js/render-decals.js):
 // a mark is unchanging, and so needs no work at all, until it enters this window.
 const GROUND_MARK_FADE = 8;
+const CORPSE_FADE = 8;  // the ttl window drawCorpse fades a body out over
+// Population ceilings, because a deep run's kill rate outruns the two-minute
+// TTLs: measured at wave ~165, the field held ~20,000 live marks and ~600
+// corpses (each corpse owning a baked canvas), and the major-GC pause that has
+// to trace that live set every couple of seconds IS the periodic freeze on deep
+// runs. Caps sit above anything normal play reaches (~30 marks/s sustained
+// stands ~3,600; gibs are ~14% of deaths × 1–2 parts), so they only bind in
+// that saturation regime. Over the cap the oldest entries are not spliced —
+// update() clamps their remaining ttl into the fade window, so they fade out
+// through the ordinary expiry path instead of popping, and the array is
+// bounded at cap + one fade window of accrual. Corpses also drop their private
+// `_sprite` bake on clamp — drawCorpse paints those through a shared scratch
+// so the heap cannot hold more corpse canvases than CORPSE_CAP.
+const GROUND_MARK_CAP = 4000;
+const CORPSE_CAP = 300;
+const GIB_CAP = 500;
+const GIB_FADE = 8;  // drawGib fades a landed part over this ttl window
 
 // Nominal world footprints the sprite art for each mark type is authored at, and
 // what an instance scales off them. A mark rolls its own size, so a pack that
@@ -378,7 +395,7 @@ function updateGib(g, dt) {
 }
 
 function drawGib(g) {
-  const alpha = clamp(g.ttl / 8, 0, 1);
+  const alpha = clamp(g.ttl / GIB_FADE, 0, 1);
   const c = ctx;
   c.save();
   c.globalAlpha = alpha;
@@ -448,13 +465,46 @@ function paintCorpse(c, cp) {
   c.globalCompositeOperation = 'source-over';
 }
 
+// Shared scratch for CAP-retired corpses (update.js drops their private bake
+// when clamping ttl into the fade window). paintCorpse's source-atop dirt wash
+// cannot run on the main canvas, so the fade still goes through a bitmap —
+// just one reused across every body that has already been told to leave, so
+// the heap cannot hold more corpse canvases than CORPSE_CAP.
+let _corpseScratch = null;
+function corpseScratchRec() {
+  const ss = spriteSupersample();
+  if (!_corpseScratch || _corpseScratch.ss !== ss) {
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.ceil(CORPSE_SPR_W * ss));
+    cv.height = Math.max(1, Math.ceil(CORPSE_SPR_H * ss));
+    _corpseScratch = {
+      img: cv, w: CORPSE_SPR_W, h: CORPSE_SPR_H,
+      ax: CORPSE_SPR_AX, ay: CORPSE_SPR_AY, ss,
+    };
+  }
+  return _corpseScratch;
+}
+
 function drawCorpse(cp) {
-  const alpha = clamp(cp.ttl / 8, 0, 1); // fade out over the last seconds
+  const alpha = clamp(cp.ttl / CORPSE_FADE, 0, 1); // fade out over the last seconds
   // A pack ships one body per army rather than a pose per type, so it is checked
   // before the per-corpse bake — that record carries the same density guard an
   // <img> can never satisfy.
   const ext = SPRITES.get(corpseSpriteId(cp));
   if (ext) { blitSprite(ctx, ext, cp.x, cp.y, cp.rot, alpha); return; }
+  // CAP-retired: no private bitmap. Paint through the shared scratch for the
+  // fade window so releasing _sprite in update() actually frees the heap.
+  if (!cp._sprite && cp.ttl <= CORPSE_FADE) {
+    const scratch = corpseScratchRec();
+    const c = scratch.img.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, scratch.img.width, scratch.img.height);
+    c.setTransform(scratch.ss, 0, 0, scratch.ss,
+      CORPSE_SPR_AX * scratch.ss, CORPSE_SPR_AY * scratch.ss);
+    paintCorpse(c, cp);
+    blitSprite(ctx, scratch, cp.x, cp.y, cp.rot, alpha);
+    return;
+  }
   // (re)bake if missing or the display density changed under us
   if (!cp._sprite || cp._sprite.ss !== spriteSupersample()) {
     cp._sprite = makeSprite(CORPSE_SPR_W, CORPSE_SPR_H, CORPSE_SPR_AX, CORPSE_SPR_AY,
@@ -480,6 +530,31 @@ function stampSandbagRubble(s) {
   gctx.beginPath();
   gctx.ellipse(s.x, s.y, 9, 20, 0, 0, 7);   // the wall stood across the advance
   gctx.fill();
+}
+
+// Drop a retired decoy id out of every actor's see-through memory. Dummy ids
+// are monotonic and never reused (js/input.js), so without this a living enemy
+// would retain every decoy it ever evaluated for the rest of the run — harmless
+// at a handful of rebuilds, but unbounded under sandbox spam, and every id
+// rides the run save (js/save.js).
+function forgetDummyId(id) {
+  if (id == null) return;
+  for (const e of G.enemies) {
+    if (e.dummySeen) e.dummySeen.delete(id);
+    if (e.dummyBlind) e.dummyBlind.delete(id);
+  }
+  for (const u of G.units) {
+    if (u.dummySeen) u.dummySeen.delete(id);
+    if (u.dummyBlind) u.dummyBlind.delete(id);
+  }
+}
+
+// compactDefenses' onDestroy for decoys: forget the id, then stamp the ground.
+// Split from stampDummyRubble so ground-stamp replay (which has no id) stays a
+// pure paint.
+function destroyDummy(d) {
+  forgetDummyId(d.id);
+  stampDummyRubble(d);
 }
 
 // a shot-apart scarecrow leaves a scatter of straw and a snapped post
@@ -847,6 +922,11 @@ function damageEnemy(e, dmg, from, kind) {
   // for any of the three. Below the belt redirect on purpose: a hit on her armor
   // is a hit on HER, and must not be plated by her own health.
   dmg *= bossPartDamageMult(e);
+  // Progenitor rampage: for PROG_RAMPAGE_TIME after a segment break the mass
+  // shrugs off half of everything (see the PROG_RAMPAGE_ block in constants.js).
+  // Keyed on hordeBoss, so the pods stay on their ordinary plate — same spot as
+  // bossPartDamageMult and for the same reason: every source routes through it.
+  if (e.rampageT > 0 && e.t.hordeBoss) dmg *= 1 - PROG_RAMPAGE_RESIST;
   const incoming = dmg;
   // Body/Flak Armor (endless: some enemies spawn plated — see armorEnemy).
   // Bullets chip body armor, explosions chip flak; a hit bigger than the bar
@@ -872,7 +952,8 @@ function damageEnemy(e, dmg, from, kind) {
     return;
   }
   e.hp -= dmg;
-  if (e.t.tank || e.t.vehicle || e.t.v2) {
+  // the Charger's tank flag is targeting-only: it bleeds, it doesn't spark
+  if ((e.t.tank && !e.t.ram) || e.t.vehicle || e.t.v2) {
     G.particles.push({
       x: e.x + rand(-10, 10), y: e.y + rand(-10, 10), vx: 0, vy: -20,
       ttl: 0.4, grav: 0, size: 2, color: '#c8b872',
@@ -964,6 +1045,13 @@ function damageEnemy(e, dmg, from, kind) {
       // easter egg, not a rung on the ESCALATION ladder — it just dies.
       stampWreck(e);
       explode(e.x, e.y, 75, 110, true);
+    } else if (e.t.ram) {
+      // the Charger dies as the flesh it is — above the tank row, which its
+      // targeting-only tank flag would otherwise send it down, leaving a
+      // burning steel wreck under a mound of meat
+      spawnCorpse(e);
+      bloodSplat(e.x, e.y, 18);
+      SFX.scream();
     } else if (e.t.tank) {
       stampWreck(e);
       explode(e.x, e.y, 50, 60, true);

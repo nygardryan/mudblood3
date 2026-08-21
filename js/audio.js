@@ -128,6 +128,9 @@ const SFX = (() => {
     const g = audioCtx.createGain();
     g.gain.value = opts.vol ?? 1;
     src.connect(g).connect(master);
+    // disconnect once the clip ends so a long fight doesn't accumulate
+    // orphaned BufferSource/Gain nodes waiting on GC
+    src.onended = () => { try { src.disconnect(); g.disconnect(); } catch (_) {} };
     src.start();
     return true;
   }
@@ -148,6 +151,7 @@ const SFX = (() => {
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + (decay || dur));
     src.connect(f).connect(g).connect(master);
+    src.onended = () => { try { src.disconnect(); f.disconnect(); g.disconnect(); } catch (_) {} };
     src.start(t, Math.random(), dur);
   }
 
@@ -162,6 +166,7 @@ const SFX = (() => {
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     o.connect(g).connect(master);
+    o.onended = () => { try { o.disconnect(); g.disconnect(); } catch (_) {} };
     o.start(t);
     o.stop(t + dur);
   }

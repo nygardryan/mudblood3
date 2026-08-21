@@ -306,10 +306,13 @@ function updateUnit(u, dt) {
   }
 
   if (u.t.flame) {
+    // mid tank-swap: no spraying until the fresh fuel tank is on
+    if (flamerSwappingTank(u, dt)) return;
     const ft = primaryEnemyTarget(u, unitRange(u, u.t.flame.range) * fogMult());
     if (ft) {
       u.face = Math.atan2(ft.y - u.y, ft.x - u.x);
       flameSpray(u, dt);
+      spendFlamerFuel(u, dt);
     }
     return;
   }
@@ -669,10 +672,13 @@ function updateATGun(u, dt) {
     // the walker carries no `tank` flag (that would hand it the ×0.04 armor
     // multiplier this gun exists to bypass), so it is named here explicitly —
     // its codex entry already promises AT guns are one of the two things that
-    // reach it. The Abomination is here for the same reason and one more: the
-    // Horde fields no armour at all, so without it an AT gun has literally
-    // nothing to shoot for a whole faction.
-    e => (e.t.tank || e.t.awalker || e.type === 'zabom') && inCone(e),
+    // reach it. The Abomination, the Progenitor and the Charger are here for
+    // the same reason and one more: the Horde fields no armour at all, so
+    // without them an AT gun has literally nothing to shoot for a whole
+    // faction — and that includes its own wave-100 boss. The Charger keys on
+    // `ram` (not type) — that is the flag its other AT-channel sites share,
+    // and the one its comment in ENEMY_TYPES promises.
+    e => (e.t.tank || e.t.awalker || e.t.ram || e.type === 'zabom' || e.type === 'zprogen') && inCone(e),
     e => (e.t.vehicle || e.t.bike || e.t.v2) && inCone(e),
   ];
   if (canisterOn) tiers.push(e => canisterHittable(e) && dist2(u, e) <= cR2 && inCone(e));
@@ -720,7 +726,7 @@ function updateATGun(u, dt) {
   // AP shells drift at range; armor is a forgiving target but this isn't a laser
   const d = dist(u, target);
   let scatter = (24 + d * 0.11) * rankScatterMult(u);
-  if (target.t.tank) scatter *= 0.80;
+  if (target.t.tank || target.t.ram) scatter *= 0.80;
   else scatter *= 0.90;
   scatter = Math.max(11, scatter * 0.8 * (spec.scatterMult || 1));
   scheduleShell(
@@ -784,8 +790,13 @@ function updateAAGun(u, dt) {
   u.face = u.turret;
   if (u.cd > 0 || Math.abs(diff) > 0.2) return;
 
-  if (ground) fireFlakGround(u, target, best);
-  else fireFlakBurst(u, target, spec, best);
+  if (ground) {
+    fireFlakGround(u, target, best);
+    // its own slower cycle — see AA_GROUND_ROF (js/cards.js)
+    u.cd = AA_GROUND_ROF * rankCdMult(u) * rand(0.85, 1.15);
+    return;
+  }
+  fireFlakBurst(u, target, spec, best);
   u.cd = u.t.rof * rankCdMult(u) * rand(0.85, 1.15);
 }
 
@@ -981,6 +992,10 @@ function updateTankCombat(a, dt) {
   const mgSpec = a.t.mg;
   const TURRET_TRACK = 0.18; // rad/s — glacial traverse onto new targets
   const TURRET_HOME = 0.14;
+  // dead targets fail the !dead guards below but still pin the actor until the
+  // next burst reassigns — drop them the tick they fall
+  if (a.mgTarget && a.mgTarget.dead) a.mgTarget = null;
+  if (a.flameTarget && a.flameTarget.dead) a.flameTarget = null;
 
   // an MG burst in progress finishes before anything else
   if (a.burstLeft > 0) {

@@ -200,6 +200,37 @@ function zomWaveComposition(w) {
   // brutes lumber in from the mid game, more of them as it scales
   const bruteChance = (0.10 + Math.max(0, w - 14) * 0.003) * (1 + late * 0.04) * mult;
   if (w >= 14 && Math.random() < bruteChance) out.push('zbrute');
+  // The Jumper vaults the line instead of walking into it — a set piece, held
+  // back until wave 40, by which point the player HAS a line for it to jump
+  // over. Odds are written against `w` and not `late`, which is 0 for this
+  // type's entire wave-40-to-99 window and would have pinned the chance flat.
+  // Like the Abomination below it doesn't take `mult` (the wave-volume knob):
+  // a rare threat gets its own odds rather than arriving in bulk with everyone
+  // else. The cap is TWO on the field — deliberately looser than the
+  // Abomination's one, because two landing in different places is the fight
+  // this unit exists to create, and three is just a rout.
+  const jumpChance = Math.min(0.35, 0.06 + Math.max(0, w - 40) * 0.002);
+  if (w >= 40 && G.enemies.filter(e => !e.dead && e.type === 'zjumper').length < 2
+    && Math.random() < jumpChance) {
+    out.push('zjumper');
+  }
+  // The Charger — the horde's battering ram, held back to wave 70+: by then the
+  // player's line is dense enough that a straight-line trample through it means
+  // something, and his AT battery is established enough that "only anti-tank
+  // weapons really hurt it" is a fight rather than a wall. Same shape as the
+  // Jumper's gate: odds off `w` (late is 0 for the whole 70-99 window), no
+  // `mult` (a rare threat gets its own odds, not the wave-volume knob), capped
+  // at one on the field — two 2000-HP rams is an AT-battery check, not a fight.
+  // The old curve (+0.002/wave, capped at 0.3) topped out by wave 195 and then
+  // sat flat for however much of the run was left — a run reaching wave 400+
+  // saw the Charger no more often than one at 200. Stretched so it keeps
+  // climbing much deeper into a run (cap now hit around wave 370) and tops out
+  // higher, so the battering ram stays a rising threat rather than a plateau.
+  const chgChance = Math.min(0.5, 0.05 + Math.max(0, w - 70) * 0.0015);
+  if (w >= 70 && !G.enemies.some(e => !e.dead && e.type === 'zcharger')
+    && Math.random() < chgChance) {
+    out.push('zcharger');
+  }
   // the Abomination is the horde's boss — rare, and only once it's already grim
   const abomChance = Math.min(0.4, 0.08 + late * 0.006);
   if (w >= 30 && !G.enemies.some(e => !e.dead && e.type === 'zabom') && Math.random() < abomChance) {
@@ -712,16 +743,29 @@ function spawnSpecialWave(w) {
   G.spawnTimer = spawnIntervalForWave(w) + 6;
 }
 
+// ---- the hundredth-wave bosses --------------------------------------------
+// How much bigger a boss's pool is on its Nth arrival, shared by all four (each
+// spawner below applies it to its own parent actor). Each return is
+// BOSS_RETURN_HP_GROWTH times the one before it — see the note on that constant
+// for why it compounds instead of adding a base pool per return. Only the parent
+// scales; children (her turrets and tubs, the train's wagons, the mass's pods)
+// stay at base and get their toughness from bossPartDamageMult, which reads the
+// parent's PHASE and so tracks the bigger pool for free. noRamp on every boss
+// type keeps enemyHpRamp off the top of all of it.
+function bossReturnHpMult(w, interval) {
+  const ret = Math.max(1, Math.round(w / interval));   // 1st return, 2nd, 3rd...
+  return Math.pow(BOSS_RETURN_HP_GROWTH, ret - 1);
+}
+
 // the boss walks on from staging at centre field with a modest rifle screen.
 // armorEnemy skips boss:true, so his plate comes from initGermanBoss (he
 // refills it himself at every rally). Each hundredth-wave return is tougher:
-// wave 200 fields him at 2x HP, wave 300 at 3x, and so on — noRamp keeps the
-// difficulty HP ramp from compounding on top of that.
+// wave 200 fields him at 2x HP, wave 300 at 4x, and so on.
 function spawnGermanBoss(w) {
   showBanner('DER SCHLÄCHTER — HE COMES FOR THE LINE!');
   SFX.event();
   const b = spawnEnemyAt('eboss', -40, H / 2);
-  const mult = w / BOSS_WAVE_INTERVAL;
+  const mult = bossReturnHpMult(w, BOSS_WAVE_INTERVAL);
   if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.eboss.hp * mult);
   const n = Math.floor(specialWaveMult(w / 10) * 6);
   for (let i = 0; i < n; i++) {
@@ -742,16 +786,16 @@ function spawnGermanBoss(w) {
 // position is written after it and before initYamato, which derives the entry
 // from it. Escorts still come on from centre staging as normal — they mask the
 // arrival.
-// Each hundredth-wave return is tougher — wave 200 fields her at 2x HP — and the
-// belt sections have to be re-mirrored after the scaling or they'd advertise the
-// base pool on a ship carrying double.
+// Each hundredth-wave return is tougher — wave 200 fields her at 1.5x HP — and
+// the belt sections have to be re-mirrored after the scaling or they'd advertise
+// the base pool on a ship carrying more.
 function spawnJapaneseBoss(w) {
   showBanner('YAMATO — THE LAND BATTLESHIP ROLLS IN!');
   SFX.event();
   const dir = pick([1, -1]);                  // +1 = comes on from the top edge
   const b = spawnEnemyAt('jyamato', (YAM_X_MIN + YAM_X_MAX) / 2, H / 2);
   b.y = dir > 0 ? -YAM_ENTRY_Y : H + YAM_ENTRY_Y;
-  const mult = w / YAM_WAVE_INTERVAL;
+  const mult = bossReturnHpMult(w, YAM_WAVE_INTERVAL);
   if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.jyamato.hp * mult);
   // build her parts now rather than waiting for the first tick, so the HP mirror
   // below has something to write to
@@ -770,12 +814,12 @@ function spawnJapaneseBoss(w) {
 // initProgenitor on the first tick and deliberately NOT forced here — unlike the
 // ship there is no HP mirror to prime, and leaving it lazy keeps this hook and
 // TEST.deploy('zprogen') on one identical code path. Each hundredth-wave return
-// is tougher: wave 200 fields it at 2x HP.
+// is tougher: wave 200 fields it at 1.5x HP.
 function spawnHordeBoss(w) {
   showBanner('THE PROGENITOR — THE FLESH THAT BIRTHS THE DEAD!');
   SFX.event();
   const b = spawnEnemyAt('zprogen', -40, H / 2);
-  const mult = w / PROG_WAVE_INTERVAL;
+  const mult = bossReturnHpMult(w, PROG_WAVE_INTERVAL);
   if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.zprogen.hp * mult);
   const n = Math.floor(specialWaveMult(w / 10) * 6);
   for (let i = 0; i < n; i++) {
@@ -790,13 +834,13 @@ function spawnHordeBoss(w) {
 // on the first tick and deliberately NOT forced here — like the Progenitor there
 // is no HP mirror to prime, and leaving it lazy keeps this hook and
 // TEST.deploy('itrain') on one identical code path. Each hundredth-wave return
-// is tougher: wave 200 fields it at 2x HP (the engine only; wagons stay base,
+// is tougher: wave 200 fields it at 1.5x HP (the engine only; wagons stay base,
 // same rule as the Yamato's turrets).
 function spawnItalianBoss(w) {
   showBanner('TRENO ARMATO — THE ARMORED TRAIN ROLLS DOWN THE LINE!');
   SFX.event();
   const b = spawnEnemyAt('itrain', -30, rand(TRAIN_LANE_MARGIN, H - TRAIN_LANE_MARGIN));
-  const mult = w / TRAIN_WAVE_INTERVAL;
+  const mult = bossReturnHpMult(w, TRAIN_WAVE_INTERVAL);
   if (mult > 1) b.hp = b.maxhp = Math.round(ENEMY_TYPES.itrain.hp * mult);
   const n = Math.floor(specialWaveMult(w / 10) * 6);
   for (let i = 0; i < n; i++) {

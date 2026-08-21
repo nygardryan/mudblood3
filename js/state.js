@@ -87,6 +87,11 @@ function factionPlural() {
 const ENEMY_FACTIONS = ['de', 'jp', 'zo', 'it'];
 
 function rollEnemyFaction() {
+  // The demo fights only the Wehrmacht. Pinning here (not in newGame) covers
+  // attract mode's endless run too, and G_forceFaction still wins over the
+  // roll in newGame for TEST use. The wave-666 Alien Walker is faction-
+  // agnostic and still appears in a demo run — accepted.
+  if (demoActive()) return G_lastFaction = 'de';
   const pool = ENEMY_FACTIONS.filter(f => f !== G_lastFaction);
   return G_lastFaction = pick(pool);
 }

@@ -60,6 +60,9 @@ const SAVE_STRIP = new Set([
   '_tgt', '_tgtUntil', '_laserTgt', '_camoNest', '_camoFrame', '_buffs', '_buffsFrame',
   '_spotted', '_spotFrame', '_repairCount', '_repairCountFrame',
   'flameTarget', 'mgTarget', 'awHit',
+  // the Charger's once-per-charge trample Set — live unit refs, rebuilt lazily
+  // by stepChargerRam on resume (a mid-charge save may clip a man twice)
+  'ramHit',
   // boss parent/part links and work links — re-encoded as indices
   'parts', 'turrets', 'mounts', 'pods', 'wagon', 'arty',
   'shipOf', 'trainOf', 'bossOf', 'garrison', 'work',
@@ -195,20 +198,25 @@ function serializeRun() {
 
 function writeRunSave() {
   try {
-    localStorage.setItem(RUN_SAVE_KEY, JSON.stringify(serializeRun()));
+    // storage.set swallows the quota throw itself and reports it as false —
+    // it must be checked here, or SAVE AND EXIT walks off a run it never saved
+    if (!PLATFORM.storage.set(RUN_SAVE_KEY, JSON.stringify(serializeRun()))) {
+      console.warn('run save failed: storage write rejected (quota/unavailable)');
+      return false;
+    }
     // drop the cache rather than keep the blob: its plain arrays alias live
     // game objects, and a cached alias would drift if the run keeps going
     runSaveCache = undefined;
     return true;
   } catch (err) {
-    // serialization bug or storage quota — either way the run must not exit
+    // serialization bug — the run must not exit on this either
     console.warn('run save failed:', err);
     return false;
   }
 }
 
 function clearRunSave() {
-  try { localStorage.removeItem(RUN_SAVE_KEY); } catch (err) { /* storage unavailable */ }
+  PLATFORM.storage.remove(RUN_SAVE_KEY);
   runSaveCache = null;
 }
 
@@ -216,7 +224,7 @@ function readRunSave() {
   if (runSaveCache !== undefined) return runSaveCache;
   let blob = null;
   try {
-    const raw = localStorage.getItem(RUN_SAVE_KEY);
+    const raw = PLATFORM.storage.get(RUN_SAVE_KEY);
     blob = raw ? JSON.parse(raw) : null;
   } catch (err) { blob = null; }
   // blanket discard on any unknown version or malformed top level — an old
@@ -224,7 +232,7 @@ function readRunSave() {
   if (!blob || typeof blob !== 'object' || blob.version !== RUN_SAVE_VERSION ||
       !blob.meta || typeof blob.meta !== 'object' ||
       !blob.run || typeof blob.run !== 'object') {
-    if (blob !== null || localStorage.getItem(RUN_SAVE_KEY) != null) {
+    if (blob !== null || PLATFORM.storage.get(RUN_SAVE_KEY) != null) {
       console.warn('run save discarded (version/shape mismatch)');
       clearRunSave();
     }
@@ -368,7 +376,12 @@ function deserializeRun(run) {
 
   // -- assemble G, mirroring the newGame literal --
   const esc = buildEscMods(num(run.escLevel, 0));
-  const cards = arr(run.cards).filter(id => CARDS[id]);
+  // demo: the run's own loadout, minus anything this build doesn't sell. A
+  // full-game 'de' save IS resumable here (only the other three armies are
+  // blocked), so without this the whole card gate is one SAVE AND EXIT away
+  // from being bypassed — the same reason the rung above resumes clamped
+  // rather than at whatever the blob stored.
+  const cards = demoOwnedCards(arr(run.cards).filter(id => CARDS[id]));
   const recapIn = (run.recap && typeof run.recap === 'object') ? run.recap : {};
   const g = {
     level, mode: level.mode, difficulty, esc,
@@ -420,6 +433,38 @@ function deserializeRun(run) {
 
 // ---- entry points --------------------------------------------------------
 
+// The mobile lifecycle autosave. A backgrounded app can be killed by the OS
+// at any moment with no further notice — iOS especially — and SAVE AND EXIT
+// is a menu the OS never opens, so before this existed a phone call mid-run
+// lost the run. platform.js's mobile shell wires Capacitor's
+// appStateChange(isActive:false) here (typeof-guarded, the handleAndroidBack
+// pattern); it fires on iOS willResignActive / Android onStop, early enough
+// that the synchronous localStorage write always lands and the async
+// Preferences mirror almost always does.
+//
+// saveableRun() is the whole gate: menus, tutorials, ended runs and ATTRACT
+// MODE (which never sets `running` — its no-localStorage invariant must hold)
+// all fall through without a write. The pause is not just courtesy — the
+// webview's rAF is about to be throttled to a standstill anyway, so pausing
+// makes the freeze honest and the player returns to PAUSED instead of to
+// mid-combat; it is a no-op when already paused (the boss-victory freeze
+// included, which sets `paused` via freezeField).
+//
+// This deliberately does NOT delete the slot on foreground return. The slot
+// already outlives a resumed run (continueRun never deletes it; only endRun
+// and the abandon prompt do), so its contract is "the latest checkpoint" —
+// an OS-initiated write is the same contract with a fresher blob. A failed
+// write stays a console.warn: nobody is looking at a backgrounded screen,
+// and the run itself is still live.
+function handleAppBackground() {
+  // pause first and unconditionally: pauseGame guards itself (no-op unless a
+  // live, unpaused fight), so tutorials get the courtesy pause too even
+  // though only endless runs pass the save gate below
+  pauseGame();
+  if (!saveableRun()) return;
+  writeRunSave();
+}
+
 function saveAndExit() {
   if (!paused || !saveableRun()) return;
   if (writeRunSave()) {
@@ -434,6 +479,8 @@ function saveAndExit() {
 function continueRun() {
   const blob = readRunSave();
   if (!blob) { refreshContinueUI(); return; }
+  // demo: a non-'de' save is hidden, not resumable — and never deleted
+  if (demoBlockedSave(blob)) { refreshContinueUI(); return; }
   let g;
   try {
     g = deserializeRun(blob.run);
@@ -469,12 +516,19 @@ function refreshContinueUI() {
   const btn = el('continue-run');
   if (!btn) return;
   const blob = readRunSave();   // a corrupt blob discards right here, hiding the card
-  btn.classList.toggle('hidden', !blob);
-  if (!blob) return;
+  const hidden = !blob || demoBlockedSave(blob);   // demo hides (never deletes) a non-'de' save
+  btn.classList.toggle('hidden', hidden);
+  if (hidden) return;
   const m = blob.meta;
   const bits = ['WAVE ' + (Number.isFinite(m.wave) ? m.wave : '?'),
     'vs ' + (SAVE_FACTION_NAMES[m.faction] || '???')];
-  if (Number.isFinite(m.escLevel) && m.escLevel > 0) bits.push('ESC ' + ESC_ROMAN[m.escLevel]);
+  // the rung the resume will actually RUN at, not the one the blob stores:
+  // deserializeRun rebuilds the mods through buildEscMods, which clamps to
+  // demoEscMax(). A full-game 'de' save is resumable under the demo (only the
+  // other three armies are blocked), so printing its stored IX here would name
+  // a rung this build cannot stand on — the read-clamp rule, on this surface.
+  const escLevel = Number.isFinite(m.escLevel) ? Math.min(m.escLevel, demoEscMax()) : 0;
+  if (escLevel > 0) bits.push('ESC ' + ESC_ROMAN[escLevel]);
   el('continue-meta').textContent = bits.join(' · ');
 }
 
@@ -494,7 +548,12 @@ function openAbandonConfirm(difficultyId, fromScreen) {
   pendingAbandonDiff = difficultyId;
   pendingAbandonFrom = fromScreen || 'intro';
   const blob = readRunSave();
-  const m = blob && blob.meta;
+  // demo: a non-'de' save is HIDDEN on the menu — no CONTINUE card, no resume —
+  // so describing it here contradicts the screen the player just came from AND
+  // names an army this build doesn't ship, the same lie the dossier's enemy line
+  // used to tell. The prompt still fires unchanged: the slot is still about to
+  // be overwritten, and that guard is what makes the loss the player's choice.
+  const m = blob && !demoBlockedSave(blob) ? blob.meta : null;
   el('abandon-meta').textContent = m
     ? 'Your saved run — wave ' + (Number.isFinite(m.wave) ? m.wave : '?') + ' vs ' +
       (SAVE_FACTION_NAMES[m.faction] || '???').toLowerCase() + ' — will be lost.'

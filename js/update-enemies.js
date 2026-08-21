@@ -126,6 +126,13 @@ function updateEnemy(e, dt) {
   // his own — men move only on orders and fight from where they stand
   const command = G.mode === 'hitsquad';
 
+  // The Horde's Charger carries tank:true for the TARGETING channel only (AT
+  // guns, bazookas and Sherman cannons prioritize it; small arms bounce), so it
+  // must dispatch ABOVE the tank row — updateTank would drive it like a vehicle
+  // and throw in updateTankCombat on a gun spec it doesn't have. It sits BELOW
+  // the stun block on purpose: shell shock freezing the wind-up (and the run)
+  // is the mortarman's counter-play to it.
+  if (e.t.ram) { updateZombieCharger(e, dt, buffed, command); return; }
   if (e.t.tank) { updateTank(e, dt); return; }
   if (e.t.bike) { updateBike(e, dt); return; }
   if (e.t.apc) { updateHalftrack(e, dt); return; }
@@ -179,11 +186,15 @@ function updateEnemy(e, dt) {
   }
 
   if (e.t.flame) {
+    // mid tank-swap: hold where he stands, same as the player's flamer —
+    // walking on with a dry hose would just carry him into point-blank fire
+    if (flamerSwappingTank(e, dt)) return;
     const ft = primaryUnitTarget(e, unitRange(e, e.t.flame.range) * fogMult());
     if (ft) {
       rollEnemyPushUrge(e, ft, dt, command);
       e.face = Math.atan2(ft.y - e.y, ft.x - e.x);
       flameSpray(e, dt);
+      spendFlamerFuel(e, dt);
     } else if (!command) {
       advance(e, dt, buffed);
     }
@@ -389,8 +400,9 @@ function rollEnemyPushUrge(e, target, dt, command) {
 }
 
 // ---- barbed wire ----
-// FOUR movement paths cross wire — advance(), pursuePoint(), the player-ordered
-// walk in updateEnemy() and the hound's leap test — and every one of them has to
+// FIVE movement paths cross wire — advance(), pursuePoint(), the player-ordered
+// walk in updateEnemy(), the hound's leap test and the Jumper's launch test —
+// and every one of them has to
 // agree about where a band is and what crossing it costs. They didn't: the
 // ordered-move copy was written before the hardened tier existed and never
 // picked it up, so a commandeered trooper walked through up2 wire at the
@@ -406,6 +418,17 @@ function rollEnemyPushUrge(e, target, dt, command) {
 function inWireBand(wr, x, y, halfDepth) {
   return Math.abs(y - wr.y) < WIRE_BAND_LAT
     && Math.abs(x - wr.x) < (halfDepth || WIRE_BAND_DEPTH);
+}
+
+// Is (x,y) inside ANY live band? The point form of the test above, for the two
+// leap paths: wireOnLeap samples a flight line with it, and the Jumper asks it
+// about the ground under its own feet. `halfDepth` passes straight through so a
+// vehicle-depth caller can't be silently narrowed to a man's.
+function inAnyWireBand(x, y, halfDepth) {
+  for (const wr of G.wires) {
+    if (wr.hp > 0 && inWireBand(wr, x, y, halfDepth)) return true;
+  }
+  return false;
 }
 
 // Drag `speed` through the first live band the man is standing in, wearing the
@@ -454,15 +477,16 @@ function pursuePoint(e, tx, ty, speed, dt) {
 // predicate the drag uses, rather than a proper slab test: a leap is ~110px at
 // most, so this is a dozen cheap tests against a handful of wires, and the two
 // checks agreeing exactly about where a band is matters more here than elegance.
+//
+// The JUMPER takes only the first half of this rule — it can't launch out of a
+// band, but its flight clears them (jumperLeap, below). Its leap is a vault over
+// the whole line rather than a dash across the last few yards, so a strand on
+// the ground between here and there is not something it has to get through.
 function wireOnLeap(x0, y0, x1, y1) {
   const steps = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 8));
-  for (const wr of G.wires) {
-    if (wr.hp <= 0) continue;
-    for (let i = 0; i <= steps; i++) {
-      const f = i / steps;
-      const sx = x0 + (x1 - x0) * f, sy = y0 + (y1 - y0) * f;
-      if (inWireBand(wr, sx, sy)) return true;
-    }
+  for (let i = 0; i <= steps; i++) {
+    const f = i / steps;
+    if (inAnyWireBand(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f)) return true;
   }
   return false;
 }
@@ -1075,7 +1099,7 @@ const OFFICER_COMMANDS = {
   banzai: {
     roster: isJapaneseInfantry,      // chute/staging: the roster's own gate
     radius: BANZAI_CMD_RADIUS,
-    open: [6, 12], cd: [12, 18], charge: [2.2, 3.6],
+    open: [4, 14], cd: [8, 22], charge: [2.2, 3.6],
     warn: 'ORDERS!', shout: 'BANZAI!', color: '#ffd15a', rgb: '255,209,90',
   },
   // the Screamer's answer to the horde having no discipline: the same command,
@@ -1083,7 +1107,7 @@ const OFFICER_COMMANDS = {
   frenzy: {
     roster: isZombie,
     radius: FRENZY_CMD_RADIUS,
-    open: [6, 11], cd: [11, 17], charge: [2.4, 3.8],
+    open: [4, 13], cd: [7, 21], charge: [2.4, 3.8],
     warn: 'INHALES!', shout: 'SKREEE!', color: '#c8e08a', rgb: '182,232,138',
   },
 };
@@ -1962,8 +1986,11 @@ function updateZombie(e, dt, buffed, command) {
   // has to be stepped above the checks below — a hound whose man died mid-flight
   // would otherwise fall to advance() and walk on frozen at full arc, never
   // landing and never re-entering the sprite cache.
-  if (e.pounceT > 0) { houndPounce(e, dt, null, 0); return; }
+  if (e.pounceT > 0) { stepLeapFlight(e, dt); return; }
   if (command) { if (e.moveTo) advance(e, dt, buffed); return; }
+  // The Jumper's crouch owns the frame too, and unlike the flight it is stepped
+  // BELOW the command escape: a commandeered one should walk, not coil.
+  if (e.t.leap && jumperLeap(e, dt)) return;
   const target = primaryUnitTarget(e, 4000);
   if (!target) { advance(e, dt, buffed); return; }
   const reach = ZOMBIE_REACH + (e.t.boss ? 16 : e.t.big ? 8 : 0)
@@ -1982,7 +2009,11 @@ function updateZombie(e, dt, buffed, command) {
   e.cd -= dt;
   if (e.cd <= 0) {
     e.cd = e.t.rof * rand(0.85, 1.15);
-    if (e.t.boss) {
+    // The sweeping blow is the ABOMINATION's, as the comment has always said —
+    // gated off the Jumper explicitly, because it rides in on boss:true (which
+    // it carries for the HP tier) and would otherwise do area damage in BOTH of
+    // its modes, on top of a 54px landing blast. One area attack per actor.
+    if (e.t.boss && !e.t.leap) {
       // the Abomination's blow sweeps everyone at arm's length, not just one man
       zombieBite(e, target);
       for (const u of G.units) {
@@ -2001,8 +2032,25 @@ function updateZombie(e, dt, buffed, command) {
 // point of the lerp, so it just drops where it is. Called from those two blocks
 // rather than edited into the shared tryGoProne/maybeShellShock setters, which
 // have no business knowing what a pounce is.
+// The Jumper rides the same fields, so it is swatted down by the same call —
+// and its landing blast simply never happens, which is the whole counter-play
+// to it. But the cooldown has to be REROLLED here: pounceCd is consumed at
+// launch and otherwise only reset on touchdown, so a leap knocked out of the
+// air would leave it at <=0 and relaunch the frame the daze lapsed. That turns
+// a cancelled slam into a one-second delay.
+//
+// Note this deliberately does NOT touch leapWindT. A wind-up interrupted by a
+// stun or a pin FREEZES rather than resetting — the same rule the officer
+// commands follow, and for the same reason: the blow is still coming, you
+// bought time. Both call sites sit above updateZombie, so the crouch holds
+// where it is for free.
 function abortPounce(e) {
-  if (e.pounceT > 0) { e.pounceT = 0; e.pounceArc = 0; }
+  if (e.pounceT > 0) {
+    e.pounceT = 0;
+    e.pounceArc = 0;
+    const p = e.t.pounce || e.t.leap;
+    if (p) e.pounceCd = rand(p.cdMin, p.cdMax);
+  }
 }
 
 // The Infected Hound's leap: it closes the last stretch of ground in one bound
@@ -2054,7 +2102,21 @@ function houndPounce(e, dt, target, reach) {
     // after. Returning here instead costs a stationary frame at full arc 0, which
     // reads as the dog hitching before it jumps.
   }
-  // in the air: ride the stored launch → landing line
+  stepLeapFlight(e, dt);
+  return true;
+}
+
+// The flight itself, shared by the hound's pounce and the Jumper's leap: ride
+// the stored launch → landing line, and carry the render-only arc. Both specs
+// are read through `pounce || leap`, which is safe only because no type ever
+// carries BOTH — they are kept as separate fields precisely so the dispatch
+// above can tell a gap-closer from a delivery system.
+//
+// Sharing the pounceT/pounceArc/psx.. fields rather than giving the Jumper its
+// own is what makes abortPounce, soldierCacheable's transient-pose test and the
+// run save cover it with no edit at all.
+function stepLeapFlight(e, dt) {
+  const p = e.t.pounce || e.t.leap;
   e.pounceT -= dt;
   const f = clamp(1 - e.pounceT / e.pounceDur, 0, 1);
   e.x = e.psx + (e.ptx - e.psx) * f;
@@ -2064,8 +2126,258 @@ function houndPounce(e, dt, target, reach) {
     e.pounceT = 0;
     e.pounceArc = 0;
     e.pounceCd = rand(p.cdMin, p.cdMax);
+    // touchdown. The hound needs nothing here — it lands inside bite reach and
+    // the ordinary maul takes over next frame — but the Jumper's landing IS the
+    // attack, which is the one real difference between the two abilities.
+    if (e.t.leap) jumperSlam(e);
   }
+}
+
+// ---- the Jumper ------------------------------------------------------------
+// Where the hound's pounce closes the last few yards, this one skips the whole
+// approach: it coils, vaults the trench and comes down INSIDE the line. Three
+// beats — crouch, arc, slam — and then it fights where it landed until the
+// cooldown brings the next one round.
+//
+// It is a PRE-STEP above updateZombie's target scan rather than beside the
+// hound's row below it, and that placement is the whole reason the re-leap
+// works. The hound leaps AT the man it is already chasing, so it can hang off
+// primaryUnitTarget and test the window against him. This one picks its own
+// spot — a knot of men, which is rarely the nearest one — and a window test
+// against the man it is currently biting would read ~20px against a 90px floor
+// and refuse every re-leap forever.
+function jumperLeap(e, dt) {
+  const p = e.t.leap;
+  // mid-crouch: it holds still, which is half the tell
+  if (e.leapWindT > 0) {
+    e.leapWindT -= dt;
+    if (e.leapWindT > 0) return true;
+    e.leapWindT = 0;
+    // Spring at the spot chosen when the crouch OPENED, not a fresh one. If the
+    // men walked out of the marked ring meanwhile it lands on bare dirt and the
+    // blast catches nothing — that is the counter-play working, not a telegraph
+    // resolving into nothing (there was someone there when it committed).
+    e.psx = e.x; e.psy = e.y;
+    e.pounceDur = p.dur;
+    e.pounceT = p.dur;
+    e.face = Math.atan2(e.pty - e.y, e.ptx - e.x);
+    // and FALL THROUGH, like the hound: the leap moves on the frame it launches
+    stepLeapFlight(e, dt);
+    return true;
+  }
+  // grounded: recharge. Seeded lazily, the way pounceCd and spitCd are.
+  e.pounceCd = (e.pounceCd == null ? rand(p.cdMin, p.cdMax) : e.pounceCd) - dt;
+  if (e.pounceCd > 0) return false;
+  // It cannot spring out of a band — the one thing wire does to it, and the
+  // reason a wire belt still matters against the Horde's scariest mover. Its
+  // FLIGHT is deliberately not tested (wireOnLeap goes unconsulted here): a
+  // vault over the whole line is not a dash through the last few yards.
+  if (inAnyWireBand(e.x, e.y)) return false;
+  const spot = jumperLandingSpot(e, p);
+  if (!spot) return false;                 // nowhere worth landing: walk in
+  // Clamped well short of the breach line (update.js breaches past W + 10). The
+  // real guard against a free breach is jumperLandingSpot refusing a lone man —
+  // this is the belt to that pair of braces.
+  e.ptx = clamp(spot.x, 0, W - 30);
+  e.pty = clamp(spot.y, 14, H - 14);
+  e.leapWindT = p.wind;
+  e.leapWindMax = p.wind;
+  e.face = Math.atan2(e.pty - e.y, e.ptx - e.x);
   return true;
+}
+
+// Where to land: the nearest man with at least `pack` live bodies inside the
+// slam radius of him. There is deliberately NO lone-target fallback — with one,
+// it reliably picks the rear-line mortarman parked near the edge and lands a
+// 650 HP body a stride from a breach, past every gun in the deploy zone. No
+// cluster, no leap; it walks in with the rest of the dead.
+//
+// Reuses nearestUnitInRange, which already handles camouflage, smoke LOS and
+// decoy scarecrows. A lone dummy can't qualify (the count walks G.units), but
+// one standing among men can — leaping onto a scarecrow is a fine outcome, and
+// keeping it rare keeps the memoized dummyFools roll from burning early.
+function jumperLandingSpot(e, p) {
+  const min2 = p.min * p.min, max2 = p.range * p.range, pack2 = p.r * p.r;
+  return nearestUnitInRange(e, p.range, (u) => {
+    // Distance FIRST, on both counts. nearestUnitInRange runs the pred BEFORE
+    // its own range test, so an unguarded cluster count would run over the
+    // whole roster every frame the Jumper is off cooldown. And `min` has to
+    // live in here rather than filter the result afterwards, because the call
+    // returns only the single nearest match: a man standing inside the floor
+    // would win it and refuse the leap while a real cluster sat further out.
+    const d2 = dist2(e, u);
+    if (d2 < min2 || d2 > max2) return false;
+    let n = 0;
+    for (const o of G.units) {
+      if (!o.dead && dist2(o, u) <= pack2 && ++n >= p.pack) return true;
+    }
+    return false;
+  });
+}
+
+// Touchdown. explode() is SIDE-BLIND, and that is the choice, not an oversight:
+// it comes down in the middle of a crowd, so it catches the shamblers that
+// followed it in as readily as the men it was aimed at — baiting one into its
+// own pack is the counter-play. Two knock-ons worth knowing rather than
+// discovering: the player is PAID for the horde's own dead (damageEnemy credits
+// the kill and the bounty whoever fired), and blast's x2.2 against armor makes
+// this the only real anti-tank weapon the Horde owns — a corpse landing on a
+// Sherman is a crush, not a bite, so that reads correctly even though it breaks
+// the faction's "no armor answer" character.
+//
+// `by = e` is MANDATORY: ESCALATION rung IV keys on from.side, and a bare {x,y}
+// makes an enemy blast indistinguishable from a friendly one. explode() already
+// does the boom, the shake, the flash and the particles — nothing else belongs
+// here. It is passed `noMark` because nothing was FIRED at this ground: a shell
+// crater where a corpse landed reads as artillery, so the slam leaves the blast
+// without the hole.
+function jumperSlam(e) {
+  const p = e.t.leap;
+  explode(e.x, e.y, p.r, p.dmg, false, e, true);
+}
+
+// ---- the Charger ------------------------------------------------------------
+// The Horde's battering ram: a tank-sized mass that walks in like any zombie,
+// and once the line is close enough stops biting and CHARGES — a 2s wind-up
+// where it drags backward (the tell, and the player's window), then a flight
+// down a straight line trampling every man it passes over, then a new line.
+//
+// The shape deliberately mirrors the Jumper's three beats (crouch, flight,
+// payload), but the machinery is its own: a leap is an arc to a point, this is
+// a grounded run whose PAYLOAD is the path. It shares no pounce fields, so
+// abortPounce never touches it — a stun freezes the wind-up and the run where
+// they stand (the officer-command rule: the blow is still coming, you bought
+// time) because the whole dispatch sits below the stun block in updateEnemy.
+function updateZombieCharger(e, dt, buffed, command) {
+  zombieGroan(e, dt);
+  // A run already underway is COMMITTED and needs no target to finish — the
+  // leap-flight rule: stepped above every other check, or a charger whose
+  // line died mid-run would fall to advance() and stall at full stretch.
+  if (e.ramT > 0) { stepChargerRam(e, dt); return; }
+  if (command) { if (e.moveTo) advance(e, dt, buffed); return; }
+  // the wind-up and the launch own the frame — below the command escape for
+  // the Jumper's reason: a commandeered one should walk, not coil
+  if (chargerRam(e, dt)) return;
+  // grounded and recharging: an ordinary (enormous) melee zombie
+  const target = primaryUnitTarget(e, 4000);
+  if (!target) { advance(e, dt, buffed); return; }
+  const reach = ZOMBIE_REACH + 16 + (target.t.tank || target.t.vehicle ? 9 : 0);
+  if (dist(e, target) > reach) {
+    pursuePoint(e, target.x, target.y, e.t.speed * (buffed ? 1.2 : 1), dt);
+    return;
+  }
+  e.face = Math.atan2(target.y - e.y, target.x - e.x);
+  e.cd -= dt;
+  if (e.cd <= 0) {
+    e.cd = e.t.rof * rand(0.85, 1.15);
+    zombieBite(e, target);
+  }
+}
+
+// Wind-up and launch. Returns true while either owns the frame; a charger on
+// cooldown or with nobody in trigger range falls through to the melee above.
+function chargerRam(e, dt) {
+  const rm = e.t.ram;
+  if (e.ramWindT > 0) {
+    e.ramWindT -= dt;
+    // the wind-up IS the backward motion: it drags away from the line it is
+    // about to fly down, facing it the whole time — direction and timing in
+    // one read, plus the badge drawSoldierOverlays hangs over its head
+    e.x = clamp(e.x - Math.cos(e.face) * rm.back * dt, 12, W - 12);
+    e.y = clamp(e.y - Math.sin(e.face) * rm.back * dt, 14, H - 14);
+    if (e.ramWindT > 0) return true;
+    e.ramWindT = 0;
+    launchChargerRam(e, dt);
+    return true;
+  }
+  // grounded: recharge. Seeded lazily on first read, like pounceCd and spitCd.
+  e.ramCd = (e.ramCd == null ? rand(rm.cdMin, rm.cdMax) : e.ramCd) - dt;
+  if (e.ramCd > 0) return false;
+  const target = nearestUnitInRange(e, rm.range);
+  if (!target) return false;
+  // Commit to the spot where the man stands when the wind-up OPENS, not a
+  // fresh one at launch — the Jumper's rule: men who step off the line
+  // meanwhile make it charge empty ground, and that is the counter-play
+  // working, not a telegraph resolving into nothing.
+  e.rtx = target.x; e.rty = target.y;
+  e.ramWindT = rm.wind;
+  e.ramWindMax = rm.wind;
+  e.face = Math.atan2(e.rty - e.y, e.rtx - e.x);
+  SFX.scream();
+  return true;
+}
+
+function launchChargerRam(e, dt) {
+  const rm = e.t.ram;
+  // re-aim from wherever the backward drag left it, through the committed spot
+  const dir = Math.atan2(e.rty - e.y, e.rtx - e.x);
+  const dx = Math.cos(dir), dy = Math.sin(dir);
+  // the line runs THROUGH the spot and out the far side — "going through all
+  // units", not skidding to a stop on the first one
+  let len = dist(e, { x: e.rtx, y: e.rty }) + rm.over;
+  // ...shortened so it never leaves the field (and never breaches — the run
+  // stops well short of update.js's W + 10 line; walking in is how it
+  // breaches, like anything else). Shortening along the ray rather than
+  // clamping the endpoint per-axis, which would bend the direction.
+  if (dx > 0) len = Math.min(len, (W - 30 - e.x) / dx);
+  else if (dx < 0) len = Math.min(len, (12 - e.x) / dx);
+  if (dy > 0) len = Math.min(len, (H - 14 - e.y) / dy);
+  else if (dy < 0) len = Math.min(len, (14 - e.y) / dy);
+  // cornered against an edge with nowhere to run: stand down, recharge.
+  // Also the divide-by-zero guard for ramDur below.
+  if (!(len > 8)) { e.ramCd = rand(rm.cdMin, rm.cdMax); return; }
+  e.rsx = e.x; e.rsy = e.y;
+  e.rex = e.x + dx * len; e.rey = e.y + dy * len;
+  e.ramDur = len / rm.speed;
+  e.ramT = e.ramDur;
+  e.ramHit = new Set();
+  e.face = dir;
+  SFX.scream();
+  stepChargerRam(e, dt);   // moves on the frame it launches (the hound's rule)
+}
+
+function stepChargerRam(e, dt) {
+  const rm = e.t.ram;
+  e.ramT -= dt;
+  const f = clamp(1 - e.ramT / e.ramDur, 0, 1);
+  e.x = e.rsx + (e.rex - e.rsx) * f;
+  e.y = e.rsy + (e.rey - e.rsy) * f;
+  // Everyone the mass passes over is hit ONCE per charge. The Set can't ride a
+  // save (SAVE_STRIP), so it is rebuilt lazily here — a run resumed mid-charge
+  // may clip a man twice, the same self-healing tolerance the frame caches get.
+  // No tunnelling check needed: dt is clamped to 0.05 (main.js), so a step is
+  // at most 16px against a 24px trample radius.
+  if (!e.ramHit) e.ramHit = new Set();
+  const hitR2 = rm.hitR * rm.hitR;
+  for (const u of G.units) {
+    if (u.dead || e.ramHit.has(u) || dist2(e, u) > hitR2) continue;
+    e.ramHit.add(u);
+    chargerTrample(e, u);
+  }
+  // dust kicked off the churned ground
+  G.particles.push({
+    x: e.x + rand(-8, 8), y: e.y + rand(-2, 8), vx: rand(-20, 20), vy: rand(-30, -8),
+    ttl: rand(0.2, 0.45), grav: 60, size: rand(1.5, 2.8),
+    color: pick(['#57492f', '#6e6046', '#3c3325']),
+  });
+  if (e.ramT <= 0) {
+    e.ramT = 0;
+    e.ramHit = null;
+    e.ramCd = rand(rm.cdMin, rm.cdMax);
+  }
+}
+
+// One trampled man. A ram is blunt trauma, not a bite: no infection roll, and
+// armor is shoved rather than gored. tryGoProne at long odds — men are bowled
+// off their feet, which reads and halves what the NEXT charge does to them.
+function chargerTrample(e, u) {
+  bloodSplat(u.x, u.y, 6);
+  G.flashes.push({ x: u.x, y: u.y, r: 6, ttl: 0.08, max: 0.08 });
+  let dmg = e.t.dmg * rand(0.85, 1.15);
+  if (u.t.tank) dmg *= 0.3;
+  else if (u.t.apc || u.t.vehicle) dmg *= 0.5;
+  damageUnit(u, dmg, e, 'melee');
+  tryGoProne(u, 0.9);
 }
 
 // one maul: instant, no projectile. Bypasses body/flak armor like any melee, does
@@ -2345,7 +2657,11 @@ function updateProgenitor(e, dt) {
       && e.hp <= e.maxhp * (1 - (e.phase + 1) / PROG_SEGMENTS)) {
     e.phase++;
     progenitorResurrection(e);
+    // rampage rides the break (see PROG_RAMPAGE_ in constants.js). A double
+    // break just restarts the same window — the two abilities stay in step.
+    e.rampageT = PROG_RAMPAGE_TIME;
   }
+  if (e.rampageT > 0) e.rampageT -= dt;
 
   e.spawnCd -= dt;
   if (e.spawnCd <= 0) {
@@ -2367,8 +2683,10 @@ function updateProgenitor(e, dt) {
     // NOTE: e.chargeT is deliberately never read. A Screamer's frenzy will still
     // set it on the core (it has no `fixed` flag, so isZombie accepts it), and
     // honouring it would let the boss sprint — which breaks the one hard promise
-    // of this fight, that a player can always walk away from it.
-    pursuePoint(e, target.x, target.y, PROG_SPEED, dt);
+    // of this fight, that a player can always walk away from it. The rampage
+    // mult below keeps that promise too — 9.1 is still slower than any man.
+    pursuePoint(e, target.x, target.y,
+      PROG_SPEED * (e.rampageT > 0 ? PROG_RAMPAGE_SPEED_MULT : 1), dt);
   } else if (e.devourCd <= 0) {
     e.devourCd = PROG_DEVOUR_CD;
     e.face = Math.atan2(target.y - e.y, target.x - e.x);

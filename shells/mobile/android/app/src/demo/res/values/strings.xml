@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- demo-flavor overrides of main/res/values/strings.xml (flavor source sets
+     win the resource merge). package_name / custom_url_scheme follow the
+     flavor's applicationId (.demo suffix — see build.gradle + DEMO_APP_ID in
+     shells/app-identity.cjs). -->
+<resources>
+    <string name="app_name">Trenchworks: WW2 Demo</string>
+    <string name="title_activity_main">Trenchworks: WW2 Demo</string>
+    <string name="package_name">com.nygardryan.trenchworks.demo</string>
+    <string name="custom_url_scheme">com.nygardryan.trenchworks.demo</string>
+</resources>

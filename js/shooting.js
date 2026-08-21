@@ -327,6 +327,27 @@ function runWeapon(actor, target, dt, buffs) {
   }
 }
 
+// FLAMER FUEL (see the FLAMER_BURN_TIME block in constants.js): the pair every
+// infantry flame branch calls, both sides. flamerSwappingTank ticks the swap
+// clock and answers "is he mid-swap right now"; spendFlamerFuel drains the tank
+// for a tick actually sprayed and starts the swap when it runs dry. Split in
+// two because the swap must run down whether or not a target is in reach, while
+// fuel may only ever drain on a frame flameSpray fired.
+function flamerSwappingTank(a, dt) {
+  if (a.flameReload > 0) {
+    a.flameReload -= dt;
+    if (a.flameReload <= 0) a.flameFuel = FLAMER_BURN_TIME;
+    return true;
+  }
+  return false;
+}
+function spendFlamerFuel(a, dt) {
+  // never pre-initialized at spawn (the emergencyRepairCd pattern,
+  // js/update-friendlies.js): an unset tank reads null and starts full
+  a.flameFuel = (a.flameFuel == null ? FLAMER_BURN_TIME : a.flameFuel) - dt;
+  if (a.flameFuel <= 0) a.flameReload = FLAMER_RELOAD_TIME;
+}
+
 // one tick of flame from `actor` toward its facing: burns EVERYTHING in the
 // cone regardless of side — that's the deal you make with a flamethrower
 // opts lets a non-flamer actor drive the stream: the Flame Tank passes its own

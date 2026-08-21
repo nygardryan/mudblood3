@@ -69,7 +69,18 @@ function attractRunning() {
 // screen. Every other menu screen (card shop, codex, settings, leaderboards) is
 // opaque, so a frame spent simulating under one buys nothing — and the dossier,
 // which is NOT opaque, covers the stage anyway.
+//
+// The class test is how "the menu is up" is asked, and the DEMO PITCH
+// (js/demo.js) is the one screen it cannot see: it is opaque like the list
+// above, but it LAYERS over #intro instead of swapping it out, hiding it with
+// `visibility` from CSS rather than the class. So it read as "the menu is up"
+// and every demo launch ran the full sim AND a full draw() behind a page
+// nobody could see through, for as long as it took to read two screens of it —
+// the first thing a demo does, on the platform (a phone) that can least afford
+// it. Asked explicitly, since visibility is not something this predicate can
+// derive without a per-frame getComputedStyle.
 function attractStepping() {
+  if (demoPitchOpen()) return false;
   return attractOn && !el('intro').classList.contains('hidden');
 }
 
@@ -126,7 +137,15 @@ function attractWishlist() {
 // create a unit differently from the way a real purchase does.
 function attractSpendPass() {
   for (const order of attractWishlist()) {
-    const p = PLACEABLES.find(pl => pl.key === order.key);
+    // demo: eight of the orders above name types this build doesn't sell, and
+    // each is FOLDED onto the nearest thing it does (demoStandIn, js/demo.js)
+    // rather than skipped. Skipping is what shipped, and it does not merely
+    // field a thinner line: the dropped orders are the ones the income curve was
+    // sized against, so the TP piles up unspent and the board collapses — on the
+    // first thing a demo player looks at. The POSITION is the wish list's whole
+    // content, so a fold keeps it. Returns the key unchanged in the full game.
+    const key = demoStandIn(order.key);
+    const p = key && PLACEABLES.find(pl => pl.key === key);
     if (!p) continue;
     const cost = placeableCost(p);
     if (!canAffordTP(cost)) return;   // the rest of the list is dearer or equal

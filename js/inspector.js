@@ -240,6 +240,9 @@ function hoverStats(a, own = false) {
   else if (t.dmg > 0 && !unarmedMedic) parts.push(`${t.dmg} DMG`);
   if (t.range > 0 && !unarmedMedic) parts.push(`${Math.round(flameTank ? flameTank.range : t.range)} RNG`);
   if (t.flame) parts.push('FLAME');
+  // a flamer mid fuel-tank swap — keyed on the live clock like ORDER FORMING
+  // below, so both sides' foot flamers get it with nothing per-type
+  if (a.flameReload > 0) parts.push('RELOADING');
   if (t.grenade) parts.push('GRENADES');
   if (t.rocket) parts.push('ROCKET');
   if (t.mortar) parts.push('MORTAR');
@@ -254,7 +257,14 @@ function hoverStats(a, own = false) {
   // Keyed on the mult rather than the part flags, so a fifth boss needs nothing here.
   const plate = Math.round((1 - bossPartDamageMult(a)) * 100);
   if (plate > 0) parts.push(`${plate}% RESIST`);
+  // the Progenitor mid-rampage — live clock, same pattern as COILING below
+  if (a.rampageT > 0) parts.push('RAMPAGE');
   if (t.pounce) parts.push('POUNCE');
+  // the Jumper's leap carries a landing blast, so it reads as its own thing
+  // rather than as a longer pounce — and while the crouch is up, the fact that
+  // it is winding one up right now, on the ORDER FORMING pattern below
+  if (t.leap) parts.push('LEAP');
+  if (a.leapWindT > 0) parts.push('COILING');
   if (t.aura) parts.push('AURA');
   // an officer who can ORDER as well as radiate, and — while the telegraph is
   // up — the fact that he is doing it right now. The live line is keyed on the

@@ -241,8 +241,16 @@ function findNearestValidRadial(p, x, y) {
 }
 
 function place(p, x, y) {
+  // demo backstop: selectPlaceable already rejects, but this covers TEST.buy
+  // and any future caller that reaches place() directly
+  if (demoLockedPlaceable(p)) { SFX.error(); return; }
   if (!placementValid(p, x, y)) {
-    const fallback = (p.kind === 'unit' || p.kind === 'defense') ? findNearestValidRadial(p, x, y) : null;
+    // testing-mode enemy units get the same nearest-open-spot search the player's
+    // own troops do — they fail validation for the same reason (a body already on
+    // that ground, or the field edge), and a tap that silently errors out is worse
+    // for forcing a board state than one that lands the man a few pixels over.
+    const fallback = (p.kind === 'unit' || p.kind === 'defense' || p.kind === 'egerman')
+      ? findNearestValidRadial(p, x, y) : null;
     if (!fallback) { SFX.error(); mobileVibrate(14); return; }
     x = fallback.x;
     y = fallback.y;
@@ -797,7 +805,13 @@ function issueMoveOrder(units, x, y) {
     return;
   }
   const spacing = Math.max(...units.map(u => u.t.tank ? 44 : u.t.vehicle ? 32 : 22));
-  const cols = Math.ceil(Math.sqrt(units.length));
+  // The block's LONG side is the lateral axis (y, screen-vertical), never depth
+  // (x, the axis the enemy marches down): men stacked in depth mask each other's
+  // fire and the rear rank arrives late, so a group order forms a line ACROSS
+  // the field. `floor` on the short side is what makes that hold at every size —
+  // a ceil(sqrt) grid is square wherever it can be, so a small group read as a
+  // column in depth as often as a line.
+  const cols = Math.max(1, Math.floor(Math.sqrt(units.length)));
   const rows = Math.ceil(units.length / cols);
   const slots = [];
   for (let i = 0; i < units.length; i++) {
@@ -864,12 +878,23 @@ canvas.addEventListener('contextmenu', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    // the escalation dossier is the only overlay here that layers over another
-    // one, so it gets first claim on Escape
+    // Two overlays here layer over another one instead of swapping it out, and
+    // the topmost claims Escape first. The demo's boot pitch (js/demo.js) sits
+    // over the menu AND over the dossier; at boot nothing below can be true, but
+    // TEST.demoPitch can raise it over a live run, where Escape must close IT
+    // rather than fall through to the paused branch and resume a hidden fight.
+    if (demoPitchOpen()) { closeDemoPitch(); return; }
+    // then the escalation dossier, which layers over the menu
     if (escDossierOpen()) { closeEscalationDossier(); return; }
     // the abandon-save prompt swaps out the screen that launched it; Escape means BACK,
     // never fall-through (the paused branch below would resume a hidden fight)
     if (abandonConfirmOpen()) { closeAbandonConfirm(); return; }
+    // the changelog layers over settings the same way settings layers over
+    // pause — it hides #settings when it opens, so settingsOpen() reads false
+    // and closePauseSubscreen() below would miss it, falling through to the
+    // paused branch and resuming the fight behind it (see handleAndroidBack,
+    // js/flow.js, which already has to make this same check)
+    if (changelogOpen()) { closeChangelog(); return; }
     // codex / settings / loadout — see PAUSE_SUBSCREENS (js/flow.js). They swap
     // #pause out but leave `paused` true, so they have to be closed here or the
     // line below resumes the fight behind a screen that's still on top of it.
@@ -889,7 +914,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   // give up the rest of a tutorial box's read time (WCAG 2.2 SC 2.2.1). Space and
-  // Enter are safe here: no placeable hotkey is either, and dismiss is a no-op
+  // Enter are safe here: neither is a menu hotkey, and dismiss is a no-op
   // outside a running tutorial script.
   if (e.key === ' ' || e.key === 'Enter') {
     if (dismissTutorialMsg()) { e.preventDefault(); return; }
@@ -897,9 +922,20 @@ document.addEventListener('keydown', e => {
   if (isSandbox() && isPlaying()) {
     if (e.key === ']') { jumpSandboxWave(e.shiftKey ? 5 : e.ctrlKey ? 10 : 1); return; }
   }
-  const k = e.key.toUpperCase();
-  const p = activePlaceables().find(pl => pl.hotkey === k);
-  if (p) selectPlaceable(p);
+  // MENU HOTKEYS are positional (see toolbarKeyTargets, js/hud.js): [1] is the
+  // BACK button, entries take Q,W,E,R / A,S,D,F / Z,X,C,V grid keys for whatever
+  // menu the toolbar is showing, resolved by clicking the rendered button. The
+  // modifier guard keeps browser chords (Ctrl+R, Ctrl+T…) from placing troops.
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  // +/- step the sim speed ('=' counts as + for the unshifted key). Gated on
+  // the speed button's own visibility condition — a live run, paused included —
+  // not isPlaying(), so it works from the pause screen like the button does.
+  if (e.key === '+' || e.key === '=' || e.key === '-') {
+    if (running && G && !G.over) stepSpeed(e.key === '-' ? -1 : 1);
+    return;
+  }
+  if (!isPlaying()) return;
+  toolbarKeyPress(e.key.toUpperCase());
 });
 
 // the tutorial box itself is the click target for skipping its read time

@@ -1023,7 +1023,7 @@ Object.assign(ENEMY_TYPES, {
   zshambler: {
     // the backbone: a slow, relentless walking corpse. Cheap, numerous, and the
     // default thing a bitten defender reanimates into. No gun — it claws and bites.
-    name: 'Shambler', hp: 74, speed: 25.875, range: 0, dmg: 16, acc: 0,
+    name: 'Shambler', hp: 81.4, speed: 25.875, range: 0, dmg: 16, acc: 0,
     rof: 1.1, burst: 1, burstGap: 0, reward: 2,
     color: '#5f6b4a', gun: 4, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.28,
@@ -1032,7 +1032,7 @@ Object.assign(ENEMY_TYPES, {
     // a fresh kill, still fast on its feet — sprints the field and lunges at the
     // nearest man. Low HP, but it closes before you can thin the pack. What a
     // fast/light defender reanimates into.
-    name: 'Runner', hp: 54, speed: 52, range: 0, dmg: 13, acc: 0,
+    name: 'Runner', hp: 59.4, speed: 52, range: 0, dmg: 13, acc: 0,
     rof: 1.0, burst: 1, burstGap: 0, reward: 2,
     color: '#6b7048', gun: 4, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.22,
@@ -1040,7 +1040,7 @@ Object.assign(ENEMY_TYPES, {
   zcrawler: {
     // torn in half and dragging itself along low to the ground — small, quick, and
     // it comes in swarms. Weak bite, but there are always more of them.
-    name: 'Crawler', hp: 32, speed: 38, range: 0, dmg: 9, acc: 0,
+    name: 'Crawler', hp: 35.2, speed: 38, range: 0, dmg: 9, acc: 0,
     rof: 0.9, burst: 1, burstGap: 0, reward: 1,
     color: '#596341', gun: 3, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.16, crawler: true,
@@ -1048,7 +1048,7 @@ Object.assign(ENEMY_TYPES, {
   zhound: {
     // an infected war dog — blazing fast, almost no mass, and a savage bite that
     // takes hold easily. Shoot the pack before it reaches the wire.
-    name: 'Infected Hound', hp: 30, speed: 72, range: 0, dmg: 12, acc: 0,
+    name: 'Infected Hound', hp: 33, speed: 72, range: 0, dmg: 12, acc: 0,
     rof: 0.85, burst: 1, burstGap: 0, reward: 2,
     color: '#5a5238', gun: 0, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.30, hound: true,
@@ -1064,7 +1064,7 @@ Object.assign(ENEMY_TYPES, {
   zbrute: {
     // a swollen, muscle-bound corpse: high HP, slow, and it hits like a truck.
     // A heavy bite with a high chance to infect — and it soaks a lot of lead.
-    name: 'Brute', hp: 300, speed: 24, range: 0, dmg: 40, acc: 0,
+    name: 'Brute', hp: 330, speed: 24, range: 0, dmg: 40, acc: 0,
     rof: 1.5, burst: 1, burstGap: 0, reward: 8,
     color: '#556040', gun: 6, sfx: 'scream', priority: 3, faction: 'zo',
     zombie: true, infect: 0.35, big: true,
@@ -1073,7 +1073,7 @@ Object.assign(ENEMY_TYPES, {
     // the faction's only real ranged threat: it hangs back and lobs a glob of
     // corrosive bile that bursts on impact, burning everyone nearby AND carrying
     // the infection through the splash. Blind up close — it shambles if you get in.
-    name: 'Spitter', hp: 88, speed: 18, range: 0, dmg: 0, acc: 0,
+    name: 'Spitter', hp: 96.8, speed: 18, range: 0, dmg: 0, acc: 0,
     rof: 1, burst: 1, burstGap: 0, reward: 5,
     color: '#6e7a3e', gun: 4, sfx: 'scream', priority: 4, faction: 'zo',
     zombie: true, infect: 0.18,
@@ -1083,7 +1083,7 @@ Object.assign(ENEMY_TYPES, {
     // a gas-swollen corpse that bursts when it dies (or reaches you), venting a
     // cloud of infectious rot: area damage plus a high infect chance to everyone
     // caught in it. A walking mine — kill it at a distance or share the cloud.
-    name: 'Bloater', hp: 260, speed: 26, range: 0, dmg: 10, acc: 0,
+    name: 'Bloater', hp: 286, speed: 26, range: 0, dmg: 10, acc: 0,
     rof: 1.4, burst: 1, burstGap: 0, reward: 5,
     color: '#6a7a4e', gun: 4, sfx: 'scream', priority: 3, faction: 'zo',
     zombie: true, infect: 0.2, bloat: { r: 56, dmg: 34, infect: 0.55 },
@@ -1093,7 +1093,7 @@ Object.assign(ENEMY_TYPES, {
     // around it (aura → they move faster) and who, on a cadence, looses a scream
     // that hurls every nearby zombie into a frenzied sprint. Kill it to slow the
     // whole pack. It bites too, but its danger is what it does to the others.
-    name: 'Screamer', hp: 96, speed: 20, range: 0, dmg: 10, acc: 0,
+    name: 'Screamer', hp: 105.6, speed: 20, range: 0, dmg: 10, acc: 0,
     rof: 1.2, burst: 1, burstGap: 0, reward: 6,
     color: '#79764a', gun: 4, sfx: 'scream', priority: 5, faction: 'zo',
     zombie: true, infect: 0.2, aura: true, frenzyCmd: true,
@@ -1102,7 +1102,7 @@ Object.assign(ENEMY_TYPES, {
     // a reanimated Wehrmacht soldier that never let go of his Kar98 — the horde's
     // one gunman. Undead hands aim poorly and it fires slowly, but a shambling
     // corpse that still shoots back is a nasty surprise in a melee faction.
-    name: 'Revenant', hp: 82, speed: 22, range: 148, dmg: 9, acc: 0.30,
+    name: 'Revenant', hp: 90.2, speed: 22, range: 148, dmg: 9, acc: 0.30,
     rof: 1.9, burst: 1, burstGap: 0, reward: 3,
     color: '#5c6242', gun: 9, sfx: 'rifle', priority: 2, faction: 'zo',
   },
@@ -1136,7 +1136,7 @@ Object.assign(ENEMY_TYPES, {
     // tell. cdMin/cdMax: recharge. r/dmg: the landing slam, a side-blind
     // explode() that damages the horde around it too. pack: how many men must
     // be standing together for a spot to be worth jumping into.
-    name: 'Jumper', hp: 348, speed: 26, range: 0, dmg: 46, acc: 0,
+    name: 'Jumper', hp: 382.8, speed: 26, range: 0, dmg: 46, acc: 0,
     rof: 1.6, burst: 1, burstGap: 0, reward: 14,
     color: '#4d5c3c', gun: 7, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.32, boss: true,
@@ -1176,7 +1176,7 @@ Object.assign(ENEMY_TYPES, {
     // during it, px/s. speed: flight px/s. over: how far past the committed
     // spot the line runs. hitR: trample radius (tank-sized, matches
     // actorHitRadius). cdMin/cdMax: recharge between charges.
-    name: 'Charger', hp: 1000, speed: 20, range: 0, dmg: 48, acc: 0,
+    name: 'Charger', hp: 1100, speed: 20, range: 0, dmg: 48, acc: 0,
     rof: 1.7, burst: 1, burstGap: 0, reward: 30,
     color: '#4e5a38', gun: 8, sfx: 'scream', priority: 3, faction: 'zo',
     zombie: true, infect: 0.35, boss: true, blastVuln: 2.2,
@@ -1189,7 +1189,7 @@ Object.assign(ENEMY_TYPES, {
     // sweeping blow that flattens men and smashes emplacements — and near-certain
     // infection on anyone it doesn't kill outright. Shows up only when it's already
     // desperate. Small arms just annoy it; burn it, shell it, or mine it.
-    name: 'Abomination', hp: 1150, speed: 20.7, range: 0, dmg: 70, acc: 0,
+    name: 'Abomination', hp: 1265, speed: 20.7, range: 0, dmg: 70, acc: 0,
     rof: 1.7, burst: 1, burstGap: 0, reward: 16,
     color: '#4f5a3a', gun: 8, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.5, boss: true,

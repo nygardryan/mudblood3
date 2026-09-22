@@ -308,6 +308,10 @@ function buildEscalationUI() {
 
   // what PLAY deploys at, printed inside the button
   el('esc-level').textContent = level > 0 ? 'ESCALATION ' + ESC_ROMAN[level] : 'NO ESCALATION';
+  // hide the arrows entirely until the player has unlocked at least one
+  // harder rung — a new player has nowhere to go
+  el('esc-prev').classList.toggle('hidden', unlocked === 0);
+  el('esc-next').classList.toggle('hidden', unlocked === 0);
   el('esc-prev').disabled = level <= 0;
   el('esc-next').disabled = level >= unlocked;
 

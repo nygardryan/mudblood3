@@ -290,7 +290,7 @@ const UNIT_TYPES = {
   },
   jeep: {
     name: 'Jeep', hp: 250, range: 221, dmg: 13, acc: 0.42,
-    rof: 24.0, burst: 128, burstGap: 0.07, speed: 110,
+    rof: 19.2, burst: 128, burstGap: 0.07, speed: 110,
     color: '#566f44', gun: 14, sfx: 'hmg', vehicle: true, rankMult: 3,
     desc: 'Willys jeep, pintle-mounted .50 cal. Fast and hard-hitting, but unarmored.',
   },
@@ -587,7 +587,7 @@ const PROG_SAFE_X = W - 80;          // hard clamp, mirrors BOSS_SAFE_X: it can 
 // says never to add — that was a STANDING tax on the one workable answer; this
 // is a 4-second window per break, 8 seconds across the whole fight, and it
 // taxes every source alike. The speed still keeps the fight's hard promise
-// (see PROG_SPEED): 7 × 1.3 = 9.1, far under any man's walk.
+// (see PROG_SPEED): 8.05 × 1.3 = 10.5, far under any man's walk.
 const PROG_RAMPAGE_TIME = 4;
 const PROG_RAMPAGE_SPEED_MULT = 1.3;
 const PROG_RAMPAGE_RESIST = 0.5;     // fraction of incoming damage shrugged off
@@ -1189,7 +1189,7 @@ Object.assign(ENEMY_TYPES, {
     // sweeping blow that flattens men and smashes emplacements — and near-certain
     // infection on anyone it doesn't kill outright. Shows up only when it's already
     // desperate. Small arms just annoy it; burn it, shell it, or mine it.
-    name: 'Abomination', hp: 920, speed: 18, range: 0, dmg: 70, acc: 0,
+    name: 'Abomination', hp: 1150, speed: 18, range: 0, dmg: 70, acc: 0,
     rof: 1.7, burst: 1, burstGap: 0, reward: 16,
     color: '#4f5a3a', gun: 8, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.5, boss: true,

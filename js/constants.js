@@ -334,7 +334,7 @@ const UNIT_TYPES = {
 
 // Body/Flak Armor abilities: each grants a depleting armor bar worth a
 // rifleman's HP (bullets chip Body Armor, explosions chip Flak Armor).
-const ARMOR_POINTS = UNIT_TYPES.rifleman.hp;
+const ARMOR_POINTS = UNIT_TYPES.rifleman.hp * 1.5;
 
 // Endless only: enemy infantry increasingly turn up wearing body/flak armor as
 // the waves climb. The chance ramps on a linear curve from ENEMY_ARMOR_MIN_CHANCE
@@ -347,8 +347,8 @@ const ARMOR_POINTS = UNIT_TYPES.rifleman.hp;
 const ENEMY_ARMOR_FULL_WAVE = 120;   // wave by which body/flak armor is near-guaranteed
 const ENEMY_ARMOR_MIN_CHANCE = 0.05; // floor odds even at wave 1
 const ENEMY_ARMOR_MAX_CHANCE = 0.98; // "nearing 100%", never a dead certainty
-const ENEMY_ARMOR_BODY_MIN = 30, ENEMY_ARMOR_BODY_MAX = 75; // body plate points (lerp'd by wave)
-const ENEMY_ARMOR_FLAK_MIN = 25, ENEMY_ARMOR_FLAK_MAX = 55; // flak plate points (lerp'd by wave)
+const ENEMY_ARMOR_BODY_MIN = 45, ENEMY_ARMOR_BODY_MAX = 112.5; // body plate points (lerp'd by wave)
+const ENEMY_ARMOR_FLAK_MIN = 37.5, ENEMY_ARMOR_FLAK_MAX = 82.5; // flak plate points (lerp'd by wave)
 
 // ---- German final boss (eboss, "Der Schlächter"). He cycles: advance down a
 // lane firing six revolver shots, fall back to the backline, refit his plate
@@ -379,10 +379,10 @@ const BOSS_REVOLVER_SHOTS = 6;       // cylinder capacity per advance
 // can put into him in one advance, or the refill silently makes him immortal:
 // at 600/450 the armor ate every round the player landed and his HP never moved
 // at all (measured: 244 damage in an hour against a 23-man line that could not
-// die). A plated trooper carries 75/55, so 240/180 still reads as boss-grade
+// die). A plated trooper carries 112.5/82.5, so 360/270 still reads as boss-grade
 // kit while leaving real damage to spill through onto HP every cycle.
-const BOSS_BODY_ARMOR = 240;
-const BOSS_FLAK_ARMOR = 180;
+const BOSS_BODY_ARMOR = 360;
+const BOSS_FLAK_ARMOR = 270;
 const BOSS_LANES = [0.12, 0.31, 0.5, 0.69, 0.88];  // × H — lateral advance corridors
 // Both grow with W on purpose: they're the fallback he walks toward only when
 // NO target is visible at all, which in practice means he engages long before

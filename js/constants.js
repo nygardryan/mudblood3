@@ -803,7 +803,10 @@ const ENEMY_TYPES = {
   // revolver.armorDmg replaces the smallarms 0.04 tank scaling with a flat 490
   // (49% of a Sherman's 1000) per round on anything armored. acc 1 is real:
   // fireShot skips the range falloff for a revolver, so every one of the six
-  // rounds is aimed true — only going prone or getting behind cover saves a man.
+  // rounds is aimed true — and fireShot's t.revolver check also skips the
+  // prone-dodge and coverBlock rolls, so a landed round is guaranteed to
+  // connect, like a forced Crack Shot. Nothing saves a man from him but
+  // staying out of his line of fire.
   eboss: {
     name: 'Der Schlächter', hp: 3150, speed: 30, range: 120, dmg: 190, acc: 1,
     rof: 1.6, burst: 1, burstGap: 0, reward: 200,

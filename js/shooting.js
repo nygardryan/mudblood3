@@ -256,11 +256,14 @@ function fireShot(shooter, target, opts) {
     // a prone man is a small target: 60% of rounds kick dirt over him.
     // Rolled separately from sandbag cover, so the two stack multiplicatively.
     // A forced sure shot (Crack Shot) ignores both — it is guaranteed to land.
-    if (!forced && target.prone > 0 && Math.random() < 0.6) {
+    // So does the boss's revolver: his round is guaranteed once it hits its
+    // aim point, exactly like a forced shot — prone and cover no longer save
+    // a man from him, only staying out of his line of fire does.
+    if (!forced && !t.revolver && target.prone > 0 && Math.random() < 0.6) {
       G.particles.push({ x: hx + rand(-6, 6), y: hy + 4, vx: rand(-25, 25), vy: rand(-55, -20), ttl: 0.3, grav: 200, size: 1.3, color: '#6e6046' });
       return;
     }
-    if (!forced && coverBlock(target)) {
+    if (!forced && !t.revolver && coverBlock(target)) {
       G.particles.push({ x: hx, y: hy + 6, vx: rand(-20, 20), vy: -40, ttl: 0.3, grav: 150, size: 1.5, color: '#b8a878' });
       return;
     }

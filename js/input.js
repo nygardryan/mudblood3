@@ -935,6 +935,17 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (!isPlaying()) return;
+  // SPACE is the second key on the ← BACK control ([1] is the first, and keeps
+  // its chip). One step back per press: drop the selection if there is one, else
+  // hand it to the toolbar's own BACK — cancel a placement, or leave a category.
+  // preventDefault is mandatory and not tidiness: a tool button keeps DOM focus
+  // after it is clicked, and space is the browser's own activation key for a
+  // <button>, so without it every press would re-buy whatever was pressed last.
+  if (e.key === ' ') {
+    e.preventDefault();
+    toolbarBack();
+    return;
+  }
   toolbarKeyPress(e.key.toUpperCase());
 });
 

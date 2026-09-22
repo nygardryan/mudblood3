@@ -358,6 +358,30 @@ function appendToolbarBack(bar, onClick, title) {
   toolbarKeyTargets.push({ key: '1', el: back });
 }
 
+// the three states the BACK button drops a selection in — kept in one place so
+// the button and the SPACE hotkey (toolbarBack) can't drift apart
+function deselectAll() {
+  if (!G) return;
+  G.selected = [];
+  SFX.click();
+  syncSelectionMobile();
+}
+
+// SPACE is the keyboard alias for ← BACK (input.js). It does NOT just click the
+// rendered button, because the button only carries the deselect job in ONE of
+// its three states: the collapsed bar is desktop-only (touch hides the bar and
+// offers deselect in #mobile-actions instead) and a placement in progress swaps
+// BACK's job to cancelling it. So the selection is asked FIRST and the button is
+// the fallback — one step back per press, deselect before menu.
+function toolbarBack() {
+  if (!isPlaying()) return false;
+  if (G?.selected.length) { deselectAll(); return true; }
+  const back = el('toolbar')?.querySelector('.tool-back-btn');
+  if (!back || back.disabled) return false;
+  back.click();
+  return true;
+}
+
 function renderToolbar() {
   const bar = el('toolbar');
   bar.innerHTML = '';
@@ -376,11 +400,7 @@ function renderToolbar() {
   if (toolbarCollapsedForSelection) {
     bar.classList.remove('toolbar-placing');
     bar.classList.add('toolbar-collapsed');
-    appendToolbarBack(bar, () => {
-      G.selected = [];
-      SFX.click();
-      syncSelectionMobile();
-    }, 'Deselect');
+    appendToolbarBack(bar, deselectAll, 'Deselect');
     if (tutorialWantsDeselect()) bar.querySelector('.tool-back-btn')?.classList.add('tut-pulse');
 
     syncToolbarVisibility();

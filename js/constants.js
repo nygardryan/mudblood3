@@ -1023,7 +1023,7 @@ Object.assign(ENEMY_TYPES, {
   zshambler: {
     // the backbone: a slow, relentless walking corpse. Cheap, numerous, and the
     // default thing a bitten defender reanimates into. No gun — it claws and bites.
-    name: 'Shambler', hp: 74, speed: 22.5, range: 0, dmg: 16, acc: 0,
+    name: 'Shambler', hp: 74, speed: 25.875, range: 0, dmg: 16, acc: 0,
     rof: 1.1, burst: 1, burstGap: 0, reward: 2,
     color: '#5f6b4a', gun: 4, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.28,
@@ -1189,7 +1189,7 @@ Object.assign(ENEMY_TYPES, {
     // sweeping blow that flattens men and smashes emplacements — and near-certain
     // infection on anyone it doesn't kill outright. Shows up only when it's already
     // desperate. Small arms just annoy it; burn it, shell it, or mine it.
-    name: 'Abomination', hp: 1150, speed: 18, range: 0, dmg: 70, acc: 0,
+    name: 'Abomination', hp: 1150, speed: 20.7, range: 0, dmg: 70, acc: 0,
     rof: 1.7, burst: 1, burstGap: 0, reward: 16,
     color: '#4f5a3a', gun: 8, sfx: 'scream', priority: 1, faction: 'zo',
     zombie: true, infect: 0.5, boss: true,

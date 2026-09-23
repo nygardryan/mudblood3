@@ -615,7 +615,9 @@ const PROG_DEVOUR_DMG = 99999;
 // the two or three nearest a defender are always closer than the core itself and
 // small arms strip the pods before they ever touch the mass. Set this to 0 and
 // rifles shoot the core instead, and the modules become undamageable decoration.
-const PROG_POD_HP = 260;
+// Doubled from 260 (2026-09-22). The plate below still multiplies this, so a sac
+// stripped while the mass is whole costs nearer 3× 520 than 520.
+const PROG_POD_HP = 520;
 // 34, not 26: the sacs are ~7.5px across and five of them across a 130° arc are
 // exactly touching at 26, which reads as a bunch of grapes rather than five
 // modules grown out of the hide. 34 also puts them clear of the 26px body edge
@@ -625,13 +627,14 @@ const PROG_POD_R = 34;
 const PROG_POD_ANGLES = [0.14, 0.32, 0.5, 0.68, 0.86].map(a => (a - 0.5) * Math.PI);
 // The sacs' plate per intact segment of the CORE (see bossPartDamageMult): 66%
 // while the mass is whole, none once it is on its last third. Note what this does
-// to the "TRUE pool" arithmetic in the PROG_HP comment above — five 260-HP sacs
+// to the "TRUE pool" arithmetic in the PROG_HP comment above — five 520-HP sacs
 // stripped early now cost nearer 3x that, which is the point: the bile is meant to
 // be answered by killing the thing spitting it, not by mowing its glands.
 const PROG_POD_RESIST = 0.33;
 // Same shape as the Spitter's `spit` spec, field for field and on purpose:
 // fireBile/bileBurst read it unchanged, so a pod is a Spitter that can't walk.
-const PROG_POD_SPIT = { range: 260, min: 0, cdMin: 4.0, cdMax: 6.5, r: 34,
+// Attack speed doubled with the HP (2026-09-22): the bile clock was 4.0–6.5s.
+const PROG_POD_SPIT = { range: 260, min: 0, cdMin: 2.0, cdMax: 3.25, r: 34,
                         dmg: 24, flight: 1.3, scatter: 30, infect: 0.45 };
 
 // The birthing cycle: the mass splits open and vomits a brood. specialWaveMult

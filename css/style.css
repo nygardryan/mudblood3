@@ -168,7 +168,6 @@ body {
 #start-wave-btn:disabled { opacity: .45; cursor: not-allowed; }
 #speed-btn.hidden, #pause-btn.hidden, #start-wave-btn.hidden,
 #next-mission-btn.hidden { display: none; }
-#esc-prev.hidden, #esc-next.hidden { display: none; }
 
 /* sandbox wave-skip cluster borrows the stat-plate chrome */
 .sandbox-wave-skip {
@@ -3434,6 +3433,10 @@ input[type="range"]::-moz-range-thumb { background: #e8873a; }
   cursor: pointer; color: #c9c19a;
   transition: background .12s ease, border-color .12s ease, color .12s ease;
 }
+/* buildEscalationUI hides both arrows until a harder rung is unlocked.
+   This has to outrank the display:flex above — a bare #esc-prev.hidden
+   ties that rule and loses, the same trap #intro .fm-resume.hidden exists for. */
+#intro .fm-rung__arrow.hidden { display: none; }
 /* the raise end is the live one while there's a rung left to take — same
    asymmetry the old stepper had, kept because a ladder is climbed */
 #intro .fm-rung__arrow--up { border-color: #7d6a38; color: #e8cbab; }

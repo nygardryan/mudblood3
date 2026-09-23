@@ -63,84 +63,62 @@ function escMultLabel(level) {
 const ESCALATIONS = [
   {
     level: 1, name: 'HARDENED CADRE', cat: 'ENEMY',
-    desc: 'Enemy troops toughen half again as fast as the war drags on.',
-    long: 'The per-wave HP ramp climbs at 1.5× its normal rate. It still stops at the ' +
-      'same ceiling, so this bites hardest in the first eighty waves — the stretch ' +
-      'where you are still building a line rather than holding one.',
+    desc: 'Enemy HP ramps 50% faster.',
+    long: 'Same HP ceiling. Hardest in the opening waves.',
     apply: (m) => { m.hpRampMult = 1.5; },
   },
   {
     level: 2, name: 'RATIONED', cat: 'SUPPLY',
-    desc: 'Every source of income pays a fifth less, and the supply trickle runs a second slower.',
-    long: 'Income ×0.8 across kills, the trickle and officer pay; the trickle interval ' +
-      'goes from three seconds to four. Roughly a third less TP over a long run once ' +
-      'both compound.',
+    desc: 'All income is 20% lower.',
+    long: 'Kills, the trickle, and officer pay all take the cut.',
     apply: (m) => { m.incomeMult = 0.8; m.trickleAdd = 1; },
   },
   {
     level: 3, name: 'NO RESPITE', cat: 'TEMPO',
-    desc: 'The breather between waves is gone.',
-    long: 'The three-second pause added between waves is removed outright. The gap ' +
-      'never widens again, so every reinforcement, repair and repositioning has to ' +
-      'happen while the field is still hot.',
+    desc: 'No pause between waves.',
+    long: 'The 3-second breather is removed.',
     apply: (m) => { m.waveBreather = 0; },
   },
   {
     level: 4, name: 'MURDEROUS INTENT', cat: 'ENEMY',
-    desc: 'Every enemy round, blade, blast and bite lands ten percent harder.',
-    long: 'A flat ×1.1 on all damage dealt to your men, applied at the single point ' +
-      'every attack funnels through. It covers small arms, shells, mortars, rockets, ' +
-      'mines, flame, melee and bile alike — and only enemy fire, so your own strays ' +
-      'are unchanged.',
+    desc: 'Enemy damage +10%.',
+    long: 'Every enemy attack. Your own fire is unchanged.',
     apply: (m) => { m.enemyDmgMult = 1.1; },
   },
   {
     level: 5, name: 'EMPTY DEPOTS', cat: 'SUPPLY',
-    desc: 'You deploy with nothing banked.',
-    long: 'The opening 25 TP is gone; whatever meets the first wave was paid for by ' +
-      'the trickle. The War Chest card still pays out in full — an earned counter is ' +
-      'still allowed to counter.',
+    desc: 'No starting TP.',
+    long: 'The opening 25 TP is gone. War Chest still pays.',
     apply: (m) => { m.startTPMult = 0; },
   },
   {
     level: 6, name: 'CASE-HARDENED', cat: 'ENEMY',
-    desc: 'Enemy body and flak plate is issued twice as thick.',
-    long: 'Armor here is a pool that soaks damage one-for-one until it breaks, not a ' +
-      'percentage — so doubling it doubles how many rounds a plated man eats before ' +
-      'anything reaches him. Bosses refill their plate at every rally, and theirs is ' +
-      'doubled too.',
+    desc: 'Enemy armor is doubled.',
+    long: 'Body, flak, and boss plate. It soaks damage until it breaks.',
     apply: (m) => { m.enemyArmorMult = 2; },
   },
   {
     level: 7, name: 'NO PLAN SURVIVES', cat: 'TEMPO',
-    desc: 'Fog, smoke, paradrops and air raids come thirty percent more often.',
-    long: 'Only the cadence changes — which event fires is still rolled the same way, ' +
-      'so the late-war weighting toward air raids is untouched. Smoke arriving more ' +
-      'often is the sharp end: it blinds your line as readily as theirs.',
+    desc: 'Events are 30% more frequent.',
+    long: 'Fog, smoke, paradrops, and air raids. The roll is unchanged.',
     apply: (m) => { m.eventIntervalMult = 1 / ESC_EVENT_RATE; },
   },
   {
     level: 8, name: 'CEASELESS', cat: 'TEMPO',
-    desc: 'Waves stop spacing out — the floor between them drops from seven seconds to five.',
-    long: 'The wave gap narrows as the war goes on and then holds at a floor. That ' +
-      'floor moves down, so from roughly wave thirty onward the field never empties. ' +
-      'Stacked on NO RESPITE this is a five-second gap where the base game gives ten.',
+    desc: 'Gap between waves drops from 7s to 5s.',
+    long: 'From about wave 30 the field never empties.',
     apply: (m) => { m.spawnFloor = 5; },
   },
   {
     level: 9, name: 'NOTHING ON THE DEAD', cat: 'SUPPLY',
-    desc: 'Kills pay nothing. Every TP you spend comes from the trickle and your officers.',
-    long: 'Kill bounties go to zero — the whole reward column of the roster stops ' +
-      'mattering. Income becomes a flat rate you cannot raise by fighting harder, ' +
-      'only by keeping officers alive.',
+    desc: 'Kills pay no TP.',
+    long: 'Income is only the trickle and your officers.',
     apply: (m) => { m.killIncome = 0; },
   },
   {
     level: 10, name: 'NO SURRENDER', cat: 'ENEMY',
-    desc: 'Putting the boss down does not end it. He comes back, and you finish it there.',
-    long: 'The wave-100 kill buys you nothing but the right to keep going. The run is ' +
-      'only won when the boss falls a second time at wave 200 — at twice the HP, with ' +
-      'every other rung of the ladder still stacked on top of you.',
+    desc: 'The wave-100 boss has a second life.',
+    long: 'The second kill is at wave 200, at double HP.',
     apply: (m) => { m.bossKills = 2; },
   },
 ];
@@ -322,7 +300,7 @@ function buildEscalationUI() {
   el('esc-rung-name').textContent = mod ? mod.name : 'CLEAN SECTOR';
   el('esc-mult').textContent = escMultLabel(level) + ' MEDALS';
   el('esc-rung-desc').textContent = mod ? mod.desc
-    : 'Nothing stacked against you, and nothing extra in the pay packet.';
+    : 'No modifiers.';
   // the denominator is the ladder THIS BUILD can climb: printing / X under the
   // demo cap sends a capped player back to farm boss kills for a rung that
   // will never unlock. The dossier's FULL GAME rows carry the rest of it.

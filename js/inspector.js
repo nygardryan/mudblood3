@@ -130,9 +130,9 @@ const emplacementIsEnemy = w => w.o.side === 'it';
 // enemy works get their own copy: what matters about one is that rifles can't
 // touch it, which is the opposite of everything the player's own pieces say
 const IT_WORK_INFO = {
-  sandbags: 'Enemy parapet. The men behind it dodge half your fire and the wall takes the round instead. Rifles cannot target it — explosives can.',
-  bunker: 'Enemy pillbox. The garrison dodges three rounds in four from behind it. Rifles cannot target it; shellfire and satchels can.',
-  watchtower: 'Enemy lookout. The man up it shoots a quarter further than he otherwise would. Frail, and worth shelling ahead of the bunker beside it.',
+  sandbags: 'Enemy parapet. Rifles cannot target it.',
+  bunker: 'Enemy bunker. Rifles cannot target it.',
+  watchtower: 'Enemy tower. Extends the man\'s range.',
 };
 
 function emplacementName(w) {

@@ -1901,49 +1901,47 @@ const EVENT_INFO = [
     key: 'fog',
     name: 'Fog Rolls In',
     wave: 3,
-    desc: 'Battlefield visibility drops. Your men and the enemy fight blind until the fog lifts.',
+    desc: 'Fog. Reduced visibility until it lifts.',
   },
   {
     key: 'smokescreen',
     name: 'Smokescreen',
     wave: 3,
-    desc: 'A smoke round lands on the field and pumps out a screen that rides the wind. Nobody can see through it: troops on either side cannot target each other at all until they are almost touching. Lasts 20-60 seconds, and the wind shifts every wave.',
+    desc: 'Smoke. Blocks sight until troops are close.',
   },
   {
     key: 'fng',
     name: 'FNG Reinforcements',
     wave: 3,
-    desc: 'A green rifleman reports for duty — free of charge. He\'s untested, but every body counts.',
+    desc: 'A free rifleman joins your line.',
   },
   {
     key: 'airraid',
     name: 'Air Attack',
     wave: 4,
-    desc: 'Aircraft cross the field out of the enemy treeline toward your line. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Against the Imperial Japanese Army it is a kamikaze attack instead: twice as many aircraft, no bombs, each one picking a defender and flying into him for a single blast exactly where it lands. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
-    // the demo fights only the Wehrmacht and hides the other three rosters from
-    // the codex, so the kamikaze clause is the one player-facing line left that
-    // names an army this build doesn't contain. Same rule as the escalation
-    // dossier's enemy note: copy that describes a faction owes demoActive() a
-    // look. Read-side only — codexEntries picks the variant, nothing prunes.
-    descDemo: 'Aircraft cross the field out of the enemy treeline toward your line. A bombing run drops 1-4 inaccurate bombs whenever a bomber passes near your men. Numbers, blast and airframe toughness escalate per wave tier. Only AA guns can reach them.',
+    // Faction-neutral on purpose. The Japanese raid is kamikaze rather than
+    // bombs, and naming that here is the one codex line that would promise an
+    // army the demo does not ship. Both versions are still "enemy aircraft,
+    // and only AA can hit them."
+    desc: 'Enemy air attack. Only AA guns can hit them.',
   },
   {
     key: 'paradrop',
     name: 'Fallschirmjäger Paradrop',
     wave: 6,
-    desc: 'Enemy paratroopers drift in behind your line. They are vulnerable under canopy — shoot them before they land.',
+    desc: 'Paratroopers drop behind your line.',
   },
   {
     key: 'airstrike',
     name: 'P-47 Strafing Run',
     wave: 8,
-    desc: 'Allied Thunderbolts strafe the field and drop bombs. Helps your cause, but ordnance is indiscriminate.',
+    desc: 'Allied planes strafe and bomb the field.',
   },
   {
     key: 'special',
     name: 'Themed Assaults',
     wave: 10,
-    desc: 'Every 10th wave: a motorcycle blitz, mass paradrop, human wave, armor column, or assault under fog. Themes rotate and grow bigger.',
+    desc: 'Every 10th wave is a larger themed attack.',
   },
 ];
 
@@ -2302,19 +2300,19 @@ const TESTING_ABILITIES = [
 // point is to see any event at any wave.
 const TESTING_EVENTS = [
   { key: 'random', label: 'RANDOM', cost: 0, kind: 'event',
-    desc: 'Rolls the wave-appropriate random event, exactly as the game would.' },
+    desc: 'Rolls this wave\'s random event.' },
   { key: 'fog', label: 'FOG', cost: 0, kind: 'event',
-    desc: 'Rolls fog across the field — everyone shoots worse until it lifts.' },
+    desc: EVENT_INFO.find(e => e.key === 'fog').desc },
   { key: 'smokescreen', label: 'SMOKE', cost: 0, kind: 'event',
-    desc: 'Drops a smoke round that screens the field downwind — nobody can target through it.' },
+    desc: EVENT_INFO.find(e => e.key === 'smokescreen').desc },
   { key: 'fng', label: 'FNG', cost: 0, kind: 'event',
-    desc: 'A replacement rifleman reports to the back line.' },
+    desc: EVENT_INFO.find(e => e.key === 'fng').desc },
   { key: 'paradrop', label: 'PARADROP', cost: 0, kind: 'event',
-    desc: 'Fallschirmjäger drop into the field. Stick size scales with the current wave.' },
+    desc: EVENT_INFO.find(e => e.key === 'paradrop').desc },
   { key: 'airraid', label: 'AIR RAID', cost: 0, kind: 'event',
-    desc: 'Whatever the current enemy sends: bombers crossing from their treeline over your line, or kamikaze against the Imperial Japanese Army. Formation and payload scale with the current wave.' },
+    desc: EVENT_INFO.find(e => e.key === 'airraid').desc },
   { key: 'kamikaze', label: 'KAMIKAZE', cost: 0, kind: 'event',
-    desc: 'Forces the Japanese half of the air raid against any enemy. Twice the aircraft of a bombing run, each picking a defender at random and diving into him for one blast.' },
+    desc: 'Planes dive into your men.' },
   { key: 'airstrike', label: 'STRAFING RUN', cost: 0, kind: 'event',
-    desc: 'A P-47 strafes a lane of the field.' },
+    desc: EVENT_INFO.find(e => e.key === 'airstrike').desc },
 ];

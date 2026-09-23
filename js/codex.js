@@ -1018,10 +1018,23 @@ function buildVeterancyPanel(key, ut) {
 // drifted: the camo nest advertised 4 s / 2 s / 1 s of exposure against actual
 // values of 3 / 1.5 / 0.5, and wire advertised 12%/5%/2% against 12.6/5.25/2.1.
 // A page whose whole job is to tell the player what a thing does cannot be a
-// second copy of what it does — same rule the BUNKER_COVER_R comment states for
-// the hover ring. Only prose rows ('scarecrow', 'slowest') stay hand-written,
-// and HP, which compounds by the piece's own fortifyMult.
+// second copy of what it does — same rule the parapet-cover comment states for
+// the hover box. Only prose rows ('scarecrow', 'slowest') stay hand-written,
+// and HP, which compounds by the piece's own fortifyMult. Cover width and
+// depth are read off wallCoverRect, so they are the sides of the box the
+// player is shown and the box that stops rounds.
 const fortPct = (arr, sign) => arr.map(v => (sign && v > 0 ? '+' : '') + Math.round(v * 100) + '%');
+const coverDims = (key) => {
+  const w = [], d = [];
+  for (let t = 0; t < 3; t++) {
+    const r = wallCoverRect(key, 0, 0, t);
+    w.push(String(r.y1 - r.y0));
+    d.push(String(r.x1 - r.x0));
+  }
+  return { w, d };
+};
+const SANDBAG_COVER_DIMS = coverDims('sandbags');
+const BUNKER_COVER_DIMS = coverDims('bunker');
 const FORT_TIERS = {
   wire: {
     rows: [
@@ -1034,7 +1047,8 @@ const FORT_TIERS = {
     rows: [
       { label: 'HP',           v: ['660', '990', '1,485'] },
       { label: 'Dodge chance', v: fortPct(SANDBAG_COVER_DODGE) },
-      { label: 'Cover radius', v: SANDBAG_COVER_R.map(String) },
+      { label: 'Cover width', v: SANDBAG_COVER_DIMS.w },
+      { label: 'Cover depth', v: SANDBAG_COVER_DIMS.d },
     ],
   },
   dummy: {
@@ -1049,7 +1063,8 @@ const FORT_TIERS = {
     rows: [
       { label: 'HP',           v: ['2,040', '3,060', '4,590'] },
       { label: 'Dodge chance', v: fortPct(BUNKER_COVER_DODGE) },
-      { label: 'Cover radius', v: BUNKER_COVER_R.map(String) },
+      { label: 'Cover width', v: BUNKER_COVER_DIMS.w },
+      { label: 'Cover depth', v: BUNKER_COVER_DIMS.d },
     ],
   },
   watchtower: {

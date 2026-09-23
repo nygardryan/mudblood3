@@ -502,23 +502,30 @@ function drawSpecialistRange(a) {
   drawSpecialistRangeAt(a.x, a.y, a.type, a.side);
 }
 
-// dashed area-of-effect indicator for an emplacement — cover radius for
+// dashed area-of-effect indicator for an emplacement — the cover rectangle for
 // bunker/sandbags, blast radius for mines, slow zone for wire. Drawn both under
 // the placement ghost (where the piece has no tier yet, hence the 0 default) and
 // under the hover inspector, where `tier` is the piece's live fortification so
-// the ring the player is shown is the reach he actually has.
+// the box the player is shown is the ground that actually stops rounds.
 //
 // Returns whether anything was drawn: a decoy has no zone (it IS the effect —
 // enemies shoot at it), so the inspector needs to know to fall back to the
 // footprint box rather than highlight nothing.
 function drawDefenseRangeIndicator(key, x, y, tier = 0) {
-  if (key === 'bunker' || key === 'sandbags' || key === 'camonest') {
-    const r = key === 'sandbags' ? SANDBAG_COVER_R[tier]
-      : key === 'bunker' ? BUNKER_COVER_R[tier] : CAMONEST_ZONE;
-    ctx.strokeStyle = key === 'camonest' ? 'rgba(150,190,110,0.5)' : 'rgba(120,175,235,0.5)';
+  if (key === 'bunker' || key === 'sandbags') {
+    // on the piece and straight back toward the trench — the same rectangle
+    // coverBlock tests, so the dashed box is the shelter
+    const r = wallCoverRect(key, x, y, tier);
+    ctx.strokeStyle = 'rgba(120,175,235,0.5)';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 4]);
-    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
+    ctx.strokeRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+    ctx.setLineDash([]);
+  } else if (key === 'camonest') {
+    ctx.strokeStyle = 'rgba(150,190,110,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.arc(x, y, CAMONEST_ZONE, 0, 7); ctx.stroke();
     ctx.setLineDash([]);
   } else if (key === 'mine') {
     ctx.strokeStyle = 'rgba(220,90,50,0.5)';

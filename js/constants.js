@@ -47,12 +47,39 @@ const MEDIC_RANGE = 95;
 const ENGINEER_RANGE = 95;
 const OFFICER_AURA = 78;
 const WATCHTOWER_AURA = 22;
-// cover radii by fortify tier — an engineer's work widens the shadow a wall
-// throws, so these are what coverBlock (js/shooting.js) measures against AND
-// what the hover inspector draws. One table, or the ring the player is shown
-// would quote a different reach than the one that stops rounds.
-const BUNKER_COVER_R = [30, 34, 38];
-const SANDBAG_COVER_R = [26, 30, 33];
+// Parapet cover, by fortify tier. A sandbag wall or a bunker shelters a
+// RECTANGLE: the piece itself, and the ground directly behind it — higher x,
+// toward the trench, which is where a man posted behind the parapet actually
+// stands. Enemies march +x, so "behind" a wall is the player's side of it.
+//
+// The shadow used to be a circle centered on the piece. Half of that circle
+// sat out in front, on the enemy's side of the wall, and the back edge was
+// only a stride past the centre — a man standing clear of the bags, where
+// every new player puts him, was already outside it. wallCoverRect
+// (js/helpers.js) is the one reader: coverBlock measures against it and the
+// hover indicator draws it, so the box on screen is the box that stops rounds.
+//
+// `lat` is the half-width along the wall (y). `back` is how far past the
+// piece's own rear face the shadow reaches; the front edge is that face, so
+// standing on the wall counts and standing out in front of it does not.
+//
+// Both are sized against the 22px march spacing (issueMoveOrder): the box
+// holds three men abreast and two ranks deep — three on the parapet, three
+// one step behind — and no more. Total depth is 44 on both pieces (the body
+// plus `back`), which is two spacings; a third center lands on the back edge
+// and is outside. Width stays under three spacings (66), so a fourth man
+// abreast is outside too, hardened included. Fortifying widens the line. It
+// does not deepen it: the depth is already that whole second rank.
+const BUNKER_COVER = [
+  { lat: 30, back: 18 },
+  { lat: 32, back: 18 },
+  { lat: 33, back: 18 },
+];
+const SANDBAG_COVER = [
+  { lat: 26, back: 20 },
+  { lat: 29, back: 20 },
+  { lat: 32, back: 20 },
+];
 // ...and the other two halves of a cover roll, on the same tier index: the odds
 // the wall eats the round, and the hp that costs the wall. Tables rather than
 // the nested ternaries these were, so the whole per-tier story of a wall reads
@@ -89,7 +116,7 @@ const AMMOCRATE_AURA = 60;                      // radius that shares out its am
 // lower rofMult = faster cycling: nearby soldiers fire and reload quicker.
 // a fresh crate is +10%, an engineer-fortified one +20%, a hardened one +30%.
 const AMMOCRATE_ROF_MULT_TIERS = [0.9, 0.8, 0.7];
-const CAMONEST_ZONE = 30;               // same footprint as a bunker's cover radius
+const CAMONEST_ZONE = 30;               // concealment radius around the nest
 const CAMONEST_REVEAL = 3;              // seconds targetable after a shot, unfortified
 const CAMONEST_REVEAL_FORTIFIED = 1.5;
 const CAMONEST_REVEAL_HARDENED = 0.5;   // second-tier fortification (Hardened Works)

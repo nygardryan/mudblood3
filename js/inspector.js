@@ -303,7 +303,7 @@ function wrapCanvasText(parts, maxW, sep = ' ') {
 // / blast / aura actually reaches. It's the same indicator the placement ghost
 // shows (drawDefenseRangeIndicator, js/targeting.js), so siting a piece and
 // checking one later read identically — but fed the piece's live fortify tier,
-// since an engineer widens a wall's shadow.
+// since an engineer widens a wall's shadow and pushes it further back.
 //
 // Two kinds have no zone to draw and fall back to the picked box: a decoy (it IS
 // the effect — enemies shoot at it) and an ENEMY field work, whose cover is

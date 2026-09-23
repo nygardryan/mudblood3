@@ -427,8 +427,9 @@ function handleCanvasTap(shiftKey = false) {
       SFX.click();
       mobileVibrate(5);
     } else if (T.step === 'groupMove' && G.selected.length && dist(T.sandbag, { x, y }) < 34) {
-      // land the whole group inside the sandbag's cover radius
-      issueMoveOrder(G.selected, T.sandbag.x + 2, T.sandbag.y);
+      // one step behind the wall, midway through the shadow — the rank the box holds
+      const rear = T.sandbag.x + emplacementBox('sandbags').hw;
+      issueMoveOrder(G.selected, rear + SANDBAG_COVER[0].back * 0.5, T.sandbag.y);
       SFX.click();
       mobileVibrate(5);
     }

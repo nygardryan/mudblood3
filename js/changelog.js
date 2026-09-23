@@ -4,6 +4,15 @@
 const CHANGELOG = [
   {
     date: '2026-09-23',
+    title: 'Cover Sits Behind the Wall',
+    changes: [
+      'Sandbags and bunkers now shelter a rectangle: the wall itself, and the ground directly behind it, back toward your trench. Standing on the parapet still counts. Standing out in front of it does not.',
+      'That is where men were already being put. Cover used to be a circle centered on the piece, so most of it sat on the enemy\'s side of the wall, and a man standing clear of the bags — the obvious place — was already outside it.',
+      'The shadow is one rank deep. Three men stand on the parapet and three stand one step behind it; a man further back than that is in the open. Fortifying widens the line a little. It does not push the shelter deeper — that second rank is the whole of it. The dashed box you see while placing one, and while pointing at one, is the ground that stops the rounds.',
+    ],
+  },
+  {
+    date: '2026-09-23',
     title: 'A New Song for the Line',
     changes: [
       'PLAY advances the music to the next track. The song that was playing over the menu stays with the menu; the fight starts on the one after it.',

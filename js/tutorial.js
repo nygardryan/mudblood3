@@ -73,7 +73,7 @@ function setupTutorial2(G) {
   const rifle = makeUnit('rifleman', BX + 2, BY);
   rifle.rank = 1;                 // the PFC he earned in Lesson 1
   G.units.push(rifle);
-  const medic = makeUnit('medic', BX + 62, BY);   // dug in behind the sandbags
+  const medic = makeUnit('medic', BX + 24, BY);   // one step behind the sandbags, inside the shadow
   G.units.push(medic);
   usSandbag(G, BX, BY);
   G.spawnTimer = 9999;            // no endless waves until the script hands off
@@ -298,10 +298,11 @@ function tutEnterStep(step) {
       // field, and camera clamping pins it there regardless of center) so he
       // and this zone are both guaranteed on screen, whatever he clicked
       tutSetCam(1, W / 2, H / 2);
-      // kept clear of the sandbag on purpose: it sits almost dead-center of the
-      // OLD zone (28px from center, inside groupMove's 30px capture radius), so
-      // a rifleman placed there could already satisfy groupMove's arrival gate
-      // before that lesson even starts — this y-range is >45px further from it
+      // kept clear of the sandbag's cover on purpose: groupMove completes when
+      // both men are inside that rectangle, so a rifleman placed in it would
+      // satisfy the arrival gate before the lesson even starts. The zone's
+      // y-range sits clear of the shadow (the shadow's x does reach this far
+      // back — that is the point of it).
       T.placeZone = { x0: 520, y0: tuY(230), x1: 650, y1: tuY(340) };
       setTutorialMsg(mobileViewActive()
         ? 'Open UNITS and tap RIFLEMAN, then tap the field to post a second man.'
@@ -856,7 +857,9 @@ function updateTutorial(dt) {
       if (G.selected.includes(T.rifle) && T.buddy && G.selected.includes(T.buddy)) tutEnterStep('groupMove');
       break;
     case 'groupMove':
-      if (!T.rifle.moveTo && !T.buddy.moveTo && dist(T.rifle, T.sandbag) < 30 && dist(T.buddy, T.sandbag) < 30) tutEnterStep('deselect2');
+      if (!T.rifle.moveTo && !T.buddy.moveTo
+          && inWallCover('sandbags', T.sandbag, T.rifle)
+          && inWallCover('sandbags', T.sandbag, T.buddy)) tutEnterStep('deselect2');
       break;
     case 'deselect2':
       if (!G.selected.length) tutEnterStep('buildEmplacement');

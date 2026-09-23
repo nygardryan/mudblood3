@@ -147,19 +147,19 @@ function coverBlock(target) {
   if (target.isDummy) return false;
   // the enemy has its own works to hide behind, and its own way of resolving them
   if (target.side !== 'us') return italianCoverBlock(target);
-  // bunker walls first: they stop more fire and barely notice small arms
+  // bunker walls first: they stop more fire and barely notice small arms.
+  // The shadow is the rectangle on and behind the wall (wallCoverRect), so a
+  // man has to be posted there — out in front of the parapet he is in the open.
   for (const b of G.bunkers) {
     const tier = emplacementTier(b);
-    const r = BUNKER_COVER_R[tier];
-    if (b.hp > 0 && dist2(b, target) < r * r) {
+    if (b.hp > 0 && inWallCover('bunker', b, target)) {
       if (Math.random() < BUNKER_COVER_DODGE[tier]) { b.hp -= BUNKER_COVER_CHIP[tier]; return true; }
     }
   }
   for (const s of G.sandbags) {
     // fortified bags stop more and shrug off hits better; hardened, more still
     const tier = emplacementTier(s);
-    const r = SANDBAG_COVER_R[tier];
-    if (s.hp > 0 && dist2(s, target) < r * r) {
+    if (s.hp > 0 && inWallCover('sandbags', s, target)) {
       if (Math.random() < SANDBAG_COVER_DODGE[tier]) { s.hp -= SANDBAG_COVER_CHIP[tier]; return true; }
     }
   }

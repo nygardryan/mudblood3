@@ -690,8 +690,9 @@ function takeAmbushShot(u) {
 // have them firing blind. The tower's SECOND footprint, and deliberately a much
 // wider one than WATCHTOWER_AURA — the aura is who is close enough to shoot
 // further off the tower's height, this is how much ground the man up it can
-// SEE. One radius per fortification tier, like BUNKER_COVER_R, so an engineer
-// widens the sector rather than only hardening the ladder he climbs.
+// SEE. One radius per fortification tier, the same step a parapet's cover
+// takes, so an engineer widens the sector rather than only hardening the
+// ladder he climbs.
 //
 // Sized against a rifle: 130 is about a rifleman's own reach, so one tower
 // covers roughly one sector of the line and never the field. That bound is the

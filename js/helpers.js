@@ -152,11 +152,36 @@ function forEachDefense(fn) {
 
 // Which fortification tier a piece is standing at: 0 base, 1 fortified, 2
 // hardened. The read side of applyFortifyTier below, and it lives beside it for
-// that reason — every per-tier table in the game (cover radii, dodge odds, wire
-// drag, tower reach, camo reveal) is indexed by this and half a dozen sites used
-// to spell the ternary out by hand.
+// that reason — every per-tier table in the game (parapet cover, dodge odds,
+// wire drag, tower reach, camo reveal) is indexed by this and half a dozen
+// sites used to spell the ternary out by hand.
 function emplacementTier(o) {
   return o.up2 ? 2 : o.up ? 1 : 0;
+}
+
+// The rectangle a sandbag wall or bunker shelters. One function, because
+// coverBlock and the dashed box the player is shown have to describe the same
+// ground — the failure a shared table was extracted to prevent.
+//
+// The box starts at the piece's front face (enemy side, low x) so a man
+// standing on the wall is inside it, and runs back past the rear face by
+// SANDBAG_COVER / BUNKER_COVER `back`. Nothing forward of the parapet is
+// covered. `tier` is passed in rather than read off the piece so the placement
+// ghost, which has no piece yet, can ask for tier 0.
+function wallCoverRect(key, x, y, tier) {
+  const spec = (key === 'bunker' ? BUNKER_COVER : SANDBAG_COVER)[tier];
+  const hw = emplacementBox(key).hw;
+  return {
+    x0: x - hw,
+    x1: x + hw + spec.back,
+    y0: y - spec.lat,
+    y1: y + spec.lat,
+  };
+}
+
+function inWallCover(key, piece, pt) {
+  const r = wallCoverRect(key, piece.x, piece.y, emplacementTier(piece));
+  return pt.x >= r.x0 && pt.x < r.x1 && pt.y >= r.y0 && pt.y < r.y1;
 }
 
 // ---- veterancy curves ----

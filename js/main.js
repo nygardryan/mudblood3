@@ -13,7 +13,15 @@ el('esc-prev').addEventListener('click', () => stepEscalation(-1));
 el('esc-next').addEventListener('click', () => stepEscalation(1));
 // PLAY is the deploy control, and the only one — it starts a run at whatever
 // rung the slab is showing, which is why the menu has no mode picker at all.
-el('esc-deploy').addEventListener('click', () => openEndlessLoadout('easy'));
+// The menu and the fight share one playlist, so the song that was already
+// playing over the attract board would otherwise follow the player onto the
+// field. Skipping here is the scene change: the next track starts as the
+// menu goes. (The capture-phase gesture listener may have just called
+// start() on this same press; next() still advances past that opening track.)
+el('esc-deploy').addEventListener('click', () => {
+  MUSIC.next();
+  openEndlessLoadout('easy');
+});
 el('esc-dossier-open').addEventListener('click', openEscalationDossier);
 el('esc-dossier-close').addEventListener('click', closeEscalationDossier);
 // it layers over the menu, so it closes the way a layer does — click the

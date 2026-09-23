@@ -741,40 +741,6 @@ const FRENZY_WEIGHTS = {
   mortarman: 5, bazooka: 6,
 };
 
-// Every generated `desc` below drops a unit name or a toolbar label into
-// mid-sentence, and a bare toLowerCase()/`'s` got both of those wrong on the
-// catalog as it actually stands.
-//
-// ACRONYMS must keep shouting: `AT Gun`/`AA Gun` came out as "the at gun's
-// weapon", "Every aa gun musters" — eight cards across four templates, and two
-// of them (seasonedvet_aagun, costcut_aagun) are in the demo's seventeen, where
-// they are a seventeenth of everything that build sells. A word that is already
-// all-caps is left alone; everything else lowercases as before, so Rifleman is
-// untouched.
-//
-// The two catalogs this runs over are cased DIFFERENTLY, and that is the whole
-// reason for the early-out. UNIT_TYPES names are Title Case, so an all-caps
-// word inside one is real information — `AA` in `AA Gun` means something
-// `Gun` doesn't. PLACEABLES labels are uppercase by DISPLAY convention
-// (MINEFIELD, WATCH TOWER, ARTILLERY STRIKE), so they carry no case
-// information at all and the per-word test reads every one of them as an
-// acronym — which is exactly what it did on the first pass, leaving the shop
-// saying "Cuts the MINEFIELD's TP cost". A string that is entirely uppercase
-// is a label, not a sentence fragment, and lowercases whole.
-function cardNameLower(name) {
-  const s = String(name);
-  if (s === s.toUpperCase()) return s.toLowerCase();
-  return s.split(' ')
-    .map(w => /^[A-Z]{2,}$/.test(w) ? w : w.toLowerCase())
-    .join(' ');
-}
-
-// ...and a name that already ends in `s` takes a bare apostrophe: SANDBAGS is
-// the one label in PLACEABLES that does, and it read "the sandbags's TP cost".
-function cardPossessive(name) {
-  return name + (/s$/i.test(name) ? "'" : "'s");
-}
-
 // commons: stamped out once per eligible unit type. `excludes` drops types
 // the effect can't touch (the flamethrower has no cooldown to reset).
 // `weight` is the card's command weight, 1-6 by impact.
@@ -791,14 +757,14 @@ const CARD_COMMON_TEMPLATES = {
   frenzy: {
     name: 'Frenzy', cost: 5, excludes: ['flamer', 'medic'],
     weight: type => FRENZY_WEIGHTS[type] || 1,
-    desc: t => `A kill instantly reloads the ${cardPossessive(cardNameLower(t.name))} weapon.`,
+    desc: () => `A kill reloads.`,
     hooks: type => ({ onKill: frenzyReload(type) }),
   },
   busteddown: {
     name: 'Busted Down', cost: 6,
     // cheating death matters most on the units a run can't afford to replace
     weight: type => ({ jeep: 3, atgun: 3, aagun: 3, sherman: 5 }[type] || 2),
-    desc: t => `Instead of dying, the ${cardNameLower(t.name)} drops 2 ranks.`,
+    desc: () => `On death, drops 2 ranks.`,
     hooks: type => ({ beforeDeath: cheatDeath }),
   },
   // small-arms accuracy only — the units whose to-hit runs through fireShot.
@@ -806,7 +772,7 @@ const CARD_COMMON_TEMPLATES = {
   zeroedin: {
     name: 'Zeroed In', cost: 6, excludes: ['shotgunner', 'flamer', 'sherman', 'atgun', 'aagun', 'medic'],
     weight: type => ({ sniper: 3 }[type] || 2),
-    desc: t => `${t.name} lands 25% more of their shots.`,
+    desc: () => `Hits 25% more often.`,
     hooks: type => ({ accMult: 1.25 }),
   },
   // stretches every unit's engagement range by 25% — the one type it can't help
@@ -815,14 +781,14 @@ const CARD_COMMON_TEMPLATES = {
   // G.cardsOwned so the targeting scan and the drawn range ring lengthen together.
   rangefinders: {
     name: 'Rangefinders', cost: 6, weight: 2, excludes: ['medic'],
-    desc: t => `${t.name} engages targets 25% farther out.`,
+    desc: () => `Range is 25% longer.`,
     hooks: type => ({}),
   },
   shrapnelvest: {
     name: 'Shrapnel Vest', cost: 6, excludes: ['jeep', 'sherman', 'atgun', 'aagun'],
     // the flamer already halves blast damage on his own vest
     weight: type => type === 'flamer' ? 1 : 2,
-    desc: t => `${t.name} takes 30% less damage from explosions.`,
+    desc: () => `Takes 30% less explosion damage.`,
     hooks: type => ({}),
   },
   // 30% more HP on every unit type — no excludes, since every placeable soldier,
@@ -832,7 +798,7 @@ const CARD_COMMON_TEMPLATES = {
     name: 'Field Hardened', cost: 7,
     // survivability is worth most on what a run can least afford to re-buy
     weight: type => ({ jeep: 3, atgun: 3, aagun: 3, sherman: 4 }[type] || 2),
-    desc: (t, type) => `${t.name} musters with 30% more HP — ${t.hp} up to ${hardenedHp(type)}.`,
+    desc: (t, type) => `30% more HP, ${t.hp} to ${hardenedHp(type)}.`,
     hooks: type => ({}),
   },
   // one free promotion at spawn. Every unit type carries a rank, so this stamps
@@ -840,7 +806,7 @@ const CARD_COMMON_TEMPLATES = {
   // `seasonedvet_<type>` at spawn.
   seasonedvet: {
     name: 'Seasoned Veteran', cost: 5, weight: 2,
-    desc: t => `Every ${cardNameLower(t.name)} musters in one rank higher.`,
+    desc: () => `Starts one rank higher.`,
     hooks: type => ({}),
   },
   // support units carry weak short-range sidearms; this trades one for a
@@ -851,9 +817,7 @@ const CARD_COMMON_TEMPLATES = {
     name: 'Standard Issue', cost: 6, weight: 2,
     excludes: ['rifleman', 'gunner', 'grenadier', 'shotgunner', 'bazooka',
       'mortarman', 'sniper', 'flamer', 'jeep', 'sherman', 'atgun', 'aagun'],
-    desc: (t, type) => type === 'medic'
-      ? `Arms the medic with a full M1 rifle — a healer who can fight back.`
-      : `Swaps the ${cardPossessive(cardNameLower(t.name))} weak sidearm for a full M1 rifle.`,
+    desc: () => `Adds an M1 rifle.`,
     hooks: type => ({}),
   },
   // the four close-in specialists spend most of a fight walking into or out of
@@ -864,7 +828,7 @@ const CARD_COMMON_TEMPLATES = {
     name: 'Double Time', cost: 6, weight: 2,
     excludes: ['rifleman', 'gunner', 'grenadier', 'bazooka', 'mortarman',
       'sniper', 'officer', 'jeep', 'sherman', 'atgun', 'aagun'],
-    desc: t => `${t.name} moves 30% faster.`,
+    desc: () => `Moves 30% faster.`,
     hooks: type => ({}),
   },
   // emergency repair only applies to vehicles: those with tank or vehicle flags.
@@ -873,7 +837,7 @@ const CARD_COMMON_TEMPLATES = {
     name: 'Emergency Repair', cost: 8, weight: 3,
     excludes: ['rifleman', 'gunner', 'grenadier', 'shotgunner', 'bazooka',
       'mortarman', 'sniper', 'flamer', 'medic', 'engineer', 'officer', 'atgun', 'aagun'],
-    desc: t => `Below 30% HP the ${cardNameLower(t.name)} rapidly regenerates 30% HP, once every ${EMERGENCY_REPAIR_COOLDOWN}s.`,
+    desc: () => `Below 30% HP, regains 30% HP every ${EMERGENCY_REPAIR_COOLDOWN}s.`,
     hooks: type => ({}),
   },
   // medal price runs opposite the unit's TP cost: a discount on a 3 TP
@@ -886,7 +850,7 @@ const CARD_COMMON_TEMPLATES = {
     weight: type => clamp(Math.round(15 / PLACEABLE_COST_BY_TYPE[type]), 1, 5),
     desc: (t, type) => {
       const tp = PLACEABLE_COST_BY_TYPE[type];
-      return `Cuts the ${cardPossessive(cardNameLower(t.name))} TP cost by 25%, from ${tp} to ${warSurplusCost(tp)}.`;
+      return `TP cost 25% off, ${tp} to ${warSurplusCost(tp)}.`;
     },
     hooks: type => ({}),
   },
@@ -896,7 +860,7 @@ const CARD_COMMON_TEMPLATES = {
 const CARD_UNIQUES = {
   deadmansswitch: {
     unit: 'rifleman', name: "Dead Man's Switch", cost: 9, weight: 3,
-    desc: 'A dying rifleman drops a live frag on the nearest enemy.',
+    desc: 'On death, drops a frag on the nearest enemy.',
     hooks: {
       // fires from the death block after the man is down; the corpse still
       // gets credited as the thrower so grenadiers won't scoop it back
@@ -915,7 +879,7 @@ const CARD_UNIQUES = {
   rifledslugs: {
     unit: 'shotgunner', name: 'Rifled Slugs', cost: 9, weight: 3,
     // flag-only: fireShotgun reads G.cardsOwned directly, like Extended Tube
-    desc: 'Slugs, not buckshot: one hard long-range round in a wider cone.',
+    desc: 'Replaces buckshot with one long-range slug.',
     hooks: {},
   },
   // flag-only, like Rifled Slugs: unitRangeMult reads G.cardsOwned to stretch a
@@ -923,7 +887,7 @@ const CARD_UNIQUES = {
   // all lengthen together
   desperatemeasures: {
     unit: 'flamer', name: 'Desperate Measures', cost: 9, weight: 3,
-    desc: 'A flamer below half health throws his stream 30% farther.',
+    desc: 'Below half HP, reaches 30% farther.',
     hooks: {},
   },
   // flag-only, like Desperate Measures/Rifled Slugs: flameSpray reads
@@ -932,7 +896,7 @@ const CARD_UNIQUES = {
   // from every enemy his stream burns, a vampire's deal with the fire.
   vampiricflame: {
     unit: 'flamer', name: 'Vampiric Flame', cost: 9, weight: 3,
-    desc: `The flamer heals for ${Math.round(VAMPIRIC_FLAME_LIFESTEAL * 100)}% of the damage his stream deals.`,
+    desc: `Heals for ${Math.round(VAMPIRIC_FLAME_LIFESTEAL * 100)}% of damage dealt.`,
     hooks: {},
   },
   // flag-only, like Rifled Slugs: tankTargets/updateTankCombat read
@@ -941,7 +905,7 @@ const CARD_UNIQUES = {
   // damage to armor, so this genuinely can't crack a Tiger.
   flametank: {
     unit: 'sherman', name: 'Flame Tank', cost: 14, weight: 5,
-    desc: `Trades the 75mm for a hull flamethrower that torches infantry — friend or foe — and only chips armor.`,
+    desc: '75mm becomes a flamethrower that only chips armor.',
     hooks: {},
   },
   // flag-only, like Flame Tank: explode() reads G.cardsOwned via
@@ -949,21 +913,21 @@ const CARD_UNIQUES = {
   // on the Sherman
   slopedarmor: {
     unit: 'sherman', name: 'Sloped Armor', cost: 12, weight: 5,
-    desc: `Angled plate: the Sherman takes ${Math.round(SLOPED_ARMOR_REDUCTION * 100)}% less damage from enemy tank shells and rockets.`,
+    desc: `Takes ${Math.round(SLOPED_ARMOR_REDUCTION * 100)}% less shell and rocket damage.`,
     hooks: {},
   },
   // flag-only, like Sloped Armor: the tank cannon block in updateTankCombat
   // reads G.cardsOwned via unitBlastMult and widens the r it hands the shell
   heshells: {
     unit: 'sherman', name: 'High Explosive', cost: 13, weight: 5,
-    desc: `Every 75mm shell bursts across ${HE_BLAST_MULT}x the radius, with no regard for how close your own men stand.`,
+    desc: `75mm shells burst across ${HE_BLAST_MULT}x the radius.`,
     hooks: {},
   },
   // flag-only: maybeSpawnPassenger (called from input.js placement) reads
   // G.cardsOwned when a jeep deploys and rolls a free rider off rollPassengerType
   passenger: {
     unit: 'jeep', name: 'Passenger', cost: 10, weight: 3,
-    desc: 'Every jeep rolls in carrying one free infantryman, usually a rifleman.',
+    desc: 'One free infantryman.',
     hooks: {},
   },
   // flag-only, like Rifled Slugs: fireJeepBazooka (called from the vehicle
@@ -971,21 +935,21 @@ const CARD_UNIQUES = {
   // paints the rider in the passenger seat
   bazookarider: {
     unit: 'jeep', name: 'Bazooka Rider', cost: 12, weight: 4,
-    desc: 'A bazooka gunner rides shotgun in every jeep, hunting armor on the move.',
+    desc: 'Carries a bazooka gunner.',
     hooks: {},
   },
   // flag-only, like Rifled Slugs: fireShot reads G.cardsOwned via
   // armorPiercingMult and boosts a gunner's damage against light enemy vehicles
   armorpiercing: {
     unit: 'gunner', name: 'Armor Piercing', cost: 9, weight: 3,
-    desc: `The gunner's BAR deals ${ARMOR_PIERCING_MULT}x damage to light enemy vehicles and ${ARMOR_PIERCING_TANK_MULT}x to tanks.`,
+    desc: `${ARMOR_PIERCING_MULT}x vs light vehicles, ${ARMOR_PIERCING_TANK_MULT}x vs tanks.`,
     hooks: {},
   },
   // flag-only, like Armor Piercing: suppressArea reads G.cardsOwned via
   // suppressionPinMult on every burst a US gunner opens
   beatenzone: {
     unit: 'gunner', name: 'Beaten Zone', cost: 10, weight: 4,
-    desc: `Every gunner burst pins the enemies around his aim point for ${BEATEN_ZONE_MULT}x as long.`,
+    desc: `Bursts pin for ${BEATEN_ZONE_MULT}x as long.`,
     hooks: {},
   },
   // flag-only, like Armor Piercing: damageEnemy and damageUnit read
@@ -993,12 +957,12 @@ const CARD_UNIQUES = {
   // otherwise have soaked the blast.
   heatrounds: {
     unit: 'bazooka', name: 'HEAT Rounds', cost: 10, weight: 3,
-    desc: 'Shaped charges burn straight through flak plate — anyone\'s, your own men\'s included.',
+    desc: 'Rockets ignore flak armor.',
     hooks: {},
   },
   crackshot: {
     unit: 'sniper', name: 'Crack Shot', cost: 8, weight: 3,
-    desc: 'Every miss guarantees the sniper\'s next shot connects.',
+    desc: 'A miss makes the next shot hit.',
     hooks: {
       // beforeShot may return true to force the shot to hit; afterShot sees
       // the final result and is where the card arms itself on a miss
@@ -1012,12 +976,12 @@ const CARD_UNIQUES = {
   // HEADSHOT_CHANCE for why the two rates are so far apart.
   headshotsniper: {
     unit: 'sniper', name: 'Headshot', cost: 12, weight: 4,
-    desc: `Every sniper round that connects has a ${Math.round(HEADSHOT_CHANCE.sniper * 100)}% chance to kill enemy infantry outright.`,
+    desc: `${Math.round(HEADSHOT_CHANCE.sniper * 100)}% chance a hit kills infantry.`,
     hooks: {},
   },
   headshotrifleman: {
     unit: 'rifleman', name: 'Headshot', cost: 11, weight: 4,
-    desc: `Every rifle round that connects has a ${Math.round(HEADSHOT_CHANCE.rifleman * 100)}% chance to kill enemy infantry outright.`,
+    desc: `${Math.round(HEADSHOT_CHANCE.rifleman * 100)}% chance a hit kills infantry.`,
     hooks: {},
   },
   // Follow Through: the one card built on kill momentum, and the second pair
@@ -1031,7 +995,7 @@ const CARD_UNIQUES = {
   // the very next tick rather than a frame and a bit later.
   followthroughsniper: {
     unit: 'sniper', name: 'Follow Through', cost: 12, weight: 4,
-    desc: `A confirmed kill sends the sniper's next shot ${LONG_SHOT_MULT}x as far; a miss spends it.`,
+    desc: `A kill extends the next shot to ${LONG_SHOT_MULT}x range.`,
     hooks: {
       onKill: u => { u.longShot = true; u._tgtUntil = 0; },
       afterShot: u => { u.longShot = false; },
@@ -1039,7 +1003,7 @@ const CARD_UNIQUES = {
   },
   followthroughrifleman: {
     unit: 'rifleman', name: 'Follow Through', cost: 9, weight: 3,
-    desc: `A confirmed kill sends the rifleman's next shot ${LONG_SHOT_MULT}x as far; a miss spends it.`,
+    desc: `A kill extends the next shot to ${LONG_SHOT_MULT}x range.`,
     hooks: {
       onKill: u => { u.longShot = true; u._tgtUntil = 0; },
       afterShot: u => { u.longShot = false; },
@@ -1050,7 +1014,7 @@ const CARD_UNIQUES = {
   // G.cardsOwned directly instead
   greasemonkey: {
     unit: 'engineer', name: 'Grease Monkey', cost: 8, weight: 2,
-    desc: 'Engineers repair emplacements and vehicles alike twice as fast.',
+    desc: 'Repairs twice as fast.',
     hooks: {},
   },
   hardenedworks: {
@@ -1058,56 +1022,56 @@ const CARD_UNIQUES = {
     // flag-only: updateEngineer reads G.cardsOwned directly, like Grease Monkey.
     // Lets an engineer push an already-fortified emplacement to a second tier —
     // tougher, deeper cover, longer range, harder wire.
-    desc: 'Engineers push fortifications to a second HARDENED tier — more HP, cover and range.',
+    desc: 'Fortifies emplacements to a second tier.',
     hooks: {},
   },
   fieldarmorer: {
     unit: 'engineer', name: 'Field Armorer', cost: 10, weight: 3,
     // flag-only, like Grease Monkey: updateEngineer reads G.cardsOwned directly
-    desc: 'Engineers slowly patch battle-damaged body and flak armor on nearby infantry.',
+    desc: 'Repairs nearby body and flak armor.',
     hooks: {},
   },
   cannibalize: {
     unit: 'engineer', name: 'Cannibalize', cost: 9, weight: 3,
     // flag-only: unitBuffs and unitRangeMult read G.cardsOwned directly and
     // count repairable objects (via engineerRepairCount) inside ENGINEER_RANGE.
-    desc: 'Each repairable object in his repair radius gives the engineer +10% fire rate and range.',
+    desc: '+10% fire rate and range per nearby repair.',
     hooks: {},
   },
   // flag-only, like Grease Monkey: the medic's heal tick reads G.cardsOwned and
   // stamps u.medicGuard on the man he just patched; damageUnit reads the timer.
   morphinesyrette: {
     unit: 'medic', name: 'Morphine Syrette', cost: 11, weight: 4,
-    desc: `A man the medic patches up takes ${Math.round(MEDIC_GUARD_REDUCTION * 100)}% less damage while the dose holds.`,
+    desc: `Patient takes ${Math.round(MEDIC_GUARD_REDUCTION * 100)}% less damage.`,
     hooks: {},
   },
   rushorder: {
     unit: 'officer', name: 'Rush Order', cost: 10, weight: 4,
-    desc: 'Officers draw TP every 15 seconds instead of 30.',
+    desc: 'Earns TP every 15s instead of 30.',
     hooks: {},
   },
   officercorps: {
     unit: 'officer', name: 'Officer Corps', cost: 12, weight: 5,
-    desc: 'Raises the officer limit from 5 to 10.',
+    desc: `Officer limit ${MAX_OFFICERS} to 10.`,
     hooks: {},
   },
   // flag-only, like the two officer cards above it: spawnWave calls
   // maybeOfficerFireMission() once per wave.
   firemission: {
     unit: 'officer', name: 'Fire Mission', cost: 14, weight: 4,
-    desc: `Each wave, a ${Math.round(FIRE_MISSION_CHANCE * 100)}% chance a living officer calls ${FIRE_MISSION_SHELLS} free 60mm rounds down on an enemy.`,
+    desc: `${Math.round(FIRE_MISSION_CHANCE * 100)}% chance each wave to call ${FIRE_MISSION_SHELLS} free 60mm shells.`,
     hooks: {},
   },
   // flag-only: the grenade explosion in update.js reads
   // G.cardsOwned and calls spawnShrapnel when a grenadier's frag goes off.
   fraggrenades: {
     unit: 'grenadier', name: 'Frag Grenades', cost: 11, weight: 4,
-    desc: `Grenadier frags burst into ${FRAG_SHRAPNEL_COUNT} fragments that tear through anything in their path — your men included.`,
+    desc: `Frags burst into ${FRAG_SHRAPNEL_COUNT} fragments.`,
     hooks: {},
   },
   extendedtube: {
     unit: 'shotgunner', name: 'Extended Tube', cost: 9, weight: 3,
-    desc: `${EXTENDED_TUBE_SHELLS} shells per clip, but a 3x reload once it empties.`,
+    desc: `${EXTENDED_TUBE_SHELLS} shells per clip, then a 3x reload.`,
     hooks: {},
   },
   // flag-only, like Rifled Slugs: braveStandsFast (in tryGoProne) reads
@@ -1115,28 +1079,28 @@ const CARD_UNIQUES = {
   // hits the dirt.
   pointblank: {
     unit: 'shotgunner', name: 'Point Blank', cost: 8, weight: 3,
-    desc: 'The shotgunner never goes prone while an enemy stands within buckshot range.',
+    desc: 'No prone while an enemy is in range.',
     hooks: {},
   },
   // flag-only, like Point Blank: braveStandsFast keeps a flamer on his feet
   // whenever an enemy is inside flame range.
   trialbyfire: {
     unit: 'flamer', name: 'Trial by Fire', cost: 8, weight: 3,
-    desc: 'The flamer never goes prone while an enemy stands within reach of his stream.',
+    desc: 'No prone while an enemy is in range.',
     hooks: {},
   },
   // flag-only, like Rifled Slugs: the mortar fire block in updateFriendly reads
   // G.cardsOwned directly to swap the single shell for a wider, wilder stick
   clusterrounds: {
     unit: 'mortarman', name: 'Cluster Rounds', cost: 12, weight: 5,
-    desc: `The mortarman drops ${CLUSTER_ROUNDS_SHELLS_MIN}-${CLUSTER_ROUNDS_SHELLS_MAX} shells per fire order, scattered ${Math.round((CLUSTER_ROUNDS_SCATTER_MULT - 1) * 100)}% wider.`,
+    desc: `Fires ${CLUSTER_ROUNDS_SHELLS_MIN}-${CLUSTER_ROUNDS_SHELLS_MAX} shells, ${Math.round((CLUSTER_ROUNDS_SCATTER_MULT - 1) * 100)}% wider.`,
     hooks: {},
   },
   // flag-only, like Cluster Rounds: damageEnemy calls maybeShellShock whenever a
   // hit is credited to a mortarman, and updateEnemy freezes stunned enemies.
   shellshocked: {
     unit: 'mortarman', name: 'Shell Shocked', cost: 11, weight: 4,
-    desc: `Any enemy that survives a mortarman's hit is stunned for ${SHELLSHOCK_DURATION} second${SHELLSHOCK_DURATION === 1 ? '' : 's'}.`,
+    desc: `A hit stuns for ${SHELLSHOCK_DURATION}s.`,
     hooks: {},
   },
   // flag-only, like Cluster Rounds: the mortar fire block in updateFriendly
@@ -1144,12 +1108,12 @@ const CARD_UNIQUES = {
   // margin he keeps off your own men before he'll drop a round
   heavyshells: {
     unit: 'mortarman', name: 'Heavy Shells', cost: 13, weight: 5,
-    desc: `Every mortar shell bursts across ${BIG_BLAST_MULT}x the radius, so he holds fire that much farther off your own men.`,
+    desc: `Shells burst across ${BIG_BLAST_MULT}x the radius.`,
     hooks: {},
   },
   warbonds: {
     unit: 'officer', name: 'War Bonds', cost: 14, weight: 5,
-    desc: 'Kill bounties pay a fifth more, and their late-war collapse comes on gentler.',
+    desc: 'Bounties pay 20% more and fall off slower.',
     hooks: {},
   },
   // not tied to a unit type: carries a `label` so its chip reads EMPLACEMENTS
@@ -1157,21 +1121,21 @@ const CARD_UNIQUES = {
   // G.cardsOwned directly and skips every defense structure's blast damage.
   blastshelter: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Blast Shelter', cost: 16, weight: 6,
-    desc: 'Overhead cover makes every emplacement immune to blast damage.',
+    desc: 'Ignore blast damage.',
     hooks: {},
   },
   // a third emplacement card, flag-only like the two around it: applyPlacement
   // (js/input.js) runs every structure it creates through prehardenDefense.
   prehardened: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Pre-Hardened', cost: 13, weight: 5,
-    desc: 'Everything you place arrives dug in at the FORTIFIED tier, minefields excepted.',
+    desc: 'Start fortified, except mines.',
     hooks: {},
   },
   // like Blast Shelter, an emplacement card with no per-unit hook: the enemy
   // movers in update-enemies read G.cardsOwned directly to bite men in the wire.
   razorwire: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Razor Wire', cost: 10, weight: 3,
-    desc: 'Razor tape on the wire cuts enemy infantry the whole time they drag through it.',
+    desc: 'Wire damages enemy infantry crossing it.',
     hooks: {},
   },
   // the fourth emplacement card, and the camo nest's own. Flag-only like the
@@ -1179,7 +1143,7 @@ const CARD_UNIQUES = {
   // takeAmbushShot, which is also where the scope of the bonus is argued.
   ambush: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Ambush', cost: 9, weight: 3,
-    desc: `A man firing out of a camo nest while still unseen hits for ${AMBUSH_DMG_MULT}x damage.`,
+    desc: `Unseen camo-nest shots deal ${AMBUSH_DMG_MULT}x damage.`,
     hooks: {},
   },
   // the fifth emplacement card, and the watch tower's own. Flag-only like the
@@ -1187,7 +1151,7 @@ const CARD_UNIQUES = {
   // spotterSeesThrough, so every target pick in the game honours it at once.
   forwardobserver: {
     unit: 'emplacement', label: 'EMPLACEMENTS', name: 'Forward Observer', cost: 11, weight: 4,
-    desc: `A spotter atop each WATCH TOWER lets your infantry within ${WATCHTOWER_SPOT_R[0]} of it pick targets straight through smoke.`,
+    desc: `Infantry within ${WATCHTOWER_SPOT_R[0]} of a watch tower see through smoke.`,
     hooks: {},
   },
   // flag-only, like Rifled Slugs: updateAAGun reads G.cardsOwned directly to
@@ -1195,7 +1159,7 @@ const CARD_UNIQUES = {
   // close-range wedge red to mark the depression zone
   leveltbarrels: {
     unit: 'aagun', name: 'Level the Barrels', cost: 11, weight: 4,
-    desc: `The flak mount depresses to catch ground infantry inside the red wedge with a 40mm HE round.`,
+    desc: 'Can fire on infantry.',
     hooks: {},
   },
   // flag-only, like Level the Barrels above it: updateATGun reads G.cardsOwned
@@ -1203,7 +1167,7 @@ const CARD_UNIQUES = {
   // both range overlays paint the near band in buckshot cream to mark it.
   canistershot: {
     unit: 'atgun', name: 'Canister Shot', cost: 12, weight: 5,
-    desc: `The 57mm answers infantry inside ${Math.round(CANISTER_RANGE_FRAC * 100)}% of its reach with a tin of lead balls, armor permitting.`,
+    desc: `Canister at infantry inside ${Math.round(CANISTER_RANGE_FRAC * 100)}% of range.`,
     hooks: {},
   },
   // not tied to a unit type either: `armor` is a pseudo-key covering BOTH armor
@@ -1211,21 +1175,21 @@ const CARD_UNIQUES = {
   // armor branch of applyPlacement reads G.cardsOwned through armorPlatePoints().
   reinforcedplate: {
     unit: 'armor', label: 'ARMOR', name: 'Reinforced Plate', cost: 11, weight: 4,
-    desc: `BODY and FLAK ARMOR fit ${ARMOR_PLATE_MULT}x the plate — ${ARMOR_POINTS * ARMOR_PLATE_MULT} points instead of ${ARMOR_POINTS} — for the same 1 TP.`,
+    desc: `${ARMOR_PLATE_MULT}x plate, ${ARMOR_POINTS * ARMOR_PLATE_MULT} instead of ${ARMOR_POINTS}, for 1 TP.`,
     hooks: {},
   },
   // not tied to a unit type: carries a `label` so its chip reads HQ. Flag-only —
   // newGame() reads G.cardsOwned once when the run starts and front-loads the TP.
   warchest: {
     unit: 'hq', label: 'HQ', name: 'War Chest', cost: 10, weight: 2,
-    desc: `Begin every endless run with ${WAR_CHEST_TP} extra TP banked.`,
+    desc: `Start with ${WAR_CHEST_TP} extra TP.`,
     hooks: {},
   },
   // the other HQ card, and the only one anywhere that heals the run itself
   // rather than a man. Flag-only: spawnWave calls healBreachesBetweenWaves().
   counterattack: {
     unit: 'hq', label: 'HQ', name: 'Counterattack', cost: 14, weight: 1,
-    desc: `Every new wave scrubs ${BREACH_HEAL_PER_WAVE} breach off the tally, down to none.`,
+    desc: `Each wave removes ${BREACH_HEAL_PER_WAVE} breach.`,
     hooks: {},
   },
   // not a unit type either: `dummy` is a PLACEABLES key, so it carries a label
@@ -1234,7 +1198,7 @@ const CARD_UNIQUES = {
   // Flag-only: damageDummy reads G.cardsOwned through dummyRicochet.
   ricochet: {
     unit: 'dummy', label: 'DUMMY', name: 'Ricochet', cost: 9, weight: 3,
-    desc: `Every bullet that strikes a decoy has a ${Math.round(DUMMY_RICOCHET_CHANCE * 100)}% chance to deflect straight back at the man who fired it.`,
+    desc: `${Math.round(DUMMY_RICOCHET_CHANCE * 100)}% chance a hit bounces back at the shooter.`,
     hooks: {},
   },
 };
@@ -1267,7 +1231,7 @@ const CARDS = {};
     const cost = clamp(Math.round(60 / p.cost), 5, 20);
     // emplacement/ability discounts are capped at 2 command regardless of price
     const weight = clamp(Math.round(15 / p.cost), 1, 2);
-    const desc = `Cuts the ${cardPossessive(cardNameLower(p.label))} TP cost by 25%, from ${p.cost} to ${warSurplusCost(p.cost)}.`;
+    const desc = `TP cost 25% off, ${p.cost} to ${warSurplusCost(p.cost)}.`;
     CARDS[id] = { id, name: 'War Surplus', unitType: p.key, label: p.label, unique: false, desc, cost, weight, hooks: {} };
   }
   for (const [id, c] of Object.entries(CARD_UNIQUES)) {

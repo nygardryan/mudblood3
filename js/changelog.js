@@ -3,6 +3,13 @@
 // Add a new object to the TOP of this array whenever you ship changes.
 const CHANGELOG = [
   {
+    date: '2026-09-23',
+    title: 'A New Song for the Line',
+    changes: [
+      'PLAY advances the music to the next track. The song that was playing over the menu stays with the menu; the fight starts on the one after it.',
+    ],
+  },
+  {
     date: '2026-08-10',
     title: 'The War Economy Peaks and Falls',
     changes: [
